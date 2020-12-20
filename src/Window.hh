@@ -20,6 +20,7 @@ public:
 
     float aspect_ratio() const;
     bool should_close() const;
+    void close() const;
 
     GLFWwindow *operator*() const { return m_window; }
 };

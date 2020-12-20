@@ -1,0 +1,118 @@
+#version 450
+#include "common.glsl"
+
+layout (local_size_x = TILE_SIZE, local_size_y = TILE_SIZE, local_size_z = 1) in;
+
+layout (std140, set = 0, binding = 0) buffer readonly Lights {
+    uint g_light_count;
+    PointLight g_lights[];
+};
+layout (set = 0, binding = 1) buffer writeonly LightVisibilities {
+    LightVisibility g_light_visibilities[];
+};
+layout (set = 1, binding = 0) uniform UniformBuffer {
+    mat4 proj;
+    mat4 view;
+    mat4 transform;
+    vec3 camera_position;
+} g_ubo;
+layout (set = 2, binding = 0) uniform sampler2D g_depth_sampler;
+layout (push_constant) uniform PushConstantObject {
+    ivec2 tile_nums;
+    ivec2 viewport_size;
+} g_push_constants;
+
+struct ViewFrustum {
+    vec4 planes[6];
+    vec3 points[8];
+};
+
+shared uint g_min_depth;
+shared uint g_max_depth;
+shared uint g_tile_light_count;
+shared ViewFrustum g_frustum;
+
+ViewFrustum create_frustum(ivec2 tile_id) {
+    float min_depth = uintBitsToFloat(g_min_depth);
+    float max_depth = uintBitsToFloat(g_max_depth);
+    mat4 inv_proj_view = inverse(g_ubo.proj * g_ubo.view);
+    vec2 ndc_size_per_tile = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / g_push_constants.viewport_size;
+    vec2 ndc_points[4];
+    ndc_points[0] = vec2(-1.0, -1.0) + tile_id * ndc_size_per_tile;
+    ndc_points[1] = vec2(ndc_points[0].x + ndc_size_per_tile.x, ndc_points[0].y);
+    ndc_points[2] = ndc_points[0] + ndc_size_per_tile;
+    ndc_points[3] = vec2(ndc_points[0].x, ndc_points[0].y + ndc_size_per_tile.y);
+
+    ViewFrustum frustum;
+    for (int i = 0; i < 4; i++) {
+        vec4 front = inv_proj_view * vec4(ndc_points[i], min_depth, 1.0);
+        vec4 back = inv_proj_view * vec4(ndc_points[i], max_depth, 1.0);
+        frustum.points[i] = front.xyz / front.w;
+        frustum.points[i + 4] = back.xyz / back.w;
+    }
+
+    for (int i = 0; i < 4; i++) {
+        vec3 normal = cross(frustum.points[i] - g_ubo.camera_position, frustum.points[i + 1] - g_ubo.camera_position);
+        normal = normalize(normal);
+        frustum.planes[i] = vec4(normal, -dot(normal, frustum.points[i]));
+    }
+    vec3 near_plane_normal = cross(frustum.points[1] - frustum.points[0], frustum.points[3] - frustum.points[0]);
+    vec3 far_plane_normal = cross(frustum.points[7] - frustum.points[4], frustum.points[5] - frustum.points[4]);
+    near_plane_normal = normalize(near_plane_normal);
+    far_plane_normal = normalize(far_plane_normal);
+    frustum.planes[4] = vec4(near_plane_normal, -dot(near_plane_normal, frustum.points[0]));
+    frustum.planes[5] = vec4(far_plane_normal, -dot(far_plane_normal, frustum.points[4]));
+    return frustum;
+}
+
+bool has_collided(PointLight light, ViewFrustum frustum) {
+    // Sphere-plane collision test.
+    for (int i = 0; i < 6; i++) {
+        if (dot(light.position, frustum.planes[i].xyz) + frustum.planes[i].w < -light.radius) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void main() {
+    ivec2 tile_id = ivec2(gl_WorkGroupID.xy);
+    uint tile_index = tile_id.y * g_push_constants.tile_nums.x + tile_id.x;
+    if (gl_LocalInvocationIndex == 0) {
+        g_min_depth = 0xFFFFFFFF;
+        g_max_depth = 0;
+        g_tile_light_count = 0;
+    }
+    barrier();
+    vec2 sample_loc = vec2(ivec2(gl_GlobalInvocationID.xy)) / g_push_constants.viewport_size;
+    float depth = texture(g_depth_sampler, sample_loc).r;
+    depth = (0.5 * g_ubo.proj[3][2]) / (depth + 0.5 * g_ubo.proj[2][2] - 0.5);
+    uint depth_int = floatBitsToUint(depth);
+    atomicMin(g_min_depth, depth_int);
+    atomicMax(g_max_depth, depth_int);
+    barrier();
+    if (gl_LocalInvocationIndex == 0) {
+        g_frustum = create_frustum(tile_id);
+    }
+    barrier();
+    uint thread_count = TILE_SIZE * TILE_SIZE;
+    uint pass_count = (g_light_count + thread_count - 1) / thread_count;
+    for (uint i = 0; i < pass_count; i++) {
+        uint light_idx = i * thread_count + gl_LocalInvocationIndex;
+        if (light_idx >= g_light_count) {
+            break;
+        }
+        if (!has_collided(g_lights[light_idx], g_frustum)) {
+            continue;
+        }
+        uint slot = atomicAdd(g_tile_light_count, 1);
+        if (slot >= MAX_LIGHTS_PER_TILE) {
+            break;
+        }
+        g_light_visibilities[tile_index].indices[slot] = light_idx;
+    }
+    barrier();
+    if (gl_LocalInvocationIndex == 0) {
+        g_light_visibilities[tile_index].count = min(MAX_LIGHTS_PER_TILE, g_tile_light_count);
+    }
+}
