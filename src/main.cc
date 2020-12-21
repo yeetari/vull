@@ -1091,17 +1091,12 @@ int main() {
     float rotate = 0.0F;
     int frame_count = 0;
     double previous_time = glfwGetTime();
-    std::vector<int> fps_values;
-    fps_values.reserve(10);
     while (!window.should_close()) {
         Window::poll_events();
         double current_time = glfwGetTime();
         frame_count++;
         if (current_time - previous_time >= 1.0) {
-            fps_values.push_back(frame_count);
-//            if (fps_values.size() == 10) {
-//                window.close();
-//            }
+            fmt::print("FPS: {}\n", frame_count);
             frame_count = 0;
             previous_time = current_time;
         }
@@ -1182,13 +1177,6 @@ int main() {
     }
     vmaUnmapMemory(allocator, lights_buffer_allocation);
     vmaUnmapMemory(allocator, uniform_buffer_allocation);
-
-    double avg = 0;
-    for (auto value : fps_values) {
-        avg += value;
-    }
-    avg /= fps_values.size();
-    fmt::print("avg ({} fps values) = {}\n", fps_values.size(), avg);
 
     vkDeviceWaitIdle(device);
     vkDestroySemaphore(device, main_pass_finished, nullptr);
