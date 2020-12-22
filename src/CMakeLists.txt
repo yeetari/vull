@@ -1,4 +1,5 @@
 add_executable(vull
+    renderer/Camera.cc
     support/Assert.cc
     main.cc
     Window.cc)

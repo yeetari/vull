@@ -1,4 +1,5 @@
 #include <Window.hh>
+#include <renderer/Camera.hh>
 #include <support/Assert.hh>
 
 #define VMA_IMPLEMENTATION
@@ -28,6 +29,9 @@ constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr int WIDTH = 2560;
 constexpr int HEIGHT = 1440;
 
+float g_prev_x = 0;
+float g_prev_y = 0;
+
 VkDeviceQueueCreateInfo create_queue_info(std::uint32_t family_index) {
     VkDeviceQueueCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -51,6 +55,7 @@ std::vector<char> load_binary(const std::string &path) {
 
 int main() {
     Window window(WIDTH, HEIGHT);
+    glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -1076,11 +1081,20 @@ int main() {
     recreate_lights();
     UniformBuffer ubo{
         .proj = glm::perspective(glm::radians(45.0F), window.aspect_ratio(), 0.1F, 1000.0F),
-        .view = glm::lookAt(glm::vec3(20.0F, 0.0F, 0.0F), glm::vec3(0.0F, 0.0F, 0.0F), glm::vec3(0.0F, 0.0F, 1.0F)),
         .transform = glm::mat4(1.0),
-        .camera_position = glm::vec3(20.0F, 0.0F, 0.0F),
     };
     ubo.proj[1][1] *= -1;
+
+    Camera camera(glm::vec3(20.0F, 0.0F, 0.0F));
+    glfwSetWindowUserPointer(*window, &camera);
+    glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
+        auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
+        auto x = static_cast<float>(ypos);
+        auto y = static_cast<float>(xpos);
+        camera->handle_mouse_movement(x - g_prev_x, y - g_prev_y);
+        g_prev_x = x;
+        g_prev_y = y;
+    });
 
     void *lights_data = nullptr;
     vmaMapMemory(allocator, lights_buffer_allocation, &lights_data);
@@ -1089,17 +1103,11 @@ int main() {
 
     float time = 0.0F;
     float rotate = 0.0F;
-    int frame_count = 0;
     double previous_time = glfwGetTime();
     while (!window.should_close()) {
-        Window::poll_events();
         double current_time = glfwGetTime();
-        frame_count++;
-        if (current_time - previous_time >= 1.0) {
-            fmt::print("FPS: {}\n", frame_count);
-            frame_count = 0;
-            previous_time = current_time;
-        }
+        auto dt = static_cast<float>(current_time - previous_time);
+        previous_time = current_time;
 
         vkWaitForFences(device, 1, &fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
         vkResetFences(device, 1, &fence);
@@ -1108,7 +1116,9 @@ int main() {
                               VK_NULL_HANDLE, &image_index);
 
         ubo.transform = glm::rotate(glm::mat4(1.0), rotate, glm::vec3(1, 1, 1));
-        ubo.view = glm::lookAt(ubo.camera_position, glm::vec3(0.0F, 0.0F, 0.0F), glm::vec3(0.0F, 0.0F, 1.0F));
+        ubo.view = camera.view_matrix();
+        ubo.camera_position = camera.position();
+        camera.update(window);
         if (time >= 0.8F) {
             time = 0;
             recreate_lights();
@@ -1174,6 +1184,7 @@ int main() {
         vkQueuePresentKHR(present_queue, &present_info);
         time += 0.01F;
         rotate += 0.001F;
+        Window::poll_events();
     }
     vmaUnmapMemory(allocator, lights_buffer_allocation);
     vmaUnmapMemory(allocator, uniform_buffer_allocation);
