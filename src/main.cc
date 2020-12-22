@@ -1068,9 +1068,9 @@ int main() {
     std::vector<PointLight> lights(5000);
     auto recreate_lights = [&lights]() {
         for (auto &light : lights) {
-            light.colour = glm::linearRand(glm::vec3(0), glm::vec3(0.1F));
-            light.radius = glm::linearRand(2.0F, 13.0F);
-            light.position = glm::linearRand(glm::vec3(-10), glm::vec3(10));
+            light.colour = glm::linearRand(glm::vec3(0), glm::vec3(0.4F));
+            light.radius = glm::linearRand(2.0F, 15.0F);
+            light.position = glm::linearRand(glm::vec3(-50), glm::vec3(50));
         }
     };
     recreate_lights();
