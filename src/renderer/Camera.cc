@@ -9,7 +9,7 @@ namespace {
 
 constexpr float MOUSE_SENSITIVITY = 0.05F;
 constexpr float MOVEMENT_SPEED = 0.1F;
-constexpr glm::vec3 WORLD_UP(0.0F, 0.0F, 1.0F);
+constexpr glm::vec3 WORLD_UP(0.0F, 1.0F, 0.0F);
 
 } // namespace
 

@@ -1111,7 +1111,7 @@ int main() {
     }
     UniformBuffer ubo{
         .proj = glm::perspective(glm::radians(45.0F), window.aspect_ratio(), 0.1F, 1000.0F),
-        .transform = glm::mat4(1.0),
+        .transform = glm::scale(glm::mat4(1.0F), glm::vec3(0.1F)),
     };
     ubo.proj[1][1] *= -1;
 
@@ -1119,9 +1119,9 @@ int main() {
     glfwSetWindowUserPointer(*window, &camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
-        auto x = static_cast<float>(ypos);
-        auto y = static_cast<float>(xpos);
-        camera->handle_mouse_movement(x - g_prev_x, y - g_prev_y);
+        auto x = static_cast<float>(xpos);
+        auto y = static_cast<float>(ypos);
+        camera->handle_mouse_movement(x - g_prev_x, -(y - g_prev_y));
         g_prev_x = x;
         g_prev_y = y;
     });
@@ -1143,9 +1143,6 @@ int main() {
         vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<std::uint64_t>::max(), image_available,
                               VK_NULL_HANDLE, &image_index);
 
-        ubo.transform = glm::mat4(1.0);
-        ubo.transform = glm::rotate(ubo.transform, glm::radians(90.0F), glm::vec3(1, 0, 0));
-        ubo.transform = glm::scale(ubo.transform, glm::vec3(0.1F));
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
         camera.update(window);
