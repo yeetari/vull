@@ -3,8 +3,6 @@
 #include <support/Assert.hh>
 #include <support/Vector.hh>
 
-#include <vulkan/vulkan_core.h>
-
 #include <algorithm>
 #include <cstring>
 

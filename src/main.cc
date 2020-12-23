@@ -1,5 +1,6 @@
 #include <Window.hh>
 #include <renderer/Camera.hh>
+#include <renderer/Device.hh>
 #include <renderer/Instance.hh>
 #include <support/Assert.hh>
 
@@ -82,21 +83,17 @@ int main() {
     std::uint32_t required_extension_count = 0;
     const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
     Instance instance({required_extensions, required_extension_count});
-    VkPhysicalDevice phys_device = instance.physical_devices()[0];
+    Device device(instance.physical_devices()[0]);
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     ENSURE(glfwCreateWindowSurface(*instance, *window, nullptr, &surface) == VK_SUCCESS);
 
-    std::uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, nullptr);
-    std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, queue_families.data());
     std::optional<std::uint32_t> compute_family;
     std::optional<std::uint32_t> graphics_family;
     std::optional<std::uint32_t> present_family;
-    for (std::uint32_t i = 0; i < queue_family_count; i++) {
-        auto flags = queue_families[i].queueFlags;
+    for (std::uint32_t i = 0; const auto &queue_family : device.queue_families()) {
+        auto flags = queue_family.queueFlags;
         VkBool32 present_supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(phys_device, i, surface, &present_supported);
+        vkGetPhysicalDeviceSurfaceSupportKHR(device.physical(), i, surface, &present_supported);
         if ((flags & VK_QUEUE_COMPUTE_BIT) != 0U && (flags & VK_QUEUE_GRAPHICS_BIT) != 0U &&
             present_supported == VK_TRUE) {
             compute_family = i;
@@ -108,30 +105,8 @@ int main() {
     ENSURE(graphics_family);
     ENSURE(present_family);
 
-    std::vector<VkDeviceQueueCreateInfo> queue_cis;
-    //    if (*compute_family != *present_family) {
-    //        queue_cis.push_back(create_queue_info(*compute_family));
-    //    }
-    queue_cis.push_back(create_queue_info(*graphics_family));
-    //    queue_cis.push_back(create_queue_info(*present_family));
-
-    std::array<const char *, 1> extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    VkPhysicalDeviceFeatures device_features{
-        .samplerAnisotropy = VK_TRUE,
-    };
-    VkDeviceCreateInfo device_ci{
-        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = static_cast<std::uint32_t>(queue_cis.size()),
-        .pQueueCreateInfos = queue_cis.data(),
-        .enabledExtensionCount = static_cast<std::uint32_t>(extensions.size()),
-        .ppEnabledExtensionNames = extensions.data(),
-        .pEnabledFeatures = &device_features,
-    };
-    VkDevice device = VK_NULL_HANDLE;
-    ENSURE(vkCreateDevice(phys_device, &device_ci, nullptr, &device) == VK_SUCCESS);
-
     VkSurfaceCapabilitiesKHR surface_capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &surface_capabilities);
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical(), surface, &surface_capabilities);
     VkSurfaceFormatKHR surface_format{
         .format = VK_FORMAT_B8G8R8A8_SRGB,
         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
@@ -152,12 +127,12 @@ int main() {
         .clipped = VK_TRUE,
     };
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    ENSURE(vkCreateSwapchainKHR(device, &swapchain_ci, nullptr, &swapchain) == VK_SUCCESS);
+    ENSURE(vkCreateSwapchainKHR(*device, &swapchain_ci, nullptr, &swapchain) == VK_SUCCESS);
 
     std::uint32_t swapchain_image_count = 0;
-    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, nullptr);
+    vkGetSwapchainImagesKHR(*device, swapchain, &swapchain_image_count, nullptr);
     std::vector<VkImage> swapchain_images(swapchain_image_count);
-    vkGetSwapchainImagesKHR(device, swapchain, &swapchain_image_count, swapchain_images.data());
+    vkGetSwapchainImagesKHR(*device, swapchain, &swapchain_image_count, swapchain_images.data());
     std::vector<VkImageView> swapchain_image_views(swapchain_image_count);
     for (std::uint32_t i = 0; i < swapchain_image_count; i++) {
         VkImageViewCreateInfo image_view_ci{
@@ -177,12 +152,12 @@ int main() {
                 .layerCount = 1,
             },
         };
-        ENSURE(vkCreateImageView(device, &image_view_ci, nullptr, &swapchain_image_views[i]) == VK_SUCCESS);
+        ENSURE(vkCreateImageView(*device, &image_view_ci, nullptr, &swapchain_image_views[i]) == VK_SUCCESS);
     }
 
     VmaAllocatorCreateInfo allocator_ci{
-        .physicalDevice = phys_device,
-        .device = device,
+        .physicalDevice = device.physical(),
+        .device = *device,
         .instance = *instance,
     };
     VmaAllocator allocator = VK_NULL_HANDLE;
@@ -198,15 +173,15 @@ int main() {
     };
     VkCommandPool compute_command_pool = VK_NULL_HANDLE;
     VkCommandPool graphics_command_pool = VK_NULL_HANDLE;
-    ENSURE(vkCreateCommandPool(device, &compute_command_pool_ci, nullptr, &compute_command_pool) == VK_SUCCESS);
-    ENSURE(vkCreateCommandPool(device, &graphics_command_pool_ci, nullptr, &graphics_command_pool) == VK_SUCCESS);
+    ENSURE(vkCreateCommandPool(*device, &compute_command_pool_ci, nullptr, &compute_command_pool) == VK_SUCCESS);
+    ENSURE(vkCreateCommandPool(*device, &graphics_command_pool_ci, nullptr, &graphics_command_pool) == VK_SUCCESS);
 
     VkQueue compute_queue = VK_NULL_HANDLE;
     VkQueue graphics_queue = VK_NULL_HANDLE;
     VkQueue present_queue = VK_NULL_HANDLE;
-    vkGetDeviceQueue(device, *compute_family, 0, &compute_queue);
-    vkGetDeviceQueue(device, *graphics_family, 0, &graphics_queue);
-    vkGetDeviceQueue(device, *present_family, 0, &present_queue);
+    vkGetDeviceQueue(*device, *compute_family, 0, &compute_queue);
+    vkGetDeviceQueue(*device, *graphics_family, 0, &graphics_queue);
+    vkGetDeviceQueue(*device, *present_family, 0, &present_queue);
 
     VkAttachmentDescription depth_attachment{
         .format = VK_FORMAT_D32_SFLOAT,
@@ -243,7 +218,7 @@ int main() {
         .pDependencies = &depth_pass_subpass_dependency,
     };
     VkRenderPass depth_pass_render_pass = VK_NULL_HANDLE;
-    ENSURE(vkCreateRenderPass(device, &depth_pass_render_pass_ci, nullptr, &depth_pass_render_pass) == VK_SUCCESS);
+    ENSURE(vkCreateRenderPass(*device, &depth_pass_render_pass_ci, nullptr, &depth_pass_render_pass) == VK_SUCCESS);
 
     std::array<VkAttachmentDescription, 2> main_pass_attachments{
         VkAttachmentDescription{
@@ -297,7 +272,7 @@ int main() {
         .pDependencies = &main_pass_subpass_dependency,
     };
     VkRenderPass main_pass_render_pass = VK_NULL_HANDLE;
-    ENSURE(vkCreateRenderPass(device, &main_pass_render_pass_ci, nullptr, &main_pass_render_pass) == VK_SUCCESS);
+    ENSURE(vkCreateRenderPass(*device, &main_pass_render_pass_ci, nullptr, &main_pass_render_pass) == VK_SUCCESS);
 
     auto depth_pass_vertex_shader_code = load_binary("shaders/depth.vert.spv");
     auto light_cull_pass_compute_shader_code = load_binary("shaders/light_cull.comp.spv");
@@ -327,12 +302,12 @@ int main() {
     VkShaderModule light_cull_pass_compute_shader = VK_NULL_HANDLE;
     VkShaderModule main_pass_vertex_shader = VK_NULL_HANDLE;
     VkShaderModule main_pass_fragment_shader = VK_NULL_HANDLE;
-    ENSURE(vkCreateShaderModule(device, &depth_pass_vertex_shader_ci, nullptr, &depth_pass_vertex_shader) ==
+    ENSURE(vkCreateShaderModule(*device, &depth_pass_vertex_shader_ci, nullptr, &depth_pass_vertex_shader) ==
            VK_SUCCESS);
-    ENSURE(vkCreateShaderModule(device, &light_cull_pass_compute_shader_ci, nullptr, &light_cull_pass_compute_shader) ==
+    ENSURE(vkCreateShaderModule(*device, &light_cull_pass_compute_shader_ci, nullptr, &light_cull_pass_compute_shader) ==
            VK_SUCCESS);
-    ENSURE(vkCreateShaderModule(device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
-    ENSURE(vkCreateShaderModule(device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
+    ENSURE(vkCreateShaderModule(*device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
+    ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
     std::array<VkPipelineShaderStageCreateInfo, 1> depth_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
@@ -457,7 +432,7 @@ int main() {
         .pBindings = lights_set_bindings.data(),
     };
     VkDescriptorSetLayout lights_set_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreateDescriptorSetLayout(device, &lights_set_layout_ci, nullptr, &lights_set_layout) == VK_SUCCESS);
+    ENSURE(vkCreateDescriptorSetLayout(*device, &lights_set_layout_ci, nullptr, &lights_set_layout) == VK_SUCCESS);
 
     VkDescriptorSetLayoutBinding ubo_binding{
         .binding = 0,
@@ -471,7 +446,7 @@ int main() {
         .pBindings = &ubo_binding,
     };
     VkDescriptorSetLayout ubo_set_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreateDescriptorSetLayout(device, &ubo_set_layout_ci, nullptr, &ubo_set_layout) == VK_SUCCESS);
+    ENSURE(vkCreateDescriptorSetLayout(*device, &ubo_set_layout_ci, nullptr, &ubo_set_layout) == VK_SUCCESS);
 
     constexpr int TILE_SIZE = 32;
     int row_tile_count = (WIDTH + (WIDTH % TILE_SIZE)) / TILE_SIZE;
@@ -505,7 +480,7 @@ int main() {
         .pBindings = &depth_sampler_binding,
     };
     VkDescriptorSetLayout depth_sampler_set_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreateDescriptorSetLayout(device, &depth_sampler_set_layout_ci, nullptr, &depth_sampler_set_layout) ==
+    ENSURE(vkCreateDescriptorSetLayout(*device, &depth_sampler_set_layout_ci, nullptr, &depth_sampler_set_layout) ==
            VK_SUCCESS);
 
     VkPipelineLayoutCreateInfo depth_pass_pipeline_layout_ci{
@@ -514,7 +489,7 @@ int main() {
         .pSetLayouts = &ubo_set_layout,
     };
     VkPipelineLayout depth_pass_pipeline_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreatePipelineLayout(device, &depth_pass_pipeline_layout_ci, nullptr, &depth_pass_pipeline_layout) ==
+    ENSURE(vkCreatePipelineLayout(*device, &depth_pass_pipeline_layout_ci, nullptr, &depth_pass_pipeline_layout) ==
            VK_SUCCESS);
 
     std::array<VkDescriptorSetLayout, 3> light_cull_pass_set_layouts{
@@ -530,7 +505,7 @@ int main() {
         .pPushConstantRanges = &push_constant_range_compute,
     };
     VkPipelineLayout light_cull_pass_pipeline_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreatePipelineLayout(device, &light_cull_pass_pipeline_layout_ci, nullptr,
+    ENSURE(vkCreatePipelineLayout(*device, &light_cull_pass_pipeline_layout_ci, nullptr,
                                   &light_cull_pass_pipeline_layout) == VK_SUCCESS);
 
     std::array<VkDescriptorSetLayout, 2> main_pass_set_layouts{
@@ -545,7 +520,7 @@ int main() {
         .pPushConstantRanges = &push_constant_range_fragment,
     };
     VkPipelineLayout main_pass_pipeline_layout = VK_NULL_HANDLE;
-    ENSURE(vkCreatePipelineLayout(device, &main_pass_pipeline_layout_ci, nullptr, &main_pass_pipeline_layout) ==
+    ENSURE(vkCreatePipelineLayout(*device, &main_pass_pipeline_layout_ci, nullptr, &main_pass_pipeline_layout) ==
            VK_SUCCESS);
 
     VkGraphicsPipelineCreateInfo depth_pass_pipeline_ci{
@@ -583,11 +558,11 @@ int main() {
     VkPipeline depth_pass_pipeline = VK_NULL_HANDLE;
     VkPipeline light_cull_pass_pipeline = VK_NULL_HANDLE;
     VkPipeline main_pass_pipeline = VK_NULL_HANDLE;
-    ENSURE(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &depth_pass_pipeline_ci, nullptr,
+    ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &depth_pass_pipeline_ci, nullptr,
                                      &depth_pass_pipeline) == VK_SUCCESS);
-    ENSURE(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &light_cull_pass_pipeline_ci, nullptr,
+    ENSURE(vkCreateComputePipelines(*device, VK_NULL_HANDLE, 1, &light_cull_pass_pipeline_ci, nullptr,
                                     &light_cull_pass_pipeline) == VK_SUCCESS);
-    ENSURE(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &main_pass_pipeline_ci, nullptr, &main_pass_pipeline) ==
+    ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &main_pass_pipeline_ci, nullptr, &main_pass_pipeline) ==
            VK_SUCCESS);
 
     VkImageCreateInfo depth_image_ci{
@@ -627,7 +602,7 @@ int main() {
         },
     };
     VkImageView depth_image_view = VK_NULL_HANDLE;
-    ENSURE(vkCreateImageView(device, &depth_image_view_ci, nullptr, &depth_image_view) == VK_SUCCESS);
+    ENSURE(vkCreateImageView(*device, &depth_image_view_ci, nullptr, &depth_image_view) == VK_SUCCESS);
 
     VkSamplerCreateInfo depth_sampler_ci{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -642,7 +617,7 @@ int main() {
         .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
     };
     VkSampler depth_sampler = VK_NULL_HANDLE;
-    ENSURE(vkCreateSampler(device, &depth_sampler_ci, nullptr, &depth_sampler) == VK_SUCCESS);
+    ENSURE(vkCreateSampler(*device, &depth_sampler_ci, nullptr, &depth_sampler) == VK_SUCCESS);
 
     VkFramebufferCreateInfo depth_pass_framebuffer_ci{
         .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -654,7 +629,7 @@ int main() {
         .layers = 1,
     };
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
-    ENSURE(vkCreateFramebuffer(device, &depth_pass_framebuffer_ci, nullptr, &depth_pass_framebuffer) == VK_SUCCESS);
+    ENSURE(vkCreateFramebuffer(*device, &depth_pass_framebuffer_ci, nullptr, &depth_pass_framebuffer) == VK_SUCCESS);
 
     std::vector<VkFramebuffer> main_pass_framebuffers(swapchain_image_views.size());
     for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain_image_views) {
@@ -671,7 +646,7 @@ int main() {
             .height = HEIGHT,
             .layers = 1,
         };
-        ENSURE(vkCreateFramebuffer(device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
+        ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
     }
 
     std::vector<Vertex> vertices;
@@ -813,7 +788,7 @@ int main() {
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
-    ENSURE(vkCreateDescriptorPool(device, &descriptor_pool_ci, nullptr, &descriptor_pool) == VK_SUCCESS);
+    ENSURE(vkCreateDescriptorPool(*device, &descriptor_pool_ci, nullptr, &descriptor_pool) == VK_SUCCESS);
 
     VkDescriptorSetAllocateInfo light_descriptor_ai{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -822,7 +797,7 @@ int main() {
         .pSetLayouts = &lights_set_layout,
     };
     VkDescriptorSet lights_descriptor_set = VK_NULL_HANDLE;
-    ENSURE(vkAllocateDescriptorSets(device, &light_descriptor_ai, &lights_descriptor_set) == VK_SUCCESS);
+    ENSURE(vkAllocateDescriptorSets(*device, &light_descriptor_ai, &lights_descriptor_set) == VK_SUCCESS);
     VkDescriptorBufferInfo lights_buffer_info{
         .buffer = lights_buffer,
         .range = VK_WHOLE_SIZE,
@@ -849,7 +824,7 @@ int main() {
             .pBufferInfo = &light_visibilities_buffer_info,
         },
     };
-    vkUpdateDescriptorSets(device, static_cast<std::uint32_t>(lights_descriptor_writes.size()),
+    vkUpdateDescriptorSets(*device, static_cast<std::uint32_t>(lights_descriptor_writes.size()),
                            lights_descriptor_writes.data(), 0, nullptr);
 
     VkDescriptorSetAllocateInfo ubo_descriptor_ai{
@@ -859,7 +834,7 @@ int main() {
         .pSetLayouts = &ubo_set_layout,
     };
     VkDescriptorSet ubo_descriptor_set = VK_NULL_HANDLE;
-    ENSURE(vkAllocateDescriptorSets(device, &ubo_descriptor_ai, &ubo_descriptor_set) == VK_SUCCESS);
+    ENSURE(vkAllocateDescriptorSets(*device, &ubo_descriptor_ai, &ubo_descriptor_set) == VK_SUCCESS);
     VkDescriptorBufferInfo ubo_buffer_info{
         .buffer = uniform_buffer,
         .range = VK_WHOLE_SIZE,
@@ -872,7 +847,7 @@ int main() {
         .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .pBufferInfo = &ubo_buffer_info,
     };
-    vkUpdateDescriptorSets(device, 1, &ubo_descriptor_write, 0, nullptr);
+    vkUpdateDescriptorSets(*device, 1, &ubo_descriptor_write, 0, nullptr);
 
     VkDescriptorSetAllocateInfo depth_sampler_descriptor_ai{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -881,7 +856,7 @@ int main() {
         .pSetLayouts = &depth_sampler_set_layout,
     };
     VkDescriptorSet depth_sampler_descriptor_set = VK_NULL_HANDLE;
-    ENSURE(vkAllocateDescriptorSets(device, &depth_sampler_descriptor_ai, &depth_sampler_descriptor_set) == VK_SUCCESS);
+    ENSURE(vkAllocateDescriptorSets(*device, &depth_sampler_descriptor_ai, &depth_sampler_descriptor_set) == VK_SUCCESS);
     VkDescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
         .imageView = depth_image_view,
@@ -895,7 +870,7 @@ int main() {
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .pImageInfo = &depth_sampler_image_info,
     };
-    vkUpdateDescriptorSets(device, 1, &depth_sampler_descriptor_write, 0, nullptr);
+    vkUpdateDescriptorSets(*device, 1, &depth_sampler_descriptor_write, 0, nullptr);
 
     VkCommandBufferAllocateInfo compute_cmd_buf_ai{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -911,8 +886,8 @@ int main() {
     };
     VkCommandBuffer light_cull_pass_cmd_buf = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> graphics_cmd_bufs(graphics_cmd_buf_ai.commandBufferCount);
-    ENSURE(vkAllocateCommandBuffers(device, &compute_cmd_buf_ai, &light_cull_pass_cmd_buf) == VK_SUCCESS);
-    ENSURE(vkAllocateCommandBuffers(device, &graphics_cmd_buf_ai, graphics_cmd_bufs.data()) == VK_SUCCESS);
+    ENSURE(vkAllocateCommandBuffers(*device, &compute_cmd_buf_ai, &light_cull_pass_cmd_buf) == VK_SUCCESS);
+    ENSURE(vkAllocateCommandBuffers(*device, &graphics_cmd_buf_ai, graphics_cmd_bufs.data()) == VK_SUCCESS);
     VkCommandBuffer depth_pass_cmd_buf = graphics_cmd_bufs[0];
     auto cmd_buf_it = graphics_cmd_bufs.begin();
     std::advance(cmd_buf_it, 1);
@@ -1027,7 +1002,7 @@ int main() {
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
     VkFence fence = VK_NULL_HANDLE;
-    ENSURE(vkCreateFence(device, &fence_ci, nullptr, &fence) == VK_SUCCESS);
+    ENSURE(vkCreateFence(*device, &fence_ci, nullptr, &fence) == VK_SUCCESS);
 
     VkSemaphoreCreateInfo semaphore_ci{
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -1036,10 +1011,10 @@ int main() {
     VkSemaphore depth_pass_finished = VK_NULL_HANDLE;
     VkSemaphore light_cull_pass_finished = VK_NULL_HANDLE;
     VkSemaphore main_pass_finished = VK_NULL_HANDLE;
-    ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &image_available) == VK_SUCCESS);
-    ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &depth_pass_finished) == VK_SUCCESS);
-    ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &light_cull_pass_finished) == VK_SUCCESS);
-    ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &main_pass_finished) == VK_SUCCESS);
+    ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &image_available) == VK_SUCCESS);
+    ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &depth_pass_finished) == VK_SUCCESS);
+    ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &light_cull_pass_finished) == VK_SUCCESS);
+    ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &main_pass_finished) == VK_SUCCESS);
 
     std::vector<PointLight> lights(3000);
     std::array<glm::vec3, 3000> dsts{};
@@ -1110,10 +1085,10 @@ int main() {
             fps_counter_prev_time = current_time;
         }
 
-        vkWaitForFences(device, 1, &fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
-        vkResetFences(device, 1, &fence);
+        vkWaitForFences(*device, 1, &fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
+        vkResetFences(*device, 1, &fence);
         std::uint32_t image_index = 0;
-        vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<std::uint64_t>::max(), image_available,
+        vkAcquireNextImageKHR(*device, swapchain, std::numeric_limits<std::uint64_t>::max(), image_available,
                               VK_NULL_HANDLE, &image_index);
 
         ubo.view = camera.view_matrix();
@@ -1190,49 +1165,48 @@ int main() {
     vmaUnmapMemory(allocator, lights_buffer_allocation);
     vmaUnmapMemory(allocator, uniform_buffer_allocation);
 
-    vkDeviceWaitIdle(device);
-    vkDestroySemaphore(device, main_pass_finished, nullptr);
-    vkDestroySemaphore(device, light_cull_pass_finished, nullptr);
-    vkDestroySemaphore(device, depth_pass_finished, nullptr);
-    vkDestroySemaphore(device, image_available, nullptr);
-    vkDestroyFence(device, fence, nullptr);
-    vkFreeCommandBuffers(device, graphics_command_pool, graphics_cmd_bufs.size(), graphics_cmd_bufs.data());
-    vkFreeCommandBuffers(device, compute_command_pool, 1, &light_cull_pass_cmd_buf);
-    vkDestroyDescriptorPool(device, descriptor_pool, nullptr);
+    vkDeviceWaitIdle(*device);
+    vkDestroySemaphore(*device, main_pass_finished, nullptr);
+    vkDestroySemaphore(*device, light_cull_pass_finished, nullptr);
+    vkDestroySemaphore(*device, depth_pass_finished, nullptr);
+    vkDestroySemaphore(*device, image_available, nullptr);
+    vkDestroyFence(*device, fence, nullptr);
+    vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.size(), graphics_cmd_bufs.data());
+    vkFreeCommandBuffers(*device, compute_command_pool, 1, &light_cull_pass_cmd_buf);
+    vkDestroyDescriptorPool(*device, descriptor_pool, nullptr);
     vmaDestroyBuffer(allocator, uniform_buffer, uniform_buffer_allocation);
     vmaDestroyBuffer(allocator, light_visibilities_buffer, light_visibilities_buffer_allocation);
     vmaDestroyBuffer(allocator, lights_buffer, lights_buffer_allocation);
     vmaDestroyBuffer(allocator, index_buffer, index_buffer_allocation);
     vmaDestroyBuffer(allocator, vertex_buffer, vertex_buffer_allocation);
     for (auto *main_pass_framebuffer : main_pass_framebuffers) {
-        vkDestroyFramebuffer(device, main_pass_framebuffer, nullptr);
+        vkDestroyFramebuffer(*device, main_pass_framebuffer, nullptr);
     }
-    vkDestroyFramebuffer(device, depth_pass_framebuffer, nullptr);
-    vkDestroySampler(device, depth_sampler, nullptr);
-    vkDestroyImageView(device, depth_image_view, nullptr);
+    vkDestroyFramebuffer(*device, depth_pass_framebuffer, nullptr);
+    vkDestroySampler(*device, depth_sampler, nullptr);
+    vkDestroyImageView(*device, depth_image_view, nullptr);
     vmaDestroyImage(allocator, depth_image, depth_image_allocation);
-    vkDestroyPipeline(device, main_pass_pipeline, nullptr);
-    vkDestroyPipeline(device, light_cull_pass_pipeline, nullptr);
-    vkDestroyPipeline(device, depth_pass_pipeline, nullptr);
-    vkDestroyPipelineLayout(device, main_pass_pipeline_layout, nullptr);
-    vkDestroyPipelineLayout(device, light_cull_pass_pipeline_layout, nullptr);
-    vkDestroyPipelineLayout(device, depth_pass_pipeline_layout, nullptr);
-    vkDestroyDescriptorSetLayout(device, depth_sampler_set_layout, nullptr);
-    vkDestroyDescriptorSetLayout(device, ubo_set_layout, nullptr);
-    vkDestroyDescriptorSetLayout(device, lights_set_layout, nullptr);
-    vkDestroyShaderModule(device, main_pass_fragment_shader, nullptr);
-    vkDestroyShaderModule(device, main_pass_vertex_shader, nullptr);
-    vkDestroyShaderModule(device, light_cull_pass_compute_shader, nullptr);
-    vkDestroyShaderModule(device, depth_pass_vertex_shader, nullptr);
-    vkDestroyRenderPass(device, main_pass_render_pass, nullptr);
-    vkDestroyRenderPass(device, depth_pass_render_pass, nullptr);
-    vkDestroyCommandPool(device, graphics_command_pool, nullptr);
-    vkDestroyCommandPool(device, compute_command_pool, nullptr);
+    vkDestroyPipeline(*device, main_pass_pipeline, nullptr);
+    vkDestroyPipeline(*device, light_cull_pass_pipeline, nullptr);
+    vkDestroyPipeline(*device, depth_pass_pipeline, nullptr);
+    vkDestroyPipelineLayout(*device, main_pass_pipeline_layout, nullptr);
+    vkDestroyPipelineLayout(*device, light_cull_pass_pipeline_layout, nullptr);
+    vkDestroyPipelineLayout(*device, depth_pass_pipeline_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*device, depth_sampler_set_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*device, ubo_set_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*device, lights_set_layout, nullptr);
+    vkDestroyShaderModule(*device, main_pass_fragment_shader, nullptr);
+    vkDestroyShaderModule(*device, main_pass_vertex_shader, nullptr);
+    vkDestroyShaderModule(*device, light_cull_pass_compute_shader, nullptr);
+    vkDestroyShaderModule(*device, depth_pass_vertex_shader, nullptr);
+    vkDestroyRenderPass(*device, main_pass_render_pass, nullptr);
+    vkDestroyRenderPass(*device, depth_pass_render_pass, nullptr);
+    vkDestroyCommandPool(*device, graphics_command_pool, nullptr);
+    vkDestroyCommandPool(*device, compute_command_pool, nullptr);
     vmaDestroyAllocator(allocator);
     for (auto *image_view : swapchain_image_views) {
-        vkDestroyImageView(device, image_view, nullptr);
+        vkDestroyImageView(*device, image_view, nullptr);
     }
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
-    vkDestroyDevice(device, nullptr);
+    vkDestroySwapchainKHR(*device, swapchain, nullptr);
     vkDestroySurfaceKHR(*instance, surface, nullptr);
 }

@@ -1,8 +1,9 @@
 #pragma once
 
-#include <renderer/Vulkan.hh>
 #include <support/Span.hh>
 #include <support/Vector.hh>
+
+#include <vulkan/vulkan_core.h>
 
 class Instance {
     VkInstance m_instance{nullptr};
