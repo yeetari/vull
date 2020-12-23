@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <span>
 #include <string>
@@ -1132,10 +1133,18 @@ int main() {
     vmaMapMemory(allocator, uniform_buffer_allocation, &ubo_data);
 
     double previous_time = glfwGetTime();
+    double fps_counter_prev_time = glfwGetTime();
+    int frame_count = 0;
     while (!window.should_close()) {
         double current_time = glfwGetTime();
         auto dt = static_cast<float>(current_time - previous_time);
         previous_time = current_time;
+        frame_count++;
+        if (current_time - fps_counter_prev_time >= 1.0) {
+            std::cout << "FPS: " << frame_count << '\n';
+            frame_count = 0;
+            fps_counter_prev_time = current_time;
+        }
 
         vkWaitForFences(device, 1, &fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
         vkResetFences(device, 1, &fence);
