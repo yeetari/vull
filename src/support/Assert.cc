@@ -1,11 +1,9 @@
 #include <support/Assert.hh>
 
-#include <fmt/color.h>
-#include <fmt/core.h>
-
 #include <cstdlib>
+#include <iostream>
 
 [[noreturn]] void assertion_failed(const char *file, unsigned int line, const char *expr) {
-    fmt::print(fmt::fg(fmt::color::orange_red), "Assertion '{}' failed at {}:{}\n", expr, file, line);
+    std::cout << "Assertion '" << expr << "' failed at " << file << ':' << line << '\n';
     std::abort();
 }

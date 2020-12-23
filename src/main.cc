@@ -5,7 +5,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 #include <GLFW/glfw3.h>
-#include <fmt/core.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/gtx/hash.hpp>
