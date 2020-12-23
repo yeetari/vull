@@ -2,16 +2,15 @@
 #include <renderer/Camera.hh>
 #include <support/Assert.hh>
 
+#define TINYOBJLOADER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 #include <GLFW/glfw3.h>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
 #include <fmt/core.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
+#include <tiny_obj_loader.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
@@ -695,34 +694,19 @@ int main() {
 
     std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices;
-    Assimp::Importer importer;
-    const auto *scene = importer.ReadFile("../../models/teapot.obj",
-                                          aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
-    ENSURE(scene && !(scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) && scene->mRootNode);
-    const auto *root = scene->mRootNode;
-    for (auto i = 0; i < root->mNumChildren; i++) {
-        const auto *node = root->mChildren[i];
-        ENSURE(node->mNumChildren == 0);
-        if (node->mNumMeshes == 0) {
-            continue;
-        }
-        for (int a = 0; a < node->mNumMeshes; a++) {
-            const auto *mesh = scene->mMeshes[node->mMeshes[a]];
-            for (auto j = 0; j < mesh->mNumVertices; j++) {
-                auto &vertex = vertices.emplace_back();
-                vertex.position.x = mesh->mVertices[j].x;
-                vertex.position.y = mesh->mVertices[j].y;
-                vertex.position.z = mesh->mVertices[j].z;
-                vertex.normal.x = mesh->mNormals[j].x;
-                vertex.normal.y = mesh->mNormals[j].y;
-                vertex.normal.z = mesh->mNormals[j].z;
-            }
-            for (auto j = 0; j < mesh->mNumFaces; j++) {
-                auto face = mesh->mFaces[j];
-                for (auto k = 0; k < face.mNumIndices; k++) {
-                    indices.push_back(face.mIndices[k]);
-                }
-            }
+    tinyobj::ObjReader reader;
+    ENSURE(reader.ParseFromFile("../../models/sponza.obj"));
+    const auto &attrib = reader.GetAttrib();
+    for (const auto &shape : reader.GetShapes()) {
+        for (const auto &index : shape.mesh.indices) {
+            auto &vertex = vertices.emplace_back();
+            vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
+            vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
+            vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
+            vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
+            vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
+            vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
+            indices.push_back(indices.size());
         }
     }
 
@@ -1070,22 +1054,46 @@ int main() {
     ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &light_cull_pass_finished) == VK_SUCCESS);
     ENSURE(vkCreateSemaphore(device, &semaphore_ci, nullptr, &main_pass_finished) == VK_SUCCESS);
 
-    std::vector<PointLight> lights(5000);
-    auto recreate_lights = [&lights]() {
-        for (auto &light : lights) {
-            light.colour = glm::linearRand(glm::vec3(0), glm::vec3(0.4F));
-            light.radius = glm::linearRand(2.0F, 15.0F);
-            light.position = glm::linearRand(glm::vec3(-50), glm::vec3(50));
+    std::vector<PointLight> lights(3000);
+    std::array<glm::vec3, 3000> dsts{};
+    std::array<glm::vec3, 3000> srcs{};
+    for (int i = 0; auto &light : lights) {
+        light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
+        light.radius = glm::linearRand(15.0F, 30.0F);
+        light.position.x = glm::linearRand(-183, 188);
+        light.position.y = glm::linearRand(-106, 116);
+        light.position.z = glm::linearRand(-10, 142);
+        dsts[i] = light.position;
+        auto rand = glm::linearRand(30, 60);
+        switch (glm::linearRand(0, 5)) {
+        case 0:
+            dsts[i].x += rand;
+            break;
+        case 1:
+            dsts[i].y += rand;
+            break;
+        case 2:
+            dsts[i].z += rand;
+            break;
+        case 3:
+            dsts[i].x -= rand;
+            break;
+        case 4:
+            dsts[i].y -= rand;
+            break;
+        case 5:
+            dsts[i].z -= rand;
+            break;
         }
-    };
-    recreate_lights();
+        srcs[i++] = light.position;
+    }
     UniformBuffer ubo{
         .proj = glm::perspective(glm::radians(45.0F), window.aspect_ratio(), 0.1F, 1000.0F),
         .transform = glm::mat4(1.0),
     };
     ubo.proj[1][1] *= -1;
 
-    Camera camera(glm::vec3(20.0F, 0.0F, 0.0F));
+    Camera camera(glm::vec3(24.0F, 0.2F, 24.4F));
     glfwSetWindowUserPointer(*window, &camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
@@ -1101,8 +1109,6 @@ int main() {
     void *ubo_data = nullptr;
     vmaMapMemory(allocator, uniform_buffer_allocation, &ubo_data);
 
-    float time = 0.0F;
-    float rotate = 0.0F;
     double previous_time = glfwGetTime();
     while (!window.should_close()) {
         double current_time = glfwGetTime();
@@ -1115,13 +1121,18 @@ int main() {
         vkAcquireNextImageKHR(device, swapchain, std::numeric_limits<std::uint64_t>::max(), image_available,
                               VK_NULL_HANDLE, &image_index);
 
-        ubo.transform = glm::rotate(glm::mat4(1.0), rotate, glm::vec3(1, 1, 1));
+        ubo.transform = glm::mat4(1.0);
+        ubo.transform = glm::rotate(ubo.transform, glm::radians(90.0F), glm::vec3(1, 0, 0));
+        ubo.transform = glm::scale(ubo.transform, glm::vec3(0.1F));
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
         camera.update(window);
-        if (time >= 0.8F) {
-            time = 0;
-            recreate_lights();
+        for (int i = 0; auto &light : lights) {
+            light.position = glm::mix(light.position, dsts[i], dt);
+            if (glm::distance(light.position, dsts[i]) <= 6.0F) {
+                std::swap(dsts[i], srcs[i]);
+            }
+            i++;
         }
 
         int light_count = lights.size();
@@ -1182,8 +1193,6 @@ int main() {
             .pImageIndices = &image_index,
         };
         vkQueuePresentKHR(present_queue, &present_info);
-        time += 0.01F;
-        rotate += 0.001F;
         Window::poll_events();
     }
     vmaUnmapMemory(allocator, lights_buffer_allocation);
