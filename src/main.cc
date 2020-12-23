@@ -1,5 +1,6 @@
 #include <Window.hh>
 #include <renderer/Camera.hh>
+#include <renderer/Instance.hh>
 #include <support/Assert.hh>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -78,49 +79,12 @@ int main() {
     Window window(WIDTH, HEIGHT);
     glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    VkApplicationInfo application_info{
-        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = "vull",
-        .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
-        .pEngineName = "vull-engine",
-        .engineVersion = VK_MAKE_VERSION(0, 1, 0),
-        .apiVersion = VK_API_VERSION_1_2,
-    };
     std::uint32_t required_extension_count = 0;
     const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
-    VkInstanceCreateInfo instance_ci{
-        .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .pApplicationInfo = &application_info,
-        .enabledExtensionCount = required_extension_count,
-        .ppEnabledExtensionNames = required_extensions,
-    };
-
-#ifndef NDEBUG
-    std::uint32_t layer_count = 0;
-    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-    std::vector<VkLayerProperties> layers(layer_count);
-    vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
-
-    auto it = std::find_if(layers.begin(), layers.end(), [](const auto &layer) {
-        return strcmp(layer.layerName, VALIDATION_LAYER_NAME) == 0;
-    });
-    ENSURE(it != layers.end());
-    const char *layer_name = it->layerName;
-    instance_ci.enabledLayerCount = 1;
-    instance_ci.ppEnabledLayerNames = &layer_name;
-#endif
-    VkInstance instance = VK_NULL_HANDLE;
-    ENSURE(vkCreateInstance(&instance_ci, nullptr, &instance) == VK_SUCCESS);
-
-    std::uint32_t phys_device_count = 0;
-    vkEnumeratePhysicalDevices(instance, &phys_device_count, nullptr);
-    std::vector<VkPhysicalDevice> phys_devices(phys_device_count);
-    vkEnumeratePhysicalDevices(instance, &phys_device_count, phys_devices.data());
-    ENSURE(!phys_devices.empty());
-    VkPhysicalDevice phys_device = phys_devices[0];
-
+    Instance instance({required_extensions, required_extension_count});
+    VkPhysicalDevice phys_device = instance.physical_devices()[0];
     VkSurfaceKHR surface = VK_NULL_HANDLE;
-    ENSURE(glfwCreateWindowSurface(instance, *window, nullptr, &surface) == VK_SUCCESS);
+    ENSURE(glfwCreateWindowSurface(*instance, *window, nullptr, &surface) == VK_SUCCESS);
 
     std::uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, nullptr);
@@ -219,7 +183,7 @@ int main() {
     VmaAllocatorCreateInfo allocator_ci{
         .physicalDevice = phys_device,
         .device = device,
-        .instance = instance,
+        .instance = *instance,
     };
     VmaAllocator allocator = VK_NULL_HANDLE;
     ENSURE(vmaCreateAllocator(&allocator_ci, &allocator) == VK_SUCCESS);
@@ -1270,6 +1234,5 @@ int main() {
     }
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     vkDestroyDevice(device, nullptr);
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-    vkDestroyInstance(instance, nullptr);
+    vkDestroySurfaceKHR(*instance, surface, nullptr);
 }
