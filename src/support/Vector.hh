@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <utility>
 
@@ -105,7 +106,11 @@ void Vector<T, SizeType>::relength(SizeType length) {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(const T &elem) {
     ensure_capacity(m_length + 2);
-    new (end()) T(elem);
+    if constexpr (std::is_trivially_copyable_v<T>) {
+        std::memcpy(end(), &elem, sizeof(T));
+    } else {
+        new (end()) T(elem);
+    }
     ++m_length;
 }
 
