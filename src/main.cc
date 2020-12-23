@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
+#include <glm/gtx/hash.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 #include <tiny_obj_loader.h>
@@ -20,6 +21,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -30,6 +32,15 @@ constexpr int HEIGHT = 1440;
 
 float g_prev_x = 0;
 float g_prev_y = 0;
+
+struct Vertex {
+    glm::vec3 position;
+    glm::vec3 normal;
+};
+
+bool operator==(const Vertex &lhs, const Vertex &rhs) {
+    return lhs.position == rhs.position && lhs.normal == rhs.normal;
+}
 
 VkDeviceQueueCreateInfo create_queue_info(std::uint32_t family_index) {
     VkDeviceQueueCreateInfo info{};
@@ -51,6 +62,17 @@ std::vector<char> load_binary(const std::string &path) {
 }
 
 } // namespace
+
+namespace std {
+
+template <>
+struct hash<Vertex> {
+    std::size_t operator()(const Vertex &vertex) const {
+        return hash<glm::vec3>{}(vertex.position) ^ hash<glm::vec3>{}(vertex.normal);
+    }
+};
+
+} // namespace std
 
 int main() {
     Window window(WIDTH, HEIGHT);
@@ -377,10 +399,6 @@ int main() {
         },
     };
 
-    struct Vertex {
-        glm::vec3 position;
-        glm::vec3 normal;
-    };
     std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{{
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position)},
         {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
@@ -694,19 +712,24 @@ int main() {
 
     std::vector<Vertex> vertices;
     std::vector<std::uint32_t> indices;
+    std::unordered_map<Vertex, std::uint32_t> unique_vertices;
     tinyobj::ObjReader reader;
     ENSURE(reader.ParseFromFile("../../models/sponza.obj"));
     const auto &attrib = reader.GetAttrib();
     for (const auto &shape : reader.GetShapes()) {
         for (const auto &index : shape.mesh.indices) {
-            auto &vertex = vertices.emplace_back();
+            Vertex vertex{};
             vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
             vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
             vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
             vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
             vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
             vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
-            indices.push_back(indices.size());
+            if (!unique_vertices.contains(vertex)) {
+                unique_vertices.emplace(vertex, static_cast<std::uint32_t>(vertices.size()));
+                vertices.push_back(vertex);
+            }
+            indices.push_back(unique_vertices.at(vertex));
         }
     }
 
