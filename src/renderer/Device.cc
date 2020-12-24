@@ -14,13 +14,13 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     m_queue_families.relength(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, m_queue_families.data());
     Vector<VkDeviceQueueCreateInfo> queue_cis;
+    const float queue_priority = 1.0F;
     for (std::uint32_t i = 0; const auto &queue_family : m_queue_families) {
-        const float priority = 1.0F;
         VkDeviceQueueCreateInfo queue_ci{
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
             .queueFamilyIndex = i++,
             .queueCount = 1,
-            .pQueuePriorities = &priority,
+            .pQueuePriorities = &queue_priority,
         };
         queue_cis.push(queue_ci);
     }
