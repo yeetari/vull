@@ -27,7 +27,6 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace {
 
@@ -47,10 +46,10 @@ bool operator==(const Vertex &lhs, const Vertex &rhs) {
     return lhs.position == rhs.position && lhs.normal == rhs.normal;
 }
 
-std::vector<char> load_binary(const std::string &path) {
+Vector<char> load_binary(const std::string &path) {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
     ENSURE(file);
-    std::vector<char> buffer(file.tellg());
+    Vector<char> buffer(file.tellg());
     file.seekg(0);
     file.read(buffer.data(), buffer.capacity());
     return std::move(buffer);
@@ -213,22 +212,22 @@ int main() {
     auto main_pass_fragment_shader_code = load_binary("shaders/main.frag.spv");
     VkShaderModuleCreateInfo depth_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = depth_pass_vertex_shader_code.size(),
+        .codeSize = depth_pass_vertex_shader_code.length(),
         .pCode = reinterpret_cast<const std::uint32_t *>(depth_pass_vertex_shader_code.data()),
     };
     VkShaderModuleCreateInfo light_cull_pass_compute_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = light_cull_pass_compute_shader_code.size(),
+        .codeSize = light_cull_pass_compute_shader_code.length(),
         .pCode = reinterpret_cast<const std::uint32_t *>(light_cull_pass_compute_shader_code.data()),
     };
     VkShaderModuleCreateInfo main_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = main_pass_vertex_shader_code.size(),
+        .codeSize = main_pass_vertex_shader_code.length(),
         .pCode = reinterpret_cast<const std::uint32_t *>(main_pass_vertex_shader_code.data()),
     };
     VkShaderModuleCreateInfo main_pass_fragment_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = main_pass_fragment_shader_code.size(),
+        .codeSize = main_pass_fragment_shader_code.length(),
         .pCode = reinterpret_cast<const std::uint32_t *>(main_pass_fragment_shader_code.data()),
     };
     VkShaderModule depth_pass_vertex_shader = VK_NULL_HANDLE;
@@ -564,7 +563,7 @@ int main() {
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
     ENSURE(vkCreateFramebuffer(*device, &depth_pass_framebuffer_ci, nullptr, &depth_pass_framebuffer) == VK_SUCCESS);
 
-    std::vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().length());
+    Vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().length());
     for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain.image_views()) {
         Array image_views{
             swapchain_image_view,
@@ -582,8 +581,8 @@ int main() {
         ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
     }
 
-    std::vector<Vertex> vertices;
-    std::vector<std::uint32_t> indices;
+    Vector<Vertex> vertices;
+    Vector<std::uint32_t> indices;
     std::unordered_map<Vertex, std::uint32_t> unique_vertices;
     tinyobj::ObjReader reader;
     ENSURE(reader.ParseFromFile("../../models/sponza.obj"));
@@ -598,16 +597,16 @@ int main() {
             vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
             vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
             if (!unique_vertices.contains(vertex)) {
-                unique_vertices.emplace(vertex, static_cast<std::uint32_t>(vertices.size()));
-                vertices.push_back(vertex);
+                unique_vertices.emplace(vertex, vertices.length());
+                vertices.push(vertex);
             }
-            indices.push_back(unique_vertices.at(vertex));
+            indices.push(unique_vertices.at(vertex));
         }
     }
 
     VkBufferCreateInfo vertex_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = vertices.size() * sizeof(Vertex),
+        .size = vertices.size(),
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -620,12 +619,12 @@ int main() {
                            &vertex_buffer_allocation, nullptr) == VK_SUCCESS);
     void *vertex_data = nullptr;
     vmaMapMemory(allocator, vertex_buffer_allocation, &vertex_data);
-    std::memcpy(vertex_data, vertices.data(), vertices.size() * sizeof(Vertex));
+    std::memcpy(vertex_data, vertices.data(), vertices.size());
     vmaUnmapMemory(allocator, vertex_buffer_allocation);
 
     VkBufferCreateInfo index_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = indices.size() * sizeof(std::uint32_t),
+        .size = indices.size(),
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -638,7 +637,7 @@ int main() {
                            &index_buffer_allocation, nullptr) == VK_SUCCESS);
     void *index_data = nullptr;
     vmaMapMemory(allocator, index_buffer_allocation, &index_data);
-    std::memcpy(index_data, indices.data(), indices.size() * sizeof(std::uint32_t));
+    std::memcpy(index_data, indices.data(), indices.size());
     vmaUnmapMemory(allocator, index_buffer_allocation);
 
     struct PointLight {
@@ -818,7 +817,7 @@ int main() {
         .commandBufferCount = swapchain.image_views().length() + 1,
     };
     VkCommandBuffer light_cull_pass_cmd_buf = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> graphics_cmd_bufs(graphics_cmd_buf_ai.commandBufferCount);
+    Vector<VkCommandBuffer> graphics_cmd_bufs(graphics_cmd_buf_ai.commandBufferCount);
     ENSURE(vkAllocateCommandBuffers(*device, &compute_cmd_buf_ai, &light_cull_pass_cmd_buf) == VK_SUCCESS);
     ENSURE(vkAllocateCommandBuffers(*device, &graphics_cmd_buf_ai, graphics_cmd_bufs.data()) == VK_SUCCESS);
     VkCommandBuffer depth_pass_cmd_buf = graphics_cmd_bufs[0];
@@ -847,7 +846,7 @@ int main() {
                             &ubo_descriptor_set, 0, nullptr);
     vkCmdBindVertexBuffers(depth_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
     vkCmdBindIndexBuffer(depth_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(depth_pass_cmd_buf, static_cast<std::uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(depth_pass_cmd_buf, indices.length(), 1, 0, 0, 0);
     vkCmdEndRenderPass(depth_pass_cmd_buf);
     ENSURE(vkEndCommandBuffer(depth_pass_cmd_buf) == VK_SUCCESS);
 
@@ -915,7 +914,7 @@ int main() {
                                 main_pass_descriptor_sets.length(), main_pass_descriptor_sets.data(), 0, nullptr);
         vkCmdBindVertexBuffers(main_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(main_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(main_pass_cmd_buf, static_cast<std::uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(main_pass_cmd_buf, indices.length(), 1, 0, 0, 0);
         vkCmdEndRenderPass(main_pass_cmd_buf);
         ENSURE(vkEndCommandBuffer(main_pass_cmd_buf) == VK_SUCCESS);
     }
@@ -939,9 +938,9 @@ int main() {
     ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &light_cull_pass_finished) == VK_SUCCESS);
     ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &main_pass_finished) == VK_SUCCESS);
 
-    std::vector<PointLight> lights(3000);
     Array<glm::vec3, 3000> dsts{};
     Array<glm::vec3, 3000> srcs{};
+    Vector<PointLight> lights(3000);
     for (int i = 0; auto &light : lights) {
         light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
         light.radius = glm::linearRand(15.0F, 30.0F);
@@ -1023,10 +1022,9 @@ int main() {
             i++;
         }
 
-        int light_count = lights.size();
+        const std::uint32_t light_count = lights.length();
         std::memcpy(lights_data, &light_count, sizeof(std::uint32_t));
-        std::memcpy(reinterpret_cast<char *>(lights_data) + sizeof(glm::vec4), lights.data(),
-                    lights.size() * sizeof(PointLight));
+        std::memcpy(reinterpret_cast<char *>(lights_data) + sizeof(glm::vec4), lights.data(), lights.size());
         std::memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         VkSubmitInfo depth_pass_si{
@@ -1086,7 +1084,7 @@ int main() {
     vkDestroySemaphore(*device, depth_pass_finished, nullptr);
     vkDestroySemaphore(*device, image_available, nullptr);
     vkDestroyFence(*device, fence, nullptr);
-    vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.size(), graphics_cmd_bufs.data());
+    vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.length(), graphics_cmd_bufs.data());
     vkFreeCommandBuffers(*device, compute_command_pool, 1, &light_cull_pass_cmd_buf);
     vkDestroyDescriptorPool(*device, descriptor_pool, nullptr);
     vmaDestroyBuffer(allocator, uniform_buffer, uniform_buffer_allocation);
