@@ -1,6 +1,6 @@
 #include <renderer/Surface.hh>
 
-#include <Window.hh>
+#include <io/Window.hh>
 #include <renderer/Device.hh>
 #include <renderer/Instance.hh>
 #include <support/Assert.hh>

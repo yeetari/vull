@@ -1,12 +1,12 @@
 add_executable(vull
+    io/Window.cc
     renderer/Camera.cc
     renderer/Device.cc
     renderer/Instance.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
     support/Assert.cc
-    main.cc
-    Window.cc)
+    main.cc)
 target_add_shader(vull shaders/depth.vert)
 target_add_shader(vull shaders/light_cull.comp)
 target_add_shader(vull shaders/main.vert)
