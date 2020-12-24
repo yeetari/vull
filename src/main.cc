@@ -968,9 +968,9 @@ int main() {
     for (int i = 0; auto &light : lights) {
         light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
         light.radius = glm::linearRand(15.0F, 30.0F);
-        light.position.x = glm::linearRand(-183, 188);
-        light.position.y = glm::linearRand(-106, 116);
-        light.position.z = glm::linearRand(-10, 142);
+        light.position.x = glm::linearRand(-190, 175);
+        light.position.y = glm::linearRand(-12, 138);
+        light.position.z = glm::linearRand(-120, 103);
         dsts[i] = light.position;
         auto rand = glm::linearRand(30, 60);
         switch (glm::linearRand(0, 5)) {
