@@ -105,7 +105,7 @@ void Vector<T, SizeType>::relength(SizeType length) {
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(const T &elem) {
-    ensure_capacity(m_length + 2);
+    ensure_capacity(m_length + 1);
     if constexpr (std::is_trivially_copyable_v<T>) {
         std::memcpy(end(), &elem, sizeof(T));
     } else {
@@ -116,7 +116,7 @@ void Vector<T, SizeType>::push(const T &elem) {
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(T &&elem) {
-    ensure_capacity(m_length + 2);
+    ensure_capacity(m_length + 1);
     new (end()) T(std::move(elem));
     ++m_length;
 }
