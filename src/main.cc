@@ -6,6 +6,8 @@
 #include <renderer/Swapchain.hh>
 #include <support/Array.hh>
 #include <support/Assert.hh>
+#include <support/Span.hh>
+#include <support/Vector.hh>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
@@ -20,11 +22,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include <algorithm>
-#include <array>
 #include <fstream>
 #include <iostream>
 #include <optional>
-#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -45,16 +45,6 @@ struct Vertex {
 
 bool operator==(const Vertex &lhs, const Vertex &rhs) {
     return lhs.position == rhs.position && lhs.normal == rhs.normal;
-}
-
-VkDeviceQueueCreateInfo create_queue_info(std::uint32_t family_index) {
-    VkDeviceQueueCreateInfo info{};
-    info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    info.queueCount = 1;
-    info.queueFamilyIndex = family_index;
-    float priority = 1.0F;
-    info.pQueuePriorities = &priority;
-    return info;
 }
 
 std::vector<char> load_binary(const std::string &path) {
@@ -136,7 +126,7 @@ int main() {
         .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
         .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     };
     VkAttachmentReference depth_attachment_write_ref{
         .attachment = 0,
@@ -150,8 +140,6 @@ int main() {
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = VK_ACCESS_MEMORY_READ_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
     };
     VkRenderPassCreateInfo depth_pass_render_pass_ci{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
@@ -165,7 +153,7 @@ int main() {
     VkRenderPass depth_pass_render_pass = VK_NULL_HANDLE;
     ENSURE(vkCreateRenderPass(*device, &depth_pass_render_pass_ci, nullptr, &depth_pass_render_pass) == VK_SUCCESS);
 
-    std::array<VkAttachmentDescription, 2> main_pass_attachments{
+    Array main_pass_attachments{
         VkAttachmentDescription{
             .format = VK_FORMAT_B8G8R8A8_SRGB,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -183,7 +171,7 @@ int main() {
             .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         },
     };
@@ -209,7 +197,7 @@ int main() {
     };
     VkRenderPassCreateInfo main_pass_render_pass_ci{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = static_cast<std::uint32_t>(main_pass_attachments.size()),
+        .attachmentCount = main_pass_attachments.length(),
         .pAttachments = main_pass_attachments.data(),
         .subpassCount = 1,
         .pSubpasses = &main_pass_subpass,
@@ -254,7 +242,7 @@ int main() {
     ENSURE(vkCreateShaderModule(*device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
-    std::array<VkPipelineShaderStageCreateInfo, 1> depth_pass_shader_stage_cis{
+    Array depth_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -268,7 +256,7 @@ int main() {
         .module = light_cull_pass_compute_shader,
         .pName = "main",
     };
-    std::array<VkPipelineShaderStageCreateInfo, 2> main_pass_shader_stage_cis{
+    Array main_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -283,7 +271,7 @@ int main() {
         },
     };
 
-    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{{
+    Array<VkVertexInputAttributeDescription, 2> attribute_descriptions{{
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position)},
         {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
     }};
@@ -296,7 +284,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &binding_description,
-        .vertexAttributeDescriptionCount = attribute_descriptions.size(),
+        .vertexAttributeDescriptionCount = attribute_descriptions.length(),
         .pVertexAttributeDescriptions = attribute_descriptions.data(),
     };
 
@@ -344,7 +332,7 @@ int main() {
     VkPipelineDepthStencilStateCreateInfo main_pass_depth_stencil_state{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = VK_TRUE,
-        .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
+        .depthCompareOp = VK_COMPARE_OP_EQUAL,
     };
 
     VkPipelineColorBlendAttachmentState main_pass_blend_attachment{
@@ -357,7 +345,7 @@ int main() {
         .pAttachments = &main_pass_blend_attachment,
     };
 
-    std::array<VkDescriptorSetLayoutBinding, 2> lights_set_bindings{
+    Array lights_set_bindings{
         VkDescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -373,7 +361,7 @@ int main() {
     };
     VkDescriptorSetLayoutCreateInfo lights_set_layout_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = static_cast<std::uint32_t>(lights_set_bindings.size()),
+        .bindingCount = lights_set_bindings.length(),
         .pBindings = lights_set_bindings.data(),
     };
     VkDescriptorSetLayout lights_set_layout = VK_NULL_HANDLE;
@@ -437,14 +425,14 @@ int main() {
     ENSURE(vkCreatePipelineLayout(*device, &depth_pass_pipeline_layout_ci, nullptr, &depth_pass_pipeline_layout) ==
            VK_SUCCESS);
 
-    std::array<VkDescriptorSetLayout, 3> light_cull_pass_set_layouts{
+    Array light_cull_pass_set_layouts{
         lights_set_layout,
         ubo_set_layout,
         depth_sampler_set_layout,
     };
     VkPipelineLayoutCreateInfo light_cull_pass_pipeline_layout_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = static_cast<std::uint32_t>(light_cull_pass_set_layouts.size()),
+        .setLayoutCount = light_cull_pass_set_layouts.length(),
         .pSetLayouts = light_cull_pass_set_layouts.data(),
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range_compute,
@@ -453,13 +441,13 @@ int main() {
     ENSURE(vkCreatePipelineLayout(*device, &light_cull_pass_pipeline_layout_ci, nullptr,
                                   &light_cull_pass_pipeline_layout) == VK_SUCCESS);
 
-    std::array<VkDescriptorSetLayout, 2> main_pass_set_layouts{
+    Array main_pass_set_layouts{
         lights_set_layout,
         ubo_set_layout,
     };
     VkPipelineLayoutCreateInfo main_pass_pipeline_layout_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = static_cast<std::uint32_t>(main_pass_set_layouts.size()),
+        .setLayoutCount = main_pass_set_layouts.length(),
         .pSetLayouts = main_pass_set_layouts.data(),
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range_fragment,
@@ -470,7 +458,7 @@ int main() {
 
     VkGraphicsPipelineCreateInfo depth_pass_pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = depth_pass_shader_stage_cis.size(),
+        .stageCount = depth_pass_shader_stage_cis.length(),
         .pStages = depth_pass_shader_stage_cis.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
@@ -488,7 +476,7 @@ int main() {
     };
     VkGraphicsPipelineCreateInfo main_pass_pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = main_pass_shader_stage_cis.size(),
+        .stageCount = main_pass_shader_stage_cis.length(),
         .pStages = main_pass_shader_stage_cis.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
@@ -578,14 +566,14 @@ int main() {
 
     std::vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().length());
     for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain.image_views()) {
-        std::array<VkImageView, 2> image_views{
+        Array image_views{
             swapchain_image_view,
             depth_image_view,
         };
         VkFramebufferCreateInfo framebuffer_ci{
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = main_pass_render_pass,
-            .attachmentCount = static_cast<std::uint32_t>(image_views.size()),
+            .attachmentCount = image_views.length(),
             .pAttachments = image_views.data(),
             .width = WIDTH,
             .height = HEIGHT,
@@ -712,7 +700,7 @@ int main() {
     ENSURE(vmaCreateBuffer(allocator, &uniform_buffer_ci, &uniform_buffer_allocation_ci, &uniform_buffer,
                            &uniform_buffer_allocation, nullptr) == VK_SUCCESS);
 
-    std::array<VkDescriptorPoolSize, 3> descriptor_pool_sizes{
+    Array descriptor_pool_sizes{
         VkDescriptorPoolSize{
             .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .descriptorCount = 4,
@@ -729,7 +717,7 @@ int main() {
     VkDescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .maxSets = swapchain.image_views().length(),
-        .poolSizeCount = static_cast<std::uint32_t>(descriptor_pool_sizes.size()),
+        .poolSizeCount = descriptor_pool_sizes.length(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -751,7 +739,7 @@ int main() {
         .buffer = light_visibilities_buffer,
         .range = VK_WHOLE_SIZE,
     };
-    std::array<VkWriteDescriptorSet, 2> lights_descriptor_writes{
+    Array lights_descriptor_writes{
         VkWriteDescriptorSet{
             .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
             .dstSet = lights_descriptor_set,
@@ -769,8 +757,7 @@ int main() {
             .pBufferInfo = &light_visibilities_buffer_info,
         },
     };
-    vkUpdateDescriptorSets(*device, static_cast<std::uint32_t>(lights_descriptor_writes.size()),
-                           lights_descriptor_writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(*device, lights_descriptor_writes.length(), lights_descriptor_writes.data(), 0, nullptr);
 
     VkDescriptorSetAllocateInfo ubo_descriptor_ai{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -806,7 +793,7 @@ int main() {
     VkDescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
         .imageView = depth_image_view,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     };
     VkWriteDescriptorSet depth_sampler_descriptor_write{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -837,23 +824,23 @@ int main() {
     VkCommandBuffer depth_pass_cmd_buf = graphics_cmd_bufs[0];
     auto cmd_buf_it = graphics_cmd_bufs.begin();
     std::advance(cmd_buf_it, 1);
-    std::span<VkCommandBuffer> main_pass_cmd_bufs(cmd_buf_it, graphics_cmd_bufs.end());
+    Span<VkCommandBuffer> main_pass_cmd_bufs(cmd_buf_it, graphics_cmd_bufs.end());
 
     VkCommandBufferBeginInfo depth_pass_cmd_buf_bi{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
     ENSURE(vkBeginCommandBuffer(depth_pass_cmd_buf, &depth_pass_cmd_buf_bi) == VK_SUCCESS);
-    std::array<VkClearValue, 1> depth_pass_clear_values{};
+    Array<VkClearValue, 1> depth_pass_clear_values{};
     depth_pass_clear_values[0].depthStencil = {1, 0};
     VkRenderPassBeginInfo depth_pass_render_pass_bi{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = depth_pass_render_pass,
         .framebuffer = depth_pass_framebuffer,
         .renderArea{.extent{WIDTH, HEIGHT}},
-        .clearValueCount = static_cast<std::uint32_t>(depth_pass_clear_values.size()),
+        .clearValueCount = depth_pass_clear_values.length(),
         .pClearValues = depth_pass_clear_values.data(),
     };
-    std::array<VkDeviceSize, 1> offsets{0};
+    Array<VkDeviceSize, 1> offsets{0};
     vkCmdBeginRenderPass(depth_pass_cmd_buf, &depth_pass_render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(depth_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, depth_pass_pipeline);
     vkCmdBindDescriptorSets(depth_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, depth_pass_pipeline_layout, 0, 1,
@@ -868,46 +855,37 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
     ENSURE(vkBeginCommandBuffer(light_cull_pass_cmd_buf, &light_cull_pass_cmd_buf_bi) == VK_SUCCESS);
-    std::array<VkBufferMemoryBarrier, 2> light_cull_pass_barriers{
-        VkBufferMemoryBarrier{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-            .buffer = lights_buffer,
-            .size = lights_buffer_size,
-        },
-        VkBufferMemoryBarrier{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-            .buffer = light_visibilities_buffer,
-            .size = light_visibilities_buffer_size,
-        },
-    };
-    vkCmdPipelineBarrier(light_cull_pass_cmd_buf, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr,
-                         static_cast<std::uint32_t>(light_cull_pass_barriers.size()), light_cull_pass_barriers.data(),
-                         0, nullptr);
-    std::array<VkDescriptorSet, 3> light_cull_pass_descriptor_sets{
+    Array light_cull_pass_descriptor_sets{
         lights_descriptor_set,
         ubo_descriptor_set,
         depth_sampler_descriptor_set,
     };
     vkCmdBindDescriptorSets(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline_layout, 0,
-                            static_cast<std::uint32_t>(light_cull_pass_descriptor_sets.size()),
-                            light_cull_pass_descriptor_sets.data(), 0, nullptr);
+                            light_cull_pass_descriptor_sets.length(), light_cull_pass_descriptor_sets.data(), 0,
+                            nullptr);
     vkCmdPushConstants(light_cull_pass_cmd_buf, light_cull_pass_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        sizeof(PushConstantObject), &push_constants);
     vkCmdBindPipeline(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline);
     vkCmdDispatch(light_cull_pass_cmd_buf, row_tile_count, col_tile_count, 1);
-    light_cull_pass_barriers[0].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    light_cull_pass_barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    light_cull_pass_barriers[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    light_cull_pass_barriers[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    Array light_cull_pass_barriers{
+        VkBufferMemoryBarrier{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .buffer = lights_buffer,
+            .size = lights_buffer_size,
+        },
+        VkBufferMemoryBarrier{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .buffer = light_visibilities_buffer,
+            .size = light_visibilities_buffer_size,
+        },
+    };
     vkCmdPipelineBarrier(light_cull_pass_cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-                         static_cast<std::uint32_t>(light_cull_pass_barriers.size()), light_cull_pass_barriers.data(),
-                         0, nullptr);
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, light_cull_pass_barriers.length(),
+                         light_cull_pass_barriers.data(), 0, nullptr);
     ENSURE(vkEndCommandBuffer(light_cull_pass_cmd_buf) == VK_SUCCESS);
 
     for (int i = 0; auto *main_pass_cmd_buf : main_pass_cmd_bufs) {
@@ -915,27 +893,26 @@ int main() {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         };
         ENSURE(vkBeginCommandBuffer(main_pass_cmd_buf, &main_pass_cmd_buf_bi) == VK_SUCCESS);
-        std::array<VkClearValue, 1> main_pass_clear_values{};
+        Array<VkClearValue, 1> main_pass_clear_values{};
         main_pass_clear_values[0].color = {0, 0, 0, 1};
         VkRenderPassBeginInfo main_pass_render_pass_bi{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = main_pass_render_pass,
             .framebuffer = main_pass_framebuffers[i++],
             .renderArea{.extent{WIDTH, HEIGHT}},
-            .clearValueCount = static_cast<std::uint32_t>(main_pass_clear_values.size()),
+            .clearValueCount = main_pass_clear_values.length(),
             .pClearValues = main_pass_clear_values.data(),
         };
         vkCmdBeginRenderPass(main_pass_cmd_buf, &main_pass_render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdPushConstants(main_pass_cmd_buf, main_pass_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                            sizeof(glm::ivec2), &push_constants);
         vkCmdBindPipeline(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, main_pass_pipeline);
-        std::array<VkDescriptorSet, 2> main_pass_descriptor_sets{
+        Array main_pass_descriptor_sets{
             lights_descriptor_set,
             ubo_descriptor_set,
         };
         vkCmdBindDescriptorSets(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, main_pass_pipeline_layout, 0,
-                                static_cast<std::uint32_t>(main_pass_descriptor_sets.size()),
-                                main_pass_descriptor_sets.data(), 0, nullptr);
+                                main_pass_descriptor_sets.length(), main_pass_descriptor_sets.data(), 0, nullptr);
         vkCmdBindVertexBuffers(main_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(main_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(main_pass_cmd_buf, static_cast<std::uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -963,8 +940,8 @@ int main() {
     ENSURE(vkCreateSemaphore(*device, &semaphore_ci, nullptr, &main_pass_finished) == VK_SUCCESS);
 
     std::vector<PointLight> lights(3000);
-    std::array<glm::vec3, 3000> dsts{};
-    std::array<glm::vec3, 3000> srcs{};
+    Array<glm::vec3, 3000> dsts{};
+    Array<glm::vec3, 3000> srcs{};
     for (int i = 0; auto &light : lights) {
         light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
         light.radius = glm::linearRand(15.0F, 30.0F);
@@ -1048,7 +1025,8 @@ int main() {
 
         int light_count = lights.size();
         std::memcpy(lights_data, &light_count, sizeof(std::uint32_t));
-        std::memcpy((char *)lights_data + sizeof(glm::vec4), lights.data(), lights.size() * sizeof(PointLight));
+        std::memcpy(reinterpret_cast<char *>(lights_data) + sizeof(glm::vec4), lights.data(),
+                    lights.size() * sizeof(PointLight));
         std::memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         VkSubmitInfo depth_pass_si{
@@ -1060,7 +1038,7 @@ int main() {
         };
         vkQueueSubmit(graphics_queue, 1, &depth_pass_si, VK_NULL_HANDLE);
 
-        std::array<VkPipelineStageFlags, 1> light_cull_pass_wait_stages{
+        Array<VkPipelineStageFlags, 1> light_cull_pass_wait_stages{
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         };
         VkSubmitInfo light_cull_pass_si{
@@ -1075,17 +1053,17 @@ int main() {
         };
         vkQueueSubmit(compute_queue, 1, &light_cull_pass_si, VK_NULL_HANDLE);
 
-        std::array<VkSemaphore, 2> main_pass_wait_semaphores{
+        Array main_pass_wait_semaphores{
             image_available,
             light_cull_pass_finished,
         };
-        std::array<VkPipelineStageFlags, 2> main_pass_wait_stages{
+        Array<VkPipelineStageFlags, 2> main_pass_wait_stages{
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         };
         VkSubmitInfo main_pass_si{
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = static_cast<std::uint32_t>(main_pass_wait_semaphores.size()),
+            .waitSemaphoreCount = main_pass_wait_semaphores.length(),
             .pWaitSemaphores = main_pass_wait_semaphores.data(),
             .pWaitDstStageMask = main_pass_wait_stages.data(),
             .commandBufferCount = 1,
