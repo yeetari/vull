@@ -581,11 +581,16 @@ int main() {
         ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
     }
 
-    Vector<Vertex> vertices;
-    Vector<std::uint32_t> indices;
-    std::unordered_map<Vertex, std::uint32_t> unique_vertices;
     tinyobj::ObjReader reader;
     ENSURE(reader.ParseFromFile("../../models/sponza.obj"));
+    std::uint32_t index_count = 0;
+    for (const auto &shape : reader.GetShapes()) {
+        index_count += shape.mesh.indices.size();
+    }
+    Vector<Vertex> vertices;
+    Vector<std::uint32_t> indices;
+    indices.ensure_capacity(index_count);
+    std::unordered_map<Vertex, std::uint32_t> unique_vertices;
     const auto &attrib = reader.GetAttrib();
     for (const auto &shape : reader.GetShapes()) {
         for (const auto &index : shape.mesh.indices) {
