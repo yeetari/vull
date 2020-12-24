@@ -1037,7 +1037,7 @@ int main() {
 
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
-        camera.update(window);
+        camera.update(window, dt);
         for (int i = 0; auto &light : lights) {
             light.position = glm::mix(light.position, dsts[i], dt);
             if (glm::distance(light.position, dsts[i]) <= 6.0F) {
