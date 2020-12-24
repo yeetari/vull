@@ -10,7 +10,7 @@ class Instance {
     Vector<VkPhysicalDevice> m_physical_devices;
 
 public:
-    explicit Instance(Span<const char *> extensions);
+    explicit Instance(const Span<const char *> &extensions);
     Instance(const Instance &) = delete;
     Instance(Instance &&) = delete;
     ~Instance();

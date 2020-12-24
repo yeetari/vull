@@ -16,7 +16,7 @@ constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 
 } // namespace
 
-Instance::Instance(Span<const char *> extensions) {
+Instance::Instance(const Span<const char *> &extensions) {
     VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = APPLICATION_NAME,
