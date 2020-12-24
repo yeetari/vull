@@ -8,7 +8,7 @@ void Window::poll_events() {
     glfwPollEvents();
 }
 
-Window::Window(int width, int height) : m_width(width), m_height(height) {
+Window::Window(std::uint32_t width, std::uint32_t height) : m_width(width), m_height(height) {
     ENSURE(glfwInit() == GLFW_TRUE);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);

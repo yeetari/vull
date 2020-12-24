@@ -10,9 +10,9 @@ constexpr const char *SWAPCHAIN_EXTENSION_NAME = VK_KHR_SWAPCHAIN_EXTENSION_NAME
 
 Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     std::uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical, &queue_family_count, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, nullptr);
     m_queue_families.relength(queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical, &queue_family_count, m_queue_families.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, m_queue_families.data());
     Vector<VkDeviceQueueCreateInfo> queue_cis;
     for (std::uint32_t i = 0; const auto &queue_family : m_queue_families) {
         const float priority = 1.0F;
@@ -35,7 +35,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
         .ppEnabledExtensionNames = &SWAPCHAIN_EXTENSION_NAME,
         .pEnabledFeatures = &device_features,
     };
-    ENSURE(vkCreateDevice(m_physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);
+    ENSURE(vkCreateDevice(physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);
 }
 
 Device::~Device() {

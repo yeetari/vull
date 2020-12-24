@@ -1,16 +1,18 @@
 #pragma once
 
+#include <cstdint>
+
 struct GLFWwindow;
 
 class Window {
-    const int m_width;
-    const int m_height;
+    const std::uint32_t m_width;
+    const std::uint32_t m_height;
     GLFWwindow *m_window;
 
 public:
     static void poll_events();
 
-    Window(int width, int height);
+    Window(std::uint32_t width, std::uint32_t height);
     Window(const Window &) = delete;
     Window(Window &&) = delete;
     ~Window();
@@ -23,4 +25,6 @@ public:
     void close() const;
 
     GLFWwindow *operator*() const { return m_window; }
+    std::uint32_t width() const { return m_width; }
+    std::uint32_t height() const { return m_height; }
 };

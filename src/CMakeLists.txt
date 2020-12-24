@@ -2,6 +2,8 @@ add_executable(vull
     renderer/Camera.cc
     renderer/Device.cc
     renderer/Instance.cc
+    renderer/Surface.cc
+    renderer/Swapchain.cc
     support/Assert.cc
     main.cc
     Window.cc)

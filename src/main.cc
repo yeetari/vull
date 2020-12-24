@@ -2,6 +2,9 @@
 #include <renderer/Camera.hh>
 #include <renderer/Device.hh>
 #include <renderer/Instance.hh>
+#include <renderer/Surface.hh>
+#include <renderer/Swapchain.hh>
+#include <support/Array.hh>
 #include <support/Assert.hh>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -84,76 +87,20 @@ int main() {
     const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
     Instance instance({required_extensions, required_extension_count});
     Device device(instance.physical_devices()[0]);
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    ENSURE(glfwCreateWindowSurface(*instance, *window, nullptr, &surface) == VK_SUCCESS);
+    Surface surface(instance, device, window);
+    Swapchain swapchain(device, surface);
 
     std::optional<std::uint32_t> compute_family;
     std::optional<std::uint32_t> graphics_family;
-    std::optional<std::uint32_t> present_family;
     for (std::uint32_t i = 0; const auto &queue_family : device.queue_families()) {
         auto flags = queue_family.queueFlags;
-        VkBool32 present_supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device.physical(), i, surface, &present_supported);
-        if ((flags & VK_QUEUE_COMPUTE_BIT) != 0U && (flags & VK_QUEUE_GRAPHICS_BIT) != 0U &&
-            present_supported == VK_TRUE) {
+        if ((flags & VK_QUEUE_COMPUTE_BIT) != 0U && (flags & VK_QUEUE_GRAPHICS_BIT) != 0U) {
             compute_family = i;
             graphics_family = i;
-            present_family = i;
         }
     }
     ENSURE(compute_family);
     ENSURE(graphics_family);
-    ENSURE(present_family);
-
-    VkSurfaceCapabilitiesKHR surface_capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical(), surface, &surface_capabilities);
-    VkSurfaceFormatKHR surface_format{
-        .format = VK_FORMAT_B8G8R8A8_SRGB,
-        .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
-    };
-    VkSwapchainCreateInfoKHR swapchain_ci{
-        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-        .surface = surface,
-        .minImageCount = surface_capabilities.minImageCount + 1,
-        .imageFormat = surface_format.format,
-        .imageColorSpace = surface_format.colorSpace,
-        .imageExtent = {WIDTH, HEIGHT},
-        .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .preTransform = surface_capabilities.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
-        .clipped = VK_TRUE,
-    };
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    ENSURE(vkCreateSwapchainKHR(*device, &swapchain_ci, nullptr, &swapchain) == VK_SUCCESS);
-
-    std::uint32_t swapchain_image_count = 0;
-    vkGetSwapchainImagesKHR(*device, swapchain, &swapchain_image_count, nullptr);
-    std::vector<VkImage> swapchain_images(swapchain_image_count);
-    vkGetSwapchainImagesKHR(*device, swapchain, &swapchain_image_count, swapchain_images.data());
-    std::vector<VkImageView> swapchain_image_views(swapchain_image_count);
-    for (std::uint32_t i = 0; i < swapchain_image_count; i++) {
-        VkImageViewCreateInfo image_view_ci{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = swapchain_images[i],
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = surface_format.format,
-            .components{
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-            },
-            .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        ENSURE(vkCreateImageView(*device, &image_view_ci, nullptr, &swapchain_image_views[i]) == VK_SUCCESS);
-    }
 
     VmaAllocatorCreateInfo allocator_ci{
         .physicalDevice = device.physical(),
@@ -178,10 +125,8 @@ int main() {
 
     VkQueue compute_queue = VK_NULL_HANDLE;
     VkQueue graphics_queue = VK_NULL_HANDLE;
-    VkQueue present_queue = VK_NULL_HANDLE;
     vkGetDeviceQueue(*device, *compute_family, 0, &compute_queue);
     vkGetDeviceQueue(*device, *graphics_family, 0, &graphics_queue);
-    vkGetDeviceQueue(*device, *present_family, 0, &present_queue);
 
     VkAttachmentDescription depth_attachment{
         .format = VK_FORMAT_D32_SFLOAT,
@@ -304,8 +249,8 @@ int main() {
     VkShaderModule main_pass_fragment_shader = VK_NULL_HANDLE;
     ENSURE(vkCreateShaderModule(*device, &depth_pass_vertex_shader_ci, nullptr, &depth_pass_vertex_shader) ==
            VK_SUCCESS);
-    ENSURE(vkCreateShaderModule(*device, &light_cull_pass_compute_shader_ci, nullptr, &light_cull_pass_compute_shader) ==
-           VK_SUCCESS);
+    ENSURE(vkCreateShaderModule(*device, &light_cull_pass_compute_shader_ci, nullptr,
+                                &light_cull_pass_compute_shader) == VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
@@ -562,8 +507,8 @@ int main() {
                                      &depth_pass_pipeline) == VK_SUCCESS);
     ENSURE(vkCreateComputePipelines(*device, VK_NULL_HANDLE, 1, &light_cull_pass_pipeline_ci, nullptr,
                                     &light_cull_pass_pipeline) == VK_SUCCESS);
-    ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &main_pass_pipeline_ci, nullptr, &main_pass_pipeline) ==
-           VK_SUCCESS);
+    ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &main_pass_pipeline_ci, nullptr,
+                                     &main_pass_pipeline) == VK_SUCCESS);
 
     VkImageCreateInfo depth_image_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -631,8 +576,8 @@ int main() {
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
     ENSURE(vkCreateFramebuffer(*device, &depth_pass_framebuffer_ci, nullptr, &depth_pass_framebuffer) == VK_SUCCESS);
 
-    std::vector<VkFramebuffer> main_pass_framebuffers(swapchain_image_views.size());
-    for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain_image_views) {
+    std::vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().length());
+    for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain.image_views()) {
         std::array<VkImageView, 2> image_views{
             swapchain_image_view,
             depth_image_view,
@@ -783,7 +728,7 @@ int main() {
     };
     VkDescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = static_cast<std::uint32_t>(swapchain_image_views.size()),
+        .maxSets = swapchain.image_views().length(),
         .poolSizeCount = static_cast<std::uint32_t>(descriptor_pool_sizes.size()),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
@@ -856,7 +801,8 @@ int main() {
         .pSetLayouts = &depth_sampler_set_layout,
     };
     VkDescriptorSet depth_sampler_descriptor_set = VK_NULL_HANDLE;
-    ENSURE(vkAllocateDescriptorSets(*device, &depth_sampler_descriptor_ai, &depth_sampler_descriptor_set) == VK_SUCCESS);
+    ENSURE(vkAllocateDescriptorSets(*device, &depth_sampler_descriptor_ai, &depth_sampler_descriptor_set) ==
+           VK_SUCCESS);
     VkDescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
         .imageView = depth_image_view,
@@ -882,7 +828,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = graphics_command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = swapchain_image_count + 1,
+        .commandBufferCount = swapchain.image_views().length() + 1,
     };
     VkCommandBuffer light_cull_pass_cmd_buf = VK_NULL_HANDLE;
     std::vector<VkCommandBuffer> graphics_cmd_bufs(graphics_cmd_buf_ai.commandBufferCount);
@@ -1087,9 +1033,7 @@ int main() {
 
         vkWaitForFences(*device, 1, &fence, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
         vkResetFences(*device, 1, &fence);
-        std::uint32_t image_index = 0;
-        vkAcquireNextImageKHR(*device, swapchain, std::numeric_limits<std::uint64_t>::max(), image_available,
-                              VK_NULL_HANDLE, &image_index);
+        std::uint32_t image_index = swapchain.acquire_next_image(image_available, nullptr);
 
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
@@ -1151,15 +1095,8 @@ int main() {
         };
         vkQueueSubmit(graphics_queue, 1, &main_pass_si, fence);
 
-        VkPresentInfoKHR present_info{
-            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &main_pass_finished,
-            .swapchainCount = 1,
-            .pSwapchains = &swapchain,
-            .pImageIndices = &image_index,
-        };
-        vkQueuePresentKHR(present_queue, &present_info);
+        Array present_wait_semaphores{main_pass_finished};
+        swapchain.present(image_index, present_wait_semaphores);
         Window::poll_events();
     }
     vmaUnmapMemory(allocator, lights_buffer_allocation);
@@ -1204,9 +1141,4 @@ int main() {
     vkDestroyCommandPool(*device, graphics_command_pool, nullptr);
     vkDestroyCommandPool(*device, compute_command_pool, nullptr);
     vmaDestroyAllocator(allocator);
-    for (auto *image_view : swapchain_image_views) {
-        vkDestroyImageView(*device, image_view, nullptr);
-    }
-    vkDestroySwapchainKHR(*device, swapchain, nullptr);
-    vkDestroySurfaceKHR(*instance, surface, nullptr);
 }
