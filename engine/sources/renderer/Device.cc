@@ -1,6 +1,6 @@
-#include <renderer/Device.hh>
+#include <vull/renderer/Device.hh>
 
-#include <support/Assert.hh>
+#include <vull/support/Assert.hh>
 
 namespace {
 

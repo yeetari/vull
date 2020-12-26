@@ -1,0 +1,6 @@
+add_executable(vull-sandbox)
+add_subdirectory(sources)
+target_compile_features(vull-sandbox PRIVATE cxx_std_20)
+target_enable_optimisations(vull-sandbox)
+target_include_directories(vull-sandbox PRIVATE sources)
+target_link_libraries(vull-sandbox PRIVATE vull-engine)

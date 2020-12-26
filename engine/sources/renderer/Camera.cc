@@ -1,6 +1,6 @@
-#include <renderer/Camera.hh>
+#include <vull/renderer/Camera.hh>
 
-#include <io/Window.hh>
+#include <vull/io/Window.hh>
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>

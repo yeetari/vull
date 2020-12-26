@@ -1,7 +1,7 @@
 #pragma once
 
-#include <support/Span.hh>
-#include <support/Vector.hh>
+#include <vull/support/Span.hh>
+#include <vull/support/Vector.hh>
 
 #include <vulkan/vulkan_core.h>
 

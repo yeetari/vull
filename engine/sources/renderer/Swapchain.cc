@@ -1,9 +1,9 @@
-#include <renderer/Swapchain.hh>
+#include <vull/renderer/Swapchain.hh>
 
-#include <renderer/Device.hh>
-#include <renderer/Surface.hh>
-#include <support/Assert.hh>
-#include <support/Vector.hh>
+#include <vull/renderer/Device.hh>
+#include <vull/renderer/Surface.hh>
+#include <vull/support/Assert.hh>
+#include <vull/support/Vector.hh>
 
 #include <limits>
 

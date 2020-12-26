@@ -1,7 +1,7 @@
-#include <renderer/Instance.hh>
+#include <vull/renderer/Instance.hh>
 
-#include <support/Assert.hh>
-#include <support/Vector.hh>
+#include <vull/support/Assert.hh>
+#include <vull/support/Vector.hh>
 
 #include <algorithm>
 #include <cstring>

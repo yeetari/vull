@@ -1,14 +1,3 @@
-#include <io/Window.hh>
-#include <renderer/Camera.hh>
-#include <renderer/Device.hh>
-#include <renderer/Instance.hh>
-#include <renderer/Surface.hh>
-#include <renderer/Swapchain.hh>
-#include <support/Array.hh>
-#include <support/Assert.hh>
-#include <support/Span.hh>
-#include <support/Vector.hh>
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #define VMA_IMPLEMENTATION
 #include <GLFW/glfw3.h>
@@ -20,6 +9,17 @@
 #include <tiny_obj_loader.h>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
+#include <vull/Config.hh>
+#include <vull/io/Window.hh>
+#include <vull/renderer/Camera.hh>
+#include <vull/renderer/Device.hh>
+#include <vull/renderer/Instance.hh>
+#include <vull/renderer/Surface.hh>
+#include <vull/renderer/Swapchain.hh>
+#include <vull/support/Array.hh>
+#include <vull/support/Assert.hh>
+#include <vull/support/Span.hh>
+#include <vull/support/Vector.hh>
 
 #include <algorithm>
 #include <fstream>
@@ -46,8 +46,8 @@ bool operator==(const Vertex &lhs, const Vertex &rhs) {
     return lhs.position == rhs.position && lhs.normal == rhs.normal;
 }
 
-Vector<char> load_binary(const std::string &path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
+Vector<char> load_shader(const std::string &path) {
+    std::ifstream file(SHADER_PATH + path, std::ios::ate | std::ios::binary);
     ENSURE(file);
     Vector<char> buffer(file.tellg());
     file.seekg(0);
@@ -206,10 +206,10 @@ int main() {
     VkRenderPass main_pass_render_pass = VK_NULL_HANDLE;
     ENSURE(vkCreateRenderPass(*device, &main_pass_render_pass_ci, nullptr, &main_pass_render_pass) == VK_SUCCESS);
 
-    auto depth_pass_vertex_shader_code = load_binary("shaders/depth.vert.spv");
-    auto light_cull_pass_compute_shader_code = load_binary("shaders/light_cull.comp.spv");
-    auto main_pass_vertex_shader_code = load_binary("shaders/main.vert.spv");
-    auto main_pass_fragment_shader_code = load_binary("shaders/main.frag.spv");
+    auto depth_pass_vertex_shader_code = load_shader("depth.vert.spv");
+    auto light_cull_pass_compute_shader_code = load_shader("light_cull.comp.spv");
+    auto main_pass_vertex_shader_code = load_shader("main.vert.spv");
+    auto main_pass_fragment_shader_code = load_shader("main.frag.spv");
     VkShaderModuleCreateInfo depth_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = depth_pass_vertex_shader_code.length(),
@@ -582,7 +582,7 @@ int main() {
     }
 
     tinyobj::ObjReader reader;
-    ENSURE(reader.ParseFromFile("../../models/sponza.obj"));
+    ENSURE(reader.ParseFromFile(std::string(MODEL_PATH) + "sponza.obj"));
     std::uint32_t index_count = 0;
     for (const auto &shape : reader.GetShapes()) {
         index_count += shape.mesh.indices.size();
