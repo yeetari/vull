@@ -153,16 +153,31 @@ int main() {
     ENSURE(vkCreateRenderPass(*device, &depth_pass_render_pass_ci, nullptr, &depth_pass_render_pass) == VK_SUCCESS);
 
     Array main_pass_attachments{
+        // Present output (to swapchain).
         VkAttachmentDescription{
             .format = VK_FORMAT_B8G8R8A8_SRGB,
             .samples = VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            // No need to clear final swapchain image since it gets completely overwritten by the accumulation buffer,
+            // which already gets cleared.
+            .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         },
+        // Main rendering output (accumulation buffer).
+        VkAttachmentDescription{
+            .format = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        },
+        // Depth input.
         VkAttachmentDescription{
             .format = VK_FORMAT_D32_SFLOAT,
             .samples = VK_SAMPLE_COUNT_1_BIT,
@@ -174,34 +189,59 @@ int main() {
             .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
         },
     };
-    VkAttachmentReference colour_attachment_ref{
+    VkAttachmentReference present_output_attachment_ref{
         .attachment = 0,
         .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     };
-    VkAttachmentReference depth_attachment_ref{
+    VkAttachmentReference colour_output_attachment_ref{
         .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    };
+    VkAttachmentReference colour_input_attachment_ref{
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+    VkAttachmentReference depth_attachment_ref{
+        .attachment = 2,
         .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
     };
-    VkSubpassDescription main_pass_subpass{
-        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colour_attachment_ref,
-        .pDepthStencilAttachment = &depth_attachment_ref,
+    Array main_pass_subpasses{
+        VkSubpassDescription{
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colour_output_attachment_ref,
+            .pDepthStencilAttachment = &depth_attachment_ref,
+        },
+        VkSubpassDescription{
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .inputAttachmentCount = 1,
+            .pInputAttachments = &colour_input_attachment_ref,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &present_output_attachment_ref,
+        },
     };
-    VkSubpassDependency main_pass_subpass_dependency{
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+    Array main_pass_subpass_dependencies{
+        VkSubpassDependency{
+            .srcSubpass = VK_SUBPASS_EXTERNAL,
+            .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        },
+        VkSubpassDependency{
+            .dstSubpass = 1,
+            .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            .dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT,
+        },
     };
     VkRenderPassCreateInfo main_pass_render_pass_ci{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .attachmentCount = main_pass_attachments.length(),
         .pAttachments = main_pass_attachments.data(),
-        .subpassCount = 1,
-        .pSubpasses = &main_pass_subpass,
-        .dependencyCount = 1,
-        .pDependencies = &main_pass_subpass_dependency,
+        .subpassCount = main_pass_subpasses.length(),
+        .pSubpasses = main_pass_subpasses.data(),
+        .dependencyCount = main_pass_subpass_dependencies.length(),
+        .pDependencies = main_pass_subpass_dependencies.data(),
     };
     VkRenderPass main_pass_render_pass = VK_NULL_HANDLE;
     ENSURE(vkCreateRenderPass(*device, &main_pass_render_pass_ci, nullptr, &main_pass_render_pass) == VK_SUCCESS);
@@ -210,6 +250,8 @@ int main() {
     auto light_cull_pass_compute_shader_code = load_shader("light_cull.comp.spv");
     auto main_pass_vertex_shader_code = load_shader("main.vert.spv");
     auto main_pass_fragment_shader_code = load_shader("main.frag.spv");
+    auto tone_map_subpass_vertex_shader_code = load_shader("quad.vert.spv");
+    auto tone_map_subpass_fragment_shader_code = load_shader("tone_map.frag.spv");
     VkShaderModuleCreateInfo depth_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = depth_pass_vertex_shader_code.length(),
@@ -230,10 +272,22 @@ int main() {
         .codeSize = main_pass_fragment_shader_code.length(),
         .pCode = reinterpret_cast<const std::uint32_t *>(main_pass_fragment_shader_code.data()),
     };
+    VkShaderModuleCreateInfo tone_map_subpass_vertex_shader_ci{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = tone_map_subpass_vertex_shader_code.length(),
+        .pCode = reinterpret_cast<const std::uint32_t *>(tone_map_subpass_vertex_shader_code.data()),
+    };
+    VkShaderModuleCreateInfo tone_map_subpass_fragment_shader_ci{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = tone_map_subpass_fragment_shader_code.length(),
+        .pCode = reinterpret_cast<const std::uint32_t *>(tone_map_subpass_fragment_shader_code.data()),
+    };
     VkShaderModule depth_pass_vertex_shader = VK_NULL_HANDLE;
     VkShaderModule light_cull_pass_compute_shader = VK_NULL_HANDLE;
     VkShaderModule main_pass_vertex_shader = VK_NULL_HANDLE;
     VkShaderModule main_pass_fragment_shader = VK_NULL_HANDLE;
+    VkShaderModule tone_map_subpass_vertex_shader = VK_NULL_HANDLE;
+    VkShaderModule tone_map_subpass_fragment_shader = VK_NULL_HANDLE;
     ENSURE(vkCreateShaderModule(*device, &depth_pass_vertex_shader_ci, nullptr, &depth_pass_vertex_shader) ==
            VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &light_cull_pass_compute_shader_ci, nullptr,
@@ -241,6 +295,10 @@ int main() {
     ENSURE(vkCreateShaderModule(*device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
+    ENSURE(vkCreateShaderModule(*device, &tone_map_subpass_vertex_shader_ci, nullptr,
+                                &tone_map_subpass_vertex_shader) == VK_SUCCESS);
+    ENSURE(vkCreateShaderModule(*device, &tone_map_subpass_fragment_shader_ci, nullptr,
+                                &tone_map_subpass_fragment_shader) == VK_SUCCESS);
     Array depth_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -269,6 +327,20 @@ int main() {
             .pName = "main",
         },
     };
+    Array tone_map_subpass_shader_stage_cis{
+        VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = tone_map_subpass_vertex_shader,
+            .pName = "main",
+        },
+        VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = tone_map_subpass_fragment_shader,
+            .pName = "main",
+        },
+    };
 
     Array<VkVertexInputAttributeDescription, 2> attribute_descriptions{{
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position)},
@@ -285,6 +357,9 @@ int main() {
         .pVertexBindingDescriptions = &binding_description,
         .vertexAttributeDescriptionCount = attribute_descriptions.length(),
         .pVertexAttributeDescriptions = attribute_descriptions.data(),
+    };
+    VkPipelineVertexInputStateCreateInfo tone_map_subpass_vertex_input{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
     };
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly{
@@ -315,6 +390,12 @@ int main() {
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0F,
     };
+    VkPipelineRasterizationStateCreateInfo tone_map_subpass_rasterization_state{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_NONE,
+        .lineWidth = 1.0F,
+    };
 
     VkPipelineMultisampleStateCreateInfo multisample_state{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
@@ -332,6 +413,9 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
         .depthTestEnable = VK_TRUE,
         .depthCompareOp = VK_COMPARE_OP_EQUAL,
+    };
+    VkPipelineDepthStencilStateCreateInfo tone_map_subpass_depth_stencil_state{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
     };
 
     VkPipelineColorBlendAttachmentState main_pass_blend_attachment{
@@ -400,6 +484,21 @@ int main() {
         .size = sizeof(glm::ivec2),
     };
 
+    VkDescriptorSetLayoutBinding accumulation_buffer_binding{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+    };
+    VkDescriptorSetLayoutCreateInfo accumulation_buffer_set_layout_ci{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &accumulation_buffer_binding,
+    };
+    VkDescriptorSetLayout accumulation_buffer_set_layout = VK_NULL_HANDLE;
+    ENSURE(vkCreateDescriptorSetLayout(*device, &accumulation_buffer_set_layout_ci, nullptr,
+                                       &accumulation_buffer_set_layout) == VK_SUCCESS);
+
     VkDescriptorSetLayoutBinding depth_sampler_binding{
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -455,6 +554,15 @@ int main() {
     ENSURE(vkCreatePipelineLayout(*device, &main_pass_pipeline_layout_ci, nullptr, &main_pass_pipeline_layout) ==
            VK_SUCCESS);
 
+    VkPipelineLayoutCreateInfo tone_map_subpass_pipeline_layout_ci{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &accumulation_buffer_set_layout,
+    };
+    VkPipelineLayout tone_map_subpass_pipeline_layout = VK_NULL_HANDLE;
+    ENSURE(vkCreatePipelineLayout(*device, &tone_map_subpass_pipeline_layout_ci, nullptr,
+                                  &tone_map_subpass_pipeline_layout) == VK_SUCCESS);
+
     VkGraphicsPipelineCreateInfo depth_pass_pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = depth_pass_shader_stage_cis.length(),
@@ -487,20 +595,63 @@ int main() {
         .layout = main_pass_pipeline_layout,
         .renderPass = main_pass_render_pass,
     };
+    VkGraphicsPipelineCreateInfo tone_map_subpass_pipeline_ci{
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = tone_map_subpass_shader_stage_cis.length(),
+        .pStages = tone_map_subpass_shader_stage_cis.data(),
+        .pVertexInputState = &tone_map_subpass_vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState = &viewport_state,
+        .pRasterizationState = &tone_map_subpass_rasterization_state,
+        .pMultisampleState = &multisample_state,
+        .pDepthStencilState = &tone_map_subpass_depth_stencil_state,
+        .pColorBlendState = &main_pass_blend_state,
+        .layout = tone_map_subpass_pipeline_layout,
+        .renderPass = main_pass_render_pass,
+        .subpass = 1,
+    };
     VkPipeline depth_pass_pipeline = VK_NULL_HANDLE;
     VkPipeline light_cull_pass_pipeline = VK_NULL_HANDLE;
     VkPipeline main_pass_pipeline = VK_NULL_HANDLE;
+    VkPipeline tone_map_subpass_pipeline = VK_NULL_HANDLE;
     ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &depth_pass_pipeline_ci, nullptr,
                                      &depth_pass_pipeline) == VK_SUCCESS);
     ENSURE(vkCreateComputePipelines(*device, VK_NULL_HANDLE, 1, &light_cull_pass_pipeline_ci, nullptr,
                                     &light_cull_pass_pipeline) == VK_SUCCESS);
     ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &main_pass_pipeline_ci, nullptr,
                                      &main_pass_pipeline) == VK_SUCCESS);
+    ENSURE(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &tone_map_subpass_pipeline_ci, nullptr,
+                                     &tone_map_subpass_pipeline) == VK_SUCCESS);
+
+    VkImageCreateInfo accumulation_image_ci{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = main_pass_attachments[1].format,
+        .extent{
+            .width = WIDTH,
+            .height = HEIGHT,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    VmaAllocationCreateInfo accumulation_image_allocation_ci{
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+    };
+    VkImage accumulation_image = VK_NULL_HANDLE;
+    VmaAllocation accumulation_image_allocation = VK_NULL_HANDLE;
+    ENSURE(vmaCreateImage(allocator, &accumulation_image_ci, &accumulation_image_allocation_ci, &accumulation_image,
+                          &accumulation_image_allocation, nullptr) == VK_SUCCESS);
 
     VkImageCreateInfo depth_image_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
-        .format = main_pass_attachments[1].format,
+        .format = main_pass_attachments[2].format,
         .extent{
             .width = WIDTH,
             .height = HEIGHT,
@@ -522,11 +673,25 @@ int main() {
     ENSURE(vmaCreateImage(allocator, &depth_image_ci, &depth_image_allocation_ci, &depth_image, &depth_image_allocation,
                           nullptr) == VK_SUCCESS);
 
+    VkImageViewCreateInfo accumulation_image_view_ci{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = accumulation_image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = main_pass_attachments[1].format,
+        .subresourceRange{
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    VkImageView accumulation_image_view = VK_NULL_HANDLE;
+    ENSURE(vkCreateImageView(*device, &accumulation_image_view_ci, nullptr, &accumulation_image_view) == VK_SUCCESS);
+
     VkImageViewCreateInfo depth_image_view_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = depth_image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = main_pass_attachments[1].format,
+        .format = main_pass_attachments[2].format,
         .subresourceRange{
             .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
             .levelCount = 1,
@@ -535,6 +700,19 @@ int main() {
     };
     VkImageView depth_image_view = VK_NULL_HANDLE;
     ENSURE(vkCreateImageView(*device, &depth_image_view_ci, nullptr, &depth_image_view) == VK_SUCCESS);
+
+    VkSamplerCreateInfo accumulation_sampler_ci{
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .magFilter = VK_FILTER_NEAREST,
+        .minFilter = VK_FILTER_NEAREST,
+        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    };
+    VkSampler accumulation_sampler = VK_NULL_HANDLE;
+    ENSURE(vkCreateSampler(*device, &accumulation_sampler_ci, nullptr, &accumulation_sampler) == VK_SUCCESS);
 
     VkSamplerCreateInfo depth_sampler_ci{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
@@ -567,6 +745,7 @@ int main() {
     for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain.image_views()) {
         Array image_views{
             swapchain_image_view,
+            accumulation_image_view,
             depth_image_view,
         };
         VkFramebufferCreateInfo framebuffer_ci{
@@ -717,6 +896,10 @@ int main() {
             .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
         },
+        VkDescriptorPoolSize{
+            .type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+            .descriptorCount = 1,
+        },
     };
     VkDescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -784,6 +967,30 @@ int main() {
         .pBufferInfo = &ubo_buffer_info,
     };
     vkUpdateDescriptorSets(*device, 1, &ubo_descriptor_write, 0, nullptr);
+
+    VkDescriptorSetAllocateInfo accumulation_buffer_descriptor_ai{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &accumulation_buffer_set_layout,
+    };
+    VkDescriptorSet accumulation_buffer_descriptor_set = VK_NULL_HANDLE;
+    ENSURE(vkAllocateDescriptorSets(*device, &accumulation_buffer_descriptor_ai, &accumulation_buffer_descriptor_set) ==
+           VK_SUCCESS);
+    VkDescriptorImageInfo accumulation_buffer_image_info{
+        .sampler = accumulation_sampler,
+        .imageView = accumulation_image_view,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+    VkWriteDescriptorSet accumulation_sampler_descriptor_write{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = accumulation_buffer_descriptor_set,
+        .dstBinding = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        .pImageInfo = &accumulation_buffer_image_info,
+    };
+    vkUpdateDescriptorSets(*device, 1, &accumulation_sampler_descriptor_write, 0, nullptr);
 
     VkDescriptorSetAllocateInfo depth_sampler_descriptor_ai{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -897,8 +1104,10 @@ int main() {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         };
         ENSURE(vkBeginCommandBuffer(main_pass_cmd_buf, &main_pass_cmd_buf_bi) == VK_SUCCESS);
-        Array<VkClearValue, 1> main_pass_clear_values{};
+        Array<VkClearValue, 2> main_pass_clear_values{};
         main_pass_clear_values[0].color = {0, 0, 0, 1};
+        main_pass_clear_values[1].color = {0, 0, 0, 1};
+
         VkRenderPassBeginInfo main_pass_render_pass_bi{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = main_pass_render_pass,
@@ -920,6 +1129,11 @@ int main() {
         vkCmdBindVertexBuffers(main_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(main_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(main_pass_cmd_buf, indices.length(), 1, 0, 0, 0);
+        vkCmdNextSubpass(main_pass_cmd_buf, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindPipeline(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_map_subpass_pipeline);
+        vkCmdBindDescriptorSets(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, tone_map_subpass_pipeline_layout, 0,
+                                1, &accumulation_buffer_descriptor_set, 0, nullptr);
+        vkCmdDraw(main_pass_cmd_buf, 6, 1, 0, 0);
         vkCmdEndRenderPass(main_pass_cmd_buf);
         ENSURE(vkEndCommandBuffer(main_pass_cmd_buf) == VK_SUCCESS);
     }
@@ -947,7 +1161,7 @@ int main() {
     Array<glm::vec3, 3000> srcs{};
     Vector<PointLight> lights(3000);
     for (int i = 0; auto &light : lights) {
-        light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
+        light.colour = glm::linearRand(glm::vec3(0.2F), glm::vec3(1.0F));
         light.radius = glm::linearRand(15.0F, 30.0F);
         light.position.x = glm::linearRand(-190, 175);
         light.position.y = glm::linearRand(-12, 138);
@@ -1102,17 +1316,25 @@ int main() {
     }
     vkDestroyFramebuffer(*device, depth_pass_framebuffer, nullptr);
     vkDestroySampler(*device, depth_sampler, nullptr);
+    vkDestroySampler(*device, accumulation_sampler, nullptr);
     vkDestroyImageView(*device, depth_image_view, nullptr);
+    vkDestroyImageView(*device, accumulation_image_view, nullptr);
     vmaDestroyImage(allocator, depth_image, depth_image_allocation);
+    vmaDestroyImage(allocator, accumulation_image, accumulation_image_allocation);
+    vkDestroyPipeline(*device, tone_map_subpass_pipeline, nullptr);
     vkDestroyPipeline(*device, main_pass_pipeline, nullptr);
     vkDestroyPipeline(*device, light_cull_pass_pipeline, nullptr);
     vkDestroyPipeline(*device, depth_pass_pipeline, nullptr);
+    vkDestroyPipelineLayout(*device, tone_map_subpass_pipeline_layout, nullptr);
     vkDestroyPipelineLayout(*device, main_pass_pipeline_layout, nullptr);
     vkDestroyPipelineLayout(*device, light_cull_pass_pipeline_layout, nullptr);
     vkDestroyPipelineLayout(*device, depth_pass_pipeline_layout, nullptr);
     vkDestroyDescriptorSetLayout(*device, depth_sampler_set_layout, nullptr);
+    vkDestroyDescriptorSetLayout(*device, accumulation_buffer_set_layout, nullptr);
     vkDestroyDescriptorSetLayout(*device, ubo_set_layout, nullptr);
     vkDestroyDescriptorSetLayout(*device, lights_set_layout, nullptr);
+    vkDestroyShaderModule(*device, tone_map_subpass_fragment_shader, nullptr);
+    vkDestroyShaderModule(*device, tone_map_subpass_vertex_shader, nullptr);
     vkDestroyShaderModule(*device, main_pass_fragment_shader, nullptr);
     vkDestroyShaderModule(*device, main_pass_vertex_shader, nullptr);
     vkDestroyShaderModule(*device, light_cull_pass_compute_shader, nullptr);
