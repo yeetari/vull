@@ -83,8 +83,8 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
     T *new_data;
     if constexpr (!std::is_trivially_copyable_v<T>) {
         new_data = static_cast<T *>(std::malloc(capacity * sizeof(T)));
-        for (auto &elem : *this) {
-            new (new_data++) T(std::move(elem));
+        for (auto *data = new_data; auto &elem : *this) {
+            new (data++) T(std::move(elem));
         }
         for (auto *elem = end(); elem != begin();) {
             --elem;
