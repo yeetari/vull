@@ -20,4 +20,5 @@ target_link_libraries(vull-engine
     PUBLIC
     glfw
     glm::glm
+    Threads::Threads
     Vulkan::Vulkan)

@@ -3,6 +3,7 @@ project(vull CXX)
 
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
+find_package(Threads REQUIRED)
 find_package(Vulkan REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
