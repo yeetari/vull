@@ -3,6 +3,7 @@
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Surface.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
 #include <limits>
@@ -13,6 +14,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
         VkBool32 present_supported = VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(device.physical(), i, *surface, &present_supported);
         if (present_supported == VK_TRUE) {
+            Log::trace("renderer", "Using queue %d:0 for presenting", i, 0);
             vkGetDeviceQueue(*device, i, 0, &m_present_queue);
             break;
         }
@@ -20,6 +22,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
     ENSURE(m_present_queue != nullptr);
 
     // Create swapchain.
+    Log::debug("renderer", "Creating swapchain");
     VkSurfaceFormatKHR surface_format{
         .format = VK_FORMAT_B8G8R8A8_SRGB,
         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
@@ -47,6 +50,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
     Vector<VkImage> images(image_count);
     vkGetSwapchainImagesKHR(*device, m_swapchain, &image_count, images.data());
     m_image_views.relength(image_count);
+    Log::trace("renderer", " - creating %d image views", image_count);
     for (std::uint32_t i = 0; i < image_count; i++) {
         VkImageViewCreateInfo image_view_ci{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

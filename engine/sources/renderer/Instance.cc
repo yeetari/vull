@@ -1,6 +1,7 @@
 #include <vull/renderer/Instance.hh>
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
 #include <algorithm>
@@ -17,6 +18,10 @@ constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 } // namespace
 
 Instance::Instance(const Span<const char *> &extensions) {
+    Log::trace("renderer", "Creating vulkan instance with %d extensions", extensions.length());
+    for (const char *extension : extensions) {
+        Log::trace("renderer", " - %s", extension);
+    }
     VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = APPLICATION_NAME,
@@ -32,6 +37,7 @@ Instance::Instance(const Span<const char *> &extensions) {
         .ppEnabledExtensionNames = extensions.data(),
     };
 #ifndef NDEBUG
+    Log::debug("renderer", "Enabling vulkan validation layers");
     std::uint32_t layer_count = 0;
     vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
     Vector<VkLayerProperties> layers(layer_count);
@@ -39,6 +45,7 @@ Instance::Instance(const Span<const char *> &extensions) {
     auto *it = std::find_if(layers.begin(), layers.end(), [](const auto &layer) {
         return strcmp(layer.layerName, VALIDATION_LAYER_NAME) == 0;
     });
+    // TODO: Emit warning here instead of failing.
     ENSURE(it != layers.end());
     const char *layer_name = it->layerName;
     instance_ci.enabledLayerCount = 1;
