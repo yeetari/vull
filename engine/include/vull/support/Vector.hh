@@ -16,46 +16,46 @@ template <typename T, typename SizeType = std::uint32_t>
 class Vector {
     T *m_data{nullptr};
     SizeType m_capacity{0};
-    SizeType m_length{0};
+    SizeType m_size{0};
 
 public:
     constexpr Vector() = default;
-    explicit Vector(SizeType length);
+    explicit Vector(SizeType size);
     Vector(const Vector &) = delete;
     Vector(Vector &&other) noexcept
         : m_data(std::exchange(other.m_data, nullptr)), m_capacity(std::exchange(other.m_capacity, 0)),
-          m_length(std::exchange(other.m_length, 0)) {}
+          m_size(std::exchange(other.m_size, 0)) {}
     ~Vector();
 
     Vector &operator=(const Vector &) = delete;
     Vector &operator=(Vector &&) = delete;
 
     T *begin() { return m_data; }
-    T *end() { return m_data + m_length; }
+    T *end() { return m_data + m_size; }
     const T *begin() const { return m_data; }
-    const T *end() const { return m_data + m_length; }
+    const T *end() const { return m_data + m_size; }
 
     void ensure_capacity(SizeType capacity);
     void reallocate(SizeType capacity);
-    void relength(SizeType length);
+    void resize(SizeType size);
 
     void push(const T &elem);
     void push(T &&elem);
     std::conditional_t<std::is_trivially_copyable_v<T>, T, void> pop();
 
-    bool empty() const { return m_length == 0; }
+    bool empty() const { return m_size == 0; }
     T &operator[](SizeType index);
     const T &operator[](SizeType index) const;
 
     T *data() const { return m_data; }
     SizeType capacity() const { return m_capacity; }
-    SizeType length() const { return m_length; }
-    SizeType size() const { return m_length * sizeof(T); }
+    SizeType size() const { return m_size; }
+    SizeType size_bytes() const { return m_size * sizeof(T); }
 };
 
 template <typename T, typename SizeType>
-Vector<T, SizeType>::Vector(SizeType length) {
-    relength(length);
+Vector<T, SizeType>::Vector(SizeType size) {
+    resize(size);
 }
 
 template <typename T, typename SizeType>
@@ -79,7 +79,7 @@ void Vector<T, SizeType>::ensure_capacity(SizeType capacity) {
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::reallocate(SizeType capacity) {
-    ASSERT(capacity >= m_length);
+    ASSERT(capacity >= m_size);
     T *new_data;
     if constexpr (!std::is_trivially_copyable_v<T>) {
         new_data = static_cast<T *>(std::malloc(capacity * sizeof(T)));
@@ -99,33 +99,33 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
 }
 
 template <typename T, typename SizeType>
-void Vector<T, SizeType>::relength(SizeType length) {
-    ensure_capacity(m_length = length);
+void Vector<T, SizeType>::resize(SizeType size) {
+    ensure_capacity(m_size = size);
 }
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(const T &elem) {
-    ensure_capacity(m_length + 1);
+    ensure_capacity(m_size + 1);
     if constexpr (std::is_trivially_copyable_v<T>) {
         std::memcpy(end(), &elem, sizeof(T));
     } else {
         new (end()) T(elem);
     }
-    ++m_length;
+    ++m_size;
 }
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(T &&elem) {
-    ensure_capacity(m_length + 1);
+    ensure_capacity(m_size + 1);
     new (end()) T(std::move(elem));
-    ++m_length;
+    ++m_size;
 }
 
 template <typename T, typename SizeType>
 std::conditional_t<std::is_trivially_copyable_v<T>, T, void> Vector<T, SizeType>::pop() {
     ASSERT(!empty());
     auto *elem = end() - 1;
-    --m_length;
+    --m_size;
     if constexpr (!std::is_trivially_copyable_v<T>) {
         elem->~T();
     } else {
@@ -135,12 +135,12 @@ std::conditional_t<std::is_trivially_copyable_v<T>, T, void> Vector<T, SizeType>
 
 template <typename T, typename SizeType>
 T &Vector<T, SizeType>::operator[](SizeType index) {
-    ASSERT(index < m_length);
+    ASSERT(index < m_size);
     return begin()[index];
 }
 
 template <typename T, typename SizeType>
 const T &Vector<T, SizeType>::operator[](SizeType index) const {
-    ASSERT(index < m_length);
+    ASSERT(index < m_size);
     return begin()[index];
 }

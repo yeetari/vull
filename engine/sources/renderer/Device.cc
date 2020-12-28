@@ -45,7 +45,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
 
     std::uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, nullptr);
-    m_queue_families.relength(queue_family_count);
+    m_queue_families.resize(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, m_queue_families.data());
     Vector<VkDeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0F;
@@ -63,7 +63,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     };
     VkDeviceCreateInfo device_ci{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .queueCreateInfoCount = queue_cis.length(),
+        .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = 1,
         .ppEnabledExtensionNames = &SWAPCHAIN_EXTENSION_NAME,
@@ -71,7 +71,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     };
     ENSURE(vkCreateDevice(physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);
 
-    Log::trace("renderer", "Device has %d queue families", m_queue_families.length());
+    Log::trace("renderer", "Device has %d queue families", m_queue_families.size());
     for (const auto &queue_family : m_queue_families) {
         std::string flags;
         bool first = true;

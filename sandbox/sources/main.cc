@@ -198,7 +198,7 @@ int main() {
     };
     VkRenderPassCreateInfo main_pass_render_pass_ci{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
-        .attachmentCount = main_pass_attachments.length(),
+        .attachmentCount = main_pass_attachments.size(),
         .pAttachments = main_pass_attachments.data(),
         .subpassCount = 1,
         .pSubpasses = &main_pass_subpass,
@@ -215,22 +215,22 @@ int main() {
     auto main_pass_fragment_shader_code = load_shader("main.frag.spv");
     VkShaderModuleCreateInfo depth_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = depth_pass_vertex_shader_code.length(),
+        .codeSize = depth_pass_vertex_shader_code.size(),
         .pCode = reinterpret_cast<const std::uint32_t *>(depth_pass_vertex_shader_code.data()),
     };
     VkShaderModuleCreateInfo light_cull_pass_compute_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = light_cull_pass_compute_shader_code.length(),
+        .codeSize = light_cull_pass_compute_shader_code.size(),
         .pCode = reinterpret_cast<const std::uint32_t *>(light_cull_pass_compute_shader_code.data()),
     };
     VkShaderModuleCreateInfo main_pass_vertex_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = main_pass_vertex_shader_code.length(),
+        .codeSize = main_pass_vertex_shader_code.size(),
         .pCode = reinterpret_cast<const std::uint32_t *>(main_pass_vertex_shader_code.data()),
     };
     VkShaderModuleCreateInfo main_pass_fragment_shader_ci{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = main_pass_fragment_shader_code.length(),
+        .codeSize = main_pass_fragment_shader_code.size(),
         .pCode = reinterpret_cast<const std::uint32_t *>(main_pass_fragment_shader_code.data()),
     };
     VkShaderModule depth_pass_vertex_shader = VK_NULL_HANDLE;
@@ -286,7 +286,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &binding_description,
-        .vertexAttributeDescriptionCount = attribute_descriptions.length(),
+        .vertexAttributeDescriptionCount = attribute_descriptions.size(),
         .pVertexAttributeDescriptions = attribute_descriptions.data(),
     };
 
@@ -363,7 +363,7 @@ int main() {
     };
     VkDescriptorSetLayoutCreateInfo lights_set_layout_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = lights_set_bindings.length(),
+        .bindingCount = lights_set_bindings.size(),
         .pBindings = lights_set_bindings.data(),
     };
     VkDescriptorSetLayout lights_set_layout = VK_NULL_HANDLE;
@@ -434,7 +434,7 @@ int main() {
     };
     VkPipelineLayoutCreateInfo light_cull_pass_pipeline_layout_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = light_cull_pass_set_layouts.length(),
+        .setLayoutCount = light_cull_pass_set_layouts.size(),
         .pSetLayouts = light_cull_pass_set_layouts.data(),
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range_compute,
@@ -449,7 +449,7 @@ int main() {
     };
     VkPipelineLayoutCreateInfo main_pass_pipeline_layout_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = main_pass_set_layouts.length(),
+        .setLayoutCount = main_pass_set_layouts.size(),
         .pSetLayouts = main_pass_set_layouts.data(),
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range_fragment,
@@ -460,7 +460,7 @@ int main() {
 
     VkGraphicsPipelineCreateInfo depth_pass_pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = depth_pass_shader_stage_cis.length(),
+        .stageCount = depth_pass_shader_stage_cis.size(),
         .pStages = depth_pass_shader_stage_cis.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
@@ -478,7 +478,7 @@ int main() {
     };
     VkGraphicsPipelineCreateInfo main_pass_pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = main_pass_shader_stage_cis.length(),
+        .stageCount = main_pass_shader_stage_cis.size(),
         .pStages = main_pass_shader_stage_cis.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
@@ -566,7 +566,7 @@ int main() {
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
     ENSURE(vkCreateFramebuffer(*device, &depth_pass_framebuffer_ci, nullptr, &depth_pass_framebuffer) == VK_SUCCESS);
 
-    Vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().length());
+    Vector<VkFramebuffer> main_pass_framebuffers(swapchain.image_views().size());
     for (std::uint32_t i = 0; auto *swapchain_image_view : swapchain.image_views()) {
         Array image_views{
             swapchain_image_view,
@@ -575,7 +575,7 @@ int main() {
         VkFramebufferCreateInfo framebuffer_ci{
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = main_pass_render_pass,
-            .attachmentCount = image_views.length(),
+            .attachmentCount = image_views.size(),
             .pAttachments = image_views.data(),
             .width = WIDTH,
             .height = HEIGHT,
@@ -605,7 +605,7 @@ int main() {
             vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
             vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
             if (!unique_vertices.contains(vertex)) {
-                unique_vertices.emplace(vertex, vertices.length());
+                unique_vertices.emplace(vertex, vertices.size());
                 vertices.push(vertex);
             }
             indices.push(unique_vertices.at(vertex));
@@ -614,7 +614,7 @@ int main() {
 
     VkBufferCreateInfo vertex_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = vertices.size(),
+        .size = vertices.size_bytes(),
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -627,12 +627,12 @@ int main() {
                            &vertex_buffer_allocation, nullptr) == VK_SUCCESS);
     void *vertex_data = nullptr;
     vmaMapMemory(allocator, vertex_buffer_allocation, &vertex_data);
-    std::memcpy(vertex_data, vertices.data(), vertices.size());
+    std::memcpy(vertex_data, vertices.data(), vertices.size_bytes());
     vmaUnmapMemory(allocator, vertex_buffer_allocation);
 
     VkBufferCreateInfo index_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = indices.size(),
+        .size = indices.size_bytes(),
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -645,7 +645,7 @@ int main() {
                            &index_buffer_allocation, nullptr) == VK_SUCCESS);
     void *index_data = nullptr;
     vmaMapMemory(allocator, index_buffer_allocation, &index_data);
-    std::memcpy(index_data, indices.data(), indices.size());
+    std::memcpy(index_data, indices.data(), indices.size_bytes());
     vmaUnmapMemory(allocator, index_buffer_allocation);
 
     struct PointLight {
@@ -723,8 +723,8 @@ int main() {
     };
     VkDescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = swapchain.image_views().length(),
-        .poolSizeCount = descriptor_pool_sizes.length(),
+        .maxSets = swapchain.image_views().size(),
+        .poolSizeCount = descriptor_pool_sizes.size(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
     VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
@@ -764,7 +764,7 @@ int main() {
             .pBufferInfo = &light_visibilities_buffer_info,
         },
     };
-    vkUpdateDescriptorSets(*device, lights_descriptor_writes.length(), lights_descriptor_writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(*device, lights_descriptor_writes.size(), lights_descriptor_writes.data(), 0, nullptr);
 
     VkDescriptorSetAllocateInfo ubo_descriptor_ai{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -822,7 +822,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = graphics_command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = swapchain.image_views().length() + 1,
+        .commandBufferCount = swapchain.image_views().size() + 1,
     };
     VkCommandBuffer light_cull_pass_cmd_buf = VK_NULL_HANDLE;
     Vector<VkCommandBuffer> graphics_cmd_bufs(graphics_cmd_buf_ai.commandBufferCount);
@@ -844,7 +844,7 @@ int main() {
         .renderPass = depth_pass_render_pass,
         .framebuffer = depth_pass_framebuffer,
         .renderArea{.extent{WIDTH, HEIGHT}},
-        .clearValueCount = depth_pass_clear_values.length(),
+        .clearValueCount = depth_pass_clear_values.size(),
         .pClearValues = depth_pass_clear_values.data(),
     };
     Array<VkDeviceSize, 1> offsets{0};
@@ -854,7 +854,7 @@ int main() {
                             &ubo_descriptor_set, 0, nullptr);
     vkCmdBindVertexBuffers(depth_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
     vkCmdBindIndexBuffer(depth_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(depth_pass_cmd_buf, indices.length(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(depth_pass_cmd_buf, indices.size(), 1, 0, 0, 0);
     vkCmdEndRenderPass(depth_pass_cmd_buf);
     ENSURE(vkEndCommandBuffer(depth_pass_cmd_buf) == VK_SUCCESS);
 
@@ -868,8 +868,7 @@ int main() {
         depth_sampler_descriptor_set,
     };
     vkCmdBindDescriptorSets(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline_layout, 0,
-                            light_cull_pass_descriptor_sets.length(), light_cull_pass_descriptor_sets.data(), 0,
-                            nullptr);
+                            light_cull_pass_descriptor_sets.size(), light_cull_pass_descriptor_sets.data(), 0, nullptr);
     vkCmdPushConstants(light_cull_pass_cmd_buf, light_cull_pass_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
                        sizeof(PushConstantObject), &push_constants);
     vkCmdBindPipeline(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline);
@@ -891,7 +890,7 @@ int main() {
         },
     };
     vkCmdPipelineBarrier(light_cull_pass_cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, light_cull_pass_barriers.length(),
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, light_cull_pass_barriers.size(),
                          light_cull_pass_barriers.data(), 0, nullptr);
     ENSURE(vkEndCommandBuffer(light_cull_pass_cmd_buf) == VK_SUCCESS);
 
@@ -907,7 +906,7 @@ int main() {
             .renderPass = main_pass_render_pass,
             .framebuffer = main_pass_framebuffers[i++],
             .renderArea{.extent{WIDTH, HEIGHT}},
-            .clearValueCount = main_pass_clear_values.length(),
+            .clearValueCount = main_pass_clear_values.size(),
             .pClearValues = main_pass_clear_values.data(),
         };
         vkCmdBeginRenderPass(main_pass_cmd_buf, &main_pass_render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
@@ -919,10 +918,10 @@ int main() {
             ubo_descriptor_set,
         };
         vkCmdBindDescriptorSets(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, main_pass_pipeline_layout, 0,
-                                main_pass_descriptor_sets.length(), main_pass_descriptor_sets.data(), 0, nullptr);
+                                main_pass_descriptor_sets.size(), main_pass_descriptor_sets.data(), 0, nullptr);
         vkCmdBindVertexBuffers(main_pass_cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(main_pass_cmd_buf, index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(main_pass_cmd_buf, indices.length(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(main_pass_cmd_buf, indices.size(), 1, 0, 0, 0);
         vkCmdEndRenderPass(main_pass_cmd_buf);
         ENSURE(vkEndCommandBuffer(main_pass_cmd_buf) == VK_SUCCESS);
     }
@@ -1030,9 +1029,9 @@ int main() {
             i++;
         }
 
-        const std::uint32_t light_count = lights.length();
+        const std::uint32_t light_count = lights.size();
         std::memcpy(lights_data, &light_count, sizeof(std::uint32_t));
-        std::memcpy(reinterpret_cast<char *>(lights_data) + sizeof(glm::vec4), lights.data(), lights.size());
+        std::memcpy(reinterpret_cast<char *>(lights_data) + sizeof(glm::vec4), lights.data(), lights.size_bytes());
         std::memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         VkSubmitInfo depth_pass_si{
@@ -1069,7 +1068,7 @@ int main() {
         };
         VkSubmitInfo main_pass_si{
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .waitSemaphoreCount = main_pass_wait_semaphores.length(),
+            .waitSemaphoreCount = main_pass_wait_semaphores.size(),
             .pWaitSemaphores = main_pass_wait_semaphores.data(),
             .pWaitDstStageMask = main_pass_wait_stages.data(),
             .commandBufferCount = 1,
@@ -1092,7 +1091,7 @@ int main() {
     vkDestroySemaphore(*device, depth_pass_finished, nullptr);
     vkDestroySemaphore(*device, image_available, nullptr);
     vkDestroyFence(*device, fence, nullptr);
-    vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.length(), graphics_cmd_bufs.data());
+    vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.size(), graphics_cmd_bufs.data());
     vkFreeCommandBuffers(*device, compute_command_pool, 1, &light_cull_pass_cmd_buf);
     vkDestroyDescriptorPool(*device, descriptor_pool, nullptr);
     vmaDestroyBuffer(allocator, uniform_buffer, uniform_buffer_allocation);

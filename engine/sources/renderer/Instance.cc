@@ -18,7 +18,7 @@ constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 } // namespace
 
 Instance::Instance(const Span<const char *> &extensions) {
-    Log::trace("renderer", "Creating vulkan instance with %d extensions", extensions.length());
+    Log::trace("renderer", "Creating vulkan instance with %d extensions", extensions.size());
     for (const char *extension : extensions) {
         Log::trace("renderer", " - %s", extension);
     }
@@ -33,7 +33,7 @@ Instance::Instance(const Span<const char *> &extensions) {
     VkInstanceCreateInfo instance_ci{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &application_info,
-        .enabledExtensionCount = extensions.length(),
+        .enabledExtensionCount = extensions.size(),
         .ppEnabledExtensionNames = extensions.data(),
     };
 #ifndef NDEBUG
@@ -55,7 +55,7 @@ Instance::Instance(const Span<const char *> &extensions) {
 
     std::uint32_t physical_device_count = 0;
     vkEnumeratePhysicalDevices(m_instance, &physical_device_count, nullptr);
-    m_physical_devices.relength(physical_device_count);
+    m_physical_devices.resize(physical_device_count);
     vkEnumeratePhysicalDevices(m_instance, &physical_device_count, m_physical_devices.data());
     ENSURE(!m_physical_devices.empty());
 }

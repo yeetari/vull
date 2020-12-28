@@ -49,7 +49,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
     vkGetSwapchainImagesKHR(*device, m_swapchain, &image_count, nullptr);
     Vector<VkImage> images(image_count);
     vkGetSwapchainImagesKHR(*device, m_swapchain, &image_count, images.data());
-    m_image_views.relength(image_count);
+    m_image_views.resize(image_count);
     Log::trace("renderer", " - creating %d image views", image_count);
     for (std::uint32_t i = 0; i < image_count; i++) {
         VkImageViewCreateInfo image_view_ci{
@@ -90,7 +90,7 @@ std::uint32_t Swapchain::acquire_next_image(VkSemaphore semaphore, VkFence fence
 void Swapchain::present(std::uint32_t image_index, const Span<VkSemaphore> &wait_semaphores) {
     VkPresentInfoKHR present_info{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = wait_semaphores.length(),
+        .waitSemaphoreCount = wait_semaphores.size(),
         .pWaitSemaphores = wait_semaphores.data(),
         .swapchainCount = 1,
         .pSwapchains = &m_swapchain,
