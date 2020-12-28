@@ -112,6 +112,8 @@ int main() {
     ENSURE(vkCreateCommandPool(*device, &compute_command_pool_ci, nullptr, &compute_command_pool) == VK_SUCCESS);
     ENSURE(vkCreateCommandPool(*device, &graphics_command_pool_ci, nullptr, &graphics_command_pool) == VK_SUCCESS);
 
+    Log::trace("sandbox", "Using queue %d:0 for compute", *compute_family);
+    Log::trace("sandbox", "Using queue %d:0 for graphics", *graphics_family);
     VkQueue compute_queue = VK_NULL_HANDLE;
     VkQueue graphics_queue = VK_NULL_HANDLE;
     vkGetDeviceQueue(*device, *compute_family, 0, &compute_queue);
@@ -206,6 +208,7 @@ int main() {
     VkRenderPass main_pass_render_pass = VK_NULL_HANDLE;
     ENSURE(vkCreateRenderPass(*device, &main_pass_render_pass_ci, nullptr, &main_pass_render_pass) == VK_SUCCESS);
 
+    Log::debug("sandbox", "Loading shaders");
     auto depth_pass_vertex_shader_code = load_shader("depth.vert.spv");
     auto light_cull_pass_compute_shader_code = load_shader("light_cull.comp.spv");
     auto main_pass_vertex_shader_code = load_shader("main.vert.spv");
