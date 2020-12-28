@@ -18,12 +18,12 @@
 #include <vull/renderer/Swapchain.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Log.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 
 #include <algorithm>
 #include <fstream>
-#include <iostream>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -1007,7 +1007,7 @@ int main() {
         previous_time = current_time;
         frame_count++;
         if (current_time - fps_counter_prev_time >= 1.0) {
-            std::cout << "FPS: " << frame_count << '\n';
+            Log::info("sandbox", "FPS: %d", frame_count);
             frame_count = 0;
             fps_counter_prev_time = current_time;
         }

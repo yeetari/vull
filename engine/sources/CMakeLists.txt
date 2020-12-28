@@ -5,4 +5,5 @@ target_sources(vull-engine PRIVATE
     renderer/Instance.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
-    support/Assert.cc)
+    support/Assert.cc
+    support/Log.cc)

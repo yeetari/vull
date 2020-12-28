@@ -1,9 +1,10 @@
 #include <vull/support/Assert.hh>
 
+#include <vull/support/Log.hh>
+
 #include <cstdlib>
-#include <iostream>
 
 [[noreturn]] void assertion_failed(const char *file, unsigned int line, const char *expr) {
-    std::cout << "Assertion '" << expr << "' failed at " << file << ':' << line << '\n';
+    Log::error("core", "Assertion '%s' failed at %s:%d", expr, file, line);
     std::abort();
 }
