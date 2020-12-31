@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
 project(vull CXX)
 
+option(VULL_BUILD_BENCHMARKS "Build benchmarks" OFF)
+if(VULL_BUILD_BENCHMARKS)
+    find_package(benchmark REQUIRED)
+endif()
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Threads REQUIRED)
