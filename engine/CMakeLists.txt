@@ -4,6 +4,9 @@ if(VULL_BUILD_BENCHMARKS)
 endif()
 add_subdirectory(shaders)
 add_subdirectory(sources)
+if(VULL_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
 configure_file(include/vull/Config.hh.in include/vull/Config.hh)
 target_compile_definitions(vull-engine
     PUBLIC
