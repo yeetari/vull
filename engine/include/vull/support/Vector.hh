@@ -40,6 +40,8 @@ public:
     void reallocate(SizeType capacity);
     void resize(SizeType size);
 
+    template <typename... Args>
+    T &emplace(Args &&... args);
     void push(const T &elem);
     void push(T &&elem);
     std::conditional_t<std::is_trivially_copyable_v<T>, T, void> pop();
@@ -102,6 +104,15 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::resize(SizeType size) {
     ensure_capacity(m_size = size);
+}
+
+template <typename T, typename SizeType>
+template <typename... Args>
+T &Vector<T, SizeType>::emplace(Args &&... args) {
+    ensure_capacity(m_size + 1);
+    new (end()) T(std::forward<Args>(args)...);
+    ++m_size;
+    return *end();
 }
 
 template <typename T, typename SizeType>
