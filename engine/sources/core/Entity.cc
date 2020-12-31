@@ -7,6 +7,7 @@ void Entity::destroy() {
 }
 
 Entity EntityManager::create_entity() {
+    m_components[m_count];
     return {m_count++, this};
 }
 

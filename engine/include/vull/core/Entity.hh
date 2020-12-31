@@ -117,7 +117,7 @@ public:
     Entity create_entity();
     void destroy_entity(EntityId id);
 
-    EntityId entity_count() const { return m_count; }
+    EntityId entity_count() const { return m_components.size(); }
 };
 
 template <typename C, typename... Args>
@@ -190,7 +190,7 @@ template <typename C>
 void EntityManager::remove_component(EntityId id) {
     ASSERT(m_components.contains(id));
     auto &entity_components = m_components.at(id);
-    entity_components.erase(id);
+    entity_components.erase(ComponentContainer<C>::family());
 }
 
 template <typename... Comps>
