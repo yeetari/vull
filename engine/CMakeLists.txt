@@ -1,4 +1,7 @@
 add_library(vull-engine)
+if(VULL_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
 add_subdirectory(shaders)
 add_subdirectory(sources)
 configure_file(include/vull/Config.hh.in include/vull/Config.hh)
