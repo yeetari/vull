@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <utility>
 
 /// Replacement of std::vector with support for inline stack contents and smaller size types. The former allows for much
