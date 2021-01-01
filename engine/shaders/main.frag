@@ -5,11 +5,11 @@ layout (early_fragment_tests) in;
 layout (location = 0) in vec3 g_position;
 layout (location = 1) in vec3 g_normal;
 
-layout (std140, set = 0, binding = 0) buffer readonly Lights {
+layout (set = 0, binding = 0, std140) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (set = 0, binding = 1) buffer readonly LightVisibilities {
+layout (set = 0, binding = 1) readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
 layout (set = 1, binding = 0) uniform UniformBuffer {

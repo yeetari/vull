@@ -3,11 +3,11 @@
 
 layout (local_size_x_id = 0, local_size_y_id = 0, local_size_z = 1) in;
 
-layout (std140, set = 0, binding = 0) buffer readonly Lights {
+layout (set = 0, binding = 0, std140) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (set = 0, binding = 1) buffer writeonly LightVisibilities {
+layout (set = 0, binding = 1) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
 layout (set = 1, binding = 0) uniform UniformBuffer {
@@ -22,10 +22,6 @@ struct ViewFrustum {
     vec4 planes[6];
     vec3 points[8];
 };
-
-const vec2 ndc_upper_left = vec2(-1.0, -1.0);
-const float ndc_near_plane = 0.0;
-const float ndc_far_plane = 1.0;
 
 shared uint g_min_depth_int;
 shared uint g_max_depth_int;
