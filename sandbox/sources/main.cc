@@ -30,8 +30,6 @@
 
 namespace {
 
-constexpr int k_width = 2560;
-constexpr int k_height = 1440;
 constexpr int k_max_light_count = 6000;
 constexpr int k_max_lights_per_tile = 400;
 constexpr int k_tile_size = 32;
@@ -71,7 +69,7 @@ struct hash<Vertex> {
 } // namespace std
 
 int main() {
-    Window window(k_width, k_height);
+    Window window;
     glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     std::uint32_t required_extension_count = 0;
@@ -247,8 +245,8 @@ int main() {
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
 
-    const int row_tile_count = (k_width + (k_width % k_tile_size)) / k_tile_size;
-    const int col_tile_count = (k_height + (k_height % k_tile_size)) / k_tile_size;
+    const std::uint32_t row_tile_count = (window.width() + (window.width() % k_tile_size)) / k_tile_size;
+    const std::uint32_t col_tile_count = (window.height() + (window.height() % k_tile_size)) / k_tile_size;
     struct SpecializationData {
         std::uint32_t tile_size;
         std::uint32_t max_lights_per_tile;
@@ -350,11 +348,11 @@ int main() {
     };
 
     VkRect2D scissor{
-        .extent{k_width, k_height},
+        .extent{window.width(), window.height()},
     };
     VkViewport viewport{
-        .width = k_width,
-        .height = k_height,
+        .width = static_cast<float>(window.width()),
+        .height = static_cast<float>(window.height()),
         .maxDepth = 1.0F,
     };
     VkPipelineViewportStateCreateInfo viewport_state{
@@ -535,8 +533,8 @@ int main() {
         .imageType = VK_IMAGE_TYPE_2D,
         .format = main_pass_attachments[1].format,
         .extent{
-            .width = k_width,
-            .height = k_height,
+            .width = window.width(),
+            .height = window.height(),
             .depth = 1,
         },
         .mipLevels = 1,
@@ -589,8 +587,8 @@ int main() {
         .renderPass = depth_pass_render_pass,
         .attachmentCount = 1,
         .pAttachments = &depth_image_view,
-        .width = k_width,
-        .height = k_height,
+        .width = window.width(),
+        .height = window.height(),
         .layers = 1,
     };
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
@@ -607,8 +605,8 @@ int main() {
             .renderPass = main_pass_render_pass,
             .attachmentCount = image_views.size(),
             .pAttachments = image_views.data(),
-            .width = k_width,
-            .height = k_height,
+            .width = window.width(),
+            .height = window.height(),
             .layers = 1,
         };
         ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
@@ -871,7 +869,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = depth_pass_render_pass,
         .framebuffer = depth_pass_framebuffer,
-        .renderArea{.extent{k_width, k_height}},
+        .renderArea{.extent{window.width(), window.height()}},
         .clearValueCount = depth_pass_clear_values.size(),
         .pClearValues = depth_pass_clear_values.data(),
     };
@@ -931,7 +929,7 @@ int main() {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = main_pass_render_pass,
             .framebuffer = main_pass_framebuffers[i++],
-            .renderArea{.extent{k_width, k_height}},
+            .renderArea{.extent{window.width(), window.height()}},
             .clearValueCount = main_pass_clear_values.size(),
             .pClearValues = main_pass_clear_values.data(),
         };
