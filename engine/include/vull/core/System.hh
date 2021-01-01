@@ -1,8 +1,9 @@
 #pragma once
 
+#include <vull/support/Box.hh>
+#include <vull/support/Vector.hh>
+
 #include <cstdint>
-#include <memory>
-#include <unordered_map>
 #include <utility>
 
 class World;
@@ -34,7 +35,7 @@ struct System : public BaseSystem {
 };
 
 class SystemManager {
-    std::unordered_map<BaseSystem::family_type, std::unique_ptr<BaseSystem>> m_systems;
+    Vector<Box<BaseSystem>> m_systems;
 
 public:
     template <typename S, typename... Args>
@@ -51,15 +52,19 @@ public:
 
 template <typename S, typename... Args>
 void SystemManager::add(Args &&... args) {
-    m_systems.emplace(S::family(), std::make_unique<S>(std::forward<Args>(args)...));
+    for (int i = m_systems.size(); i < S::family() + 1; i++) {
+        m_systems.emplace();
+    }
+    m_systems[S::family()] = Box<S>::create(std::forward<Args>(args)...);
 }
 
 template <typename S>
 S *SystemManager::get() const {
-    return m_systems.at(S::family()).get();
+    return m_systems[S::family()].get();
 }
 
 template <typename S>
 void SystemManager::remove() {
-    m_systems.erase(S::family());
+    // TODO!
+    ENSURE_NOT_REACHED();
 }

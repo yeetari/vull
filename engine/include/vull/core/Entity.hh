@@ -1,7 +1,9 @@
 #pragma once
 
+#include <vull/core/ComponentStorage.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Log.hh>
+#include <vull/support/Box.hh>
+#include <vull/support/Vector.hh>
 
 #include <cstdint>
 #include <memory>
@@ -62,51 +64,28 @@ public:
 };
 
 class EntityManager {
-    struct BaseComponentContainer {
-        using family_type = std::size_t;
-
-    public:
-        // NOLINTNEXTLINE
-        static family_type s_family_counter;
-
-        constexpr BaseComponentContainer() = default;
-        BaseComponentContainer(const BaseComponentContainer &) = delete;
-        BaseComponentContainer(BaseComponentContainer &&) = delete;
-        virtual ~BaseComponentContainer() = default;
-
-        BaseComponentContainer &operator=(const BaseComponentContainer &) = delete;
-        BaseComponentContainer &operator=(BaseComponentContainer &&) = delete;
-    };
+    using component_family_type = std::size_t;
+    static component_family_type s_component_family_counter;
 
     template <typename C>
-    struct ComponentContainer : public BaseComponentContainer {
-        static family_type family() {
-            static family_type family = s_family_counter++;
+    struct ComponentFamily {
+        static component_family_type family() {
+            static component_family_type family = s_component_family_counter++;
             return family;
         }
-
-    private:
-        C m_comp;
-
-    public:
-        template <typename... Args>
-        constexpr explicit ComponentContainer(Args &&... args) : m_comp(std::forward<Args>(args)...) {}
-
-        C *comp() { return &m_comp; }
     };
 
 private:
-    mutable std::unordered_map<
-        EntityId, std::unordered_map<BaseComponentContainer::family_type, std::unique_ptr<BaseComponentContainer>>>
-        m_components;
+    Vector<Box<ComponentStorage<>>> m_components;
     EntityId m_count{0};
+    EntityId m_counter{0};
 
 public:
     template <typename C, typename... Args>
     C *add_component(EntityId id, Args &&... args);
 
     template <typename C>
-    C *get_component(EntityId id) const;
+    C *get_component(EntityId id);
 
     template <typename C>
     void remove_component(EntityId id);
@@ -117,7 +96,7 @@ public:
     Entity create_entity();
     void destroy_entity(EntityId id);
 
-    EntityId entity_count() const { return m_components.size(); }
+    EntityId entity_count() const { return m_count; }
 };
 
 template <typename C, typename... Args>
@@ -172,25 +151,34 @@ EntityIterator<Comps...> EntityView<Comps...>::end() const {
 
 template <typename C, typename... Args>
 C *EntityManager::add_component(EntityId id, Args &&... args) {
-    auto &entity_components = m_components[id];
-    ASSERT(!entity_components.contains(ComponentContainer<C>::family()));
-    auto pair = entity_components.emplace(ComponentContainer<C>::family(),
-                                          std::make_unique<ComponentContainer<C>>(std::forward<Args>(args)...));
-    return static_cast<ComponentContainer<C> *>(pair.first->second.get())->comp();
+    const auto family = ComponentFamily<C>::family();
+    for (int i = m_components.size(); i < family + 1; i++) {
+        m_components.emplace();
+    }
+    if (!m_components[family]) {
+        m_components[family] = Box<ComponentStorage<>>::create(sizeof(C));
+    }
+    m_components[family]->ensure_capacity(id + 1);
+    m_components[family]->obtain(id);
+    new (m_components[family]->template at<C>(id)) C(std::forward<Args>(args)...);
+    return m_components[family]->template at<C>(id);
 }
 
 template <typename C>
-C *EntityManager::get_component(EntityId id) const {
-    const auto &entity_components = m_components[id];
-    const auto it = entity_components.find(ComponentContainer<C>::family());
-    return it != entity_components.end() ? static_cast<ComponentContainer<C> *>(it->second.get())->comp() : nullptr;
+C *EntityManager::get_component(EntityId id) {
+    const auto family = ComponentFamily<C>::family();
+    for (int i = m_components.size(); i < family + 1; i++) {
+        m_components.emplace();
+    }
+    auto &comp = m_components[family];
+    return *comp != nullptr ? comp->template at<C>(id) : nullptr;
 }
 
 template <typename C>
 void EntityManager::remove_component(EntityId id) {
-    ASSERT(m_components.contains(id));
-    auto &entity_components = m_components.at(id);
-    entity_components.erase(ComponentContainer<C>::family());
+    const auto family = ComponentFamily<C>::family();
+    m_components[family]->template at<C>(id)->~C();
+    m_components[family]->release(id);
 }
 
 template <typename... Comps>

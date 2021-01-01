@@ -2,6 +2,6 @@
 
 void World::update(float dt) {
     for (const auto &system : systems()) {
-        system.second->update(this, dt);
+        system->update(this, dt);
     }
 }
