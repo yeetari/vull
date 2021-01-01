@@ -7,7 +7,7 @@
 
 namespace {
 
-constexpr const char *SWAPCHAIN_EXTENSION_NAME = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+constexpr const char *k_swapchain_extension_name = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
 const char *device_type(VkPhysicalDeviceType type) {
     switch (type) {
@@ -66,7 +66,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = 1,
-        .ppEnabledExtensionNames = &SWAPCHAIN_EXTENSION_NAME,
+        .ppEnabledExtensionNames = &k_swapchain_extension_name,
         .pEnabledFeatures = &device_features,
     };
     ENSURE(vkCreateDevice(physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);

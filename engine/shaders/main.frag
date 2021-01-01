@@ -27,8 +27,8 @@ float attenuate(PointLight light) {
 }
 
 void main() {
-    ivec2 tile_id = ivec2(gl_FragCoord.xy / TILE_SIZE);
-    uint tile_index = tile_id.y * ROW_TILE_COUNT + tile_id.x;
+    ivec2 tile_id = ivec2(gl_FragCoord.xy / k_tile_size);
+    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
     vec3 albedo = vec3(1);
     vec3 illuminance = albedo * 0.05;
     for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {

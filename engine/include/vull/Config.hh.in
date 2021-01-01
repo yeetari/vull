@@ -1,4 +1,4 @@
 #pragma once
 
-constexpr const char *MODEL_PATH = "${CMAKE_SOURCE_DIR}/models/";
-constexpr const char *SHADER_PATH = "${CMAKE_CURRENT_BINARY_DIR}/shaders/";
+constexpr const char *k_model_path = "${CMAKE_SOURCE_DIR}/models/";
+constexpr const char *k_shader_path = "${CMAKE_CURRENT_BINARY_DIR}/shaders/";

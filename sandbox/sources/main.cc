@@ -30,12 +30,12 @@
 
 namespace {
 
-constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
-constexpr int WIDTH = 2560;
-constexpr int HEIGHT = 1440;
-constexpr int MAX_LIGHT_COUNT = 6000;
-constexpr int MAX_LIGHTS_PER_TILE = 400;
-constexpr int TILE_SIZE = 32;
+constexpr const char *k_validation_layer_name = "VK_LAYER_KHRONOS_validation";
+constexpr int k_width = 2560;
+constexpr int k_height = 1440;
+constexpr int k_max_light_count = 6000;
+constexpr int k_max_lights_per_tile = 400;
+constexpr int k_tile_size = 32;
 
 float g_prev_x = 0;
 float g_prev_y = 0;
@@ -50,7 +50,7 @@ bool operator==(const Vertex &lhs, const Vertex &rhs) {
 }
 
 Vector<char> load_shader(const std::string &path) {
-    std::ifstream file(SHADER_PATH + path, std::ios::ate | std::ios::binary);
+    std::ifstream file(k_shader_path + path, std::ios::ate | std::ios::binary);
     ENSURE(file);
     Vector<char> buffer(file.tellg());
     file.seekg(0);
@@ -72,7 +72,7 @@ struct hash<Vertex> {
 } // namespace std
 
 int main() {
-    Window window(WIDTH, HEIGHT);
+    Window window(k_width, k_height);
     glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     std::uint32_t required_extension_count = 0;
@@ -248,8 +248,8 @@ int main() {
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
 
-    const int row_tile_count = (WIDTH + (WIDTH % TILE_SIZE)) / TILE_SIZE;
-    const int col_tile_count = (HEIGHT + (HEIGHT % TILE_SIZE)) / TILE_SIZE;
+    const int row_tile_count = (k_width + (k_width % k_tile_size)) / k_tile_size;
+    const int col_tile_count = (k_height + (k_height % k_tile_size)) / k_tile_size;
     struct SpecializationData {
         std::uint32_t tile_size;
         std::uint32_t max_lights_per_tile;
@@ -257,8 +257,8 @@ int main() {
         std::uint32_t viewport_width;
         std::uint32_t viewport_height;
     } specialization_data{
-        .tile_size = TILE_SIZE,
-        .max_lights_per_tile = MAX_LIGHTS_PER_TILE,
+        .tile_size = k_tile_size,
+        .max_lights_per_tile = k_max_lights_per_tile,
         .tile_count = row_tile_count,
         .viewport_width = window.width(),
         .viewport_height = window.height(),
@@ -351,11 +351,11 @@ int main() {
     };
 
     VkRect2D scissor{
-        .extent{WIDTH, HEIGHT},
+        .extent{k_width, k_height},
     };
     VkViewport viewport{
-        .width = WIDTH,
-        .height = HEIGHT,
+        .width = k_width,
+        .height = k_height,
         .maxDepth = 1.0F,
     };
     VkPipelineViewportStateCreateInfo viewport_state{
@@ -536,8 +536,8 @@ int main() {
         .imageType = VK_IMAGE_TYPE_2D,
         .format = main_pass_attachments[1].format,
         .extent{
-            .width = WIDTH,
-            .height = HEIGHT,
+            .width = k_width,
+            .height = k_height,
             .depth = 1,
         },
         .mipLevels = 1,
@@ -590,8 +590,8 @@ int main() {
         .renderPass = depth_pass_render_pass,
         .attachmentCount = 1,
         .pAttachments = &depth_image_view,
-        .width = WIDTH,
-        .height = HEIGHT,
+        .width = k_width,
+        .height = k_height,
         .layers = 1,
     };
     VkFramebuffer depth_pass_framebuffer = VK_NULL_HANDLE;
@@ -608,15 +608,15 @@ int main() {
             .renderPass = main_pass_render_pass,
             .attachmentCount = image_views.size(),
             .pAttachments = image_views.data(),
-            .width = WIDTH,
-            .height = HEIGHT,
+            .width = k_width,
+            .height = k_height,
             .layers = 1,
         };
         ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &main_pass_framebuffers[i++]) == VK_SUCCESS);
     }
 
     tinyobj::ObjReader reader;
-    ENSURE(reader.ParseFromFile(std::string(MODEL_PATH) + "sponza.obj"));
+    ENSURE(reader.ParseFromFile(std::string(k_model_path) + "sponza.obj"));
     std::uint32_t index_count = 0;
     for (const auto &shape : reader.GetShapes()) {
         index_count += shape.mesh.indices.size();
@@ -685,7 +685,7 @@ int main() {
         glm::vec3 colour;
         float padding;
     };
-    VkDeviceSize lights_buffer_size = sizeof(PointLight) * MAX_LIGHT_COUNT + sizeof(glm::vec4);
+    VkDeviceSize lights_buffer_size = sizeof(PointLight) * k_max_light_count + sizeof(glm::vec4);
     VkBufferCreateInfo lights_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = lights_buffer_size,
@@ -700,7 +700,7 @@ int main() {
     ENSURE(vmaCreateBuffer(allocator, &lights_buffer_ci, &lights_buffer_allocation_ci, &lights_buffer,
                            &lights_buffer_allocation, nullptr) == VK_SUCCESS);
 
-    VkDeviceSize light_visibility_size = (MAX_LIGHTS_PER_TILE + 1) * sizeof(std::uint32_t);
+    VkDeviceSize light_visibility_size = (k_max_lights_per_tile + 1) * sizeof(std::uint32_t);
     VkDeviceSize light_visibilities_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
     VkBufferCreateInfo light_visibilities_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -872,7 +872,7 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = depth_pass_render_pass,
         .framebuffer = depth_pass_framebuffer,
-        .renderArea{.extent{WIDTH, HEIGHT}},
+        .renderArea{.extent{k_width, k_height}},
         .clearValueCount = depth_pass_clear_values.size(),
         .pClearValues = depth_pass_clear_values.data(),
     };
@@ -932,7 +932,7 @@ int main() {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = main_pass_render_pass,
             .framebuffer = main_pass_framebuffers[i++],
-            .renderArea{.extent{WIDTH, HEIGHT}},
+            .renderArea{.extent{k_width, k_height}},
             .clearValueCount = main_pass_clear_values.size(),
             .pClearValues = main_pass_clear_values.data(),
         };

@@ -7,11 +7,11 @@
 
 namespace {
 
-constexpr float MOUSE_SENSITIVITY = 0.002F;
-constexpr float MOVEMENT_SPEED = 10.0F;
-constexpr float MIN_PITCH = -glm::half_pi<float>() + glm::radians(1.0F);
-constexpr float MAX_PITCH = glm::half_pi<float>() - glm::radians(1.0F);
-constexpr glm::vec3 WORLD_UP(0.0F, 1.0F, 0.0F);
+constexpr float k_mouse_sensitivity = 0.002F;
+constexpr float k_movement_speed = 10.0F;
+constexpr float k_min_pitch = -glm::half_pi<float>() + glm::radians(1.0F);
+constexpr float k_max_pitch = glm::half_pi<float>() - glm::radians(1.0F);
+constexpr glm::vec3 k_world_up(0.0F, 1.0F, 0.0F);
 
 } // namespace
 
@@ -20,18 +20,18 @@ void Camera::update_vectors() {
     m_forward.y = glm::sin(m_pitch);
     m_forward.z = glm::sin(m_yaw) * glm::cos(m_pitch);
     m_forward = glm::normalize(m_forward);
-    m_right = glm::normalize(glm::cross(m_forward, WORLD_UP));
+    m_right = glm::normalize(glm::cross(m_forward, k_world_up));
 }
 
 void Camera::handle_mouse_movement(float dx, float dy) {
-    m_yaw += dx * MOUSE_SENSITIVITY;
-    m_pitch += dy * MOUSE_SENSITIVITY;
-    m_pitch = glm::clamp(m_pitch, MIN_PITCH, MAX_PITCH);
+    m_yaw += dx * k_mouse_sensitivity;
+    m_pitch += dy * k_mouse_sensitivity;
+    m_pitch = glm::clamp(m_pitch, k_min_pitch, k_max_pitch);
     update_vectors();
 }
 
 void Camera::update(const Window &window, float dt) {
-    float speed = dt * MOVEMENT_SPEED;
+    float speed = dt * k_movement_speed;
     if (glfwGetKey(*window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
         speed *= 4;
     }
@@ -50,5 +50,5 @@ void Camera::update(const Window &window, float dt) {
 }
 
 glm::mat4 Camera::view_matrix() const {
-    return glm::lookAt(m_position, m_position + m_forward, WORLD_UP);
+    return glm::lookAt(m_position, m_position + m_forward, k_world_up);
 }

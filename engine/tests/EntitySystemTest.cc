@@ -5,7 +5,7 @@
 
 namespace {
 
-constexpr float DELTA_TIME = 1.0F / 60.0F;
+constexpr float k_delta_time = 1.0F / 60.0F;
 
 struct Foo {
     int val;
@@ -50,7 +50,7 @@ TEST(EntitySystemTest, AddRemoveComponent) {
 TEST(EntitySystemTest, SystemIterate) {
     struct FooBarSystem : public System<FooBarSystem> {
         void update(World *world, float dt) override {
-            EXPECT_EQ(dt, DELTA_TIME);
+            EXPECT_EQ(dt, k_delta_time);
             Vector<Entity> foo_entities;
             Vector<Entity> bar_entities;
             Vector<Entity> foo_bar_entities;
@@ -92,7 +92,7 @@ TEST(EntitySystemTest, SystemIterate) {
     c.add<Bar>(8);
     c.add<Foo>(6);
     d.add<Bar>(5);
-    world.update(DELTA_TIME);
+    world.update(k_delta_time);
 }
 
 } // namespace

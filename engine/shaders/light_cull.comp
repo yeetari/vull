@@ -33,7 +33,7 @@ ViewFrustum create_frustum(ivec2 tile_id) {
     float max_depth = uintBitsToFloat(g_max_depth_int);
     // TODO: Pass by uniform/push constant.
     mat4 inv_proj_view = inverse(g_ubo.proj * g_ubo.view);
-    vec2 ndc_size_per_tile = 2.0 * vec2(TILE_SIZE, TILE_SIZE) / vec2(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+    vec2 ndc_size_per_tile = 2.0 * vec2(k_tile_size, k_tile_size) / vec2(k_viewport_width, k_viewport_height);
     vec2 ndc_points[4];
     ndc_points[0] = vec2(-1.0, -1.0) + tile_id * ndc_size_per_tile;
     ndc_points[1] = vec2(ndc_points[0].x + ndc_size_per_tile.x, ndc_points[0].y);
@@ -80,7 +80,7 @@ void main() {
         g_tile_light_count = 0;
     }
     barrier();
-    vec2 sample_location = (vec2(TILE_SIZE, TILE_SIZE) * tile_id + gl_LocalInvocationID.xy) / vec2(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+    vec2 sample_location = (vec2(k_tile_size, k_tile_size) * tile_id + gl_LocalInvocationID.xy) / vec2(k_viewport_width, k_viewport_height);
     float depth = texture(g_depth_sampler, sample_location).r;
     uint depth_int = floatBitsToUint(depth);
     atomicMin(g_min_depth_int, depth_int);
@@ -90,18 +90,18 @@ void main() {
         g_frustum = create_frustum(tile_id);
     }
     barrier();
-    for (uint i = gl_LocalInvocationIndex; i < g_light_count; i += TILE_SIZE * TILE_SIZE) {
+    for (uint i = gl_LocalInvocationIndex; i < g_light_count; i += k_tile_size * k_tile_size) {
         if (!has_collided(g_lights[i], g_frustum)) {
             continue;
         }
         uint slot = atomicAdd(g_tile_light_count, 1);
-        if (slot >= MAX_LIGHTS_PER_TILE) {
+        if (slot >= k_max_lights_per_tile) {
             break;
         }
         g_light_visibilities[tile_index].indices[slot] = i;
     }
     barrier();
     if (gl_LocalInvocationIndex == 0) {
-        g_light_visibilities[tile_index].count = min(MAX_LIGHTS_PER_TILE, g_tile_light_count);
+        g_light_visibilities[tile_index].count = min(k_max_lights_per_tile, g_tile_light_count);
     }
 }

@@ -4,7 +4,7 @@
 
 namespace {
 
-constexpr float DELTA_TIME = 1.0F / 60.0F;
+constexpr float k_delta_time = 1.0F / 60.0F;
 
 struct Position {
     float x;
@@ -75,7 +75,7 @@ void update_systems(benchmark::State &state) {
         entity.add<Velocity>(4, 6);
     }
     for (auto _ : state) {
-        world.update(DELTA_TIME);
+        world.update(k_delta_time);
     }
 }
 

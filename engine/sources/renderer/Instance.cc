@@ -9,11 +9,11 @@
 
 namespace {
 
-constexpr const char *APPLICATION_NAME = "vull";
-constexpr std::uint32_t APPLICATION_VERSION = VK_MAKE_VERSION(0, 1, 0);
-constexpr const char *ENGINE_NAME = "vull-engine";
-constexpr std::uint32_t ENGINE_VERSION = VK_MAKE_VERSION(0, 1, 0);
-constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
+constexpr const char *k_application_name = "vull";
+constexpr std::uint32_t k_application_version = VK_MAKE_VERSION(0, 1, 0);
+constexpr const char *k_engine_name = "vull-engine";
+constexpr std::uint32_t k_engine_version = VK_MAKE_VERSION(0, 1, 0);
+constexpr const char *k_validation_layer_name = "VK_LAYER_KHRONOS_validation";
 
 } // namespace
 
@@ -24,10 +24,10 @@ Instance::Instance(const Span<const char *> &extensions) {
     }
     VkApplicationInfo application_info{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-        .pApplicationName = APPLICATION_NAME,
-        .applicationVersion = APPLICATION_VERSION,
-        .pEngineName = ENGINE_NAME,
-        .engineVersion = ENGINE_VERSION,
+        .pApplicationName = k_application_name,
+        .applicationVersion = k_application_version,
+        .pEngineName = k_engine_name,
+        .engineVersion = k_engine_version,
         .apiVersion = VK_API_VERSION_1_2,
     };
     VkInstanceCreateInfo instance_ci{
@@ -43,7 +43,7 @@ Instance::Instance(const Span<const char *> &extensions) {
     Vector<VkLayerProperties> layers(layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
     auto *it = std::find_if(layers.begin(), layers.end(), [](const auto &layer) {
-        return strcmp(layer.layerName, VALIDATION_LAYER_NAME) == 0;
+        return strcmp(layer.layerName, k_validation_layer_name) == 0;
     });
     // TODO: Emit warning here instead of failing.
     ENSURE(it != layers.end());
