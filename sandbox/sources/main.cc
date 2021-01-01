@@ -30,7 +30,6 @@
 
 namespace {
 
-constexpr const char *k_validation_layer_name = "VK_LAYER_KHRONOS_validation";
 constexpr int k_width = 2560;
 constexpr int k_height = 1440;
 constexpr int k_max_light_count = 6000;
