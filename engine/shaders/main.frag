@@ -18,9 +18,6 @@ layout (set = 1, binding = 0) uniform UniformBuffer {
     mat4 transform;
     vec3 camera_position;
 } g_ubo;
-layout (push_constant) uniform PushConstantObject {
-    ivec2 tile_nums;
-} g_push_constants;
 
 layout (location = 0) out vec4 g_out_colour;
 
@@ -31,7 +28,7 @@ float attenuate(PointLight light) {
 
 void main() {
     ivec2 tile_id = ivec2(gl_FragCoord.xy / TILE_SIZE);
-    uint tile_index = tile_id.y * g_push_constants.tile_nums.x + tile_id.x;
+    uint tile_index = tile_id.y * ROW_TILE_COUNT + tile_id.x;
     vec3 albedo = vec3(1);
     vec3 illuminance = albedo * 0.05;
     for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {

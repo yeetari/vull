@@ -33,6 +33,9 @@ namespace {
 constexpr const char *VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr int WIDTH = 2560;
 constexpr int HEIGHT = 1440;
+constexpr int MAX_LIGHT_COUNT = 6000;
+constexpr int MAX_LIGHTS_PER_TILE = 400;
+constexpr int TILE_SIZE = 32;
 
 float g_prev_x = 0;
 float g_prev_y = 0;
@@ -244,6 +247,56 @@ int main() {
     ENSURE(vkCreateShaderModule(*device, &main_pass_vertex_shader_ci, nullptr, &main_pass_vertex_shader) == VK_SUCCESS);
     ENSURE(vkCreateShaderModule(*device, &main_pass_fragment_shader_ci, nullptr, &main_pass_fragment_shader) ==
            VK_SUCCESS);
+
+    const int row_tile_count = (WIDTH + (WIDTH % TILE_SIZE)) / TILE_SIZE;
+    const int col_tile_count = (HEIGHT + (HEIGHT % TILE_SIZE)) / TILE_SIZE;
+    struct SpecializationData {
+        std::uint32_t tile_size;
+        std::uint32_t max_lights_per_tile;
+        std::uint32_t tile_count;
+        std::uint32_t viewport_width;
+        std::uint32_t viewport_height;
+    } specialization_data{
+        .tile_size = TILE_SIZE,
+        .max_lights_per_tile = MAX_LIGHTS_PER_TILE,
+        .tile_count = row_tile_count,
+        .viewport_width = window.width(),
+        .viewport_height = window.height(),
+    };
+    Array specialization_map_entries{
+        VkSpecializationMapEntry{
+            .constantID = 0,
+            .offset = offsetof(SpecializationData, tile_size),
+            .size = sizeof(SpecializationData::tile_size),
+        },
+        VkSpecializationMapEntry{
+            .constantID = 1,
+            .offset = offsetof(SpecializationData, max_lights_per_tile),
+            .size = sizeof(SpecializationData::max_lights_per_tile),
+        },
+        VkSpecializationMapEntry{
+            .constantID = 2,
+            .offset = offsetof(SpecializationData, tile_count),
+            .size = sizeof(SpecializationData::tile_count),
+        },
+        VkSpecializationMapEntry{
+            .constantID = 3,
+            .offset = offsetof(SpecializationData, viewport_width),
+            .size = sizeof(SpecializationData::viewport_width),
+        },
+        VkSpecializationMapEntry{
+            .constantID = 4,
+            .offset = offsetof(SpecializationData, viewport_height),
+            .size = sizeof(SpecializationData::viewport_height),
+        },
+    };
+    VkSpecializationInfo specialization_info{
+        .mapEntryCount = specialization_map_entries.size(),
+        .pMapEntries = specialization_map_entries.data(),
+        .dataSize = sizeof(specialization_data),
+        .pData = &specialization_data,
+    };
+
     Array depth_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -257,6 +310,7 @@ int main() {
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
         .module = light_cull_pass_compute_shader,
         .pName = "main",
+        .pSpecializationInfo = &specialization_info,
     };
     Array main_pass_shader_stage_cis{
         VkPipelineShaderStageCreateInfo{
@@ -270,6 +324,7 @@ int main() {
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
             .module = main_pass_fragment_shader,
             .pName = "main",
+            .pSpecializationInfo = &specialization_info,
         },
     };
 
@@ -383,26 +438,6 @@ int main() {
     VkDescriptorSetLayout ubo_set_layout = VK_NULL_HANDLE;
     ENSURE(vkCreateDescriptorSetLayout(*device, &ubo_set_layout_ci, nullptr, &ubo_set_layout) == VK_SUCCESS);
 
-    constexpr int TILE_SIZE = 32;
-    int row_tile_count = (WIDTH + (WIDTH % TILE_SIZE)) / TILE_SIZE;
-    int col_tile_count = (HEIGHT + (HEIGHT % TILE_SIZE)) / TILE_SIZE;
-    struct PushConstantObject {
-        glm::ivec2 tile_nums;
-        glm::ivec2 viewport_size;
-    } push_constants{
-        .tile_nums = {row_tile_count, col_tile_count},
-        .viewport_size = {WIDTH, HEIGHT},
-    };
-    VkPushConstantRange push_constant_range_compute{
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-        .size = sizeof(PushConstantObject),
-    };
-    VkPushConstantRange push_constant_range_fragment{
-        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        // Main pass doesn't need viewport size.
-        .size = sizeof(glm::ivec2),
-    };
-
     VkDescriptorSetLayoutBinding depth_sampler_binding{
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -436,8 +471,6 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = light_cull_pass_set_layouts.size(),
         .pSetLayouts = light_cull_pass_set_layouts.data(),
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push_constant_range_compute,
     };
     VkPipelineLayout light_cull_pass_pipeline_layout = VK_NULL_HANDLE;
     ENSURE(vkCreatePipelineLayout(*device, &light_cull_pass_pipeline_layout_ci, nullptr,
@@ -451,8 +484,6 @@ int main() {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = main_pass_set_layouts.size(),
         .pSetLayouts = main_pass_set_layouts.data(),
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push_constant_range_fragment,
     };
     VkPipelineLayout main_pass_pipeline_layout = VK_NULL_HANDLE;
     ENSURE(vkCreatePipelineLayout(*device, &main_pass_pipeline_layout_ci, nullptr, &main_pass_pipeline_layout) ==
@@ -654,8 +685,6 @@ int main() {
         glm::vec3 colour;
         float padding;
     };
-    constexpr int MAX_LIGHT_COUNT = 6000;
-    constexpr int MAX_LIGHTS_PER_TILE = 400;
     VkDeviceSize lights_buffer_size = sizeof(PointLight) * MAX_LIGHT_COUNT + sizeof(glm::vec4);
     VkBufferCreateInfo lights_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -869,8 +898,6 @@ int main() {
     };
     vkCmdBindDescriptorSets(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline_layout, 0,
                             light_cull_pass_descriptor_sets.size(), light_cull_pass_descriptor_sets.data(), 0, nullptr);
-    vkCmdPushConstants(light_cull_pass_cmd_buf, light_cull_pass_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                       sizeof(PushConstantObject), &push_constants);
     vkCmdBindPipeline(light_cull_pass_cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pass_pipeline);
     vkCmdDispatch(light_cull_pass_cmd_buf, row_tile_count, col_tile_count, 1);
     Array light_cull_pass_barriers{
@@ -910,8 +937,6 @@ int main() {
             .pClearValues = main_pass_clear_values.data(),
         };
         vkCmdBeginRenderPass(main_pass_cmd_buf, &main_pass_render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
-        vkCmdPushConstants(main_pass_cmd_buf, main_pass_pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                           sizeof(glm::ivec2), &push_constants);
         vkCmdBindPipeline(main_pass_cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, main_pass_pipeline);
         Array main_pass_descriptor_sets{
             lights_descriptor_set,
