@@ -12,8 +12,13 @@ class Camera {
     float m_yaw{-1.0F};
     float m_pitch{0.0F};
 
+    void update_vectors();
+
 public:
     explicit Camera(const glm::vec3 &position) : m_position(position) {}
+    Camera(const glm::vec3 &position, float yaw, float pitch) : m_position(position), m_yaw(yaw), m_pitch(pitch) {
+        update_vectors();
+    }
 
     void handle_mouse_movement(float dx, float dy);
     void update(const Window &window, float dt);

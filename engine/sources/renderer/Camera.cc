@@ -15,15 +15,19 @@ constexpr glm::vec3 WORLD_UP(0.0F, 1.0F, 0.0F);
 
 } // namespace
 
-void Camera::handle_mouse_movement(float dx, float dy) {
-    m_yaw += dx * MOUSE_SENSITIVITY;
-    m_pitch += dy * MOUSE_SENSITIVITY;
-    m_pitch = glm::clamp(m_pitch, MIN_PITCH, MAX_PITCH);
+void Camera::update_vectors() {
     m_forward.x = glm::cos(m_yaw) * glm::cos(m_pitch);
     m_forward.y = glm::sin(m_pitch);
     m_forward.z = glm::sin(m_yaw) * glm::cos(m_pitch);
     m_forward = glm::normalize(m_forward);
     m_right = glm::normalize(glm::cross(m_forward, WORLD_UP));
+}
+
+void Camera::handle_mouse_movement(float dx, float dy) {
+    m_yaw += dx * MOUSE_SENSITIVITY;
+    m_pitch += dy * MOUSE_SENSITIVITY;
+    m_pitch = glm::clamp(m_pitch, MIN_PITCH, MAX_PITCH);
+    update_vectors();
 }
 
 void Camera::update(const Window &window, float dt) {
