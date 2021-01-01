@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(vull CXX)
 
+include(FetchContent)
 option(VULL_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(VULL_BUILD_TESTS "Build tests" OFF)
 
@@ -12,8 +13,20 @@ if(VULL_BUILD_TESTS)
     include(GoogleTest)
     enable_testing()
 endif()
-find_package(glfw3 REQUIRED)
-find_package(glm REQUIRED)
+find_package(glfw3 QUIET)
+if(NOT TARGET glfw)
+    FetchContent_Declare(glfw3
+        URL https://github.com/glfw/glfw/archive/3.3.2.tar.gz
+        URL_MD5 865e54ff0a100e9041a40429db98be0b)
+    FetchContent_MakeAvailable(glfw3)
+endif()
+find_package(glm QUIET)
+if(NOT TARGET glm::glm)
+    FetchContent_Declare(glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG 0.9.9.8)
+    FetchContent_MakeAvailable(glm)
+endif()
 find_package(Threads REQUIRED)
 find_package(Vulkan REQUIRED)
 find_program(GLSLC glslc REQUIRED)
