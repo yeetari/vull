@@ -984,7 +984,7 @@ int main() {
     };
     ubo.proj[1][1] *= -1;
 
-    Camera camera(glm::vec3(24.0F, 0.2F, 24.4F));
+    Camera camera(glm::vec3(118, 18, -3), 0.6F, 1.25F);
     glfwSetWindowUserPointer(*window, &camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
