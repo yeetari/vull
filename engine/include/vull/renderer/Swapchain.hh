@@ -8,6 +8,13 @@
 class Device;
 class Surface;
 
+enum class SwapchainMode {
+    LowLatency,
+    LowPower,
+    Normal,
+    NoVsync,
+};
+
 class Swapchain {
     const Device &m_device;
     VkSwapchainKHR m_swapchain{nullptr};
@@ -15,7 +22,7 @@ class Swapchain {
     VkQueue m_present_queue{nullptr};
 
 public:
-    Swapchain(const Device &device, const Surface &surface);
+    Swapchain(const Device &device, const Surface &surface, SwapchainMode mode);
     Swapchain(const Swapchain &) = delete;
     Swapchain(Swapchain &&) = delete;
     ~Swapchain();

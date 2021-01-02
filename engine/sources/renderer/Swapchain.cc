@@ -8,18 +8,82 @@
 
 #include <limits>
 
-Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(device) {
+namespace {
+
+const char *present_mode_str(VkPresentModeKHR mode) {
+    switch (mode) {
+    case VK_PRESENT_MODE_IMMEDIATE_KHR:
+        return "VK_PRESENT_MODE_IMMEDIATE_KHR";
+    case VK_PRESENT_MODE_MAILBOX_KHR:
+        return "VK_PRESENT_MODE_MAILBOX_KHR";
+    case VK_PRESENT_MODE_FIFO_KHR:
+        return "VK_PRESENT_MODE_FIFO_KHR";
+    case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+        return "VK_PRESENT_MODE_FIFO_RELAXED_KHR";
+    default:
+        return "unknown";
+    }
+}
+
+const char *swapchain_mode_str(SwapchainMode mode) {
+    switch (mode) {
+    case SwapchainMode::LowLatency:
+        return "SwapchainMode::LowLatency";
+    case SwapchainMode::LowPower:
+        return "SwapchainMode::LowPower";
+    case SwapchainMode::Normal:
+        return "SwapchainMode::Normal";
+    case SwapchainMode::NoVsync:
+        return "SwapchainMode::NoVsync";
+    default:
+        ENSURE_NOT_REACHED();
+    }
+}
+
+int rate_present_mode(VkPresentModeKHR present_mode, SwapchainMode swapchain_mode) {
+    switch (present_mode) {
+    case VK_PRESENT_MODE_IMMEDIATE_KHR:
+        return swapchain_mode == SwapchainMode::NoVsync ? 100000 : 100;
+    case VK_PRESENT_MODE_MAILBOX_KHR:
+        return swapchain_mode == SwapchainMode::LowLatency ? 100000 : 300;
+    case VK_PRESENT_MODE_FIFO_KHR:
+        return swapchain_mode == SwapchainMode::LowPower ? 100000 : 200;
+    case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
+        return 400;
+    default:
+        return -100;
+    }
+}
+
+} // namespace
+
+Swapchain::Swapchain(const Device &device, const Surface &surface, SwapchainMode mode) : m_device(device) {
     // Get present queue.
     for (std::uint32_t i = 0; const auto &queue_family : device.queue_families()) {
         VkBool32 present_supported = VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(device.physical(), i, *surface, &present_supported);
         if (present_supported == VK_TRUE) {
-            Log::trace("renderer", "Using queue %d:0 for presenting", i, 0);
+            Log::trace("renderer", "Using queue %d:0 for presenting", i);
             vkGetDeviceQueue(*device, i, 0, &m_present_queue);
             break;
         }
     }
     ENSURE(m_present_queue != nullptr);
+
+    // Pick best present mode.
+    std::uint32_t present_mode_count = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical(), *surface, &present_mode_count, nullptr);
+    Vector<VkPresentModeKHR> present_modes(present_mode_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device.physical(), *surface, &present_mode_count, present_modes.data());
+    Log::trace("renderer", "Surface supports %d present modes", present_modes.size());
+    for (auto present_mode : present_modes) {
+        Log::trace("renderer", " - %s", present_mode_str(present_mode));
+    }
+    std::sort(present_modes.begin(), present_modes.end(), [mode](VkPresentModeKHR lhs, VkPresentModeKHR rhs) {
+        return rate_present_mode(lhs, mode) > rate_present_mode(rhs, mode);
+    });
+    Log::info("renderer", "Requested %s", swapchain_mode_str(mode));
+    Log::debug("renderer", " - Using %s", present_mode_str(*present_modes.begin()));
 
     // Create swapchain.
     Log::debug("renderer", "Creating swapchain");
@@ -39,7 +103,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .preTransform = surface.capabilities().currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR,
+        .presentMode = *present_modes.begin(),
         .clipped = VK_TRUE,
     };
     ENSURE(vkCreateSwapchainKHR(*device, &swapchain_ci, nullptr, &m_swapchain) == VK_SUCCESS);
@@ -50,7 +114,7 @@ Swapchain::Swapchain(const Device &device, const Surface &surface) : m_device(de
     Vector<VkImage> images(image_count);
     vkGetSwapchainImagesKHR(*device, m_swapchain, &image_count, images.data());
     m_image_views.resize(image_count);
-    Log::trace("renderer", " - creating %d image views", image_count);
+    Log::trace("renderer", " - Creating %d image views", image_count);
     for (std::uint32_t i = 0; i < image_count; i++) {
         VkImageViewCreateInfo image_view_ci{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,

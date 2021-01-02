@@ -77,7 +77,7 @@ int main() {
     Instance instance({required_extensions, required_extension_count});
     Device device(instance.physical_devices()[0]);
     Surface surface(instance, device, window);
-    Swapchain swapchain(device, surface);
+    Swapchain swapchain(device, surface, SwapchainMode::Normal);
 
     std::optional<std::uint32_t> compute_family;
     std::optional<std::uint32_t> graphics_family;
