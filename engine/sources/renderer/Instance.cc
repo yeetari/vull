@@ -45,11 +45,13 @@ Instance::Instance(const Span<const char *> &extensions) {
     auto *it = std::find_if(layers.begin(), layers.end(), [](const auto &layer) {
         return strcmp(layer.layerName, k_validation_layer_name) == 0;
     });
-    // TODO: Emit warning here instead of failing.
-    ENSURE(it != layers.end());
     const char *layer_name = it->layerName;
-    instance_ci.enabledLayerCount = 1;
-    instance_ci.ppEnabledLayerNames = &layer_name;
+    if (it != layers.end()) {
+        instance_ci.enabledLayerCount = 1;
+        instance_ci.ppEnabledLayerNames = &layer_name;
+    } else {
+        Log::warn("renderer", "Failed to enable validation layers!");
+    }
 #endif
     ENSURE(vkCreateInstance(&instance_ci, nullptr, &m_instance) == VK_SUCCESS);
 
