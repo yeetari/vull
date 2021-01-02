@@ -1,5 +1,6 @@
 #include <vull/renderer/Device.hh>
 
+#include <vull/renderer/Instance.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 
@@ -37,7 +38,7 @@ const char *queue_flag(VkQueueFlags flag) {
 
 } // namespace
 
-Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
+Device::Device(const Instance &instance, VkPhysicalDevice physical) : m_physical(physical) {
     VkPhysicalDeviceProperties physical_properties;
     vkGetPhysicalDeviceProperties(physical, &physical_properties);
     Log::debug("renderer", "Creating device from %s (%s)", physical_properties.deviceName,
@@ -47,6 +48,22 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, nullptr);
     m_queue_families.resize(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(physical, &queue_family_count, m_queue_families.data());
+    Log::trace("renderer", "Device has %d queue families", m_queue_families.size());
+    for (const auto &queue_family : m_queue_families) {
+        std::string flags;
+        bool first = true;
+        for (std::uint32_t i = 0; i < 4; i++) {
+            if ((queue_family.queueFlags & (1U << i)) != 0) {
+                if (!first) {
+                    flags += '/';
+                }
+                first = false;
+                flags += queue_flag(1U << i);
+            }
+        }
+        Log::trace("renderer", " - %d queues capable of %s", queue_family.queueCount, flags.c_str());
+    }
+
     Vector<VkDeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0F;
     for (std::uint32_t i = 0; const auto &queue_family : m_queue_families) {
@@ -71,23 +88,16 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     };
     ENSURE(vkCreateDevice(physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);
 
-    Log::trace("renderer", "Device has %d queue families", m_queue_families.size());
-    for (const auto &queue_family : m_queue_families) {
-        std::string flags;
-        bool first = true;
-        for (std::uint32_t i = 0; i < 4; i++) {
-            if ((queue_family.queueFlags & (1U << i)) != 0) {
-                if (!first) {
-                    flags += '/';
-                }
-                first = false;
-                flags += queue_flag(1U << i);
-            }
-        }
-        Log::trace("renderer", " - %d queues capable of %s", queue_family.queueCount, flags.c_str());
-    }
+    Log::trace("renderer", "Creating VMA allocator");
+    VmaAllocatorCreateInfo allocator_ci{
+        .physicalDevice = physical,
+        .device = m_device,
+        .instance = *instance,
+    };
+    ENSURE(vmaCreateAllocator(&allocator_ci, &m_allocator) == VK_SUCCESS);
 }
 
 Device::~Device() {
+    vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_device, nullptr);
 }

@@ -123,7 +123,7 @@ int main() {
     std::uint32_t required_extension_count = 0;
     const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
     Instance instance({required_extensions, required_extension_count});
-    Device device(instance.physical_devices()[0]);
+    Device device(instance, instance.physical_devices()[0]);
     Surface surface(instance, device, window);
     Swapchain swapchain(device, surface, swapchain_mode);
 
@@ -138,14 +138,6 @@ int main() {
     }
     ENSURE(compute_family);
     ENSURE(graphics_family);
-
-    VmaAllocatorCreateInfo allocator_ci{
-        .physicalDevice = device.physical(),
-        .device = *device,
-        .instance = *instance,
-    };
-    VmaAllocator allocator = VK_NULL_HANDLE;
-    ENSURE(vmaCreateAllocator(&allocator_ci, &allocator) == VK_SUCCESS);
 
     VkCommandPoolCreateInfo compute_command_pool_ci{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -598,8 +590,8 @@ int main() {
     };
     VkImage depth_image = VK_NULL_HANDLE;
     VmaAllocation depth_image_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateImage(allocator, &depth_image_ci, &depth_image_allocation_ci, &depth_image, &depth_image_allocation,
-                          nullptr) == VK_SUCCESS);
+    ENSURE(vmaCreateImage(device.allocator(), &depth_image_ci, &depth_image_allocation_ci, &depth_image,
+                          &depth_image_allocation, nullptr) == VK_SUCCESS);
 
     VkImageViewCreateInfo depth_image_view_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -699,12 +691,12 @@ int main() {
     };
     VkBuffer vertex_buffer = VK_NULL_HANDLE;
     VmaAllocation vertex_buffer_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateBuffer(allocator, &vertex_buffer_ci, &vertex_buffer_allocation_ci, &vertex_buffer,
+    ENSURE(vmaCreateBuffer(device.allocator(), &vertex_buffer_ci, &vertex_buffer_allocation_ci, &vertex_buffer,
                            &vertex_buffer_allocation, nullptr) == VK_SUCCESS);
     void *vertex_data = nullptr;
-    vmaMapMemory(allocator, vertex_buffer_allocation, &vertex_data);
+    vmaMapMemory(device.allocator(), vertex_buffer_allocation, &vertex_data);
     std::memcpy(vertex_data, vertices.data(), vertices.size_bytes());
-    vmaUnmapMemory(allocator, vertex_buffer_allocation);
+    vmaUnmapMemory(device.allocator(), vertex_buffer_allocation);
 
     VkBufferCreateInfo index_buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -717,12 +709,12 @@ int main() {
     };
     VkBuffer index_buffer = VK_NULL_HANDLE;
     VmaAllocation index_buffer_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateBuffer(allocator, &index_buffer_ci, &index_buffer_allocation_ci, &index_buffer,
+    ENSURE(vmaCreateBuffer(device.allocator(), &index_buffer_ci, &index_buffer_allocation_ci, &index_buffer,
                            &index_buffer_allocation, nullptr) == VK_SUCCESS);
     void *index_data = nullptr;
-    vmaMapMemory(allocator, index_buffer_allocation, &index_data);
+    vmaMapMemory(device.allocator(), index_buffer_allocation, &index_data);
     std::memcpy(index_data, indices.data(), indices.size_bytes());
-    vmaUnmapMemory(allocator, index_buffer_allocation);
+    vmaUnmapMemory(device.allocator(), index_buffer_allocation);
 
     struct PointLight {
         glm::vec3 position;
@@ -742,7 +734,7 @@ int main() {
     };
     VkBuffer lights_buffer = VK_NULL_HANDLE;
     VmaAllocation lights_buffer_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateBuffer(allocator, &lights_buffer_ci, &lights_buffer_allocation_ci, &lights_buffer,
+    ENSURE(vmaCreateBuffer(device.allocator(), &lights_buffer_ci, &lights_buffer_allocation_ci, &lights_buffer,
                            &lights_buffer_allocation, nullptr) == VK_SUCCESS);
 
     VkDeviceSize light_visibility_size = (k_max_lights_per_tile + 1) * sizeof(std::uint32_t);
@@ -758,7 +750,7 @@ int main() {
     };
     VkBuffer light_visibilities_buffer = VK_NULL_HANDLE;
     VmaAllocation light_visibilities_buffer_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateBuffer(allocator, &light_visibilities_buffer_ci, &light_visibilities_buffer_allocation_ci,
+    ENSURE(vmaCreateBuffer(device.allocator(), &light_visibilities_buffer_ci, &light_visibilities_buffer_allocation_ci,
                            &light_visibilities_buffer, &light_visibilities_buffer_allocation, nullptr) == VK_SUCCESS);
 
     struct UniformBuffer {
@@ -778,7 +770,7 @@ int main() {
     };
     VkBuffer uniform_buffer = VK_NULL_HANDLE;
     VmaAllocation uniform_buffer_allocation = VK_NULL_HANDLE;
-    ENSURE(vmaCreateBuffer(allocator, &uniform_buffer_ci, &uniform_buffer_allocation_ci, &uniform_buffer,
+    ENSURE(vmaCreateBuffer(device.allocator(), &uniform_buffer_ci, &uniform_buffer_allocation_ci, &uniform_buffer,
                            &uniform_buffer_allocation, nullptr) == VK_SUCCESS);
 
     Array descriptor_pool_sizes{
@@ -1066,9 +1058,9 @@ int main() {
     });
 
     void *lights_data = nullptr;
-    vmaMapMemory(allocator, lights_buffer_allocation, &lights_data);
+    vmaMapMemory(device.allocator(), lights_buffer_allocation, &lights_data);
     void *ubo_data = nullptr;
-    vmaMapMemory(allocator, uniform_buffer_allocation, &ubo_data);
+    vmaMapMemory(device.allocator(), uniform_buffer_allocation, &ubo_data);
 
     double previous_time = glfwGetTime();
     double fps_counter_prev_time = glfwGetTime();
@@ -1152,8 +1144,8 @@ int main() {
         swapchain.present(image_index, present_wait_semaphores);
         Window::poll_events();
     }
-    vmaUnmapMemory(allocator, lights_buffer_allocation);
-    vmaUnmapMemory(allocator, uniform_buffer_allocation);
+    vmaUnmapMemory(device.allocator(), lights_buffer_allocation);
+    vmaUnmapMemory(device.allocator(), uniform_buffer_allocation);
 
     vkDeviceWaitIdle(*device);
     vkDestroySemaphore(*device, main_pass_finished, nullptr);
@@ -1164,18 +1156,18 @@ int main() {
     vkFreeCommandBuffers(*device, graphics_command_pool, graphics_cmd_bufs.size(), graphics_cmd_bufs.data());
     vkFreeCommandBuffers(*device, compute_command_pool, 1, &light_cull_pass_cmd_buf);
     vkDestroyDescriptorPool(*device, descriptor_pool, nullptr);
-    vmaDestroyBuffer(allocator, uniform_buffer, uniform_buffer_allocation);
-    vmaDestroyBuffer(allocator, light_visibilities_buffer, light_visibilities_buffer_allocation);
-    vmaDestroyBuffer(allocator, lights_buffer, lights_buffer_allocation);
-    vmaDestroyBuffer(allocator, index_buffer, index_buffer_allocation);
-    vmaDestroyBuffer(allocator, vertex_buffer, vertex_buffer_allocation);
+    vmaDestroyBuffer(device.allocator(), uniform_buffer, uniform_buffer_allocation);
+    vmaDestroyBuffer(device.allocator(), light_visibilities_buffer, light_visibilities_buffer_allocation);
+    vmaDestroyBuffer(device.allocator(), lights_buffer, lights_buffer_allocation);
+    vmaDestroyBuffer(device.allocator(), index_buffer, index_buffer_allocation);
+    vmaDestroyBuffer(device.allocator(), vertex_buffer, vertex_buffer_allocation);
     for (auto *main_pass_framebuffer : main_pass_framebuffers) {
         vkDestroyFramebuffer(*device, main_pass_framebuffer, nullptr);
     }
     vkDestroyFramebuffer(*device, depth_pass_framebuffer, nullptr);
     vkDestroySampler(*device, depth_sampler, nullptr);
     vkDestroyImageView(*device, depth_image_view, nullptr);
-    vmaDestroyImage(allocator, depth_image, depth_image_allocation);
+    vmaDestroyImage(device.allocator(), depth_image, depth_image_allocation);
     vkDestroyPipeline(*device, main_pass_pipeline, nullptr);
     vkDestroyPipeline(*device, light_cull_pass_pipeline, nullptr);
     vkDestroyPipeline(*device, depth_pass_pipeline, nullptr);
@@ -1193,5 +1185,4 @@ int main() {
     vkDestroyRenderPass(*device, depth_pass_render_pass, nullptr);
     vkDestroyCommandPool(*device, graphics_command_pool, nullptr);
     vkDestroyCommandPool(*device, compute_command_pool, nullptr);
-    vmaDestroyAllocator(allocator);
 }
