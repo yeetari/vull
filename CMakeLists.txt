@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.16)
 project(vull CXX)
 
 option(VULL_BUILD_BENCHMARKS "Build benchmarks" OFF)
