@@ -5,14 +5,14 @@
 struct GLFWwindow;
 
 class Window {
-    std::uint32_t m_width;
-    std::uint32_t m_height;
+    const std::uint32_t m_width;
+    const std::uint32_t m_height;
     GLFWwindow *m_window;
 
 public:
     static void poll_events();
 
-    Window();
+    Window(std::uint32_t width, std::uint32_t height, bool fullscreen);
     Window(const Window &) = delete;
     Window(Window &&) = delete;
     ~Window();

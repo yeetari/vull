@@ -69,7 +69,55 @@ struct hash<Vertex> {
 } // namespace std
 
 int main() {
-    Window window;
+    std::fstream config_file("config", std::ios::in);
+    if (!config_file) {
+        Log::info("sandbox", "Config file not found, creating default config");
+        config_file.open("config", std::ios::out);
+        config_file << "window_width: 800\n";
+        config_file << "window_height: 600\n";
+        config_file << "window_fullscreen: false\n";
+        config_file << "# Choose between low_latency, low_power, normal and no_vsync.\n";
+        config_file << "swapchain_mode: normal\n";
+        config_file.flush();
+        config_file.close();
+        config_file.open("config", std::ios::in);
+    }
+
+    std::unordered_map<std::string, std::string> config;
+    std::string line;
+    while (std::getline(config_file, line)) {
+        // Ignore comments.
+        if (line.starts_with('#')) {
+            continue;
+        }
+        const auto colon_position = line.find_first_of(':');
+        auto key = line.substr(0, colon_position);
+        auto val = line.substr(colon_position + 1);
+        val.erase(std::remove_if(val.begin(), val.end(), isspace), val.end());
+        config.emplace(std::move(key), std::move(val));
+    }
+
+    const int width = std::stoi(config.at("window_width"));
+    const int height = std::stoi(config.at("window_height"));
+    const bool fullscreen = config.at("window_fullscreen") == "true";
+    const SwapchainMode swapchain_mode = [](const std::string &opt) -> SwapchainMode {
+        if (opt == "low_latency") {
+            return SwapchainMode::LowLatency;
+        }
+        if (opt == "low_power") {
+            return SwapchainMode::LowPower;
+        }
+        if (opt == "normal") {
+            return SwapchainMode::Normal;
+        }
+        if (opt == "no_vsync") {
+            return SwapchainMode::NoVsync;
+        }
+        Log::error("sandbox", "Invalid swapchain mode %s in config", opt.c_str());
+        std::exit(1);
+    }(config.at("swapchain_mode"));
+
+    Window window(width, height, fullscreen);
     glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     std::uint32_t required_extension_count = 0;
@@ -77,7 +125,7 @@ int main() {
     Instance instance({required_extensions, required_extension_count});
     Device device(instance.physical_devices()[0]);
     Surface surface(instance, device, window);
-    Swapchain swapchain(device, surface, SwapchainMode::Normal);
+    Swapchain swapchain(device, surface, swapchain_mode);
 
     std::optional<std::uint32_t> compute_family;
     std::optional<std::uint32_t> graphics_family;

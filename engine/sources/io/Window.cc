@@ -9,16 +9,13 @@ void Window::poll_events() {
     glfwPollEvents();
 }
 
-Window::Window() {
+Window::Window(std::uint32_t width, std::uint32_t height, bool fullscreen) : m_width(width), m_height(height) {
     Log::trace("io", "Initialising GLFW");
     ENSURE(glfwInit() == GLFW_TRUE);
-    const auto *video_mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    m_width = video_mode->width;
-    m_height = video_mode->height;
     Log::info("io", "Creating window with dimensions %dx%d", m_width, m_height);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    m_window = glfwCreateWindow(m_width, m_height, "vull", glfwGetPrimaryMonitor(), nullptr);
+    m_window = glfwCreateWindow(m_width, m_height, "vull", fullscreen ? glfwGetPrimaryMonitor() : nullptr, nullptr);
     ENSURE(m_window != nullptr);
 }
 
