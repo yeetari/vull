@@ -6,7 +6,9 @@ target_sources(vull-engine PRIVATE
     renderer/Camera.cc
     renderer/Device.cc
     renderer/Instance.cc
+    renderer/RenderSystem.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
+    renderer/vma.cc
     support/Assert.cc
     support/Log.cc)
