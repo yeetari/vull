@@ -60,7 +60,7 @@ void SystemManager::add(Args &&... args) {
 
 template <typename S>
 S *SystemManager::get() const {
-    return m_systems[S::family()].get();
+    return static_cast<S *>(*m_systems[S::family()]);
 }
 
 template <typename S>
