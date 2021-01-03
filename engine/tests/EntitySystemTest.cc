@@ -51,6 +51,7 @@ TEST(EntitySystemTest, SystemIterate) {
     struct FooBarSystem : public System<FooBarSystem> {
         void update(World *world, float dt) override {
             EXPECT_EQ(dt, k_delta_time);
+            EXPECT_EQ(world->get<FooBarSystem>(), this);
             Vector<Entity> foo_entities;
             Vector<Entity> bar_entities;
             Vector<Entity> foo_bar_entities;
