@@ -89,7 +89,8 @@ class RenderSystem final : public System<RenderSystem> {
     void create_pipeline_layouts();
     void create_pipelines();
     void create_output_buffers();
-    void create_command_buffers(const Vector<std::uint32_t> &indices);
+    void allocate_command_buffers();
+    void record_command_buffers(World *world);
     void create_sync_objects();
 
 public:

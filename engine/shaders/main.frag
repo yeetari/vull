@@ -15,7 +15,6 @@ layout (set = 0, binding = 1) readonly buffer LightVisibilities {
 layout (set = 1, binding = 0) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
-    mat4 transform;
     vec3 camera_position;
 } g_ubo;
 

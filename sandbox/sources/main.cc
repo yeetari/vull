@@ -6,11 +6,13 @@
 #include <glm/vec3.hpp>
 #include <tiny_obj_loader.h>
 #include <vull/Config.hh>
+#include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
 #include <vull/renderer/Camera.hh>
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Instance.hh>
+#include <vull/renderer/Mesh.hh>
 #include <vull/renderer/RenderSystem.hh>
 #include <vull/renderer/Surface.hh>
 #include <vull/renderer/Swapchain.hh>
@@ -92,36 +94,51 @@ int main() {
     Surface surface(instance, device, window);
     Swapchain swapchain(device, surface, swapchain_mode);
 
-    tinyobj::ObjReader reader;
-    ENSURE(reader.ParseFromFile(std::string(k_model_path) + "sponza.obj"));
-    std::uint32_t index_count = 0;
-    for (const auto &shape : reader.GetShapes()) {
-        index_count += shape.mesh.indices.size();
-    }
     Vector<Vertex> vertices;
     Vector<std::uint32_t> indices;
-    indices.ensure_capacity(index_count);
     std::unordered_map<Vertex, std::uint32_t> unique_vertices;
-    const auto &attrib = reader.GetAttrib();
-    for (const auto &shape : reader.GetShapes()) {
-        for (const auto &index : shape.mesh.indices) {
-            Vertex vertex{};
-            vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
-            vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
-            vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
-            vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
-            vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
-            vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
-            if (!unique_vertices.contains(vertex)) {
-                unique_vertices.emplace(vertex, vertices.size());
-                vertices.push(vertex);
-            }
-            indices.push(unique_vertices.at(vertex));
+    auto load_obj = [&](const char *obj) {
+        tinyobj::ObjReader reader;
+        ENSURE(reader.ParseFromFile(std::string(k_model_path) + obj));
+        std::uint32_t index_count = 0;
+        for (const auto &shape : reader.GetShapes()) {
+            index_count += shape.mesh.indices.size();
         }
-    }
+        indices.ensure_capacity(index_count);
+        const auto &attrib = reader.GetAttrib();
+        for (const auto &shape : reader.GetShapes()) {
+            for (const auto &index : shape.mesh.indices) {
+                Vertex vertex{};
+                vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
+                vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
+                vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
+                vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
+                vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
+                vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
+                if (!unique_vertices.contains(vertex)) {
+                    unique_vertices.emplace(vertex, vertices.size());
+                    vertices.push(vertex);
+                }
+                indices.push(unique_vertices.at(vertex));
+            }
+        }
+    };
+    load_obj("suzanne.obj");
+    std::uint32_t suzanne_count = indices.size();
+    load_obj("sponza.obj");
+    std::uint32_t sponza_count = indices.size() - suzanne_count;
 
     World world;
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
+
+    auto suzanne = world.create_entity();
+    suzanne.add<Mesh>(suzanne_count, 0);
+    suzanne.add<Transform>(
+        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, 20.0F, -5.0F)), glm::vec3(10.0F)));
+
+    auto sponza = world.create_entity();
+    sponza.add<Mesh>(sponza_count, suzanne_count);
+    sponza.add<Transform>(glm::scale(glm::mat4(1.0F), glm::vec3(0.1F)));
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
@@ -162,7 +179,6 @@ int main() {
     auto &ubo = renderer->ubo();
     ubo.proj = glm::perspective(glm::radians(45.0F), window.aspect_ratio(), 0.1F, 1000.0F);
     ubo.proj[1][1] *= -1;
-    ubo.transform = glm::scale(glm::mat4(1.0F), glm::vec3(0.1F));
 
     Camera camera(glm::vec3(118, 18, -3), 0.6F, 1.25F);
     glfwSetWindowUserPointer(*window, &camera);
@@ -188,6 +204,9 @@ int main() {
             frame_count = 0;
             fps_counter_prev_time = current_time;
         }
+
+        auto &suzanne_transform = suzanne.get<Transform>()->matrix();
+        suzanne_transform = glm::rotate(suzanne_transform, glm::radians(1.0F), glm::vec3(0, 1, 0));
 
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();

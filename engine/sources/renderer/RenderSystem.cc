@@ -1,8 +1,11 @@
 #include <vull/renderer/RenderSystem.hh>
 
 #include <vull/Config.hh>
+#include <vull/core/Transform.hh>
+#include <vull/core/World.hh>
 #include <vull/io/Window.hh>
 #include <vull/renderer/Device.hh>
+#include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
@@ -82,7 +85,7 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
     create_pipeline_layouts();
     create_pipelines();
     create_output_buffers();
-    create_command_buffers(indices);
+    allocate_command_buffers();
     create_sync_objects();
     vmaMapMemory(device.allocator(), m_lights_buffer_allocation, &m_lights_data);
     vmaMapMemory(device.allocator(), m_uniform_buffer_allocation, &m_ubo_data);
@@ -606,10 +609,16 @@ void RenderSystem::create_pipeline_layouts() {
         Array set_layouts{
             m_ubo_set_layout,
         };
+        VkPushConstantRange push_constant_range{
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .size = sizeof(glm::mat4),
+        };
         VkPipelineLayoutCreateInfo pipeline_layout_ci{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = set_layouts.size(),
             .pSetLayouts = set_layouts.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &push_constant_range,
         };
         ENSURE(vkCreatePipelineLayout(*m_device, &pipeline_layout_ci, nullptr, &m_depth_pass_pipeline_layout) ==
                VK_SUCCESS);
@@ -637,10 +646,16 @@ void RenderSystem::create_pipeline_layouts() {
             m_lights_set_layout,
             m_ubo_set_layout,
         };
+        VkPushConstantRange push_constant_range{
+            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .size = sizeof(glm::mat4),
+        };
         VkPipelineLayoutCreateInfo pipeline_layout_ci{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = set_layouts.size(),
             .pSetLayouts = set_layouts.data(),
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &push_constant_range,
         };
         ENSURE(vkCreatePipelineLayout(*m_device, &pipeline_layout_ci, nullptr, &m_main_pass_pipeline_layout) ==
                VK_SUCCESS);
@@ -851,7 +866,7 @@ void RenderSystem::create_output_buffers() {
     }
 }
 
-void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) {
+void RenderSystem::allocate_command_buffers() {
     VkCommandBufferAllocateInfo allocate_info{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = m_command_pool,
@@ -861,14 +876,17 @@ void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) 
     };
     m_command_buffers.resize(allocate_info.commandBufferCount);
     ENSURE(vkAllocateCommandBuffers(*m_device, &allocate_info, m_command_buffers.data()) == VK_SUCCESS);
+}
 
+void RenderSystem::record_command_buffers(World *world) {
     // Depth pass.
     {
         auto *cmd_buf = m_command_buffers[m_swapchain.image_views().size()];
         VkCommandBufferBeginInfo cmd_buf_bi{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
-        ENSURE(vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi) == VK_SUCCESS);
+        vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
         Array<VkClearValue, 1> clear_values{};
         clear_values[0].depthStencil = {1.0F, 0};
         VkRenderPassBeginInfo render_pass_bi{
@@ -889,18 +907,26 @@ void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) 
         Array<VkDeviceSize, 1> offsets{0};
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd_buf, indices.size(), 1, 0, 0, 0);
+        for (auto entity : world->view<Mesh, Transform>()) {
+            auto *mesh = entity.get<Mesh>();
+            auto *transform = entity.get<Transform>();
+            vkCmdPushConstants(cmd_buf, m_depth_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                               &transform->matrix());
+            vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
+        }
         vkCmdEndRenderPass(cmd_buf);
-        ENSURE(vkEndCommandBuffer(cmd_buf) == VK_SUCCESS);
+        vkEndCommandBuffer(cmd_buf);
     }
 
     // Light cull pass.
+    // TODO: This doesn't need to be re-recorded every frame.
     {
         auto *cmd_buf = m_command_buffers[m_swapchain.image_views().size() + 1];
         VkCommandBufferBeginInfo cmd_buf_bi{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
-        ENSURE(vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi) == VK_SUCCESS);
+        vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
         Array descriptor_sets{
             m_lights_set,
             m_ubo_set,
@@ -928,7 +954,7 @@ void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) 
         };
         vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
                              nullptr, light_cull_pass_barriers.size(), light_cull_pass_barriers.data(), 0, nullptr);
-        ENSURE(vkEndCommandBuffer(cmd_buf) == VK_SUCCESS);
+        vkEndCommandBuffer(cmd_buf);
     }
 
     // Main pass.
@@ -936,8 +962,9 @@ void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) 
         auto *cmd_buf = m_command_buffers[i];
         VkCommandBufferBeginInfo cmd_buf_bi{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
-        ENSURE(vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi) == VK_SUCCESS);
+        vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
         Array<VkClearValue, 1> clear_values{};
         clear_values[0].color = {0, 0, 0, 1};
         VkRenderPassBeginInfo render_pass_bi{
@@ -959,9 +986,15 @@ void RenderSystem::create_command_buffers(const Vector<std::uint32_t> &indices) 
         Array<VkDeviceSize, 1> offsets{0};
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd_buf, indices.size(), 1, 0, 0, 0);
+        for (auto entity : world->view<Mesh, Transform>()) {
+            auto *mesh = entity.get<Mesh>();
+            auto *transform = entity.get<Transform>();
+            vkCmdPushConstants(cmd_buf, m_main_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                               &transform->matrix());
+            vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
+        }
         vkCmdEndRenderPass(cmd_buf);
-        ENSURE(vkEndCommandBuffer(cmd_buf) == VK_SUCCESS);
+        vkEndCommandBuffer(cmd_buf);
     }
 }
 
@@ -980,7 +1013,7 @@ void RenderSystem::create_sync_objects() {
     ENSURE(vkCreateSemaphore(*m_device, &semaphore_ci, nullptr, &m_main_pass_finished) == VK_SUCCESS);
 }
 
-void RenderSystem::update(World *, float) {
+void RenderSystem::update(World *world, float) {
     // Wait for previous frame rendering to finish, and request the next swapchain image.
     vkWaitForFences(*m_device, 1, &m_frame_finished, VK_TRUE, std::numeric_limits<std::uint64_t>::max());
     vkResetFences(*m_device, 1, &m_frame_finished);
@@ -991,6 +1024,10 @@ void RenderSystem::update(World *, float) {
     std::memcpy(m_lights_data, &light_count, sizeof(std::uint32_t));
     std::memcpy(reinterpret_cast<char *>(m_lights_data) + sizeof(glm::vec4), m_lights.data(), m_lights.size_bytes());
     std::memcpy(m_ubo_data, &m_ubo, sizeof(UniformBuffer));
+
+    // Re-record command buffers
+    vkResetCommandPool(*m_device, m_command_pool, 0);
+    record_command_buffers(world);
 
     // Execute depth pass.
     VkSubmitInfo depth_pass_si{
