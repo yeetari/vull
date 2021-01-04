@@ -131,14 +131,52 @@ int main() {
     World world;
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
 
-    auto suzanne = world.create_entity();
-    suzanne.add<Mesh>(suzanne_count, 0);
-    suzanne.add<Transform>(
-        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, 20.0F, -5.0F)), glm::vec3(10.0F)));
+    struct ScaleComponent {};
+    class ScaleSystem : public System<ScaleSystem> {
+        float m_time{0.0F};
+
+    public:
+        void update(World *world, float dt) override {
+            m_time += dt;
+            for (auto entity : world->view<ScaleComponent, Transform>()) {
+                auto &transform = entity.get<Transform>()->matrix();
+                transform[2][0] = std::abs(std::sin(m_time) * 8);
+                transform[2][1] = std::abs(std::sin(m_time) * 8);
+                transform[2][2] = std::abs(std::sin(m_time) * 8);
+            }
+        }
+    };
+    world.add<ScaleSystem>();
+
+    struct SpinComponent {};
+    struct SpinSystem : public System<SpinSystem> {
+        void update(World *world, float dt) override {
+            for (auto entity : world->view<SpinComponent, Transform>()) {
+                auto &transform = entity.get<Transform>()->matrix();
+                transform = glm::rotate(transform, dt * 10.0F, glm::vec3(0, 1, 0));
+            }
+        }
+    };
+    world.add<SpinSystem>();
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
     sponza.add<Transform>(glm::scale(glm::mat4(1.0F), glm::vec3(0.1F)));
+
+    Vector<Entity> suzannes;
+    suzannes.ensure_capacity(50);
+    for (int i = 0; i < suzannes.capacity(); i++) {
+        auto suzanne = world.create_entity();
+        suzanne.add<Mesh>(suzanne_count, 0);
+        suzanne.add<Transform>(
+            glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 4 + 10, -5.0F)), glm::vec3(2.0F, 3.0F, 2.0F)));
+        if (i % 2 == 0) {
+            suzanne.add<ScaleComponent>();
+        } else {
+            suzanne.add<SpinComponent>();
+        }
+        suzannes.push(suzanne);
+    }
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
@@ -204,9 +242,6 @@ int main() {
             frame_count = 0;
             fps_counter_prev_time = current_time;
         }
-
-        auto &suzanne_transform = suzanne.get<Transform>()->matrix();
-        suzanne_transform = glm::rotate(suzanne_transform, glm::radians(1.0F), glm::vec3(0, 1, 0));
 
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
