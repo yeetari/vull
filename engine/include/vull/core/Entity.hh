@@ -36,6 +36,8 @@ public:
     void remove();
 
     void destroy();
+
+    auto operator<=>(const Entity &) const = default;
 };
 
 template <typename... Comps>
