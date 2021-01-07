@@ -171,7 +171,10 @@ C *EntityManager::get_component(EntityId id) {
         m_components.emplace();
     }
     auto &comp = m_components[family];
-    return *comp != nullptr ? comp->template at<C>(id) : nullptr;
+    if (*comp == nullptr || comp->capacity() <= id) {
+        return nullptr;
+    }
+    return comp->template at<C>(id);
 }
 
 template <typename C>

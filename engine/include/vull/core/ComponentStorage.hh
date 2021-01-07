@@ -26,7 +26,7 @@ public:
         if (capacity > m_capacity) {
             reallocate(capacity * 2);
         }
-        for (SizeType i = m_use_list.size(); i < capacity + 1; i++) {
+        for (SizeType i = m_use_list.size(); i < m_capacity + 1; i++) {
             m_use_list.push(false);
         }
     }
@@ -46,4 +46,6 @@ public:
         ASSERT(index < m_capacity);
         return m_use_list[index] ? reinterpret_cast<T *>(m_data) + index : nullptr;
     }
+
+    SizeType capacity() const { return m_capacity; }
 };
