@@ -9,6 +9,11 @@
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
+#include <vull/physics/PhysicsSystem.hh>
+#include <vull/physics/RigidBody.hh>
+#include <vull/physics/SphereCollider.hh>
+#include <vull/physics/Spring.hh>
+#include <vull/physics/Vehicle.hh>
 #include <vull/renderer/Camera.hh>
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Instance.hh>
@@ -97,7 +102,7 @@ int main() {
     Vector<Vertex> vertices;
     Vector<std::uint32_t> indices;
     std::unordered_map<Vertex, std::uint32_t> unique_vertices;
-    auto load_obj = [&](const char *obj) {
+    auto load_obj = [&](const char *obj) -> std::uint32_t {
         tinyobj::ObjReader reader;
         ENSURE(reader.ParseFromFile(std::string(k_model_path) + obj));
         std::uint32_t index_count = 0;
@@ -122,13 +127,16 @@ int main() {
                 indices.push(unique_vertices.at(vertex));
             }
         }
+        return index_count;
     };
-    load_obj("suzanne.obj");
-    std::uint32_t suzanne_count = indices.size();
-    load_obj("sponza.obj");
-    std::uint32_t sponza_count = indices.size() - suzanne_count;
+    std::uint32_t suzanne_count = load_obj("suzanne.obj");
+    std::uint32_t sponza_count = load_obj("sponza.obj");
+    std::uint32_t cube_count = load_obj("cube.obj");
+    std::uint32_t tire_count = load_obj("tire.obj");
+    std::uint32_t sphere_count = load_obj("sphere.obj");
 
     World world;
+    world.add<PhysicsSystem>(window);
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
 
     struct ScaleComponent {};
@@ -159,24 +167,69 @@ int main() {
     };
     world.add<SpinSystem>();
 
-    auto sponza = world.create_entity();
-    sponza.add<Mesh>(sponza_count, suzanne_count);
-    sponza.add<Transform>(glm::scale(glm::mat4(1.0F), glm::vec3(0.1F)));
+    //    auto sponza = world.create_entity();
+    //    sponza.add<Mesh>(sponza_count, suzanne_count);
+    //    sponza.add<Transform>(glm::scale(glm::mat4(1.0F), glm::vec3(0.1F)));
 
-    Vector<Entity> suzannes;
-    suzannes.ensure_capacity(50);
-    for (int i = 0; i < suzannes.capacity(); i++) {
-        auto suzanne = world.create_entity();
-        suzanne.add<Mesh>(suzanne_count, 0);
-        suzanne.add<Transform>(
-            glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 4 + 10, -5.0F)), glm::vec3(2.0F, 3.0F, 2.0F)));
-        if (i % 2 == 0) {
-            suzanne.add<ScaleComponent>();
-        } else {
-            suzanne.add<SpinComponent>();
-        }
-        suzannes.push(suzanne);
+    Vector<Entity> wheels;
+    for (std::uint32_t i = 0; i < 4; i++) {
+        auto wheel = world.create_entity();
+        wheel.add<Mesh>(tire_count, suzanne_count + sponza_count + cube_count);
+        wheel.add<Transform>(glm::mat4(1.0F));
+        wheels.push(wheel);
     }
+
+    auto car = world.create_entity();
+    car.add<Mesh>(cube_count, suzanne_count + sponza_count);
+    car.add<RigidBody>(1.0F);
+    car.add<Transform>(glm::mat4(1.0F));
+    car.add<Vehicle>(wheels[0], wheels[1], wheels[2], wheels[3]);
+
+    auto floor = world.create_entity();
+    floor.add<Mesh>(cube_count, suzanne_count + sponza_count);
+    floor.add<Transform>(
+        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, -10.0F, 0.0F)), glm::vec3(400.0F, 1.0F, 400.0F)));
+
+//    auto sphere = world.create_entity();
+//    sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count + cube_count + tire_count);
+//    sphere.add<RigidBody>(1.0F);
+//    sphere.get<RigidBody>()->set_pos(glm::vec3(0, 80, 0));
+//    sphere.add<Spring>(glm::vec3(0, 60, 0), 5.0F, 5.0F);
+//    sphere.add<SphereCollider>();
+//    sphere.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(100)));
+
+//    auto spring_point_vis = world.create_entity();
+//    spring_point_vis.add<Mesh>(cube_count, suzanne_count + sponza_count);
+//    spring_point_vis.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(0, 60, 0)));
+
+    auto sphere1 = world.create_entity();
+    sphere1.add<Mesh>(sphere_count, suzanne_count + sponza_count + cube_count + tire_count);
+    sphere1.add<SphereCollider>();
+    sphere1.add<Transform>(glm::mat4(1.0F));
+
+    for (int i = 0; i < 15; i++) {
+        auto sphere2 = world.create_entity();
+        sphere2.add<Mesh>(sphere_count, suzanne_count + sponza_count + cube_count + tire_count);
+        sphere2.add<RigidBody>(i != 14 ? 1.0F : 100.0F);
+        sphere2.get<RigidBody>()->set_pos(glm::vec3(0, i * 15 + 10, 0));
+        sphere2.add<SphereCollider>();
+        sphere2.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(i * 15 + 10)));
+    }
+
+//    Vector<Entity> suzannes;
+//    suzannes.ensure_capacity(50);
+//    for (int i = 0; i < suzannes.capacity(); i++) {
+//        auto suzanne = world.create_entity();
+//        suzanne.add<Mesh>(suzanne_count, 0);
+//        suzanne.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 4 + 10, -5.0F)),
+//                                          glm::vec3(2.0F, 3.0F, 2.0F)));
+//        if (i % 2 == 0) {
+//            suzanne.add<ScaleComponent>();
+//        } else {
+//            suzanne.add<SpinComponent>();
+//        }
+//        suzannes.push(suzanne);
+//    }
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
