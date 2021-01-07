@@ -6,6 +6,7 @@
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
+#include <algorithm>
 #include <limits>
 
 namespace {
