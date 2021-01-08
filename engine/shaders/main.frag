@@ -25,11 +25,20 @@ float attenuate(PointLight light) {
     return clamp(1.0 - distance * distance / (light.radius * light.radius), 0.0, 1.0);
 }
 
+vec3 dir_light(vec3 albedo, vec3 direction) {
+    vec3 light_dir = normalize(-direction);
+    vec3 view_dir = normalize(g_ubo.camera_position - g_position);
+    vec3 half_dir = normalize(light_dir + view_dir);
+    vec3 diffuse = max(dot(g_normal, light_dir), 0.0) * albedo;
+    vec3 specular = pow(max(dot(g_normal, half_dir), 0.0), 64) * vec3(0.3);
+    return (diffuse + specular) * vec3(0.2F);
+}
+
 void main() {
     ivec2 tile_id = ivec2(gl_FragCoord.xy / k_tile_size);
     uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
     vec3 albedo = vec3(1);
-    vec3 illuminance = albedo * 0.05;
+    vec3 illuminance = albedo * 0.05 + dir_light(albedo, vec3(-0.2F, -1.0F, -0.3F));
     for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {
         PointLight light = g_lights[g_light_visibilities[tile_index].indices[i]];
         vec3 light_dir = normalize(light.position - g_position);
