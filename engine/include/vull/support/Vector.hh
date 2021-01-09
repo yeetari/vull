@@ -111,8 +111,7 @@ template <typename... Args>
 T &Vector<T, SizeType>::emplace(Args &&... args) {
     ensure_capacity(m_size + 1);
     new (end()) T(std::forward<Args>(args)...);
-    ++m_size;
-    return *end();
+    return (*this)[m_size++];
 }
 
 template <typename T, typename SizeType>
