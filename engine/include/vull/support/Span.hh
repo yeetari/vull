@@ -18,7 +18,8 @@ public:
     template <typename BeginIt, typename EndIt>
     constexpr Span(BeginIt begin, EndIt end) : m_data(std::to_address(begin)), m_size(end - begin) {}
     constexpr Span(T *data, SizeType size) : m_data(data), m_size(size) {}
-    constexpr ~Span() = default;
+    // TODO: Make this constexpr, MSVC does not currently support it.
+    ~Span() = default;
 
     // Disallow copying of Span to preserve const-correctness of underlying data - a span must now be passed by
     // reference, with the constness of it specifying the constness of underlying data.
