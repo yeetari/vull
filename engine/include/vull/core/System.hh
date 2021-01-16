@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <utility>
 
-class World;
+struct World;
 
 struct BaseSystem {
     using family_type = std::size_t;
