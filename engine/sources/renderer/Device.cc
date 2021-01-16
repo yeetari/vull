@@ -66,10 +66,10 @@ Device::Device(const Instance &instance, VkPhysicalDevice physical) : m_physical
 
     Vector<VkDeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0F;
-    for (std::uint32_t i = 0; const auto &queue_family : m_queue_families) {
+    for (std::uint32_t i = 0; i < m_queue_families.size(); i++) {
         VkDeviceQueueCreateInfo queue_ci{
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = i++,
+            .queueFamilyIndex = i,
             .queueCount = 1,
             .pQueuePriorities = &queue_priority,
         };

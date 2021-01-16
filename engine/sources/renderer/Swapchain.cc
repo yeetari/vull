@@ -60,7 +60,7 @@ int rate_present_mode(VkPresentModeKHR present_mode, SwapchainMode swapchain_mod
 
 Swapchain::Swapchain(const Device &device, const Surface &surface, SwapchainMode mode) : m_device(device) {
     // Get present queue.
-    for (std::uint32_t i = 0; const auto &queue_family : device.queue_families()) {
+    for (std::uint32_t i = 0; i < device.queue_families().size(); i++) {
         VkBool32 present_supported = VK_FALSE;
         vkGetPhysicalDeviceSurfaceSupportKHR(device.physical(), i, *surface, &present_supported);
         if (present_supported == VK_TRUE) {
