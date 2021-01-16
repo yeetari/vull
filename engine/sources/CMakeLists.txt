@@ -4,6 +4,7 @@ target_sources(vull-engine PRIVATE
     core/World.cc
     io/Window.cc
     physics/PhysicsSystem.cc
+    physics/RigidBody.cc
     renderer/Camera.cc
     renderer/Device.cc
     renderer/Instance.cc

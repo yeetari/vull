@@ -4,6 +4,7 @@
 #include <vull/core/World.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/SphereCollider.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
 
@@ -15,23 +16,68 @@ namespace {
 struct Contact {
     RigidBody *b0;
     RigidBody *b1;
-    Transform *t0;
-    Transform *t1;
+    glm::vec3 point;
     glm::vec3 normal;
     float penetration;
-    float separating_velocity;
 };
 
 } // namespace
 
+glm::vec3 PhysicsSystem::calculate_contact_velocity(const RigidBody *body, const glm::mat3 &contact_to_world,
+                                                    const glm::vec3 &contact_position, float dt) {
+    glm::vec3 body_velocity = glm::cross(body->m_angular_velocity, contact_position) + body->m_linear_velocity;
+    glm::vec3 acceleration_velocity = body->m_acceleration * dt;
+    acceleration_velocity = glm::transpose(contact_to_world) * acceleration_velocity;
+    acceleration_velocity.x = 0.0F;
+    return (glm::transpose(contact_to_world) * body_velocity) + acceleration_velocity;
+}
+
+glm::mat3 PhysicsSystem::calculate_inertia_tensor(const RigidBody *body) {
+    auto mat_orientation = glm::mat3_cast(body->m_orientation);
+    return mat_orientation * body->m_inv_inertia_tensor * mat_orientation;
+}
+
+float PhysicsSystem::calculate_angular_inertia(const RigidBody *body, const glm::vec3 &contact_position,
+                                               const glm::vec3 &contact_normal) {
+    auto inv_inertia_tensor_world = calculate_inertia_tensor(body);
+    glm::vec3 angular_inertia_world = glm::cross(contact_position, contact_normal);
+    angular_inertia_world = inv_inertia_tensor_world * angular_inertia_world;
+    angular_inertia_world = glm::cross(angular_inertia_world, contact_position);
+    return glm::dot(angular_inertia_world, contact_normal);
+}
+
 void PhysicsSystem::update(World *world, float dt) {
+    // Integrate.
+    for (auto entity : world->view<RigidBody>()) {
+        auto *body = entity.get<RigidBody>();
+
+        // Apply gravity.
+        body->apply_central_force(body->m_mass * glm::vec3(0.0F, -9.81F, 0.0F));
+
+        // Integrate linear velocity and then position.
+        body->m_acceleration = body->m_force * body->m_inv_mass;
+        body->m_linear_velocity += body->m_acceleration * dt;
+        body->m_linear_velocity *= glm::pow(0.995F, dt);
+        body->m_position += body->m_linear_velocity * dt;
+
+        // Integrate angular velocity and then orientation.
+        auto mat_orientation = glm::mat3_cast(body->m_orientation);
+        auto inv_inertia_tensor_world = mat_orientation * body->m_inv_inertia_tensor * glm::transpose(mat_orientation);
+        body->m_angular_velocity += inv_inertia_tensor_world * body->m_torque;
+        body->m_angular_velocity *= glm::pow(0.995F, dt);
+        body->m_orientation += glm::quat(0.0F, body->m_angular_velocity) * body->m_orientation * 0.5F * dt;
+        body->m_orientation = glm::normalize(body->m_orientation);
+
+        // Clear force and torque.
+        body->m_force = glm::vec3(0.0F);
+        body->m_torque = glm::vec3(0.0F);
+    }
+
     // Test collisions and store results in a list of contacts.
     Vector<Contact> contacts;
     for (auto e0 : world->view<RigidBody, SphereCollider>()) {
         auto *b0 = e0.get<RigidBody>();
         auto *c0 = e0.get<SphereCollider>();
-        auto *t0 = e0.get<Transform>();
-        ASSERT(t0 != nullptr);
         for (auto e1 : world->view<SphereCollider>()) {
             // Don't check for collisions against self!
             if (e0 == e1) {
@@ -43,14 +89,13 @@ void PhysicsSystem::update(World *world, float dt) {
             ASSERT(t1 != nullptr);
 
             // Check collision.
-            const auto diff = t0->position() - t1->position();
+            const auto diff = b0->m_position - glm::vec3(t1->matrix()[3]);
             const auto dist = glm::length(diff);
             if (dist <= c0->m_radius + c1->m_radius) {
                 auto &contact = contacts.emplace();
                 contact.b0 = b0;
                 contact.b1 = b1;
-                contact.t0 = t0;
-                contact.t1 = t1;
+                contact.point = b0->m_position + diff * 0.5F;
                 contact.normal = diff / dist;
                 contact.penetration = c0->m_radius + c1->m_radius - dist;
             }
@@ -58,97 +103,144 @@ void PhysicsSystem::update(World *world, float dt) {
     }
 
     // Resolve contacts.
-    while (true) {
-        Contact *contact = nullptr;
-        float max_separating_velocity = 0.0F;
-        for (auto &potential_contact : contacts) {
-            glm::vec3 relative_velocity = potential_contact.b0->m_velocity;
-            if (potential_contact.b1 != nullptr) {
-                relative_velocity -= potential_contact.b1->m_velocity;
-            }
-            potential_contact.separating_velocity = glm::dot(relative_velocity, potential_contact.normal);
-            if (potential_contact.separating_velocity < max_separating_velocity &&
-                (potential_contact.separating_velocity < 0.0F || potential_contact.penetration > 0.0F)) {
-                max_separating_velocity = potential_contact.separating_velocity;
-                contact = &potential_contact;
-            }
-        }
+    for (auto &c : contacts) {
+        Contact *contact = &c;
 
-        if (contact == nullptr) {
-            break;
-        }
-
-        float total_inv_mass = contact->b0->m_inv_mass;
+        ASSERT(contact->b0 != nullptr);
+        Array<glm::vec3, 2> contact_position{};
+        contact_position[0] = contact->point - contact->b0->m_position;
         if (contact->b1 != nullptr) {
-            total_inv_mass += contact->b1->m_inv_mass;
-        }
-        ASSERT(total_inv_mass > 0.0F);
-
-        // Resolve velocity by applying impulse.
-        if (contact->separating_velocity <= 0.0F) {
-            const float restitution = 1.0F;
-            const float new_separating_velocity = -contact->separating_velocity * restitution;
-            const float delta_velocity = new_separating_velocity - contact->separating_velocity;
-            glm::vec3 impulse = contact->normal * (delta_velocity / total_inv_mass);
-            contact->b0->m_velocity += impulse * contact->b0->m_inv_mass;
-            if (contact->b1 != nullptr) {
-                // Need to negate b1's inverse mass here since normal, and therefore impulse, is from b0's perspective.
-                contact->b1->m_velocity += impulse * -contact->b1->m_inv_mass;
-            }
+            contact_position[1] = contact->point - contact->b1->m_position;
         }
 
-        // Resolve penetration by correcting both bodies' position to make sure there distance is 0.
-        if (contact->penetration > 0.0F) {
-            glm::vec3 correction = contact->normal * (-contact->penetration / total_inv_mass);
-            glm::vec3 t0_correction = correction * contact->b0->m_inv_mass;
-            contact->t0->position() += glm::vec4(t0_correction, 0.0F);
-            glm::vec3 t1_correction(0.0F);
-            if (contact->b1 != nullptr) {
-                t1_correction = correction * -contact->b1->m_inv_mass;
-                contact->t1->position() += glm::vec4(t1_correction, 0.0F);
+        Array<glm::vec3, 2> contact_tangent{};
+        if (glm::abs(contact->normal.x) > glm::abs(contact->normal.y)) {
+            const float s =
+                1.0F / glm::sqrt(contact->normal.z * contact->normal.z + contact->normal.x * contact->normal.x);
+            contact_tangent[0].x = contact->normal.z * s;
+            contact_tangent[0].z = -contact->normal.x * s;
+            contact_tangent[1].x = contact->normal.y * contact_tangent[0].x;
+            contact_tangent[1].y = contact->normal.z * contact_tangent[0].x - contact->normal.x * contact_tangent[0].z;
+            contact_tangent[1].z = -contact->normal.y * contact_tangent[0].x;
+        } else {
+            const float s =
+                1.0F / glm::sqrt(contact->normal.z * contact->normal.z + contact->normal.y * contact->normal.y);
+            contact_tangent[0].y = -contact->normal.z * s;
+            contact_tangent[0].z = contact->normal.y * s;
+            contact_tangent[1].x = contact->normal.y * contact_tangent[0].z - contact->normal.z * contact_tangent[0].y;
+            contact_tangent[1].y = -contact->normal.x * contact_tangent[0].z;
+            contact_tangent[1].z = contact->normal.x * contact_tangent[0].y;
+        }
+        glm::mat3 contact_to_world(contact->normal.x, contact_tangent[0].x, contact_tangent[1].x, contact->normal.y,
+                                   contact_tangent[0].y, contact_tangent[1].y, contact->normal.z, contact_tangent[0].z,
+                                   contact_tangent[1].z);
+        contact_to_world = glm::transpose(contact_to_world);
+        glm::vec3 contact_velocity = calculate_contact_velocity(contact->b0, contact_to_world, contact_position[0], dt);
+        if (contact->b1 != nullptr) {
+            contact_velocity -= calculate_contact_velocity(contact->b1, contact_to_world, contact_position[1], dt);
+        }
+
+        float velocity_from_acceleration = glm::dot(contact->b0->m_acceleration * dt, contact->normal);
+        if (contact->b1 != nullptr) {
+            velocity_from_acceleration -= glm::dot(contact->b1->m_acceleration * dt, contact->normal);
+        }
+
+        constexpr float velocity_limit = 0.25F;
+        const float restitution = glm::abs(contact_velocity.x) < velocity_limit ? 0.0F : 1.0F;
+        const float desired_delta_velocity =
+            -contact_velocity.x - restitution * (contact_velocity.x - velocity_from_acceleration);
+
+        Array<float, 2> angular_inertia{};
+        Array<float, 2> linear_inertia{};
+        angular_inertia[0] = calculate_angular_inertia(contact->b0, contact_position[0], contact->normal);
+        linear_inertia[0] = contact->b0->m_inv_mass;
+        if (contact->b1 != nullptr) {
+            angular_inertia[1] = calculate_angular_inertia(contact->b1, contact_position[1], contact->normal);
+            linear_inertia[1] = contact->b1->m_inv_mass;
+        }
+
+        float total_inertia = 0.0F;
+        for (int i = 0; i < 2; i++) {
+            total_inertia += angular_inertia[i] + linear_inertia[i];
+        }
+
+        Array<glm::mat3, 2> inv_inertia_tensors{};
+        inv_inertia_tensors[0] = calculate_inertia_tensor(contact->b0);
+        if (contact->b1 != nullptr) {
+            inv_inertia_tensors[1] = calculate_inertia_tensor(contact->b1);
+        }
+
+        Array<RigidBody *, 2> bodies{contact->b0, contact->b1};
+        Array<glm::vec3, 2> angular_change{};
+        Array<glm::vec3, 2> linear_change{};
+        for (int i = 0; i < bodies.size(); i++) {
+            auto *body = bodies[i];
+            if (body == nullptr) {
+                continue;
             }
-            for (auto &other_contact : contacts) {
-                if (contact->b0 == other_contact.b0) {
-                    other_contact.penetration -= glm::dot(t0_correction, other_contact.normal);
-                } else if (contact->b1 == other_contact.b0) {
-                    ASSERT(contact->b1 != nullptr);
-                    other_contact.penetration -= glm::dot(t1_correction, other_contact.normal);
-                }
-                if (other_contact.b1 != nullptr) {
-                    if (contact->b0 == other_contact.b1) {
-                        other_contact.penetration += glm::dot(t0_correction, other_contact.normal);
-                    } else if (contact->b1 == other_contact.b1) {
-                        ASSERT(contact->b1 != nullptr);
-                        other_contact.penetration += glm::dot(t1_correction, other_contact.normal);
-                    }
-                }
+            const float sign = i == 0 ? 1.0F : -1.0F;
+            float angular_correction = sign * contact->penetration * (angular_inertia[i] / total_inertia);
+            float linear_correction = sign * contact->penetration * (linear_inertia[i] / total_inertia);
+            glm::vec3 projection = contact_position[i];
+            projection += contact->normal * -glm::dot(contact_position[i], contact->normal);
+
+            constexpr float angular_limit = 0.2F;
+            const float max_magnitude = angular_limit * glm::length(projection);
+            const float total_move = angular_correction + linear_correction;
+            if (angular_correction < -max_magnitude) {
+                angular_correction = -max_magnitude;
+                linear_correction = total_move - angular_correction;
+            } else if (angular_correction > max_magnitude) {
+                angular_correction = max_magnitude;
+                linear_correction = total_move - angular_correction;
             }
+
+            linear_change[i] = contact->normal * linear_correction;
+            if (angular_correction != 0) {
+                glm::vec3 target_angular_direction = glm::cross(contact_position[i], contact->normal);
+                angular_change[i] =
+                    inv_inertia_tensors[i] * target_angular_direction * (angular_correction / angular_inertia[i]);
+            }
+
+            body->m_position += contact->normal * linear_correction;
+            body->m_orientation += glm::quat(0.0F, angular_change[i]) * body->m_orientation * 0.5F;
+            body->m_orientation = glm::normalize(body->m_orientation);
+        }
+
+        float delta_velocity = 0.0F;
+        {
+            glm::vec3 delta_velocity_world = glm::cross(contact_position[0], contact->normal);
+            delta_velocity_world = inv_inertia_tensors[0] * delta_velocity_world;
+            delta_velocity_world = glm::cross(delta_velocity_world, contact_position[0]);
+            delta_velocity += glm::dot(delta_velocity_world, contact->normal);
+            delta_velocity += contact->b0->m_inv_mass;
+        }
+        if (contact->b1 != nullptr) {
+            glm::vec3 delta_velocity_world = glm::cross(contact_position[1], contact->normal);
+            delta_velocity_world = inv_inertia_tensors[1] * delta_velocity_world;
+            delta_velocity_world = glm::cross(delta_velocity_world, contact_position[1]);
+            delta_velocity += glm::dot(delta_velocity_world, contact->normal);
+            delta_velocity += contact->b1->m_inv_mass;
+        }
+
+        glm::vec3 impulse_contact(desired_delta_velocity / delta_velocity, 0.0F, 0.0F);
+        glm::vec3 impulse = contact_to_world * impulse_contact;
+        {
+            glm::vec3 impulsive_torque = glm::cross(contact_position[0], impulse);
+            contact->b0->m_linear_velocity += impulse * contact->b0->m_inv_mass;
+            contact->b0->m_angular_velocity += inv_inertia_tensors[0] * impulsive_torque;
+        }
+        if (contact->b1 != nullptr) {
+            glm::vec3 impulsive_torque = glm::cross(impulse, contact_position[1]);
+            contact->b1->m_linear_velocity += impulse * -contact->b1->m_inv_mass;
+            contact->b1->m_angular_velocity += inv_inertia_tensors[1] * impulsive_torque;
         }
     }
 
-    for (auto entity : world->view<RigidBody>()) {
+    // Update transform matrices.
+    for (auto entity : world->view<RigidBody, Transform>()) {
         auto *body = entity.get<RigidBody>();
         auto *transform = entity.get<Transform>();
-        ASSERT(transform != nullptr);
-
-        // Apply gravity.
-        // W = mg
-        body->m_force += body->m_mass * glm::vec3(0.0F, -9.81F, 0.0F);
-
-        // Integrate velocity and then position.
-        // F = ma
-        // ∴ a = F/m
-        // ≡ a = F * 1/m
-        // a = Δv/Δt
-        // ∴ Δv = aΔt
-        // v = Δp/Δt
-        // ∴ Δp = vΔt
-        auto &position = transform->position();
-        body->m_velocity += body->m_force * body->m_inv_mass * dt;
-        body->m_velocity *= glm::pow(0.995F, dt);
-        position += glm::vec4(body->m_velocity * dt, 0.0F);
-
-        // Clear force.
-        body->m_force = glm::vec3(0.0F);
+        transform->matrix() = glm::translate(glm::mat4(1.0F), body->m_position) * glm::mat4_cast(body->m_orientation);
     }
 }

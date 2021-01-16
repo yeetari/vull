@@ -166,24 +166,31 @@ int main() {
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
-    sponza.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(50.0F, 0.0F, 50.0F)), glm::vec3(0.01F)));
+    sponza.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(100.0F, 0.0F, 50.0F)), glm::vec3(0.01F)));
 
     auto floor = world.create_entity();
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
     floor.add<Transform>(
         glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, -10.0F, 0.0F)), glm::vec3(400.0F, 1.0F, 400.0F)));
 
-    auto static_sphere = world.create_entity();
-    static_sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count);
-    static_sphere.add<SphereCollider>(2.5F);
-    static_sphere.add<Transform>(glm::mat4(1.0F));
+    // Static floor made from spheres.
+    for (float x = -40.0F; x < 60.0F; x += 3.0F) {
+        for (float z = -40.0F; z < 60.0F; z += 3.0F) {
+            auto static_sphere = world.create_entity();
+            static_sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count);
+            static_sphere.add<SphereCollider>(2.5F);
+            static_sphere.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(x, 0.0F, z)));
+        }
+    }
 
+    Vector<Entity> spheres;
     for (int i = 0; i < 15; i++) {
         auto sphere = world.create_entity();
-        sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count);
-        sphere.add<RigidBody>(1.0F);
-        sphere.add<SphereCollider>(2.5F);
-        sphere.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 15 + 10, 0.0F)));
+        sphere.add<Mesh>(suzanne_count, 0);
+        sphere.add<RigidBody>(10.0F, glm::vec3(0.0F, i * 9 + 50, static_cast<float>(i) * 0.4F - 3.0F));
+        sphere.add<SphereCollider>(1.5F);
+        sphere.add<Transform>(glm::mat4(1.0F));
+        spheres.push(sphere);
     }
 
     Vector<Entity> suzannes;
@@ -264,6 +271,13 @@ int main() {
             Log::info("sandbox", "FPS: %d", frame_count);
             frame_count = 0;
             fps_counter_prev_time = current_time;
+        }
+
+        for (auto sphere : spheres) {
+            auto *body = sphere.get<RigidBody>();
+            if (glfwGetKey(*window, GLFW_KEY_H) == GLFW_PRESS) {
+                body->apply_torque(glm::vec3(1000.F * dt));
+            }
         }
 
         ubo.view = camera.view_matrix();
