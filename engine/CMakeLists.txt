@@ -19,9 +19,9 @@ target_include_directories(vull-engine
     PUBLIC
     include
     ${CMAKE_CURRENT_BINARY_DIR}/include
-    ${CMAKE_SOURCE_DIR}/third-party
     PRIVATE
     sources)
+target_include_directories(vull-engine SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/third-party)
 target_link_libraries(vull-engine
     PUBLIC
     glfw
