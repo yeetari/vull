@@ -41,7 +41,7 @@ Vector<char> load_binary(const std::string &path) {
     Vector<char> buffer(file.tellg());
     file.seekg(0);
     file.read(buffer.data(), buffer.capacity());
-    return std::move(buffer);
+    return buffer;
 }
 
 VkShaderModule load_shader(const Device &device, const std::string &path) {
