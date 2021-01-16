@@ -52,7 +52,7 @@ public:
 
 template <typename S, typename... Args>
 void SystemManager::add(Args &&... args) {
-    for (int i = m_systems.size(); i < S::family() + 1; i++) {
+    for (std::uint32_t i = m_systems.size(); i < S::family() + 1; i++) {
         m_systems.emplace();
     }
     m_systems[S::family()] = Box<S>::create(std::forward<Args>(args)...);

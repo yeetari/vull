@@ -195,7 +195,7 @@ int main() {
 
     Vector<Entity> suzannes;
     suzannes.ensure_capacity(50);
-    for (int i = 0; i < suzannes.capacity(); i++) {
+    for (std::uint32_t i = 0; i < suzannes.capacity(); i++) {
         auto suzanne = world.create_entity();
         suzanne.add<Mesh>(suzanne_count, 0);
         suzanne.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 4 + 10, 100.0F)),

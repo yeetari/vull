@@ -154,7 +154,7 @@ EntityIterator<Comps...> EntityView<Comps...>::end() const {
 template <typename C, typename... Args>
 C *EntityManager::add_component(EntityId id, Args &&... args) {
     const auto family = ComponentFamily<C>::family();
-    for (int i = m_components.size(); i < family + 1; i++) {
+    for (std::uint32_t i = m_components.size(); i < family + 1; i++) {
         m_components.emplace();
     }
     if (!m_components[family]) {
@@ -169,7 +169,7 @@ C *EntityManager::add_component(EntityId id, Args &&... args) {
 template <typename C>
 C *EntityManager::get_component(EntityId id) {
     const auto family = ComponentFamily<C>::family();
-    for (int i = m_components.size(); i < family + 1; i++) {
+    for (std::uint32_t i = m_components.size(); i < family + 1; i++) {
         m_components.emplace();
     }
     auto &comp = m_components[family];

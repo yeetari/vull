@@ -173,7 +173,7 @@ void PhysicsSystem::update(World *world, float dt) {
         Array<RigidBody *, 2> bodies{contact->b0, contact->b1};
         Array<glm::vec3, 2> angular_change{};
         Array<glm::vec3, 2> linear_change{};
-        for (int i = 0; i < bodies.size(); i++) {
+        for (std::uint32_t i = 0; i < bodies.size(); i++) {
             auto *body = bodies[i];
             if (body == nullptr) {
                 continue;
