@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Vector.hh>
 

@@ -2,9 +2,11 @@
 
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 
 namespace {

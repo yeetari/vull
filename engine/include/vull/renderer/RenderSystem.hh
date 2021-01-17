@@ -1,17 +1,20 @@
 #pragma once
 
 #include <vull/core/System.hh>
-#include <vull/renderer/PointLight.hh>
+#include <vull/renderer/PointLight.hh> // IWYU pragma: keep
 #include <vull/renderer/UniformBuffer.hh>
-#include <vull/renderer/Vertex.hh>
+#include <vull/renderer/Vertex.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
+
 class Device;
 class Swapchain;
 class Window;
+struct World;
 
 class RenderSystem final : public System<RenderSystem> {
     const Device &m_device;

@@ -5,6 +5,8 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <cstdint>
+
 class Device;
 class Surface;
 

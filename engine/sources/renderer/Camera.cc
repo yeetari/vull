@@ -3,7 +3,11 @@
 #include <vull/io/Window.hh>
 
 #include <GLFW/glfw3.h>
+#include <glm/common.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/trigonometric.hpp>
 
 namespace {
 

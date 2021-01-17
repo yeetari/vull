@@ -3,7 +3,9 @@
 #include <vull/renderer/Instance.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
+#include <vull/support/Vector.hh>
 
+#include <cstdint>
 #include <string>
 
 namespace {

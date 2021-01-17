@@ -1,6 +1,7 @@
 #include <vull/renderer/RenderSystem.hh>
 
 #include <vull/Config.hh>
+#include <vull/core/Entity.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
@@ -20,11 +21,12 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <string>
-#include <utility>
 
 namespace {
 

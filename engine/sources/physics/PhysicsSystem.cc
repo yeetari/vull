@@ -1,5 +1,6 @@
 #include <vull/physics/PhysicsSystem.hh>
 
+#include <vull/core/Entity.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/physics/RigidBody.hh>
@@ -8,8 +9,14 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
 
+#include <glm/geometric.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/matrix.hpp>
 #include <glm/vec3.hpp>
+
+#include <cstdint>
 
 namespace {
 

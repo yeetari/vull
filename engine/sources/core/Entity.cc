@@ -1,5 +1,9 @@
 #include <vull/core/Entity.hh>
 
+#include <vull/core/ComponentStorage.hh>
+#include <vull/support/Box.hh>
+#include <vull/support/Vector.hh>
+
 EntityManager::component_family_type EntityManager::s_component_family_counter = 0;
 
 void Entity::destroy() {

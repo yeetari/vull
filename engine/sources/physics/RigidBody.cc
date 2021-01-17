@@ -1,5 +1,7 @@
 #include <vull/physics/RigidBody.hh>
 
+#include <glm/matrix.hpp>
+
 RigidBody::RigidBody(float mass, const glm::vec3 &position)
     : m_mass(mass), m_inv_mass(mass != 0.0F ? 1.0F / mass : 0.0F), m_position(position) {
     // Inertia tensor for constant density sphere.

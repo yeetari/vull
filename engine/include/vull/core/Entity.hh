@@ -1,13 +1,10 @@
 #pragma once
 
 #include <vull/core/ComponentStorage.hh>
-#include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Vector.hh>
 
 #include <cstdint>
-#include <memory>
-#include <unordered_map>
 #include <utility>
 
 class EntityManager;

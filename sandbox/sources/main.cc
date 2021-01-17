@@ -1,11 +1,6 @@
-#define TINYOBJLOADER_IMPLEMENTATION
-#include <GLFW/glfw3.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/random.hpp>
-#include <glm/mat4x4.hpp>
-#include <glm/vec3.hpp>
-#include <tiny_obj_loader.h>
 #include <vull/Config.hh>
+#include <vull/core/Entity.hh>
+#include <vull/core/System.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
@@ -16,20 +11,39 @@
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Instance.hh>
 #include <vull/renderer/Mesh.hh>
+#include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderSystem.hh>
 #include <vull/renderer/Surface.hh>
 #include <vull/renderer/Swapchain.hh>
+#include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <GLFW/glfw3.h>
+#include <glm/common.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/random.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/trigonometric.hpp>
+#include <glm/vec3.hpp>
+#include <tiny_obj_loader.h>
+#include <vulkan/vulkan_core.h>
+
 #include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <cstdlib>
 #include <fstream>
-#include <optional>
+#include <new>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -166,7 +180,8 @@ int main() {
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
-    sponza.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(100.0F, 0.0F, 50.0F)), glm::vec3(0.01F)));
+    sponza.add<Transform>(
+        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(100.0F, 0.0F, 50.0F)), glm::vec3(0.01F)));
 
     auto floor = world.create_entity();
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
