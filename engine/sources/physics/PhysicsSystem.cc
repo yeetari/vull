@@ -55,9 +55,7 @@ float PhysicsSystem::calculate_angular_inertia(const RigidBody *body, const glm:
 
 void PhysicsSystem::update(World *world, float dt) {
     // Integrate.
-    for (auto entity : world->view<RigidBody>()) {
-        auto *body = entity.get<RigidBody>();
-
+    for (auto [entity, body] : world->view<RigidBody>()) {
         // Apply gravity.
         body->apply_central_force(body->m_mass * glm::vec3(0.0F, -9.81F, 0.0F));
 
@@ -82,16 +80,13 @@ void PhysicsSystem::update(World *world, float dt) {
 
     // Test collisions and store results in a list of contacts.
     Vector<Contact> contacts;
-    for (auto e0 : world->view<RigidBody, SphereCollider>()) {
-        auto *b0 = e0.get<RigidBody>();
-        auto *c0 = e0.get<SphereCollider>();
-        for (auto e1 : world->view<SphereCollider>()) {
+    for (auto [e0, b0, c0] : world->view<RigidBody, SphereCollider>()) {
+        for (auto [e1, c1] : world->view<SphereCollider>()) {
             // Don't check for collisions against self!
             if (e0 == e1) {
                 continue;
             }
             auto *b1 = e1.get<RigidBody>();
-            auto *c1 = e1.get<SphereCollider>();
             auto *t1 = e1.get<Transform>();
             ASSERT(t1 != nullptr);
 
@@ -245,9 +240,7 @@ void PhysicsSystem::update(World *world, float dt) {
     }
 
     // Update transform matrices.
-    for (auto entity : world->view<RigidBody, Transform>()) {
-        auto *body = entity.get<RigidBody>();
-        auto *transform = entity.get<Transform>();
+    for (auto [entity, body, transform] : world->view<RigidBody, Transform>()) {
         transform->matrix() = glm::translate(glm::mat4(1.0F), body->m_position) * glm::mat4_cast(body->m_orientation);
     }
 }

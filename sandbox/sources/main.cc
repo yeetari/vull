@@ -157,11 +157,11 @@ int main() {
     public:
         void update(World *world, float dt) override {
             m_time += dt;
-            for (auto entity : world->view<ScaleComponent, Transform>()) {
-                auto &transform = entity.get<Transform>()->matrix();
-                transform[2][0] = std::abs(std::sin(m_time) * 8);
-                transform[2][1] = std::abs(std::sin(m_time) * 8);
-                transform[2][2] = std::abs(std::sin(m_time) * 8);
+            for (auto [entity, scale, transform] : world->view<ScaleComponent, Transform>()) {
+                auto &matrix = transform->matrix();
+                matrix[2][0] = std::abs(std::sin(m_time) * 8);
+                matrix[2][1] = std::abs(std::sin(m_time) * 8);
+                matrix[2][2] = std::abs(std::sin(m_time) * 8);
             }
         }
     };
@@ -170,9 +170,9 @@ int main() {
     struct SpinComponent {};
     struct SpinSystem : public System<SpinSystem> {
         void update(World *world, float dt) override {
-            for (auto entity : world->view<SpinComponent, Transform>()) {
-                auto &transform = entity.get<Transform>()->matrix();
-                transform = glm::rotate(transform, dt * 10.0F, glm::vec3(0, 1, 0));
+            for (auto [entity, spin, transform] : world->view<SpinComponent, Transform>()) {
+                auto &matrix = transform->matrix();
+                matrix = glm::rotate(matrix, dt * 10.0F, glm::vec3(0, 1, 0));
             }
         }
     };

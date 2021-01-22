@@ -20,9 +20,7 @@ struct Velocity {
 
 struct PhysicsSystem : public System<PhysicsSystem> {
     void update(World *world, float dt) override {
-        for (auto entity : world->view<Position, Velocity>()) {
-            auto *position = entity.get<Position>();
-            auto *velocity = entity.get<Velocity>();
+        for (auto [entity, position, velocity] : world->view<Position, Velocity>()) {
             position->x += velocity->x * dt;
             position->y += velocity->y * dt;
         }
@@ -78,8 +76,8 @@ void iterate_one_component(benchmark::State &state) {
         entity.add<Position>(2, 4);
     }
     for (auto _ : state) {
-        for (auto entity : world.view<Position>()) {
-            benchmark::DoNotOptimize(entity.get<Position>());
+        for (auto [entity, position] : world.view<Position>()) {
+            benchmark::DoNotOptimize(position);
         }
     }
 }
@@ -92,9 +90,9 @@ void iterate_two_components(benchmark::State &state) {
         entity.add<Velocity>(4, 6);
     }
     for (auto _ : state) {
-        for (auto entity : world.view<Position, Velocity>()) {
-            benchmark::DoNotOptimize(entity.get<Position>());
-            benchmark::DoNotOptimize(entity.get<Velocity>());
+        for (auto [entity, position, velocity] : world.view<Position, Velocity>()) {
+            benchmark::DoNotOptimize(position);
+            benchmark::DoNotOptimize(velocity);
         }
     }
 }

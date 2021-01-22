@@ -5,6 +5,7 @@
 #include <vull/support/Vector.hh>
 
 #include <cstdint>
+#include <tuple>
 #include <utility>
 
 class EntityManager;
@@ -48,7 +49,7 @@ public:
     constexpr EntityIterator &operator++();
 
     constexpr auto operator<=>(const EntityIterator &other) const = default;
-    constexpr Entity operator*() const { return Entity(m_id, m_manager); }
+    constexpr std::tuple<Entity, Comps *...> operator*() const;
 };
 
 template <typename... Comps>
@@ -136,6 +137,11 @@ constexpr EntityIterator<Comps...> &EntityIterator<Comps...>::operator++() {
         ++m_id;
     } while (m_id != m_manager->entity_count() && !Entity(m_id, m_manager).has<Comps...>());
     return *this;
+}
+
+template <typename... Comps>
+constexpr std::tuple<Entity, Comps *...> EntityIterator<Comps...>::operator*() const {
+    return std::make_tuple(Entity(m_id, m_manager), m_manager->get_component<Comps>(m_id)...);
 }
 
 template <typename... Comps>

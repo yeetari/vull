@@ -55,13 +55,13 @@ TEST(EntitySystemTest, SystemIterate) {
             Vector<Entity> foo_entities;
             Vector<Entity> bar_entities;
             Vector<Entity> foo_bar_entities;
-            for (auto entity : world->view<Foo>()) {
+            for (auto [entity, foo] : world->view<Foo>()) {
                 foo_entities.push(entity);
             }
-            for (auto entity : world->view<Bar>()) {
+            for (auto [entity, bar] : world->view<Bar>()) {
                 bar_entities.push(entity);
             }
-            for (auto entity : world->view<Foo, Bar>()) {
+            for (auto [entity, foo, bar] : world->view<Foo, Bar>()) {
                 foo_bar_entities.push(entity);
             }
             ASSERT_EQ(foo_entities.size(), 3);

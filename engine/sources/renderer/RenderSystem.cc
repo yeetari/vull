@@ -909,9 +909,7 @@ void RenderSystem::record_command_buffers(World *world) {
         Array<VkDeviceSize, 1> offsets{0};
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        for (auto entity : world->view<Mesh, Transform>()) {
-            auto *mesh = entity.get<Mesh>();
-            auto *transform = entity.get<Transform>();
+        for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
             vkCmdPushConstants(cmd_buf, m_depth_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                                &transform->matrix());
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
@@ -988,9 +986,7 @@ void RenderSystem::record_command_buffers(World *world) {
         Array<VkDeviceSize, 1> offsets{0};
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
-        for (auto entity : world->view<Mesh, Transform>()) {
-            auto *mesh = entity.get<Mesh>();
-            auto *transform = entity.get<Transform>();
+        for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
             vkCmdPushConstants(cmd_buf, m_main_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                                &transform->matrix());
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
