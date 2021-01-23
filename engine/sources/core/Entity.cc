@@ -18,6 +18,8 @@ Entity EntityManager::create_entity() {
 void EntityManager::destroy_entity(EntityId id) {
     --m_count;
     for (auto &components : m_components) {
-        components->release(id);
+        if (components) {
+            components->release(id);
+        }
     }
 }

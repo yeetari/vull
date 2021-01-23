@@ -81,6 +81,12 @@ private:
     EntityId m_counter{0};
 
 public:
+    EntityManager() {
+        for (std::uint32_t i = 0; i < 16; i++) {
+            m_components.emplace(nullptr);
+        }
+    }
+
     template <typename C, typename... Args>
     C *add_component(EntityId id, Args &&... args);
 
@@ -157,9 +163,6 @@ EntityIterator<Comps...> EntityView<Comps...>::end() const {
 template <typename C, typename... Args>
 C *EntityManager::add_component(EntityId id, Args &&... args) {
     const auto family = ComponentFamily<C>::family();
-    for (std::uint32_t i = m_components.size(); i < family + 1; i++) {
-        m_components.emplace();
-    }
     if (!m_components[family]) {
         m_components[family] = Box<ComponentStorage<>>::create(sizeof(C));
     }
@@ -172,9 +175,6 @@ C *EntityManager::add_component(EntityId id, Args &&... args) {
 template <typename C>
 C *EntityManager::get_component(EntityId id) {
     const auto family = ComponentFamily<C>::family();
-    for (std::uint32_t i = m_components.size(); i < family + 1; i++) {
-        m_components.emplace();
-    }
     auto &comp = m_components[family];
     if (*comp == nullptr || comp->capacity() <= id) {
         return nullptr;
