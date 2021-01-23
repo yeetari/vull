@@ -19,8 +19,13 @@ class ComponentStorage {
     }
 
 public:
-    explicit ComponentStorage(SizeType element_size) : m_element_size(element_size) {}
-    ~ComponentStorage() { std::free(m_data); }
+    constexpr explicit ComponentStorage(SizeType element_size) : m_element_size(element_size) {}
+    ComponentStorage(const ComponentStorage &) = delete;
+    ComponentStorage(ComponentStorage &&) = delete;
+    constexpr ~ComponentStorage() { std::free(m_data); }
+
+    ComponentStorage &operator=(const ComponentStorage &) = delete;
+    ComponentStorage &operator=(ComponentStorage &&) = delete;
 
     void ensure_capacity(SizeType capacity) {
         if (capacity > m_capacity) {
