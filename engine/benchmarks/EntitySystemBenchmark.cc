@@ -38,6 +38,39 @@ void create_entities(benchmark::State &state) {
     }
 }
 
+void add_one_component(benchmark::State &state) {
+    for (auto _ : state) {
+        state.PauseTiming();
+        World world;
+        Vector<Entity> entities;
+        entities.ensure_capacity(state.range());
+        for (auto i = 0; i < state.range(); i++) {
+            entities.push(world.create_entity());
+        }
+        state.ResumeTiming();
+        for (auto &entity : entities) {
+            entity.add<Position>(2, 4);
+        }
+    }
+}
+
+void add_two_components(benchmark::State &state) {
+    for (auto _ : state) {
+        state.PauseTiming();
+        World world;
+        Vector<Entity> entities;
+        entities.ensure_capacity(state.range());
+        for (auto i = 0; i < state.range(); i++) {
+            entities.push(world.create_entity());
+        }
+        state.ResumeTiming();
+        for (auto &entity : entities) {
+            entity.add<Position>(2, 4);
+            entity.add<Velocity>(4, 6);
+        }
+    }
+}
+
 void iterate_one_component(benchmark::State &state) {
     World world;
     for (auto i = 0; i < state.range(); i++) {
@@ -80,6 +113,8 @@ void update_systems(benchmark::State &state) {
 }
 
 BENCHMARK(create_entities)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
+BENCHMARK(add_one_component)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
+BENCHMARK(add_two_components)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
 BENCHMARK(iterate_one_component)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
 BENCHMARK(iterate_two_components)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
 BENCHMARK(update_systems)->Arg(100000)->Arg(1000000)->Arg(10000000)->Unit(benchmark::TimeUnit::kMillisecond);
