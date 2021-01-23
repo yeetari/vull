@@ -175,11 +175,7 @@ C *EntityManager::add_component(EntityId id, Args &&... args) {
 template <typename C>
 C *EntityManager::get_component(EntityId id) {
     const auto family = ComponentFamily<C>::family();
-    auto &comp = m_components[family];
-    if (*comp == nullptr || comp->capacity() <= id) {
-        return nullptr;
-    }
-    return comp->template at<C>(id);
+    return m_components[family] ? m_components[family]->template at<C>(id) : nullptr;
 }
 
 template <typename C>

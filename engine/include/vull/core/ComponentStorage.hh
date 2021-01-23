@@ -31,9 +31,7 @@ public:
         if (capacity > m_capacity) {
             reallocate(capacity * 2);
         }
-        for (SizeType i = m_use_list.size(); i < m_capacity + 1; i++) {
-            m_use_list.push(false);
-        }
+        m_use_list.resize(m_capacity + 1);
     }
 
     void obtain(SizeType index) {
