@@ -2,6 +2,7 @@
 
 #include <vull/support/Assert.hh>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -76,7 +77,7 @@ template <typename T, typename SizeType>
 void Vector<T, SizeType>::ensure_capacity(SizeType capacity) {
     ASSERT(capacity < std::numeric_limits<SizeType>::max());
     if (capacity > m_capacity) {
-        reallocate(capacity * 2);
+        reallocate(std::max(m_capacity * 2 + 1, capacity));
     }
 }
 
