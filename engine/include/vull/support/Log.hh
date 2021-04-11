@@ -15,6 +15,7 @@ class Log {
     };
 
 public:
+    // NOLINTNEXTLINE
     static std::mutex s_log_lock;
 
     template <typename... Args>

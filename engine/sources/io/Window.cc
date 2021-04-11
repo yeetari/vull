@@ -15,7 +15,8 @@ Window::Window(std::uint32_t width, std::uint32_t height, bool fullscreen) : m_w
     Log::info("io", "Creating window with dimensions %dx%d", m_width, m_height);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    m_window = glfwCreateWindow(m_width, m_height, "vull", fullscreen ? glfwGetPrimaryMonitor() : nullptr, nullptr);
+    m_window = glfwCreateWindow(static_cast<int>(m_width), static_cast<int>(m_height), "vull",
+                                fullscreen ? glfwGetPrimaryMonitor() : nullptr, nullptr);
     ENSURE(m_window != nullptr);
 }
 

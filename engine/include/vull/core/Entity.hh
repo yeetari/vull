@@ -65,7 +65,7 @@ public:
 
 class EntityManager {
     using component_family_type = std::size_t;
-    static component_family_type s_component_family_counter;
+    static component_family_type s_component_family_counter; // NOLINT
 
     template <typename C>
     struct ComponentFamily {

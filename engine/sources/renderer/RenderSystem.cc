@@ -521,6 +521,7 @@ void RenderSystem::create_descriptors() {
                 .binding = 0,
                 .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                 .descriptorCount = 1,
+                // NOLINTNEXTLINE
                 .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
             },
         };
@@ -682,27 +683,27 @@ void RenderSystem::create_pipelines() {
     Array specialisation_map_entries{
         VkSpecializationMapEntry{
             .constantID = 0,
-            .offset = offsetof(SpecialisationData, tile_size),
+            .offset = offsetof(SpecialisationData, tile_size), // NOLINT
             .size = sizeof(SpecialisationData::tile_size),
         },
         VkSpecializationMapEntry{
             .constantID = 1,
-            .offset = offsetof(SpecialisationData, max_lights_per_tile),
+            .offset = offsetof(SpecialisationData, max_lights_per_tile), // NOLINT
             .size = sizeof(SpecialisationData::max_lights_per_tile),
         },
         VkSpecializationMapEntry{
             .constantID = 2,
-            .offset = offsetof(SpecialisationData, tile_count),
+            .offset = offsetof(SpecialisationData, tile_count), // NOLINT
             .size = sizeof(SpecialisationData::tile_count),
         },
         VkSpecializationMapEntry{
             .constantID = 3,
-            .offset = offsetof(SpecialisationData, viewport_width),
+            .offset = offsetof(SpecialisationData, viewport_width), // NOLINT
             .size = sizeof(SpecialisationData::viewport_width),
         },
         VkSpecializationMapEntry{
             .constantID = 4,
-            .offset = offsetof(SpecialisationData, viewport_height),
+            .offset = offsetof(SpecialisationData, viewport_height), // NOLINT
             .size = sizeof(SpecialisationData::viewport_height),
         },
     };
@@ -818,6 +819,7 @@ void RenderSystem::create_pipelines() {
             .depthCompareOp = VK_COMPARE_OP_EQUAL,
         };
         VkPipelineColorBlendAttachmentState blend_attachment{
+            // NOLINTNEXTLINE
             .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
                               VK_COLOR_COMPONENT_A_BIT,
         };

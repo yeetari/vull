@@ -6,7 +6,7 @@
 #include <utility>
 
 template <typename T>
-class Box {
+class Box { // NOLINT
     T *m_data;
 
 public:

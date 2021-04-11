@@ -9,12 +9,16 @@
 #include <cstdint>
 #include <cstring>
 
+#define VULL_MAKE_VERSION(major, minor, patch)                                                                         \
+    ((static_cast<std::uint32_t>(major) << 22u) | (static_cast<std::uint32_t>(minor) << 12u) |                         \
+     static_cast<std::uint32_t>(patch))
+
 namespace {
 
 constexpr const char *k_application_name = "vull";
-constexpr std::uint32_t k_application_version = VK_MAKE_VERSION(0, 1, 0);
+constexpr std::uint32_t k_application_version = VULL_MAKE_VERSION(0, 1, 0);
 constexpr const char *k_engine_name = "vull-engine";
-constexpr std::uint32_t k_engine_version = VK_MAKE_VERSION(0, 1, 0);
+constexpr std::uint32_t k_engine_version = VULL_MAKE_VERSION(0, 1, 0);
 constexpr const char *k_validation_layer_name = "VK_LAYER_KHRONOS_validation";
 
 } // namespace
@@ -45,9 +49,9 @@ Instance::Instance(const Span<const char *> &extensions) {
     Vector<VkLayerProperties> layers(layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
     auto *it = std::find_if(layers.begin(), layers.end(), [](const auto &layer) {
-        return strcmp(layer.layerName, k_validation_layer_name) == 0;
+        return strcmp(static_cast<const char *>(layer.layerName), k_validation_layer_name) == 0;
     });
-    const char *layer_name = it->layerName;
+    const auto *layer_name = static_cast<const char *>(it->layerName);
     if (it != layers.end()) {
         instance_ci.enabledLayerCount = 1;
         instance_ci.ppEnabledLayerNames = &layer_name;
