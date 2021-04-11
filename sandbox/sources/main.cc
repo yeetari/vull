@@ -152,7 +152,7 @@ int main() {
 
     struct ScaleComponent {};
     class ScaleSystem : public System<ScaleSystem> {
-        float m_time{0.0F};
+        float m_time{0.0f};
 
     public:
         void update(World *world, float dt) override {
@@ -172,7 +172,7 @@ int main() {
         void update(World *world, float dt) override {
             for (auto [entity, spin, transform] : world->view<SpinComponent, Transform>()) {
                 auto &matrix = transform->matrix();
-                matrix = glm::rotate(matrix, dt * 10.0F, glm::vec3(0, 1, 0));
+                matrix = glm::rotate(matrix, dt * 10.0f, glm::vec3(0, 1, 0));
             }
         }
     };
@@ -181,20 +181,20 @@ int main() {
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
     sponza.add<Transform>(
-        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(100.0F, 0.0F, 50.0F)), glm::vec3(0.01F)));
+        glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 0.0f, 50.0f)), glm::vec3(0.01f)));
 
     auto floor = world.create_entity();
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
     floor.add<Transform>(
-        glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, -10.0F, 0.0F)), glm::vec3(400.0F, 1.0F, 400.0F)));
+        glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -10.0f, 0.0f)), glm::vec3(400.0f, 1.0f, 400.0f)));
 
     // Static floor made from spheres.
-    for (float x = -40.0F; x < 60.0F; x += 3.0F) {
-        for (float z = -40.0F; z < 60.0F; z += 3.0F) {
+    for (float x = -40.0f; x < 60.0f; x += 3.0f) {
+        for (float z = -40.0f; z < 60.0f; z += 3.0f) {
             auto static_sphere = world.create_entity();
             static_sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count);
-            static_sphere.add<SphereCollider>(2.5F);
-            static_sphere.add<Transform>(glm::translate(glm::mat4(1.0F), glm::vec3(x, 0.0F, z)));
+            static_sphere.add<SphereCollider>(2.5f);
+            static_sphere.add<Transform>(glm::translate(glm::mat4(1.0f), glm::vec3(x, 0.0f, z)));
         }
     }
 
@@ -202,9 +202,9 @@ int main() {
     for (int i = 0; i < 15; i++) {
         auto sphere = world.create_entity();
         sphere.add<Mesh>(suzanne_count, 0);
-        sphere.add<RigidBody>(10.0F, glm::vec3(0.0F, i * 9 + 50, static_cast<float>(i) * 0.4F - 3.0F));
-        sphere.add<SphereCollider>(1.5F);
-        sphere.add<Transform>(glm::mat4(1.0F));
+        sphere.add<RigidBody>(10.0f, glm::vec3(0.0f, i * 9 + 50, static_cast<float>(i) * 0.4f - 3.0f));
+        sphere.add<SphereCollider>(1.5f);
+        sphere.add<Transform>(glm::mat4(1.0f));
         spheres.push(sphere);
     }
 
@@ -213,8 +213,8 @@ int main() {
     for (std::uint32_t i = 0; i < suzannes.capacity(); i++) {
         auto suzanne = world.create_entity();
         suzanne.add<Mesh>(suzanne_count, 0);
-        suzanne.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0F), glm::vec3(0.0F, i * 4 + 10, 100.0F)),
-                                          glm::vec3(2.0F, 3.0F, 2.0F)));
+        suzanne.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, i * 4 + 10, 100.0f)),
+                                          glm::vec3(2.0f, 3.0f, 2.0f)));
         if (i % 2 == 0) {
             suzanne.add<ScaleComponent>();
         } else {
@@ -229,13 +229,13 @@ int main() {
     Array<glm::vec3, 3000> dsts{};
     Array<glm::vec3, 3000> srcs{};
     for (int i = 0; auto &light : lights) {
-        light.colour = glm::linearRand(glm::vec3(0.1F), glm::vec3(0.5F));
-        light.radius = glm::linearRand(15.0F, 30.0F);
-        light.position.x = glm::linearRand(-190.0F, 175.0F);
-        light.position.y = glm::linearRand(-12.0F, 138.0F);
-        light.position.z = glm::linearRand(-120.0F, 103.0F);
+        light.colour = glm::linearRand(glm::vec3(0.1f), glm::vec3(0.5f));
+        light.radius = glm::linearRand(15.0f, 30.0f);
+        light.position.x = glm::linearRand(-190.0f, 175.0f);
+        light.position.y = glm::linearRand(-12.0f, 138.0f);
+        light.position.z = glm::linearRand(-120.0f, 103.0f);
         dsts[i] = light.position;
-        auto rand = glm::linearRand(30.0F, 60.0F);
+        auto rand = glm::linearRand(30.0f, 60.0f);
         switch (glm::linearRand(0, 5)) {
         case 0:
             dsts[i].x += rand;
@@ -260,10 +260,10 @@ int main() {
     }
 
     auto &ubo = renderer->ubo();
-    ubo.proj = glm::perspective(glm::radians(45.0F), window.aspect_ratio(), 0.1F, 1000.0F);
+    ubo.proj = glm::perspective(glm::radians(45.0f), window.aspect_ratio(), 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    Camera camera(glm::vec3(118, 18, -3), 0.6F, 1.25F);
+    Camera camera(glm::vec3(118, 18, -3), 0.6f, 1.25f);
     glfwSetWindowUserPointer(*window, &camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
@@ -291,7 +291,7 @@ int main() {
         for (auto sphere : spheres) {
             auto *body = sphere.get<RigidBody>();
             if (glfwGetKey(*window, GLFW_KEY_H) == GLFW_PRESS) {
-                body->apply_torque(glm::vec3(1000.F * dt));
+                body->apply_torque(glm::vec3(1000.f * dt));
             }
         }
 
@@ -300,7 +300,7 @@ int main() {
         camera.update(window, dt);
         for (int i = 0; auto &light : lights) {
             light.position = glm::mix(light.position, dsts[i], dt);
-            if (glm::distance(light.position, dsts[i]) <= 6.0F) {
+            if (glm::distance(light.position, dsts[i]) <= 6.0f) {
                 std::swap(dsts[i], srcs[i]);
             }
             i++;

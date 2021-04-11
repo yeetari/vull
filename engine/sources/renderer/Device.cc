@@ -55,19 +55,19 @@ Device::Device(const Instance &instance, VkPhysicalDevice physical) : m_physical
         std::string flags;
         bool first = true;
         for (std::uint32_t i = 0; i < 4; i++) {
-            if ((queue_family.queueFlags & (1U << i)) != 0) {
+            if ((queue_family.queueFlags & (1u << i)) != 0) {
                 if (!first) {
                     flags += '/';
                 }
                 first = false;
-                flags += queue_flag(1U << i);
+                flags += queue_flag(1u << i);
             }
         }
         Log::trace("renderer", " - %d queues capable of %s", queue_family.queueCount, flags.c_str());
     }
 
     Vector<VkDeviceQueueCreateInfo> queue_cis;
-    const float queue_priority = 1.0F;
+    const float queue_priority = 1.0f;
     for (std::uint32_t i = 0; i < m_queue_families.size(); i++) {
         VkDeviceQueueCreateInfo queue_ci{
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,

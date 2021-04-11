@@ -11,11 +11,11 @@
 
 namespace {
 
-constexpr float k_mouse_sensitivity = 0.002F;
-constexpr float k_movement_speed = 10.0F;
-constexpr float k_min_pitch = -glm::half_pi<float>() + glm::radians(1.0F);
-constexpr float k_max_pitch = glm::half_pi<float>() - glm::radians(1.0F);
-constexpr glm::vec3 k_world_up(0.0F, 1.0F, 0.0F);
+constexpr float k_mouse_sensitivity = 0.002f;
+constexpr float k_movement_speed = 10.0f;
+constexpr float k_min_pitch = -glm::half_pi<float>() + glm::radians(1.0f);
+constexpr float k_max_pitch = glm::half_pi<float>() - glm::radians(1.0f);
+constexpr glm::vec3 k_world_up(0.0f, 1.0f, 0.0f);
 
 } // namespace
 

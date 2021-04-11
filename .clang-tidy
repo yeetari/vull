@@ -124,7 +124,6 @@ Checks: >
   hicpp-special-member-functions,
   hicpp-static-assert,
   hicpp-undelegated-constructor,
-  hicpp-uppercase-literal-suffix,
   hicpp-use-auto,
   hicpp-use-emplace,
   hicpp-use-equals-default,
@@ -215,7 +214,6 @@ Checks: >
   readability-make-member-function-const,
   readability-misleading-indentation,
   readability-misplaced-array-index,
-  readability-named-parameter,
   readability-non-const-parameter,
   readability-qualified-auto,
   readability-redundant-access-specifiers,
@@ -240,3 +238,5 @@ FormatStyle: file
 CheckOptions:
   - key: bugprone-assert-side-effect.AssertMacros
     value: ASSERT,ASSERT_PEDANTIC,ENSURE
+  - key: readability-uppercase-literal-suffix.NewSuffixes
+    value: f;u;l;ul;ull

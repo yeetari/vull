@@ -12,16 +12,16 @@ class RigidBody {
 private:
     const float m_mass;
     const float m_inv_mass;
-    glm::mat3 m_inv_inertia_tensor{0.0F};
-    glm::vec3 m_force{0.0F};
-    glm::vec3 m_torque{0.0F};
-    glm::vec3 m_linear_velocity{0.0F};
-    glm::vec3 m_angular_velocity{0.0F};
+    glm::mat3 m_inv_inertia_tensor{0.0f};
+    glm::vec3 m_force{0.0f};
+    glm::vec3 m_torque{0.0f};
+    glm::vec3 m_linear_velocity{0.0f};
+    glm::vec3 m_angular_velocity{0.0f};
 
-    glm::vec3 m_acceleration{0.0F};
+    glm::vec3 m_acceleration{0.0f};
 
     glm::vec3 m_position;
-    glm::quat m_orientation{0.0F, 0.0F, 0.0F, 0.0F};
+    glm::quat m_orientation{0.0f, 0.0f, 0.0f, 0.0f};
 
 public:
     RigidBody(float mass, const glm::vec3 &position);

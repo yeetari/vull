@@ -169,7 +169,7 @@ void RenderSystem::create_pools() {
 void RenderSystem::create_queues() {
     for (std::uint32_t i = 0; const auto &queue_family : m_device.queue_families()) {
         const auto flags = queue_family.queueFlags;
-        if ((flags & VK_QUEUE_COMPUTE_BIT) != 0U && (flags & VK_QUEUE_GRAPHICS_BIT) != 0U) {
+        if ((flags & VK_QUEUE_COMPUTE_BIT) != 0u && (flags & VK_QUEUE_GRAPHICS_BIT) != 0u) {
             const std::uint32_t queue_index = 0;
             Log::trace("renderer", "Using queue %d:%d for compute", i, queue_index);
             Log::trace("renderer", "Using queue %d:%d for graphics", i, queue_index);
@@ -743,7 +743,7 @@ void RenderSystem::create_pipelines() {
     VkViewport viewport{
         .width = static_cast<float>(m_window.width()),
         .height = static_cast<float>(m_window.height()),
-        .maxDepth = 1.0F,
+        .maxDepth = 1.0f,
     };
     VkPipelineViewportStateCreateInfo viewport_state{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
@@ -758,13 +758,13 @@ void RenderSystem::create_pipelines() {
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_BACK_BIT,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .lineWidth = 1.0F,
+        .lineWidth = 1.0f,
     };
 
     VkPipelineMultisampleStateCreateInfo multisample_state{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
-        .minSampleShading = 1.0F,
+        .minSampleShading = 1.0f,
     };
 
     // Depth pass.
@@ -892,7 +892,7 @@ void RenderSystem::record_command_buffers(World *world) {
         };
         vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
         Array<VkClearValue, 1> clear_values{};
-        clear_values[0].depthStencil = {1.0F, 0};
+        clear_values[0].depthStencil = {1.0f, 0};
         VkRenderPassBeginInfo render_pass_bi{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = m_depth_pass_render_pass,
