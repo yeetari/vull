@@ -38,8 +38,10 @@ public:
     Device &operator=(const Device &) = delete;
     Device &operator=(Device &&) = delete;
 
-    Buffer create_buffer(std::size_t size, BufferType type, MemoryUsage usage) const;
-    Image create_image(const VkImageCreateInfo &image_ci, MemoryUsage usage) const;
+    VkDeviceMemory allocate_memory(const VkMemoryRequirements &requirements, MemoryUsage usage, bool dedicated,
+                                   VkBuffer dedicated_buffer, VkImage dedicated_image) const;
+    Buffer create_buffer(std::size_t size, BufferType type, MemoryUsage memory_usage, bool dedicated) const;
+    Image create_image(const VkImageCreateInfo &image_ci, MemoryUsage memory_usage, bool dedicated) const;
 
     VkPhysicalDevice physical() const { return m_physical; }
     VkDevice operator*() const { return m_device; }

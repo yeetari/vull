@@ -289,7 +289,7 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
     // Vertex buffer.
     {
         m_vertex_buffer =
-            m_device.create_buffer(vertices.size_bytes(), BufferType::VertexBuffer, MemoryUsage::CpuToGpu);
+            m_device.create_buffer(vertices.size_bytes(), BufferType::VertexBuffer, MemoryUsage::CpuToGpu, false);
         void *vertex_data = m_vertex_buffer.map_memory();
         std::memcpy(vertex_data, vertices.data(), vertices.size_bytes());
         m_vertex_buffer.unmap_memory();
@@ -297,7 +297,7 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
 
     // Index buffer.
     {
-        m_index_buffer = m_device.create_buffer(indices.size_bytes(), BufferType::IndexBuffer, MemoryUsage::CpuToGpu);
+        m_index_buffer = m_device.create_buffer(indices.size_bytes(), BufferType::IndexBuffer, MemoryUsage::CpuToGpu, false);
         void *index_data = m_index_buffer.map_memory();
         std::memcpy(index_data, indices.data(), indices.size_bytes());
         m_index_buffer.unmap_memory();
@@ -306,20 +306,19 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
     // Lights buffer.
     {
         m_lights_buffer =
-            m_device.create_buffer(k_lights_buffer_size, BufferType::StorageBuffer, MemoryUsage::CpuToGpu);
+            m_device.create_buffer(k_lights_buffer_size, BufferType::StorageBuffer, MemoryUsage::CpuToGpu, false);
     }
 
     // Light visibilities buffer.
     {
-        // TODO: Dedicated allocation.
         m_light_visibilities_buffer =
             m_device.create_buffer(k_light_visibility_size * m_row_tile_count * m_col_tile_count,
-                                   BufferType::StorageBuffer, MemoryUsage::GpuOnly);
+                                   BufferType::StorageBuffer, MemoryUsage::GpuOnly, true);
     }
 
     // Uniform buffer.
     {
-        m_uniform_buffer = m_device.create_buffer(sizeof(UniformBuffer), BufferType::UniformBuffer, MemoryUsage::CpuToGpu);
+        m_uniform_buffer = m_device.create_buffer(sizeof(UniformBuffer), BufferType::UniformBuffer, MemoryUsage::CpuToGpu, false);
     }
 }
 
@@ -343,8 +342,7 @@ void RenderSystem::create_depth_buffer() {
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    // TODO: Dedicated allocation.
-    m_depth_image = m_device.create_image(image_ci, MemoryUsage::GpuOnly);
+    m_depth_image = m_device.create_image(image_ci, MemoryUsage::GpuOnly, true);
 
     VkImageViewCreateInfo image_view_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -980,7 +978,7 @@ void RenderSystem::update(World *world, float) {
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &m_depth_pass_finished,
     };
-    vkQueueSubmit(m_graphics_queue, 1, &depth_pass_si, VK_NULL_HANDLE);
+    vkQueueSubmit(m_graphics_queue, 1, &depth_pass_si, nullptr);
 
     // Execute light cull pass.
     Array light_cull_pass_wait_semaphores{
@@ -1001,7 +999,7 @@ void RenderSystem::update(World *world, float) {
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &m_light_cull_pass_finished,
     };
-    vkQueueSubmit(m_compute_queue, 1, &light_cull_pass_si, VK_NULL_HANDLE);
+    vkQueueSubmit(m_compute_queue, 1, &light_cull_pass_si, nullptr);
 
     // Execute main pass.
     Array main_pass_wait_semaphores{

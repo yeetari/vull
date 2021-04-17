@@ -142,7 +142,30 @@ Optional<std::uint32_t> Device::find_memory_type(const VkMemoryRequirements &req
     return {};
 }
 
-Buffer Device::create_buffer(std::size_t size, BufferType type, MemoryUsage usage) const {
+VkDeviceMemory Device::allocate_memory(const VkMemoryRequirements &requirements, MemoryUsage usage, bool dedicated,
+                                       VkBuffer dedicated_buffer, VkImage dedicated_image) const {
+    auto memory_type_index = find_memory_type(requirements, memory_flags(usage));
+    ENSURE(memory_type_index);
+
+    VkMemoryAllocateInfo memory_ai{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = *memory_type_index,
+    };
+    VkMemoryDedicatedAllocateInfo dedicated_ai{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+        .image = dedicated_image,
+        .buffer = dedicated_buffer,
+    };
+    if (dedicated) {
+        memory_ai.pNext = &dedicated_ai;
+    }
+    VkDeviceMemory memory;
+    ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
+    return memory;
+}
+
+Buffer Device::create_buffer(std::size_t size, BufferType type, MemoryUsage memory_usage, bool dedicated) const {
     VkBufferCreateInfo buffer_ci{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = size,
@@ -155,35 +178,19 @@ Buffer Device::create_buffer(std::size_t size, BufferType type, MemoryUsage usag
     VkMemoryRequirements memory_requirements;
     vkGetBufferMemoryRequirements(m_device, buffer, &memory_requirements);
 
-    auto memory_type_index = find_memory_type(memory_requirements, memory_flags(usage));
-    ENSURE(memory_type_index);
-    VkMemoryAllocateInfo memory_ai{
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memory_requirements.size,
-        .memoryTypeIndex = *memory_type_index,
-    };
-    VkDeviceMemory memory;
-    ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
+    VkDeviceMemory memory = allocate_memory(memory_requirements, memory_usage, dedicated, buffer, nullptr);
     ENSURE(vkBindBufferMemory(m_device, buffer, memory, 0) == VK_SUCCESS);
     return {this, buffer, memory};
 }
 
-Image Device::create_image(const VkImageCreateInfo &image_ci, MemoryUsage usage) const {
+Image Device::create_image(const VkImageCreateInfo &image_ci, MemoryUsage memory_usage, bool dedicated) const {
     VkImage image;
     ENSURE(vkCreateImage(m_device, &image_ci, nullptr, &image) == VK_SUCCESS);
 
     VkMemoryRequirements memory_requirements;
     vkGetImageMemoryRequirements(m_device, image, &memory_requirements);
 
-    auto memory_type_index = find_memory_type(memory_requirements, memory_flags(usage));
-    ENSURE(memory_type_index);
-    VkMemoryAllocateInfo memory_ai{
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memory_requirements.size,
-        .memoryTypeIndex = *memory_type_index,
-    };
-    VkDeviceMemory memory;
-    ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
+    VkDeviceMemory memory = allocate_memory(memory_requirements, memory_usage, dedicated, nullptr, image);
     ENSURE(vkBindImageMemory(m_device, image, memory, 0) == VK_SUCCESS);
     return {this, image, memory};
 }
