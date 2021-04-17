@@ -1,12 +1,13 @@
 #pragma once
 
 #include <vull/core/System.hh>
+#include <vull/renderer/Buffer.hh>
+#include <vull/renderer/Image.hh>
 #include <vull/renderer/PointLight.hh> // IWYU pragma: keep
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
 
-#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
@@ -37,19 +38,13 @@ class RenderSystem final : public System<RenderSystem> {
     VkShaderModule m_main_pass_vertex_shader{nullptr};
     VkShaderModule m_main_pass_fragment_shader{nullptr};
 
-    VkBuffer m_vertex_buffer{nullptr};
-    VkBuffer m_index_buffer{nullptr};
-    VkBuffer m_lights_buffer{nullptr};
-    VkBuffer m_light_visibilities_buffer{nullptr};
-    VkBuffer m_uniform_buffer{nullptr};
-    VmaAllocation m_vertex_buffer_allocation{nullptr};
-    VmaAllocation m_index_buffer_allocation{nullptr};
-    VmaAllocation m_lights_buffer_allocation{nullptr};
-    VmaAllocation m_light_visibilities_buffer_allocation{nullptr};
-    VmaAllocation m_uniform_buffer_allocation{nullptr};
+    Buffer m_vertex_buffer;
+    Buffer m_index_buffer;
+    Buffer m_lights_buffer;
+    Buffer m_light_visibilities_buffer;
+    Buffer m_uniform_buffer;
 
-    VkImage m_depth_image{nullptr};
-    VmaAllocation m_depth_image_allocation{nullptr};
+    Image m_depth_image;
     VkImageView m_depth_image_view{nullptr};
     VkFramebuffer m_depth_framebuffer{nullptr};
     VkSampler m_depth_sampler{nullptr};

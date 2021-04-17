@@ -107,7 +107,7 @@ int main() {
     std::uint32_t required_extension_count = 0;
     const char **required_extensions = glfwGetRequiredInstanceExtensions(&required_extension_count);
     Instance instance({required_extensions, required_extension_count});
-    Device device(instance, instance.physical_devices()[0]);
+    Device device(instance.physical_devices()[0]);
     Surface surface(instance, device, window);
     Swapchain swapchain(device, surface, swapchain_mode);
 

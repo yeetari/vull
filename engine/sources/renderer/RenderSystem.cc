@@ -18,7 +18,6 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
-#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
@@ -89,13 +88,13 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
     create_output_buffers();
     allocate_command_buffers();
     create_sync_objects();
-    vmaMapMemory(device.allocator(), m_lights_buffer_allocation, &m_lights_data);
-    vmaMapMemory(device.allocator(), m_uniform_buffer_allocation, &m_ubo_data);
+    m_lights_data = m_lights_buffer.map_memory();
+    m_ubo_data = m_uniform_buffer.map_memory();
 }
 
 RenderSystem::~RenderSystem() {
-    vmaUnmapMemory(m_device.allocator(), m_uniform_buffer_allocation);
-    vmaUnmapMemory(m_device.allocator(), m_lights_buffer_allocation);
+    m_uniform_buffer.unmap_memory();
+    m_lights_buffer.unmap_memory();
     vkDeviceWaitIdle(*m_device);
     vkDestroySemaphore(*m_device, m_main_pass_finished, nullptr);
     vkDestroySemaphore(*m_device, m_light_cull_pass_finished, nullptr);
@@ -103,18 +102,12 @@ RenderSystem::~RenderSystem() {
     vkDestroySemaphore(*m_device, m_image_available, nullptr);
     vkDestroyFence(*m_device, m_frame_finished, nullptr);
     vkFreeCommandBuffers(*m_device, m_command_pool, m_command_buffers.size(), m_command_buffers.data());
-    vmaDestroyBuffer(m_device.allocator(), m_uniform_buffer, m_uniform_buffer_allocation);
-    vmaDestroyBuffer(m_device.allocator(), m_light_visibilities_buffer, m_light_visibilities_buffer_allocation);
-    vmaDestroyBuffer(m_device.allocator(), m_lights_buffer, m_lights_buffer_allocation);
-    vmaDestroyBuffer(m_device.allocator(), m_index_buffer, m_index_buffer_allocation);
-    vmaDestroyBuffer(m_device.allocator(), m_vertex_buffer, m_vertex_buffer_allocation);
     for (auto *output_framebuffer : m_output_framebuffers) {
         vkDestroyFramebuffer(*m_device, output_framebuffer, nullptr);
     }
     vkDestroySampler(*m_device, m_depth_sampler, nullptr);
     vkDestroyFramebuffer(*m_device, m_depth_framebuffer, nullptr);
     vkDestroyImageView(*m_device, m_depth_image_view, nullptr);
-    vmaDestroyImage(m_device.allocator(), m_depth_image, m_depth_image_allocation);
     vkDestroyPipeline(*m_device, m_main_pass_pipeline, nullptr);
     vkDestroyPipeline(*m_device, m_light_cull_pass_pipeline, nullptr);
     vkDestroyPipeline(*m_device, m_depth_pass_pipeline, nullptr);
@@ -295,86 +288,38 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
     // TODO: Use transfer queue.
     // Vertex buffer.
     {
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = vertices.size_bytes(),
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        VmaAllocationCreateInfo allocation_ci{
-            .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        };
-        ENSURE(vmaCreateBuffer(m_device.allocator(), &buffer_ci, &allocation_ci, &m_vertex_buffer,
-                               &m_vertex_buffer_allocation, nullptr) == VK_SUCCESS);
-        void *vertex_data = nullptr;
-        ENSURE(vmaMapMemory(m_device.allocator(), m_vertex_buffer_allocation, &vertex_data) == VK_SUCCESS);
+        m_vertex_buffer =
+            m_device.create_buffer(vertices.size_bytes(), BufferType::VertexBuffer, MemoryUsage::CpuToGpu);
+        void *vertex_data = m_vertex_buffer.map_memory();
         std::memcpy(vertex_data, vertices.data(), vertices.size_bytes());
-        vmaUnmapMemory(m_device.allocator(), m_vertex_buffer_allocation);
+        m_vertex_buffer.unmap_memory();
     }
 
     // Index buffer.
     {
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = indices.size_bytes(),
-            .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        VmaAllocationCreateInfo allocation_ci{
-            .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        };
-        ENSURE(vmaCreateBuffer(m_device.allocator(), &buffer_ci, &allocation_ci, &m_index_buffer,
-                               &m_index_buffer_allocation, nullptr) == VK_SUCCESS);
-        void *index_data = nullptr;
-        ENSURE(vmaMapMemory(m_device.allocator(), m_index_buffer_allocation, &index_data) == VK_SUCCESS);
+        m_index_buffer = m_device.create_buffer(indices.size_bytes(), BufferType::IndexBuffer, MemoryUsage::CpuToGpu);
+        void *index_data = m_index_buffer.map_memory();
         std::memcpy(index_data, indices.data(), indices.size_bytes());
-        vmaUnmapMemory(m_device.allocator(), m_index_buffer_allocation);
+        m_index_buffer.unmap_memory();
     }
 
     // Lights buffer.
     {
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = k_lights_buffer_size,
-            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        VmaAllocationCreateInfo allocation_ci{
-            .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        };
-        ENSURE(vmaCreateBuffer(m_device.allocator(), &buffer_ci, &allocation_ci, &m_lights_buffer,
-                               &m_lights_buffer_allocation, nullptr) == VK_SUCCESS);
+        m_lights_buffer =
+            m_device.create_buffer(k_lights_buffer_size, BufferType::StorageBuffer, MemoryUsage::CpuToGpu);
     }
 
     // Light visibilities buffer.
     {
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = k_light_visibility_size * m_row_tile_count * m_col_tile_count,
-            .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        VmaAllocationCreateInfo allocation_ci{
-            .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-            .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-        };
-        ENSURE(vmaCreateBuffer(m_device.allocator(), &buffer_ci, &allocation_ci, &m_light_visibilities_buffer,
-                               &m_light_visibilities_buffer_allocation, nullptr) == VK_SUCCESS);
+        // TODO: Dedicated allocation.
+        m_light_visibilities_buffer =
+            m_device.create_buffer(k_light_visibility_size * m_row_tile_count * m_col_tile_count,
+                                   BufferType::StorageBuffer, MemoryUsage::GpuOnly);
     }
 
     // Uniform buffer.
     {
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = sizeof(UniformBuffer),
-            .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        };
-        VmaAllocationCreateInfo allocation_ci{
-            .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        };
-        ENSURE(vmaCreateBuffer(m_device.allocator(), &buffer_ci, &allocation_ci, &m_uniform_buffer,
-                               &m_uniform_buffer_allocation, nullptr) == VK_SUCCESS);
+        m_uniform_buffer = m_device.create_buffer(sizeof(UniformBuffer), BufferType::UniformBuffer, MemoryUsage::CpuToGpu);
     }
 }
 
@@ -398,16 +343,12 @@ void RenderSystem::create_depth_buffer() {
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    VmaAllocationCreateInfo image_allocation_ci{
-        .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
-        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-    };
-    ENSURE(vmaCreateImage(m_device.allocator(), &image_ci, &image_allocation_ci, &m_depth_image,
-                          &m_depth_image_allocation, nullptr) == VK_SUCCESS);
+    // TODO: Dedicated allocation.
+    m_depth_image = m_device.create_image(image_ci, MemoryUsage::GpuOnly);
 
     VkImageViewCreateInfo image_view_ci{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = m_depth_image,
+        .image = *m_depth_image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
         .format = image_ci.format,
         .subresourceRange{
@@ -485,11 +426,11 @@ void RenderSystem::create_descriptors() {
 
         // Update set with buffer info.
         VkDescriptorBufferInfo lights_buffer_info{
-            .buffer = m_lights_buffer,
+            .buffer = *m_lights_buffer,
             .range = VK_WHOLE_SIZE,
         };
         VkDescriptorBufferInfo light_visibilities_buffer_info{
-            .buffer = m_light_visibilities_buffer,
+            .buffer = *m_light_visibilities_buffer,
             .range = VK_WHOLE_SIZE,
         };
         Array descriptor_writes{
@@ -543,7 +484,7 @@ void RenderSystem::create_descriptors() {
 
         // Update set with buffer info.
         VkDescriptorBufferInfo ubo_buffer_info{
-            .buffer = m_uniform_buffer,
+            .buffer = *m_uniform_buffer,
             .range = VK_WHOLE_SIZE,
         };
         Array descriptor_writes{
@@ -909,8 +850,9 @@ void RenderSystem::record_command_buffers(World *world) {
         vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_depth_pass_pipeline_layout, 0,
                                 descriptor_sets.size(), descriptor_sets.data(), 0, nullptr);
         Array<VkDeviceSize, 1> offsets{0};
-        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
-        vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        auto *vertex_buffer = *m_vertex_buffer;
+        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &vertex_buffer, offsets.data());
+        vkCmdBindIndexBuffer(cmd_buf, *m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
             vkCmdPushConstants(cmd_buf, m_depth_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                                &transform->matrix());
@@ -943,14 +885,14 @@ void RenderSystem::record_command_buffers(World *world) {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
                 .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                 .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-                .buffer = m_lights_buffer,
+                .buffer = *m_lights_buffer,
                 .size = k_lights_buffer_size,
             },
             VkBufferMemoryBarrier{
                 .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
                 .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
                 .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-                .buffer = m_light_visibilities_buffer,
+                .buffer = *m_light_visibilities_buffer,
                 .size = k_light_visibility_size * m_row_tile_count * m_col_tile_count,
             },
         };
@@ -986,8 +928,9 @@ void RenderSystem::record_command_buffers(World *world) {
         vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_main_pass_pipeline_layout, 0,
                                 main_pass_descriptor_sets.size(), main_pass_descriptor_sets.data(), 0, nullptr);
         Array<VkDeviceSize, 1> offsets{0};
-        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &m_vertex_buffer, offsets.data());
-        vkCmdBindIndexBuffer(cmd_buf, m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        auto *vertex_buffer = *m_vertex_buffer;
+        vkCmdBindVertexBuffers(cmd_buf, 0, 1, &vertex_buffer, offsets.data());
+        vkCmdBindIndexBuffer(cmd_buf, *m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
             vkCmdPushConstants(cmd_buf, m_main_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                                &transform->matrix());

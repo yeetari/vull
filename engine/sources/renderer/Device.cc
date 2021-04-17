@@ -38,9 +38,35 @@ const char *queue_flag(VkQueueFlags flag) {
     }
 }
 
+VkBufferUsageFlags buffer_usage(BufferType type) {
+    switch (type) {
+    case BufferType::IndexBuffer:
+        return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    case BufferType::StorageBuffer:
+        return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    case BufferType::UniformBuffer:
+        return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    case BufferType::VertexBuffer:
+        return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    default:
+        ENSURE_NOT_REACHED();
+    }
+}
+
+VkMemoryPropertyFlags memory_flags(MemoryUsage usage) {
+    switch (usage) {
+    case MemoryUsage::CpuToGpu:
+        return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    case MemoryUsage::GpuOnly:
+        return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    default:
+        ENSURE_NOT_REACHED();
+    }
+}
+
 } // namespace
 
-Device::Device(const Instance &instance, VkPhysicalDevice physical) : m_physical(physical) {
+Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     VkPhysicalDeviceProperties physical_properties;
     vkGetPhysicalDeviceProperties(physical, &physical_properties);
     Log::debug("renderer", "Creating device from %s (%s)", physical_properties.deviceName,
@@ -90,16 +116,74 @@ Device::Device(const Instance &instance, VkPhysicalDevice physical) : m_physical
     };
     ENSURE(vkCreateDevice(physical, &device_ci, nullptr, &m_device) == VK_SUCCESS);
 
-    Log::trace("renderer", "Creating VMA allocator");
-    VmaAllocatorCreateInfo allocator_ci{
-        .physicalDevice = physical,
-        .device = m_device,
-        .instance = *instance,
-    };
-    ENSURE(vmaCreateAllocator(&allocator_ci, &m_allocator) == VK_SUCCESS);
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(physical, &memory_properties);
+    m_memory_types.ensure_capacity(memory_properties.memoryTypeCount);
+    for (std::uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
+        m_memory_types.push(memory_properties.memoryTypes[i]);
+    }
 }
 
 Device::~Device() {
-    vmaDestroyAllocator(m_allocator);
     vkDestroyDevice(m_device, nullptr);
+}
+
+Optional<std::uint32_t> Device::find_memory_type(const VkMemoryRequirements &requirements,
+                                                 VkMemoryPropertyFlags flags) const {
+    for (std::uint32_t i = 0; const auto &memory_type : m_memory_types) {
+        if ((requirements.memoryTypeBits & (1u << i++)) == 0) {
+            continue;
+        }
+        if ((memory_type.propertyFlags & flags) != flags) {
+            continue;
+        }
+        return i - 1;
+    }
+    return {};
+}
+
+Buffer Device::create_buffer(std::size_t size, BufferType type, MemoryUsage usage) const {
+    VkBufferCreateInfo buffer_ci{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = buffer_usage(type),
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    VkBuffer buffer;
+    ENSURE(vkCreateBuffer(m_device, &buffer_ci, nullptr, &buffer) == VK_SUCCESS);
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(m_device, buffer, &memory_requirements);
+
+    auto memory_type_index = find_memory_type(memory_requirements, memory_flags(usage));
+    ENSURE(memory_type_index);
+    VkMemoryAllocateInfo memory_ai{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memory_requirements.size,
+        .memoryTypeIndex = *memory_type_index,
+    };
+    VkDeviceMemory memory;
+    ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
+    ENSURE(vkBindBufferMemory(m_device, buffer, memory, 0) == VK_SUCCESS);
+    return {this, buffer, memory};
+}
+
+Image Device::create_image(const VkImageCreateInfo &image_ci, MemoryUsage usage) const {
+    VkImage image;
+    ENSURE(vkCreateImage(m_device, &image_ci, nullptr, &image) == VK_SUCCESS);
+
+    VkMemoryRequirements memory_requirements;
+    vkGetImageMemoryRequirements(m_device, image, &memory_requirements);
+
+    auto memory_type_index = find_memory_type(memory_requirements, memory_flags(usage));
+    ENSURE(memory_type_index);
+    VkMemoryAllocateInfo memory_ai{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = memory_requirements.size,
+        .memoryTypeIndex = *memory_type_index,
+    };
+    VkDeviceMemory memory;
+    ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
+    ENSURE(vkBindImageMemory(m_device, image, memory, 0) == VK_SUCCESS);
+    return {this, image, memory};
 }

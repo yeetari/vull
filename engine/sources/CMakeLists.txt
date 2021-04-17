@@ -5,12 +5,13 @@ target_sources(vull-engine PRIVATE
     io/Window.cc
     physics/PhysicsSystem.cc
     physics/RigidBody.cc
+    renderer/Buffer.cc
     renderer/Camera.cc
     renderer/Device.cc
+    renderer/Image.cc
     renderer/Instance.cc
     renderer/RenderSystem.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
-    renderer/vma.cc
     support/Assert.cc
     support/Log.cc)
