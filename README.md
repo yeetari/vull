@@ -4,15 +4,14 @@ A rendering engine using C++ 20 and Vulkan.
 
 ## Features
 
-* Tiled forward rendering
-* Limited reliance on the C++ standard library
+* Custom 3D physics engine
+* Tiled forward rendering, allows for thousands of lights in one scene
 
 ## Dependencies
 
 * [GLFW](https://github.com/glfw/glfw)
 * [GLM](https://github.com/g-truc/glm)
 * [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader)
-* [VMA](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 * [Vulkan](https://www.khronos.org/vulkan)
 
 ## Building and running
@@ -35,7 +34,7 @@ tested. To compile the shaders, [glslc](https://github.com/google/shaderc) is re
      media-libs/vulkan-layers \
      media-libs/vulkan-loader
      
-Note that tinyobjloader and VMA are both already in the `third-party` directory. Also, installing the Vulkan validation
+Note that tinyobjloader is already in the `third-party` directory. Also, installing the Vulkan validation
 layers is optional, but is recommended when debugging.
 
 ### Configuring CMake
