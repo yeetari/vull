@@ -56,7 +56,7 @@ VkBufferUsageFlags buffer_usage(BufferType type) {
 VkMemoryPropertyFlags memory_flags(MemoryUsage usage) {
     switch (usage) {
     case MemoryUsage::CpuToGpu:
-        return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
     case MemoryUsage::GpuOnly:
         return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     default:
