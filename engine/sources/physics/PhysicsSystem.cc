@@ -148,7 +148,10 @@ void PhysicsSystem::update(World *world, float dt) {
         }
 
         constexpr float velocity_limit = 0.25f;
-        const float restitution = glm::abs(contact_velocity.x) < velocity_limit ? 0.0f : 1.0f;
+        const float restitution =
+            glm::abs(contact_velocity.x) < velocity_limit
+                ? 0.0f
+                : contact->b0->m_restitution - (contact->b1 != nullptr ? contact->b1->m_restitution : 0.0f);
         const float desired_delta_velocity =
             -contact_velocity.x - restitution * (contact_velocity.x - velocity_from_acceleration);
 

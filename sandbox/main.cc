@@ -179,7 +179,7 @@ int main() {
     for (int i = 0; i < 15; i++) {
         auto sphere = world.create_entity();
         sphere.add<Mesh>(suzanne_count, 0);
-        sphere.add<RigidBody>(10.0f, glm::vec3(0.0f, i * 9 + 50, static_cast<float>(i) * 0.4f - 3.0f));
+        sphere.add<RigidBody>(10.0f, 1.0f, glm::vec3(0.0f, i * 9 + 50, static_cast<float>(i) * 0.4f - 3.0f));
         sphere.add<SphereCollider>(1.5f);
         sphere.add<Transform>(glm::mat4(1.0f));
         spheres.push(sphere);

@@ -12,6 +12,7 @@ class RigidBody {
 private:
     const float m_mass;
     const float m_inv_mass;
+    const float m_restitution;
     glm::mat3 m_inv_inertia_tensor{0.0f};
     glm::vec3 m_force{0.0f};
     glm::vec3 m_torque{0.0f};
@@ -24,7 +25,7 @@ private:
     glm::quat m_orientation{0.0f, 0.0f, 0.0f, 0.0f};
 
 public:
-    RigidBody(float mass, const glm::vec3 &position);
+    RigidBody(float mass, float restitution, const glm::vec3 &position);
 
     void apply_central_force(const glm::vec3 &force);
     void apply_torque(const glm::vec3 &torque);
