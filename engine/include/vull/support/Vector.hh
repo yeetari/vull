@@ -97,7 +97,7 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
         std::free(m_data);
     } else {
         new_data = static_cast<T *>(std::realloc(m_data, capacity * sizeof(T)));
-        std::memset(new_data + m_capacity, 0,
+        std::memset(static_cast<void *>(new_data + m_capacity), 0,
                     reinterpret_cast<char *>(capacity) - reinterpret_cast<char *>(m_capacity));
     }
     m_data = new_data;
@@ -121,7 +121,7 @@ template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(const T &elem) {
     ensure_capacity(m_size + 1);
     if constexpr (std::is_trivially_copyable_v<T>) {
-        std::memcpy(end(), &elem, sizeof(T));
+        std::memcpy(static_cast<void *>(end()), &elem, sizeof(T));
     } else {
         new (end()) T(elem);
     }
