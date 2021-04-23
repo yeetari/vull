@@ -5,7 +5,9 @@
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
+#include <vull/renderer/Buffer.hh>
 #include <vull/renderer/Device.hh>
+#include <vull/renderer/Image.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/Swapchain.hh>

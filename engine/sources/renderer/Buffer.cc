@@ -2,7 +2,6 @@
 
 #include <vull/renderer/Device.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Log.hh>
 
 Buffer::~Buffer() {
     ASSERT(m_device != nullptr);

@@ -1,11 +1,14 @@
 #include <vull/renderer/Device.hh>
 
-#include <vull/renderer/Instance.hh>
+#include <vull/renderer/Buffer.hh>
+#include <vull/renderer/Image.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Vector.hh>
 
 #include <cstdint>
+#include <new>
 #include <string>
 
 namespace {

@@ -7,7 +7,7 @@
 
 #include <vulkan/vulkan_core.h>
 
-class Instance;
+#include <cstdint>
 
 enum class BufferType {
     IndexBuffer,
