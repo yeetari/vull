@@ -3,7 +3,10 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <utility>
 
 Config::Config(const char *path) : m_file(path, std::ios::in) {
     if (!m_file) {

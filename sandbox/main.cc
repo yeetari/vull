@@ -2,7 +2,6 @@
 
 #include <vull/Config.hh>
 #include <vull/core/Entity.hh>
-#include <vull/core/System.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
@@ -38,12 +37,8 @@
 #include <tiny_obj_loader.h>
 #include <vulkan/vulkan_core.h>
 
-#include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
-#include <new>
 #include <string>
 #include <unordered_map>
 #include <utility>
