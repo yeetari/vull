@@ -46,7 +46,9 @@ public:
 
     template <typename T>
     T *at(SizeType index) {
-        ASSERT(index < m_capacity);
+        if (index >= m_capacity) {
+            return nullptr;
+        }
         return m_use_list[index] ? reinterpret_cast<T *>(m_data) + index : nullptr;
     }
 
