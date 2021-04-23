@@ -1,6 +1,7 @@
 target_sources(vull-engine PRIVATE
     core/Entity.cc
     core/System.cc
+    core/Transform.cc
     core/World.cc
     io/Window.cc
     physics/PhysicsSystem.cc

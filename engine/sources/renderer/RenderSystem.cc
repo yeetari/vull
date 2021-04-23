@@ -854,8 +854,9 @@ void RenderSystem::record_command_buffers(World *world) {
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, *m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
+            auto matrix = transform->scaled_matrix();
             vkCmdPushConstants(cmd_buf, m_depth_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                               &transform->matrix());
+                               &matrix);
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
         }
         vkCmdEndRenderPass(cmd_buf);
@@ -932,8 +933,9 @@ void RenderSystem::record_command_buffers(World *world) {
         vkCmdBindVertexBuffers(cmd_buf, 0, 1, &vertex_buffer, offsets.data());
         vkCmdBindIndexBuffer(cmd_buf, *m_index_buffer, 0, VK_INDEX_TYPE_UINT32);
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
+            auto matrix = transform->scaled_matrix();
             vkCmdPushConstants(cmd_buf, m_main_pass_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                               &transform->matrix());
+                               &matrix);
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
         }
         vkCmdEndRenderPass(cmd_buf);

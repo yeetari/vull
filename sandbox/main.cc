@@ -6,9 +6,11 @@
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/Window.hh>
+#include <vull/physics/Collider.hh>
 #include <vull/physics/PhysicsSystem.hh>
 #include <vull/physics/RigidBody.hh>
-#include <vull/physics/SphereCollider.hh>
+#include <vull/physics/shape/BoxShape.hh>
+#include <vull/physics/shape/SphereShape.hh>
 #include <vull/renderer/Camera.hh>
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Instance.hh>
@@ -127,78 +129,14 @@ int main() {
     world.add<PhysicsSystem>();
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
 
-    struct ScaleComponent {};
-    class ScaleSystem : public System<ScaleSystem> {
-        float m_time{0.0f};
-
-    public:
-        void update(World *world, float dt) override {
-            m_time += dt;
-            for (auto [entity, scale, transform] : world->view<ScaleComponent, Transform>()) {
-                auto &matrix = transform->matrix();
-                matrix[2][0] = std::abs(std::sin(m_time) * 8);
-                matrix[2][1] = std::abs(std::sin(m_time) * 8);
-                matrix[2][2] = std::abs(std::sin(m_time) * 8);
-            }
-        }
-    };
-    world.add<ScaleSystem>();
-
-    struct SpinComponent {};
-    struct SpinSystem : public System<SpinSystem> {
-        void update(World *world, float dt) override {
-            for (auto [entity, spin, transform] : world->view<SpinComponent, Transform>()) {
-                auto &matrix = transform->matrix();
-                matrix = glm::rotate(matrix, dt * 10.0f, glm::vec3(0, 1, 0));
-            }
-        }
-    };
-    world.add<SpinSystem>();
-
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
-    sponza.add<Transform>(
-        glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(100.0f, 0.0f, 50.0f)), glm::vec3(0.01f)));
+    sponza.add<Transform>(glm::vec3(100.0f, -10.0f, 50.0f), glm::vec3(0.01f));
 
     auto floor = world.create_entity();
+    floor.add<Collider>(*new BoxShape(glm::vec3(400.0f, 0.5f, 400.0f)));
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
-    floor.add<Transform>(
-        glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -10.0f, 0.0f)), glm::vec3(400.0f, 1.0f, 400.0f)));
-
-    // Static floor made from spheres.
-    for (float x = -40.0f; x < 60.0f; x += 3.0f) {
-        for (float z = -40.0f; z < 60.0f; z += 3.0f) {
-            auto static_sphere = world.create_entity();
-            static_sphere.add<Mesh>(sphere_count, suzanne_count + sponza_count);
-            static_sphere.add<SphereCollider>(2.5f);
-            static_sphere.add<Transform>(glm::translate(glm::mat4(1.0f), glm::vec3(x, 0.0f, z)));
-        }
-    }
-
-    Vector<Entity> spheres;
-    for (int i = 0; i < 15; i++) {
-        auto sphere = world.create_entity();
-        sphere.add<Mesh>(suzanne_count, 0);
-        sphere.add<RigidBody>(10.0f, 1.0f, glm::vec3(0.0f, i * 9 + 50, static_cast<float>(i) * 0.4f - 3.0f));
-        sphere.add<SphereCollider>(1.5f);
-        sphere.add<Transform>(glm::mat4(1.0f));
-        spheres.push(sphere);
-    }
-
-    Vector<Entity> suzannes;
-    suzannes.ensure_capacity(50);
-    for (std::uint32_t i = 0; i < suzannes.capacity(); i++) {
-        auto suzanne = world.create_entity();
-        suzanne.add<Mesh>(suzanne_count, 0);
-        suzanne.add<Transform>(glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, i * 4 + 10, 100.0f)),
-                                          glm::vec3(2.0f, 3.0f, 2.0f)));
-        if (i % 2 == 0) {
-            suzanne.add<ScaleComponent>();
-        } else {
-            suzanne.add<SpinComponent>();
-        }
-        suzannes.push(suzanne);
-    }
+    floor.add<Transform>(glm::vec3(0.0f, -10.0f, 0.0f), glm::vec3(400.0f, 1.0f, 400.0f));
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
@@ -208,9 +146,9 @@ int main() {
     for (int i = 0; auto &light : lights) {
         light.colour = glm::linearRand(glm::vec3(0.1f), glm::vec3(0.5f));
         light.radius = glm::linearRand(15.0f, 30.0f);
-        light.position.x = glm::linearRand(-190.0f, 175.0f);
-        light.position.y = glm::linearRand(-12.0f, 138.0f);
-        light.position.z = glm::linearRand(-120.0f, 103.0f);
+        light.position.x = glm::linearRand(-400.0f, 400.0f);
+        light.position.y = glm::linearRand(-6.0f, 6.0f);
+        light.position.z = glm::linearRand(-400.0f, 400.0f);
         dsts[i] = light.position;
         auto rand = glm::linearRand(30.0f, 60.0f);
         switch (glm::linearRand(0, 5)) {
@@ -254,6 +192,9 @@ int main() {
     double previous_time = glfwGetTime();
     double fps_counter_prev_time = glfwGetTime();
     int frame_count = 0;
+    int count = 0;
+    float time = 0.0f;
+    SphereShape sphere_shape(1.4f);
     while (!window.should_close()) {
         double current_time = glfwGetTime();
         auto dt = static_cast<float>(current_time - previous_time);
@@ -265,12 +206,17 @@ int main() {
             fps_counter_prev_time = current_time;
         }
 
-        for (auto sphere : spheres) {
-            auto *body = sphere.get<RigidBody>();
-            if (glfwGetKey(*window, GLFW_KEY_H) == GLFW_PRESS) {
-                body->apply_torque(glm::vec3(1000.f * dt));
-            }
+        if (time > 0.1f) {
+            auto suzanne = world.create_entity();
+            suzanne.add<Collider>(sphere_shape);
+            suzanne.add<Mesh>(suzanne_count, 0);
+            suzanne.add<RigidBody>(10.0f, 0.8f);
+            suzanne.add<Transform>(glm::vec3(glm::sin(count) * 10.0f, count * 9 + 30, glm::cos(count) * 10.0f));
+            time = 0.0f;
+            count++;
         }
+        count %= 50;
+        time += dt;
 
         ubo.view = camera.view_matrix();
         ubo.camera_position = camera.position();
