@@ -15,7 +15,7 @@ Config::Config(const char *path) : m_file(path, std::ios::in) {
         write_default_config();
         m_file.flush();
         m_file.close();
-        m_file.open("path", std::ios::in);
+        m_file.open(path, std::ios::in);
     }
 }
 
@@ -28,7 +28,7 @@ void Config::write_default_config() {
 }
 
 void Config::parse() {
-    ASSERT(m_file);
+    ENSURE(m_file);
     std::string line;
     while (std::getline(m_file, line)) {
         // Ignore comments.
