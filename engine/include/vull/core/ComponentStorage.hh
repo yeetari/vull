@@ -40,7 +40,9 @@ public:
     }
 
     void release(SizeType index) {
-        ASSERT(index < m_capacity);
+        if (index >= m_capacity) {
+            return;
+        }
         m_use_list[index] = false;
     }
 
