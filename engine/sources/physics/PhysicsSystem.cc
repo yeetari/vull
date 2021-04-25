@@ -17,6 +17,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/matrix.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <glm/vector_relational.hpp>
 
 #include <utility>
@@ -34,7 +35,8 @@ struct Contact {
 };
 
 glm::vec3 support_transformed(const Shape &shape, const Transform &transform, const glm::vec3 &dir) {
-    return shape.support_point(dir) + transform.position();
+    const auto matrix = transform.matrix();
+    return matrix * glm::vec4(shape.support_point(glm::vec4(dir, 1.0f) * matrix), 1.0f);
 }
 
 bool mpr_collision_test(Contact *contact, const Shape &s1, const Shape &s2, const Transform &t1, const Transform &t2) {
