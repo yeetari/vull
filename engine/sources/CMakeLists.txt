@@ -4,6 +4,8 @@ target_sources(vull-engine PRIVATE
     core/Transform.cc
     core/World.cc
     io/Window.cc
+    physics/shape/BoxShape.cc
+    physics/shape/SphereShape.cc
     physics/PhysicsSystem.cc
     physics/RigidBody.cc
     renderer/Buffer.cc

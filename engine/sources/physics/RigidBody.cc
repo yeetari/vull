@@ -1,16 +1,13 @@
 #include <vull/physics/RigidBody.hh>
 
+#include <vull/physics/shape/Shape.hh>
+
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
 
-RigidBody::RigidBody(float mass, float restitution)
+RigidBody::RigidBody(const Shape &shape, float mass, float restitution)
     : m_mass(mass), m_inv_mass(mass != 0.0f ? 1.0f / mass : 0.0f), m_restitution(restitution) {
-    // Inertia tensor for constant density sphere.
-    const float mr_sqrd = 0.4f * mass * 2.5f * 2.5f;
-    const glm::mat3 inertia_tensor{
-        mr_sqrd, 0.0f, 0.0f, 0.0f, mr_sqrd, 0.0f, 0.0f, 0.0f, mr_sqrd,
-    };
-    m_inertia_tensor = glm::inverse(inertia_tensor);
+    m_inertia_tensor = glm::inverse(shape.inertia_tensor(mass));
 }
 
 void RigidBody::apply_central_force(const glm::vec3 &force) {

@@ -4,6 +4,7 @@
 #include <glm/vec3.hpp>
 
 class PhysicsSystem;
+class Shape;
 
 class RigidBody {
     friend PhysicsSystem;
@@ -20,7 +21,7 @@ private:
     glm::vec3 m_angular_velocity{0.0f};
 
 public:
-    RigidBody(float mass, float restitution);
+    RigidBody(const Shape &shape, float mass, float restitution);
 
     void apply_central_force(const glm::vec3 &force);
     void apply_central_impulse(const glm::vec3 &impulse);

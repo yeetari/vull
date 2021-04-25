@@ -205,7 +205,7 @@ int main() {
             auto suzanne = world.create_entity();
             suzanne.add<Collider>(sphere_shape);
             suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(10.0f, 0.8f);
+            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.8f);
             suzanne.add<Transform>(glm::vec3(glm::sin(count) * 10.0f, count * 9 + 30, glm::cos(count) * 10.0f));
             time = 0.0f;
             count++;
