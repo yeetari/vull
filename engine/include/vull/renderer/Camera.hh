@@ -23,6 +23,10 @@ public:
     void handle_mouse_movement(float dx, float dy);
     void update(const Window &window, float dt);
 
+    void set_position(const glm::vec3 &position) { m_position = position; }
+
     glm::mat4 view_matrix() const;
     const glm::vec3 &position() const { return m_position; }
+    const glm::vec3 &forward() const { return m_forward; }
+    const glm::vec3 &right() const { return m_right; }
 };
