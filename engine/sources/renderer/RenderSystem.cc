@@ -911,7 +911,7 @@ void RenderSystem::record_command_buffers(World *world) {
         };
         vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
         Array<VkClearValue, 1> clear_values{};
-        clear_values[0].color = {0, 0, 0, 1};
+        clear_values[0].color = {{0.4f, 0.6f, 0.7f, 1.0f}};
         VkRenderPassBeginInfo render_pass_bi{
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = m_main_pass_render_pass,
