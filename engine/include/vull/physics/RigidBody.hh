@@ -27,4 +27,7 @@ public:
     void apply_central_impulse(const glm::vec3 &impulse);
     void apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point);
     void apply_torque(const glm::vec3 &torque);
+
+    const glm::vec3 &linear_velocity() const { return m_linear_velocity; }
+    const glm::vec3 &angular_velocity() const { return m_angular_velocity; }
 };
