@@ -1,4 +1,5 @@
 #include "Config.hh"
+#include "PlayerController.hh"
 
 #include <vull/Config.hh>
 #include <vull/core/Entity.hh>
@@ -122,6 +123,7 @@ int main() {
 
     World world;
     world.add<PhysicsSystem>();
+    world.add<PlayerControllerSystem>(window);
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
 
     auto sponza = world.create_entity();
@@ -129,7 +131,7 @@ int main() {
     sponza.add<Transform>(glm::vec3(100.0f, -10.0f, 50.0f), glm::vec3(0.01f));
 
     auto floor = world.create_entity();
-    floor.add<Collider>(*new BoxShape(glm::vec3(400.0f, 0.5f, 400.0f)));
+    floor.add<Collider>(*new BoxShape(glm::vec3(400.0f, 1.0f, 400.0f)));
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
     floor.add<Transform>(glm::vec3(0.0f, -10.0f, 0.0f), glm::vec3(400.0f, 1.0f, 400.0f));
 
@@ -146,7 +148,7 @@ int main() {
         light.position.z = glm::linearRand(-400.0f, 400.0f);
         dsts[i] = light.position;
         auto rand = glm::linearRand(30.0f, 60.0f);
-        switch (glm::linearRand(0, 5)) {
+        switch (glm::linearRand(0, 4)) {
         case 0:
             dsts[i].x += rand;
             break;
@@ -160,9 +162,6 @@ int main() {
             dsts[i].x -= rand;
             break;
         case 4:
-            dsts[i].y -= rand;
-            break;
-        case 5:
             dsts[i].z -= rand;
             break;
         }
@@ -173,8 +172,17 @@ int main() {
     ubo.proj = glm::perspective(glm::radians(45.0f), window.aspect_ratio(), 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    Camera camera(glm::vec3(118, 18, -3), 0.6f, 1.25f);
-    glfwSetWindowUserPointer(*window, &camera);
+    BoxShape player_shape(glm::vec3(10.0f));
+    auto player = world.create_entity();
+    player.add<Camera>(glm::vec3(0.0f));
+    player.add<Collider>(player_shape);
+    player.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    player.add<PlayerController>();
+    player.add<RigidBody>(player_shape, 100000.0f, 0.0f);
+    player.add<Transform>(glm::vec3(10.0f, 5.0f, -200.0f), glm::vec3(10.0f, 10.0f, 10.0f));
+
+    auto *camera = player.get<Camera>();
+    glfwSetWindowUserPointer(*window, camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
         auto x = static_cast<float>(xpos);
@@ -184,12 +192,30 @@ int main() {
         g_prev_y = y;
     });
 
+    SphereShape sphere_shape(1.4f);
+    for (int x = 0; x < 10; x++) {
+        for (int z = 0; z < 10; z++) {
+            auto suzanne = world.create_entity();
+            suzanne.add<Collider>(sphere_shape);
+            suzanne.add<Mesh>(suzanne_count, 0);
+            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.1f);
+            suzanne.add<Transform>(glm::vec3(static_cast<float>(x) * 3.0f, 2.0f, static_cast<float>(z) * 3.0f));
+        }
+    }
+    for (int x = 0; x < 10; x++) {
+        for (int z = 0; z < 10; z++) {
+            auto suzanne = world.create_entity();
+            suzanne.add<Collider>(sphere_shape);
+            suzanne.add<Mesh>(suzanne_count, 0);
+            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.1f);
+            suzanne.add<Transform>(
+                glm::vec3(static_cast<float>(x) * 3.0f, 2.0f, static_cast<float>(z) * 3.0f + 350.0f));
+        }
+    }
+
     double previous_time = glfwGetTime();
     double fps_counter_prev_time = glfwGetTime();
     int frame_count = 0;
-    int count = 0;
-    float time = 0.0f;
-    SphereShape sphere_shape(1.4f);
     while (!window.should_close()) {
         double current_time = glfwGetTime();
         auto dt = static_cast<float>(current_time - previous_time);
@@ -201,21 +227,15 @@ int main() {
             fps_counter_prev_time = current_time;
         }
 
-        if (time > 0.1f) {
-            auto suzanne = world.create_entity();
-            suzanne.add<Collider>(sphere_shape);
-            suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.8f);
-            suzanne.add<Transform>(glm::vec3(glm::sin(count) * 10.0f, count * 9 + 30, glm::cos(count) * 10.0f));
-            time = 0.0f;
-            count++;
+        if (glfwGetMouseButton(*window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            dt /= 5;
         }
-        count %= 50;
-        time += dt;
+        if (glfwGetMouseButton(*window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            dt *= 5;
+        }
 
-        ubo.view = camera.view_matrix();
-        ubo.camera_position = camera.position();
-        camera.update(window, dt);
+        ubo.view = camera->view_matrix();
+        ubo.camera_position = camera->position();
         for (int i = 0; auto &light : lights) {
             light.position = glm::mix(light.position, dsts[i], dt);
             if (glm::distance(light.position, dsts[i]) <= 6.0f) {
