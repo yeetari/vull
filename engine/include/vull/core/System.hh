@@ -40,7 +40,7 @@ class SystemManager {
 
 public:
     template <typename S, typename... Args>
-    void add(Args &&... args);
+    void add(Args &&...args);
 
     template <typename S>
     S *get() const;
@@ -52,7 +52,7 @@ public:
 };
 
 template <typename S, typename... Args>
-void SystemManager::add(Args &&... args) {
+void SystemManager::add(Args &&...args) {
     for (std::uint32_t i = m_systems.size(); i < S::family() + 1; i++) {
         m_systems.emplace();
     }

@@ -11,7 +11,7 @@ class Box { // NOLINT
 
 public:
     template <typename... Args>
-    static Box create(Args &&... args) {
+    static Box create(Args &&...args) {
         return Box(new T(std::forward<Args>(args)...));
     }
 

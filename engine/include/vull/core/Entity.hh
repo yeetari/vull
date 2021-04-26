@@ -19,7 +19,7 @@ public:
     constexpr Entity(EntityId id, EntityManager *manager) : m_id(id), m_manager(manager) {}
 
     template <typename C, typename... Args>
-    C *add(Args &&... args);
+    C *add(Args &&...args);
 
     template <typename C>
     C *get() const;
@@ -88,7 +88,7 @@ public:
     }
 
     template <typename C, typename... Args>
-    C *add_component(EntityId id, Args &&... args);
+    C *add_component(EntityId id, Args &&...args);
 
     template <typename C>
     C *get_component(EntityId id);
@@ -106,7 +106,7 @@ public:
 };
 
 template <typename C, typename... Args>
-C *Entity::add(Args &&... args) {
+C *Entity::add(Args &&...args) {
     return m_manager->add_component<C>(m_id, std::forward<Args>(args)...);
 }
 
@@ -161,7 +161,7 @@ EntityIterator<Comps...> EntityView<Comps...>::end() const {
 }
 
 template <typename C, typename... Args>
-C *EntityManager::add_component(EntityId id, Args &&... args) {
+C *EntityManager::add_component(EntityId id, Args &&...args) {
     const auto family = ComponentFamily<C>::family();
     if (!m_components[family]) {
         m_components[family] = Box<ComponentStorage<>>::create(sizeof(C));

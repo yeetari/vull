@@ -299,7 +299,8 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
 
     // Index buffer.
     {
-        m_index_buffer = m_device.create_buffer(indices.size_bytes(), BufferType::IndexBuffer, MemoryUsage::CpuToGpu, false);
+        m_index_buffer =
+            m_device.create_buffer(indices.size_bytes(), BufferType::IndexBuffer, MemoryUsage::CpuToGpu, false);
         void *index_data = m_index_buffer.map_memory();
         std::memcpy(index_data, indices.data(), indices.size_bytes());
         m_index_buffer.unmap_memory();
@@ -320,7 +321,8 @@ void RenderSystem::create_data_buffers(const Vector<Vertex> &vertices, const Vec
 
     // Uniform buffer.
     {
-        m_uniform_buffer = m_device.create_buffer(sizeof(UniformBuffer), BufferType::UniformBuffer, MemoryUsage::CpuToGpu, false);
+        m_uniform_buffer =
+            m_device.create_buffer(sizeof(UniformBuffer), BufferType::UniformBuffer, MemoryUsage::CpuToGpu, false);
     }
 }
 

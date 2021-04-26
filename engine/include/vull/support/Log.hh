@@ -19,7 +19,7 @@ public:
     static std::mutex s_log_lock;
 
     template <typename... Args>
-    static void trace(const char *component, const char *fmt, const Args &... args) {
+    static void trace(const char *component, const char *fmt, const Args &...args) {
         std::scoped_lock lock(s_log_lock);
         Colour colour(70, 130, 180);
         std::printf("TRACE [%s] ", component);
@@ -31,7 +31,7 @@ public:
     }
 
     template <typename... Args>
-    static void debug(const char *component, const char *fmt, const Args &... args) {
+    static void debug(const char *component, const char *fmt, const Args &...args) {
         std::scoped_lock lock(s_log_lock);
         Colour colour(100, 149, 237);
         std::printf("DEBUG [%s] ", component);
@@ -43,7 +43,7 @@ public:
     }
 
     template <typename... Args>
-    static void info(const char *component, const char *fmt, const Args &... args) {
+    static void info(const char *component, const char *fmt, const Args &...args) {
         std::scoped_lock lock(s_log_lock);
         Colour colour(224, 255, 255);
         std::printf("INFO  [%s] ", component);
@@ -55,7 +55,7 @@ public:
     }
 
     template <typename... Args>
-    static void warn(const char *component, const char *fmt, const Args &... args) {
+    static void warn(const char *component, const char *fmt, const Args &...args) {
         std::scoped_lock lock(s_log_lock);
         Colour colour(255, 255, 0);
         std::printf("WARN  [%s] ", component);
@@ -67,7 +67,7 @@ public:
     }
 
     template <typename... Args>
-    static void error(const char *component, const char *fmt, const Args &... args) {
+    static void error(const char *component, const char *fmt, const Args &...args) {
         std::scoped_lock lock(s_log_lock);
         Colour colour(255, 69, 0);
         std::printf("ERROR [%s] ", component);
