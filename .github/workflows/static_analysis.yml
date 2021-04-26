@@ -1,0 +1,38 @@
+name: Static Analysis
+on: [push, pull_request]
+jobs:
+  clang-tidy:
+    name: Clang Tidy
+    runs-on: ubuntu-latest
+    container: ubuntu:devel
+    steps:
+      - name: Install tools and dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt update -qq
+          apt install -y gnupg2 wget
+          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
+          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          apt update -qq
+          apt install -y \
+            clang \
+            clang-tidy \
+            cmake \
+            libglfw3-dev \
+            libglm-dev \
+            parallel \
+            vulkan-sdk
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure CMake
+        run: |
+          cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Run clang-tidy
+        run: |
+          find engine/sources sandbox \
+            -name '*.cc' \
+            -print0 |
+          parallel -0 \
+            clang-tidy -p build --header-filter=vull/ --quiet {} 2>/dev/null |
+          tee output
+          if [ -s output ]; then exit 1; fi
