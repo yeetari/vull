@@ -97,8 +97,7 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
         std::free(m_data);
     } else {
         new_data = static_cast<T *>(std::realloc(m_data, capacity * sizeof(T)));
-        std::memset(static_cast<void *>(new_data + m_capacity), 0,
-                    reinterpret_cast<char *>(capacity) - reinterpret_cast<char *>(m_capacity));
+        std::memset(static_cast<void *>(new_data + m_capacity), 0, capacity - m_capacity);
     }
     m_data = new_data;
     m_capacity = capacity;
