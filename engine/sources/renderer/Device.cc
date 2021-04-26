@@ -72,7 +72,7 @@ VkMemoryPropertyFlags memory_flags(MemoryUsage usage) {
 Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     VkPhysicalDeviceProperties physical_properties;
     vkGetPhysicalDeviceProperties(physical, &physical_properties);
-    Log::debug("renderer", "Creating device from %s (%s)", physical_properties.deviceName,
+    Log::debug("renderer", "Creating device from %s (%s)", static_cast<const char *>(physical_properties.deviceName),
                device_type(physical_properties.deviceType));
 
     std::uint32_t queue_family_count = 0;
