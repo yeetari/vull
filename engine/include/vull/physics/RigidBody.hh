@@ -3,7 +3,7 @@
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
 
-class PhysicsSystem;
+struct PhysicsSystem;
 class Shape;
 
 class RigidBody {
