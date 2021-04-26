@@ -47,8 +47,8 @@
 
 namespace {
 
-float g_prev_x = 0;
-float g_prev_y = 0;
+float g_prev_x = 0; // NOLINT
+float g_prev_y = 0; // NOLINT
 
 } // namespace
 
