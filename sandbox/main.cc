@@ -130,8 +130,9 @@ int main() {
     sponza.add<Mesh>(sponza_count, suzanne_count);
     sponza.add<Transform>(glm::vec3(100.0f, -10.0f, 50.0f), glm::vec3(0.01f));
 
+    BoxShape floor_shape(glm::vec3(400.0f, 1.0f, 400.0f));
     auto floor = world.create_entity();
-    floor.add<Collider>(*new BoxShape(glm::vec3(400.0f, 1.0f, 400.0f)));
+    floor.add<Collider>(floor_shape);
     floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
     floor.add<Transform>(glm::vec3(0.0f, -10.0f, 0.0f), glm::vec3(400.0f, 1.0f, 400.0f));
 
