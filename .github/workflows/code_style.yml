@@ -1,0 +1,21 @@
+name: Code Style
+on: [push, pull_request]
+jobs:
+  clang-format:
+    name: Clang Format
+    runs-on: ubuntu-latest
+    container: ubuntu:devel
+    steps:
+      - name: Install tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt update -qq
+          apt install -y clang-format git
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Run clang-format
+        shell: bash
+        run: |
+          find . -name '*.cc' -or -name '*.hh' | xargs clang-format -i
+          git diff | tee format-diff
+          if [ -s format-diff ]; then exit 1; fi
