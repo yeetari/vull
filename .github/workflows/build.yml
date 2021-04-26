@@ -1,0 +1,35 @@
+name: Build
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: ubuntu:devel
+    steps:
+      - name: Install tools and dependencies
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt update -qq
+          apt install -y gnupg2 wget
+          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
+          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          apt update -qq
+          apt install -y \
+            clang \
+            clang-format \
+            cmake \
+            libglfw3-dev \
+            libglm-dev \
+            ninja-build \
+            vulkan-sdk
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure CMake
+        run: |
+          cmake . \
+            -Bbuild \
+            -DCMAKE_BUILD_TYPE=Release \
+            -GNinja
+      - name: Build
+        run: |
+          cmake --build build
