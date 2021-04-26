@@ -8,7 +8,7 @@
 
 template <typename T>
 class Optional {
-    Array<std::uint8_t, sizeof(T)> m_data{};
+    alignas(T) Array<std::uint8_t, sizeof(T)> m_data{};
     bool m_present{false};
 
 public:
