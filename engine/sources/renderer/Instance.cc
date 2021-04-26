@@ -34,7 +34,7 @@ Instance::Instance(const Span<const char *> &extensions) {
         .applicationVersion = k_application_version,
         .pEngineName = k_engine_name,
         .engineVersion = k_engine_version,
-        .apiVersion = VK_API_VERSION_1_2,
+        .apiVersion = VULL_MAKE_VERSION(1, 2, 0),
     };
     VkInstanceCreateInfo instance_ci{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
