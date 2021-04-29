@@ -1,0 +1,2 @@
+# Enable highlighting for compute shaders.
+*.comp linguist-language=GLSL
