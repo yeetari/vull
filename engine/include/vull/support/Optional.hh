@@ -21,4 +21,8 @@ public:
         ASSERT(m_present);
         return *reinterpret_cast<const T *>(m_data.data());
     }
+    constexpr const T *operator->() const {
+        ASSERT(m_present);
+        return reinterpret_cast<const T *>(m_data.data());
+    }
 };
