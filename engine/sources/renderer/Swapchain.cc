@@ -153,10 +153,10 @@ std::uint32_t Swapchain::acquire_next_image(VkSemaphore semaphore, VkFence fence
     return image_index;
 }
 
-void Swapchain::present(std::uint32_t image_index, const Span<VkSemaphore> &wait_semaphores) const {
+void Swapchain::present(std::uint32_t image_index, Span<VkSemaphore> wait_semaphores) const {
     VkPresentInfoKHR present_info{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = wait_semaphores.size(),
+        .waitSemaphoreCount = static_cast<std::uint32_t>(wait_semaphores.size()),
         .pWaitSemaphores = wait_semaphores.data(),
         .swapchainCount = 1,
         .pSwapchains = &m_swapchain,

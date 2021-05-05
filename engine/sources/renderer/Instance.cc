@@ -23,7 +23,7 @@ constexpr const char *k_validation_layer_name = "VK_LAYER_KHRONOS_validation";
 
 } // namespace
 
-Instance::Instance(const Span<const char *> &extensions) {
+Instance::Instance(Span<const char *> extensions) {
     Log::trace("renderer", "Creating vulkan instance with %d extensions", extensions.size());
     for (const char *extension : extensions) {
         Log::trace("renderer", " - %s", extension);
@@ -39,7 +39,7 @@ Instance::Instance(const Span<const char *> &extensions) {
     VkInstanceCreateInfo instance_ci{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &application_info,
-        .enabledExtensionCount = extensions.size(),
+        .enabledExtensionCount = static_cast<std::uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data(),
     };
 #ifndef NDEBUG

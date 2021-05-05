@@ -1,56 +1,33 @@
 #pragma once
 
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 
-#include <cstdint>
-#include <memory>
+#include <concepts>
+#include <cstddef>
 
 /// Dynamically sized span.
-template <typename T, typename SizeType = std::uint32_t>
+template <typename T>
 class Span {
     T *const m_data;
-    const SizeType m_size;
+    const std::size_t m_size;
 
 public:
-    template <SizeType N>
-    constexpr Span(Array<T, N> &array) : m_data(array.data()), m_size(array.size()) {}
-    template <typename BeginIt, typename EndIt>
-    constexpr Span(BeginIt begin, EndIt end) : m_data(std::to_address(begin)), m_size(end - begin) {}
-    constexpr Span(T *data, SizeType size) : m_data(data), m_size(size) {}
-    // TODO: Make this constexpr, MSVC does not currently support it.
-    ~Span() = default;
+    constexpr Span(T *data, std::size_t size) : m_data(data), m_size(size) {}
 
-    // Disallow copying of Span to preserve const-correctness of underlying data - a span must now be passed by
-    // reference, with the constness of it specifying the constness of underlying data.
-    Span(const Span &) = delete;
-    Span(Span &&) = delete;
+    // Allow implicit conversion from `Span<T>` to `Span<void>`.
+    constexpr operator Span<void>() { return {m_data, m_size}; }
+    constexpr operator Span<const void>() const { return {m_data, m_size}; }
 
-    Span &operator=(const Span &) = delete;
-    Span &operator=(Span &&) = delete;
+    constexpr T *begin() const { return m_data; }
+    constexpr T *end() const { return m_data + m_size; }
 
-    T *begin() { return m_data; }
-    T *end() { return m_data + m_size; }
-    const T *begin() const { return m_data; }
-    const T *end() const { return m_data + m_size; }
+    template <typename U = std::conditional_t<std::same_as<T, void>, char, T>>
+    constexpr U &operator[](std::size_t index) const requires(!std::same_as<T, void>) {
+        ASSERT(index < m_size);
+        return m_data[index];
+    }
 
-    T &operator[](std::uint32_t index);
-    const T &operator[](std::uint32_t index) const;
-
-    T *data() { return m_data; }
-    const T *data() const { return m_data; }
-    SizeType size() const { return m_size; }
-    SizeType size_bytes() const { return m_size * sizeof(T); }
+    constexpr T *data() const { return m_data; }
+    constexpr std::size_t size() const { return m_size; }
+    constexpr std::size_t size_bytes() const { return m_size * sizeof(T); }
 };
-
-template <typename T, typename SizeType>
-T &Span<T, SizeType>::operator[](std::uint32_t index) {
-    ASSERT(index < m_size);
-    return m_data[index];
-}
-
-template <typename T, typename SizeType>
-const T &Span<T, SizeType>::operator[](std::uint32_t index) const {
-    ASSERT(index < m_size);
-    return m_data[index];
-}
