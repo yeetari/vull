@@ -1,6 +1,7 @@
 #include <vull/core/Entity.hh>
 
 #include <vull/core/ComponentStorage.hh>
+#include <vull/core/EntityId.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Vector.hh>
 

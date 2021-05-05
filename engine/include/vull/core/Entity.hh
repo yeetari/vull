@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/core/ComponentStorage.hh>
+#include <vull/core/EntityId.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Vector.hh>
 
@@ -9,7 +10,6 @@
 #include <utility>
 
 class EntityManager;
-using EntityId = std::size_t;
 
 class Entity {
     const EntityId m_id;
@@ -36,6 +36,8 @@ public:
     void destroy();
 
     auto operator<=>(const Entity &) const = default;
+
+    EntityId id() const { return m_id; }
 };
 
 template <typename... Comps>
