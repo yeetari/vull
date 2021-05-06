@@ -1,5 +1,5 @@
 #include "Config.hh"
-#include "PlayerController.hh"
+#include "VehicleController.hh"
 
 #include <vull/Config.hh>
 #include <vull/core/Entity.hh>
@@ -9,6 +9,7 @@
 #include <vull/physics/Collider.hh>
 #include <vull/physics/PhysicsSystem.hh>
 #include <vull/physics/RigidBody.hh>
+#include <vull/physics/Vehicle.hh>
 #include <vull/physics/shape/BoxShape.hh>
 #include <vull/physics/shape/SphereShape.hh>
 #include <vull/renderer/Camera.hh>
@@ -31,6 +32,7 @@
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/random.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
@@ -120,21 +122,28 @@ int main() {
     std::uint32_t sponza_count = load_obj("sponza.obj");
     std::uint32_t sphere_count = load_obj("sphere.obj");
     std::uint32_t cube_count = load_obj("cube.obj");
+    std::uint32_t tire_count = load_obj("tire.obj");
 
     World world;
     world.add<PhysicsSystem>();
-    world.add<PlayerControllerSystem>(window);
+    world.add<VehicleSystem>();
+    world.add<VehicleControllerSystem>(window);
     world.add<RenderSystem>(device, swapchain, window, vertices, indices);
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
     sponza.add<Transform>(glm::vec3(100.0f, -10.0f, 50.0f), glm::vec3(0.01f));
+    sponza.get<Transform>()->orientation() = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    BoxShape floor_shape(glm::vec3(400.0f, 1.0f, 400.0f));
-    auto floor = world.create_entity();
-    floor.add<Collider>(floor_shape);
-    floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
-    floor.add<Transform>(glm::vec3(0.0f, -10.0f, 0.0f), glm::vec3(400.0f, 1.0f, 400.0f));
+    BoxShape floor_shape(glm::vec3(100.0f, 1.0f, 100.0f));
+    for (int i = 0; i < 8; i++) {
+        auto floor = world.create_entity();
+        floor.add<Collider>(floor_shape);
+        floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        floor.add<Transform>(glm::vec3(0.0f, -10.0f, static_cast<float>(i) * 195.0f), floor_shape.half_size());
+        floor.get<Transform>()->orientation() =
+            glm::angleAxis(glm::radians((i % 2 == 0 ? 1.0f : -1.0f) * 10.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    }
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
@@ -173,17 +182,30 @@ int main() {
     ubo.proj = glm::perspective(glm::radians(45.0f), window.aspect_ratio(), 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    BoxShape player_shape(glm::vec3(10.0f));
-    auto player = world.create_entity();
-    player.add<Camera>(glm::vec3(0.0f));
-    player.add<Collider>(player_shape);
-    player.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
-    player.add<PlayerController>();
-    player.add<RigidBody>(player_shape, 100000.0f, 0.0f);
-    player.add<Transform>(glm::vec3(10.0f, 5.0f, -200.0f), glm::vec3(10.0f, 10.0f, 10.0f));
+    BoxShape car_shape(glm::vec3(3.0f, 1.0f, 5.0f));
+    auto car = world.create_entity();
+    car.add<Collider>(car_shape);
+    car.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    car.add<RigidBody>(car_shape, 5.0_t, 0.0f);
+    car.add<Transform>(glm::vec3(-30.0f, -15.0f, 95.0f), car_shape.half_size());
+    car.add<VehicleController>();
 
-    auto *camera = player.get<Camera>();
-    glfwSetWindowUserPointer(*window, camera);
+    auto *vehicle = car.add<Vehicle>();
+    auto create_wheel = [&](Axle &axle, float radius, float x_offset, float roll) {
+        auto visual_wheel = world.create_entity();
+        visual_wheel.add<Mesh>(tire_count, suzanne_count + sponza_count + sphere_count + cube_count);
+        visual_wheel.add<Transform>(glm::vec3(0.0f));
+        axle.add_wheel(radius, x_offset, visual_wheel.id()).set_roll(roll);
+    };
+    auto &front_axle = vehicle->add_axle(1.0f, 0.2f, 2.0f, 5.0f);
+    create_wheel(front_axle, 1.1f, -3.5f, glm::radians(90.0f)); // FL
+    create_wheel(front_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // FR
+    auto &rear_axle = vehicle->add_axle(1.0f, 0.2f, 2.0f, -5.0f);
+    create_wheel(rear_axle, 1.1f, -3.5f, glm::radians(90.0f)); // RL
+    create_wheel(rear_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // RR
+
+    Camera camera(glm::vec3(0.0f));
+    glfwSetWindowUserPointer(*window, &camera);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
         auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
         auto x = static_cast<float>(xpos);
@@ -199,8 +221,8 @@ int main() {
             auto suzanne = world.create_entity();
             suzanne.add<Collider>(sphere_shape);
             suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.1f);
-            suzanne.add<Transform>(glm::vec3(static_cast<float>(x) * 3.0f, 2.0f, static_cast<float>(z) * 3.0f));
+            suzanne.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
+            suzanne.add<Transform>(glm::vec3(static_cast<float>(x) * 6.0f, 2.0f, static_cast<float>(z) * 6.0f));
         }
     }
     for (int x = 0; x < 10; x++) {
@@ -208,9 +230,9 @@ int main() {
             auto suzanne = world.create_entity();
             suzanne.add<Collider>(sphere_shape);
             suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(sphere_shape, 10.0f, 0.1f);
+            suzanne.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
             suzanne.add<Transform>(
-                glm::vec3(static_cast<float>(x) * 3.0f, 2.0f, static_cast<float>(z) * 3.0f + 350.0f));
+                glm::vec3(static_cast<float>(x) * 6.0f, 2.0f, static_cast<float>(z) * 6.0f + 350.0f));
         }
     }
 
@@ -235,8 +257,9 @@ int main() {
             dt *= 5;
         }
 
-        ubo.view = camera->view_matrix();
-        ubo.camera_position = camera->position();
+        ubo.view = camera.view_matrix();
+        ubo.camera_position = camera.position();
+        camera.update(window, dt);
         for (int i = 0; auto &light : lights) {
             light.position = glm::mix(light.position, dsts[i], dt);
             if (glm::distance(light.position, dsts[i]) <= 6.0f) {
