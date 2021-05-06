@@ -196,7 +196,7 @@ void PhysicsSystem::update(World *world, float dt) {
         // Integrate angular velocity and then orientation.
         auto mat_orientation = glm::mat3_cast(transform->orientation());
         body->m_inertia_tensor_world = mat_orientation * body->m_inertia_tensor * glm::transpose(mat_orientation);
-        body->m_angular_velocity += body->m_inertia_tensor_world * body->m_torque;
+        body->m_angular_velocity += body->m_inertia_tensor_world * body->m_torque * dt;
         body->m_angular_velocity *= glm::pow(0.995f, dt);
         transform->orientation() += glm::quat(0.0f, body->m_angular_velocity) * transform->orientation() * 0.5f * dt;
         transform->orientation() = glm::normalize(transform->orientation());
