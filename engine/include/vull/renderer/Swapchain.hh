@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vull/support/Span.hh>
+#include <vull/support/Span.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
 
 #include <vulkan/vulkan_core.h>
