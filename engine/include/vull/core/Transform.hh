@@ -16,6 +16,12 @@ public:
     glm::mat4 matrix() const;
     glm::mat4 scaled_matrix() const;
 
+    glm::vec3 forward() const;
+    glm::vec3 right() const;
+    glm::vec3 up() const;
+
+    glm::vec3 local_to_world(const glm::vec3 &point) const;
+
     glm::vec3 &position() { return m_position; }
     const glm::vec3 &position() const { return m_position; }
 

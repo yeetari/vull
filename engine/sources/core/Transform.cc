@@ -9,3 +9,19 @@ glm::mat4 Transform::matrix() const {
 glm::mat4 Transform::scaled_matrix() const {
     return glm::scale(matrix(), m_scale);
 }
+
+glm::vec3 Transform::forward() const {
+    return m_orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+}
+
+glm::vec3 Transform::right() const {
+    return m_orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+}
+
+glm::vec3 Transform::up() const {
+    return m_orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+}
+
+glm::vec3 Transform::local_to_world(const glm::vec3 &point) const {
+    return m_position + (m_orientation * point);
+}
