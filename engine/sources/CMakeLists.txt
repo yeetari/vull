@@ -6,7 +6,9 @@ target_sources(vull-engine PRIVATE
     io/Window.cc
     physics/shape/BoxShape.cc
     physics/shape/SphereShape.cc
+    physics/JohnsonSimplexSolver.cc
     physics/PhysicsSystem.cc
+    physics/Ray.cc
     physics/RigidBody.cc
     renderer/Buffer.cc
     renderer/Camera.cc
