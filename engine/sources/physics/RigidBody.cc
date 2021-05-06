@@ -11,16 +11,21 @@ RigidBody::RigidBody(const Shape &shape, float mass, float restitution)
 }
 
 void RigidBody::apply_central_force(const glm::vec3 &force) {
-    m_force += force;
+    apply_force(force, glm::vec3(0.0f));
 }
 
 void RigidBody::apply_central_impulse(const glm::vec3 &impulse) {
     apply_impulse(impulse, glm::vec3(0.0f));
 }
 
+void RigidBody::apply_force(const glm::vec3 &force, const glm::vec3 &point) {
+    m_force += force;
+    m_torque += glm::cross(point, force);
+}
+
 void RigidBody::apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point) {
     m_linear_velocity += impulse * m_inv_mass;
-    m_angular_velocity += glm::cross(point, impulse) * m_inertia_tensor_world;
+    m_angular_velocity += m_inertia_tensor_world * glm::cross(point, impulse);
 }
 
 void RigidBody::apply_torque(const glm::vec3 &torque) {

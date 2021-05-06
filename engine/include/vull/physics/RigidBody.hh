@@ -25,9 +25,20 @@ public:
 
     void apply_central_force(const glm::vec3 &force);
     void apply_central_impulse(const glm::vec3 &impulse);
+    void apply_force(const glm::vec3 &force, const glm::vec3 &point);
     void apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point);
     void apply_torque(const glm::vec3 &torque);
 
     const glm::vec3 &linear_velocity() const { return m_linear_velocity; }
     const glm::vec3 &angular_velocity() const { return m_angular_velocity; }
+
+    float mass() const { return m_mass; }
 };
+
+constexpr float operator""_kg(long double mass) {
+    return static_cast<float>(mass);
+}
+
+constexpr float operator""_t(long double mass) {
+    return static_cast<float>(mass) * 1000.0f;
+}
