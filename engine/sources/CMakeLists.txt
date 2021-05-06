@@ -10,6 +10,7 @@ target_sources(vull-engine PRIVATE
     physics/PhysicsSystem.cc
     physics/Ray.cc
     physics/RigidBody.cc
+    physics/Vehicle.cc
     renderer/Buffer.cc
     renderer/Camera.cc
     renderer/Device.cc
