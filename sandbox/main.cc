@@ -139,6 +139,7 @@ int main() {
     for (int i = 0; i < 8; i++) {
         auto floor = world.create_entity();
         floor.add<Collider>(floor_shape);
+        floor.add<RigidBody>(floor_shape, 0.0f, 0.0f);
         floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
         floor.add<Transform>(glm::vec3(0.0f, -10.0f, static_cast<float>(i) * 195.0f), floor_shape.half_size());
         floor.get<Transform>()->orientation() =

@@ -184,6 +184,11 @@ void PhysicsSystem::update(World *world, float dt) {
         auto *transform = entity.get<Transform>();
         ASSERT(transform != nullptr);
 
+        // Ignore static bodies.
+        if (body->m_mass == 0.0f) {
+            continue;
+        }
+
         // Apply gravity.
         body->apply_central_force(body->m_mass * glm::vec3(0.0f, -9.81f, 0.0f));
 
@@ -216,17 +221,27 @@ void PhysicsSystem::update(World *world, float dt) {
     for (auto [e0, c0] : world->view<Collider>()) {
         for (auto [e1, c1] : world->view<Collider>()) {
             // Don't check for collisions against self!
-            // TODO: Remove RigidBody check once all physics objects are required to have rigid bodies.
-            if (e0 == e1 || !e0.has<RigidBody>()) {
+            if (e0 == e1) {
                 continue;
             }
+
+            auto *b0 = e0.get<RigidBody>();
+            auto *b1 = e1.get<RigidBody>();
             auto *t0 = e0.get<Transform>();
             auto *t1 = e1.get<Transform>();
+            ASSERT(b0 != nullptr);
+            ASSERT(b1 != nullptr);
             ASSERT(t0 != nullptr);
             ASSERT(t1 != nullptr);
+
+            // Don't count collisions against two static bodies.
+            if (b0->m_mass == 0.0f && b1->m_mass == 0.0f) {
+                continue;
+            }
+
             Contact contact{
-                .b0 = e0.get<RigidBody>(),
-                .b1 = e1.get<RigidBody>(),
+                .b0 = b0,
+                .b1 = b1,
                 .t0 = t0,
                 .t1 = t1,
             };

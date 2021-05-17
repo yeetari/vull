@@ -7,7 +7,9 @@
 
 RigidBody::RigidBody(const Shape &shape, float mass, float restitution)
     : m_mass(mass), m_inv_mass(mass != 0.0f ? 1.0f / mass : 0.0f), m_restitution(restitution) {
-    m_inertia_tensor = glm::inverse(shape.inertia_tensor(mass));
+    if (mass != 0.0f) {
+        m_inertia_tensor = glm::inverse(shape.inertia_tensor(mass));
+    }
 }
 
 void RigidBody::apply_central_force(const glm::vec3 &force) {
