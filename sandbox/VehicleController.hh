@@ -9,6 +9,7 @@ struct VehicleController {};
 
 class VehicleControllerSystem final : public System<VehicleControllerSystem> {
     const Window &m_window;
+    float m_steering{0.0f};
 
 public:
     explicit VehicleControllerSystem(const Window &window) : m_window(window) {}
