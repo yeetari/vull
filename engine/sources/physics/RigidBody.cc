@@ -33,3 +33,7 @@ void RigidBody::apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point) 
 void RigidBody::apply_torque(const glm::vec3 &torque) {
     m_torque += torque;
 }
+
+glm::vec3 RigidBody::velocity_at_point(const glm::vec3 &point) const {
+    return m_linear_velocity + glm::cross(m_angular_velocity, point);
+}

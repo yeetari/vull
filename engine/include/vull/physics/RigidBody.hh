@@ -30,6 +30,7 @@ public:
     void apply_force(const glm::vec3 &force, const glm::vec3 &point);
     void apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point);
     void apply_torque(const glm::vec3 &torque);
+    glm::vec3 velocity_at_point(const glm::vec3 &point) const;
 
     void set_linear_damping(float linear_damping) { m_linear_damping = linear_damping; }
     void set_angular_damping(float angular_damping) { m_angular_damping = angular_damping; }
