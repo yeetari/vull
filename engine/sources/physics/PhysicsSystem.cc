@@ -253,13 +253,10 @@ void PhysicsSystem::update(World *world, float dt) {
     }
 
     for (auto &contact : contacts) {
-        ASSERT(contact.b0 != nullptr);
         glm::vec3 r1 = contact.point - contact.t0->position();
         glm::vec3 r2 = contact.point - contact.t1->position();
         glm::vec3 relative_velocity = contact.b0->m_linear_velocity + glm::cross(contact.b0->m_angular_velocity, r1);
-        if (contact.b1 != nullptr) {
-            relative_velocity -= contact.b1->m_linear_velocity + glm::cross(contact.b1->m_angular_velocity, r2);
-        }
+        relative_velocity -= contact.b1->m_linear_velocity + glm::cross(contact.b1->m_angular_velocity, r2);
 
         float velocity_projection = glm::dot(relative_velocity, contact.normal);
         if (velocity_projection > 0.0f) {
@@ -267,11 +264,7 @@ void PhysicsSystem::update(World *world, float dt) {
         }
 
         // Calculate average restitution.
-        float restitution = contact.b0->m_restitution;
-        if (contact.b1 != nullptr) {
-            restitution += contact.b1->m_restitution;
-            restitution *= 0.5f;
-        }
+        float restitution = (contact.b0->m_restitution + contact.b1->m_restitution) * 0.5f;
 
         glm::vec3 n1 = contact.normal;
         glm::vec3 n2 = -contact.normal;
@@ -280,24 +273,20 @@ void PhysicsSystem::update(World *world, float dt) {
 
         float C = glm::max(0.0f, -restitution * velocity_projection - 0.9f);
         float effective_mass = contact.b0->m_inv_mass + glm::dot(w1 * contact.b0->m_inertia_tensor_world, w1);
-        if (contact.b1 != nullptr) {
-            effective_mass += contact.b1->m_inv_mass + glm::dot(w2 * contact.b1->m_inertia_tensor_world, w2);
-        }
+        effective_mass += contact.b1->m_inv_mass + glm::dot(w2 * contact.b1->m_inertia_tensor_world, w2);
+
         float normal_impulse = (C - velocity_projection + 0.01f) / effective_mass;
         glm::vec3 impulse = contact.normal * normal_impulse;
         contact.b0->apply_impulse(impulse, r1);
-        if (contact.b1 != nullptr) {
-            contact.b1->apply_impulse(impulse, r2);
-        }
+        contact.b1->apply_impulse(-impulse, r2);
 
+        // No position correction required.
         if (contact.penetration <= 0.0f) {
             continue;
         }
 
-        glm::vec3 prv = contact.b0->m_linear_velocity + glm::cross(contact.b0->m_angular_velocity, r1);
-        if (contact.b1 != nullptr) {
-            prv -= contact.b1->m_linear_velocity + glm::cross(contact.b1->m_angular_velocity, r2);
-        }
+        glm::vec3 prv = contact.b0->m_pseudo_linear_velocity + glm::cross(contact.b0->m_pseudo_angular_velocity, r1);
+        prv -= contact.b1->m_pseudo_linear_velocity + glm::cross(contact.b1->m_pseudo_angular_velocity, r2);
 
         float pvp = glm::dot(prv, contact.normal);
         if (pvp >= contact.penetration) {
@@ -306,9 +295,23 @@ void PhysicsSystem::update(World *world, float dt) {
 
         float pseudo_impulse = (contact.penetration - pvp) / effective_mass;
         glm::vec3 pseudo_impulse_vector = contact.normal * pseudo_impulse;
-        contact.b0->apply_impulse(pseudo_impulse_vector, r1);
-        if (contact.b1 != nullptr) {
-            contact.b1->apply_impulse(-pseudo_impulse_vector, r2);
+        contact.b0->apply_pseudo_impulse(pseudo_impulse_vector, r1);
+        contact.b1->apply_pseudo_impulse(-pseudo_impulse_vector, r2);
+    }
+
+    for (auto [entity, body] : world->view<RigidBody>()) {
+        auto *transform = entity.get<Transform>();
+        ASSERT(transform != nullptr);
+
+        // Ignore static bodies.
+        if (body->m_mass == 0.0f) {
+            continue;
         }
+
+        transform->position() += body->m_pseudo_linear_velocity;
+        transform->orientation() += glm::quat(0.0f, body->m_pseudo_angular_velocity) * transform->orientation() * 0.5f;
+        transform->orientation() = glm::normalize(transform->orientation());
+        body->m_pseudo_linear_velocity = glm::vec3(0.0f);
+        body->m_pseudo_angular_velocity = glm::vec3(0.0f);
     }
 }

@@ -21,6 +21,8 @@ private:
     glm::vec3 m_torque{0.0f};
     glm::vec3 m_linear_velocity{0.0f};
     glm::vec3 m_angular_velocity{0.0f};
+    glm::vec3 m_pseudo_linear_velocity{0.0f};
+    glm::vec3 m_pseudo_angular_velocity{0.0f};
 
 public:
     RigidBody(const Shape &shape, float mass, float restitution);
@@ -29,6 +31,7 @@ public:
     void apply_central_impulse(const glm::vec3 &impulse);
     void apply_force(const glm::vec3 &force, const glm::vec3 &point);
     void apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point);
+    void apply_pseudo_impulse(const glm::vec3 &impulse, const glm::vec3 &point);
     void apply_torque(const glm::vec3 &torque);
     glm::vec3 velocity_at_point(const glm::vec3 &point) const;
 

@@ -30,6 +30,11 @@ void RigidBody::apply_impulse(const glm::vec3 &impulse, const glm::vec3 &point) 
     m_angular_velocity += m_inertia_tensor_world * glm::cross(point, impulse);
 }
 
+void RigidBody::apply_pseudo_impulse(const glm::vec3 &impulse, const glm::vec3 &point) {
+    m_pseudo_linear_velocity += impulse * m_inv_mass;
+    m_pseudo_angular_velocity += m_inertia_tensor_world * glm::cross(point, impulse);
+}
+
 void RigidBody::apply_torque(const glm::vec3 &torque) {
     m_torque += torque;
 }
