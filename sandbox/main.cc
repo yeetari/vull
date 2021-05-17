@@ -54,6 +54,7 @@ float g_prev_y = 0; // NOLINT
 
 } // namespace
 
+// NOLINTNEXTLINE
 int main() {
     Config config("config");
     config.parse();
@@ -132,19 +133,14 @@ int main() {
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);
-    sponza.add<Transform>(glm::vec3(100.0f, -10.0f, 50.0f), glm::vec3(0.01f));
-    sponza.get<Transform>()->orientation() = glm::angleAxis(glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    sponza.add<Transform>(glm::vec3(0.0f, -24.5f, 300.0f), glm::vec3(0.01f));
 
-    BoxShape floor_shape(glm::vec3(100.0f, 1.0f, 100.0f));
-    for (int i = 0; i < 8; i++) {
-        auto floor = world.create_entity();
-        floor.add<Collider>(floor_shape);
-        floor.add<RigidBody>(floor_shape, 0.0f, 0.0f);
-        floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
-        floor.add<Transform>(glm::vec3(0.0f, -10.0f, static_cast<float>(i) * 195.0f), floor_shape.half_size());
-        floor.get<Transform>()->orientation() =
-            glm::angleAxis(glm::radians((i % 2 == 0 ? 1.0f : -1.0f) * 10.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    }
+    BoxShape floor_shape(glm::vec3(1000.0f, 1.0f, 1000.0f));
+    auto floor = world.create_entity();
+    floor.add<Collider>(floor_shape);
+    floor.add<RigidBody>(floor_shape, 0.0f, 0.0f);
+    floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    floor.add<Transform>(glm::vec3(0.0f, -25.0f, 0.0f), floor_shape.half_size());
 
     auto *renderer = world.get<RenderSystem>();
     auto &lights = renderer->lights();
@@ -154,9 +150,9 @@ int main() {
     for (int i = 0; auto &light : lights) {
         light.colour = glm::linearRand(glm::vec3(0.1f), glm::vec3(0.5f));
         light.radius = glm::linearRand(15.0f, 30.0f);
-        light.position.x = glm::linearRand(-400.0f, 400.0f);
-        light.position.y = glm::linearRand(-6.0f, 6.0f);
-        light.position.z = glm::linearRand(-400.0f, 400.0f);
+        light.position.x = glm::linearRand(-1000.0f, 1000.0f);
+        light.position.y = glm::linearRand(-20.0f, 0.0f);
+        light.position.z = glm::linearRand(-1000.0f, 1000.0f);
         dsts[i] = light.position;
         auto rand = glm::linearRand(30.0f, 60.0f);
         switch (glm::linearRand(0, 4)) {
@@ -187,8 +183,8 @@ int main() {
     auto car = world.create_entity();
     car.add<Collider>(car_shape);
     car.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
-    car.add<RigidBody>(car_shape, 5.0_t, 0.0f);
-    car.add<Transform>(glm::vec3(-30.0f, -15.0f, 95.0f), car_shape.half_size());
+    car.add<RigidBody>(car_shape, 5.0_t, 0.1f);
+    car.add<Transform>(glm::vec3(100.0f, -15.0f, 95.0f), car_shape.half_size());
     car.add<VehicleController>();
 
     auto *chassis = car.get<RigidBody>();
@@ -209,38 +205,103 @@ int main() {
     create_wheel(rear_axle, 1.1f, -3.5f, glm::radians(90.0f)); // RL
     create_wheel(rear_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // RR
 
+    BoxShape box_shape(glm::vec3(2.0f));
+    for (int x = 0; x < 2; x++) {
+        for (int z = 0; z < 2; z++) {
+            for (int y = 0; y < 8; y++) {
+                auto box = world.create_entity();
+                box.add<Collider>(box_shape);
+                box.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+                box.add<RigidBody>(box_shape, 10.0_kg, 0.0f);
+                box.add<Transform>(glm::vec3(static_cast<float>(x) * 5.0f, static_cast<float>(y) * 4.5f - 15.0f,
+                                             static_cast<float>(z) * 5.0f + 150.0f),
+                                   box_shape.half_size());
+            }
+        }
+    }
+
+    Vector<BoxShape> stair_shapes;
+    stair_shapes.ensure_capacity(30);
+    for (std::size_t i = 0; i < stair_shapes.capacity(); i++) {
+        stair_shapes.emplace(glm::vec3(10.0f, 0.15f * static_cast<float>(i + 1), 1.0f));
+    }
+
+    for (std::size_t i = 0; i < stair_shapes.capacity(); i++) {
+        auto &shape = stair_shapes[i];
+        auto stair = world.create_entity();
+        stair.add<Collider>(shape);
+        stair.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        stair.add<RigidBody>(shape, 0.0f, 0.0f);
+        stair.add<Transform>(
+            glm::vec3(-100.0f, 0.15f * static_cast<float>(i + 1) - 24.0f, static_cast<float>(i) * 2.5f + 150.0f),
+            shape.half_size());
+    }
+
+    BoxShape ramp_shape(glm::vec3(10.0f, 1.0f, 50.0f));
+    auto ramp = world.create_entity();
+    ramp.add<Collider>(ramp_shape);
+    ramp.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    ramp.add<RigidBody>(ramp_shape, 0.0f, 0.0f);
+    ramp.add<Transform>(glm::vec3(100.0f, -12.5f, 150.0f), ramp_shape.half_size())->orientation() =
+        glm::angleAxis(glm::radians(-15.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+    BoxShape line_shape(glm::vec3(5.0f, 0.6f, 1.0f));
+    for (int i = 0; i < 10; i++) {
+        auto line = world.create_entity();
+        line.add<Collider>(line_shape);
+        line.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        line.add<RigidBody>(line_shape, 0.0f, 0.0f);
+        line.add<Transform>(glm::vec3(50.0f, -23.4f, static_cast<float>(i) * 8.0f + 200.0f), line_shape.half_size());
+    }
+    for (int i = 0; i < 10; i++) {
+        auto line = world.create_entity();
+        line.add<Collider>(line_shape);
+        line.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        line.add<RigidBody>(line_shape, 0.0f, 0.0f);
+        line.add<Transform>(glm::vec3(60.0f, -23.4f, static_cast<float>(i) * 8.0f + 204.0f), line_shape.half_size());
+    }
+
     Camera camera(glm::vec3(0.0f));
-    glfwSetWindowUserPointer(*window, &camera);
+    struct UserPtr {
+        Camera *camera;
+        Entity car;
+        bool free_camera_active;
+        bool fire;
+    } user_ptr{
+        .camera = &camera,
+        .car = car,
+        .free_camera_active = false,
+        .fire = false,
+    };
+    glfwSetWindowUserPointer(*window, &user_ptr);
     glfwSetCursorPosCallback(*window, [](GLFWwindow *window, double xpos, double ypos) {
-        auto *camera = static_cast<Camera *>(glfwGetWindowUserPointer(window));
+        auto *camera = static_cast<UserPtr *>(glfwGetWindowUserPointer(window))->camera;
         auto x = static_cast<float>(xpos);
         auto y = static_cast<float>(ypos);
         camera->handle_mouse_movement(x - g_prev_x, -(y - g_prev_y));
         g_prev_x = x;
         g_prev_y = y;
     });
+    glfwSetKeyCallback(*window, [](GLFWwindow *window, int key, int, int action, int) {
+        if (action != GLFW_RELEASE) {
+            return;
+        }
+        auto *user_ptr = static_cast<UserPtr *>(glfwGetWindowUserPointer(window));
+        if (key == GLFW_KEY_P) {
+            auto &free_camera_active = user_ptr->free_camera_active;
+            free_camera_active = !free_camera_active;
+            if (free_camera_active) {
+                const auto &position = user_ptr->car.get<Transform>()->position();
+                const auto &orientation = user_ptr->car.get<Transform>()->orientation();
+                user_ptr->camera->set_position(position + (orientation * glm::vec3(0.0f, 0.0f, -40.0f)) +
+                                               glm::vec3(0.0f, 15.0f, 0.0f));
+            }
+        } else if (key == GLFW_KEY_Z) {
+            user_ptr->fire = true;
+        }
+    });
 
     SphereShape sphere_shape(1.4f);
-    for (int x = 0; x < 10; x++) {
-        for (int z = 0; z < 10; z++) {
-            auto suzanne = world.create_entity();
-            suzanne.add<Collider>(sphere_shape);
-            suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
-            suzanne.add<Transform>(glm::vec3(static_cast<float>(x) * 6.0f, 2.0f, static_cast<float>(z) * 6.0f));
-        }
-    }
-    for (int x = 0; x < 10; x++) {
-        for (int z = 0; z < 10; z++) {
-            auto suzanne = world.create_entity();
-            suzanne.add<Collider>(sphere_shape);
-            suzanne.add<Mesh>(suzanne_count, 0);
-            suzanne.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
-            suzanne.add<Transform>(
-                glm::vec3(static_cast<float>(x) * 6.0f, 2.0f, static_cast<float>(z) * 6.0f + 350.0f));
-        }
-    }
-
     double previous_time = glfwGetTime();
     double fps_counter_prev_time = glfwGetTime();
     int frame_count = 0;
@@ -262,9 +323,39 @@ int main() {
             dt *= 5;
         }
 
-        ubo.view = camera.view_matrix();
-        ubo.camera_position = camera.position();
-        camera.update(window, dt);
+        const auto &car_position = car.get<Transform>()->position();
+        const auto &car_orientation = car.get<Transform>()->orientation();
+        glm::vec3 camera_position =
+            car_position + (car_orientation * glm::vec3(0.0f, 0.0f, -40.0f)) + glm::vec3(0.0f, 15.0f, 0.0f);
+        glm::vec3 target_position = car_position + glm::vec3(0.0f, 10.0f, 0.0f);
+        if (glfwGetKey(*window, GLFW_KEY_L) == GLFW_PRESS) {
+            camera_position = glm::vec3(0.0f, 20.0f, 0.0f);
+            target_position = glm::vec3(0.0f, -15.0f, 150.0f);
+        }
+
+        camera_position = glm::mix(ubo.camera_position, camera_position, dt * 3.0f);
+        ubo.view = glm::lookAt(camera_position, target_position, glm::vec3(0.0f, 1.0f, 0.0f));
+        ubo.camera_position = camera_position;
+
+        // Override if free camera active.
+        if (user_ptr.free_camera_active) {
+            ubo.view = camera.view_matrix();
+            ubo.camera_position = camera.position();
+            camera.update(window, dt);
+        }
+
+        if (user_ptr.fire) {
+            user_ptr.fire = false;
+            auto bullet = world.create_entity();
+            bullet.add<Collider>(sphere_shape);
+            bullet.add<Mesh>(suzanne_count, 0);
+            bullet.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
+            bullet.add<Transform>(user_ptr.free_camera_active ? ubo.camera_position : car_position);
+
+            auto forward = user_ptr.free_camera_active ? camera.forward() : car.get<Transform>()->forward();
+            bullet.get<RigidBody>()->apply_central_impulse(forward * 15000.0f);
+        }
+
         for (int i = 0; auto &light : lights) {
             light.position = glm::mix(light.position, dsts[i], dt);
             if (glm::distance(light.position, dsts[i]) <= 6.0f) {
