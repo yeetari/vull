@@ -176,6 +176,19 @@ bool mpr_collision_test(Contact *contact, const Shape &s1, const Shape &s2, cons
     return false;
 }
 
+float calculate_friction(const glm::vec3 &direction, const glm::vec3 &r1, const glm::vec3 &r2,
+                         const glm::vec3 &relative_velocity, const RigidBody *b1, const RigidBody *b2,
+                         float normal_impulse, float mu) {
+    glm::vec3 n1 = direction;
+    glm::vec3 n2 = -direction;
+    glm::vec3 w1 = glm::cross(n1, r1);
+    glm::vec3 w2 = glm::cross(n2, r2);
+    float a = glm::dot(relative_velocity, direction);
+    float b = glm::dot(n1, n1 * b1->inv_mass()) + glm::dot(n2, n2 * b2->inv_mass()) +
+              glm::dot(w1, w1 * b1->inertia_tensor()) + glm::dot(w2, w2 * b2->inertia_tensor());
+    return glm::clamp(-a / b, -normal_impulse * mu, normal_impulse * mu);
+}
+
 } // namespace
 
 void PhysicsSystem::update(World *world, float dt) {
@@ -279,6 +292,25 @@ void PhysicsSystem::update(World *world, float dt) {
         glm::vec3 impulse = contact.normal * normal_impulse;
         contact.b0->apply_impulse(impulse, r1);
         contact.b1->apply_impulse(-impulse, r2);
+
+        // Friction.
+        glm::vec3 fdir1;
+        if (glm::dot(contact.normal, glm::vec3(1.0f, 0.0f, 0.0f)) < 0.5f) {
+            fdir1 = glm::cross(contact.normal, glm::vec3(1.0f, 0.0f, 0.0f));
+        } else {
+            fdir1 = glm::cross(contact.normal, glm::vec3(0.0f, 0.0f, 1.0f));
+        }
+        glm::vec3 fdir2 = glm::cross(fdir1, contact.normal);
+        fdir1 = glm::normalize(fdir1 + glm::vec3(glm::epsilon<float>()));
+        fdir2 = glm::normalize(fdir2 + glm::vec3(glm::epsilon<float>()));
+
+        float mu = (contact.b0->m_friction + contact.b1->m_friction) * 0.5f;
+        glm::vec3 friction_impulse =
+            fdir1 * calculate_friction(fdir1, r1, r2, relative_velocity, contact.b0, contact.b1, normal_impulse, mu);
+        friction_impulse +=
+            fdir2 * calculate_friction(fdir2, r1, r2, relative_velocity, contact.b0, contact.b1, normal_impulse, mu);
+        contact.b0->apply_impulse(friction_impulse, r1);
+        contact.b1->apply_impulse(-friction_impulse, r2);
 
         // No position correction required.
         if (contact.penetration <= 0.0f) {

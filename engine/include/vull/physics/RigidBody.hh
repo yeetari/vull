@@ -13,6 +13,7 @@ private:
     const float m_mass;
     const float m_inv_mass;
     const float m_restitution;
+    float m_friction{0.5f};
     float m_linear_damping{0.005f};
     float m_angular_damping{0.005f};
     glm::mat3 m_inertia_tensor{0.0f};
@@ -35,6 +36,7 @@ public:
     void apply_torque(const glm::vec3 &torque);
     glm::vec3 velocity_at_point(const glm::vec3 &point) const;
 
+    void set_friction(float friction) { m_friction = friction; }
     void set_linear_damping(float linear_damping) { m_linear_damping = linear_damping; }
     void set_angular_damping(float angular_damping) { m_angular_damping = angular_damping; }
 
