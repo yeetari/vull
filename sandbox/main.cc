@@ -191,6 +191,10 @@ int main() {
     car.add<Transform>(glm::vec3(-30.0f, -15.0f, 95.0f), car_shape.half_size());
     car.add<VehicleController>();
 
+    auto *chassis = car.get<RigidBody>();
+    chassis->set_angular_damping(0.5f);
+    chassis->set_linear_damping(0.2f);
+
     auto *vehicle = car.add<Vehicle>();
     auto create_wheel = [&](Axle &axle, float radius, float x_offset, float roll) {
         auto visual_wheel = world.create_entity();
@@ -198,10 +202,10 @@ int main() {
         visual_wheel.add<Transform>(glm::vec3(0.0f));
         axle.add_wheel(radius, x_offset, visual_wheel.id()).set_roll(roll);
     };
-    auto &front_axle = vehicle->add_axle(1.0f, 0.2f, 2.0f, 5.0f);
+    auto &front_axle = vehicle->add_axle(2.2f, 8.0f, 2.0f, 5.0f);
     create_wheel(front_axle, 1.1f, -3.5f, glm::radians(90.0f)); // FL
     create_wheel(front_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // FR
-    auto &rear_axle = vehicle->add_axle(1.0f, 0.2f, 2.0f, -5.0f);
+    auto &rear_axle = vehicle->add_axle(2.2f, 8.0f, 2.0f, -5.0f);
     create_wheel(rear_axle, 1.1f, -3.5f, glm::radians(90.0f)); // RL
     create_wheel(rear_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // RR
 
