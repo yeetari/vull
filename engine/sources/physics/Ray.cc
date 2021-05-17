@@ -31,13 +31,13 @@ glm::vec3 support_transformed(const Shape &shape, const Transform &transform, co
 } // namespace
 
 // NOLINTNEXTLINE
-Ray::Ray(World *world, const glm::vec3 &ray_start, const glm::vec3 &ray_dir, float max_distance,
+Ray::Ray(World *world, const glm::vec3 &start_point, const glm::vec3 &direction, float max_distance,
          Span<EntityId> to_ignore)
-    : m_world(world) {
+    : m_world(world), m_start_point(start_point) {
     float best_param = std::numeric_limits<float>::max();
     for (auto [entity, collider, transform] : world->view<Collider, Transform>()) {
         float hit_param = 0.0f;
-        glm::vec3 hit_point(ray_start);
+        glm::vec3 hit_point(start_point);
         glm::vec3 hit_normal(0.0f);
         glm::vec3 v = hit_point -
                       support_transformed(collider->shape(), *transform, glm::vec3(1e-10f)); // small bias to avoid nan
@@ -56,29 +56,28 @@ Ray::Ray(World *world, const glm::vec3 &ray_start, const glm::vec3 &ray_dir, flo
                     }
                     if (ok) {
                         best_param = hit_param;
-                        m_hit = true;
-                        m_hit_entity = entity.id();
-                        m_hit_point = hit_point;
-                        m_hit_normal = hit_normal;
+                        if (hit_param <= max_distance) {
+                            m_hit = true;
+                            m_hit_distance = hit_param;
+                            m_hit_entity = entity.id();
+                            m_hit_point = hit_point;
+                            m_hit_normal = hit_normal;
+                            break;
+                        }
                     }
                 }
-                break;
-            }
-
-            if (hit_param > max_distance) {
-                break;
             }
 
             glm::vec3 p = support_transformed(collider->shape(), *transform, v);
             glm::vec3 w = hit_point - p;
             float v_dot_w = glm::dot(v, w);
             if (v_dot_w >= 0.0f) {
-                float v_dot_r = glm::dot(v, ray_dir);
+                float v_dot_r = glm::dot(v, direction);
                 if (v_dot_r >= 0.0f) {
                     break;
                 }
                 hit_param = hit_param - v_dot_w / v_dot_r;
-                hit_point = ray_start + ray_dir * hit_param;
+                hit_point = start_point + direction * hit_param;
                 hit_normal = v;
                 if (!jss.is_empty_simplex()) {
                     for (std::uint8_t j = 0; j < 4; j++) {
