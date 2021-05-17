@@ -190,16 +190,21 @@ void PhysicsSystem::update(World *world, float dt) {
         // Integrate linear velocity and then position.
         glm::vec3 acceleration = body->m_force * body->m_inv_mass;
         body->m_linear_velocity += acceleration * dt;
-        body->m_linear_velocity *= glm::pow(0.995f, dt);
-        transform->position() += body->m_linear_velocity * dt;
+        body->m_linear_velocity *= glm::pow(1.0f - body->m_linear_damping, dt);
+        if (glm::length(body->m_linear_velocity) > 0.05f) {
+            transform->position() += body->m_linear_velocity * dt;
+        }
 
         // Integrate angular velocity and then orientation.
         auto mat_orientation = glm::mat3_cast(transform->orientation());
         body->m_inertia_tensor_world = mat_orientation * body->m_inertia_tensor * glm::transpose(mat_orientation);
         body->m_angular_velocity += body->m_inertia_tensor_world * body->m_torque * dt;
-        body->m_angular_velocity *= glm::pow(0.995f, dt);
-        transform->orientation() += glm::quat(0.0f, body->m_angular_velocity) * transform->orientation() * 0.5f * dt;
-        transform->orientation() = glm::normalize(transform->orientation());
+        body->m_angular_velocity *= glm::pow(1.0f - body->m_angular_damping, dt);
+        if (glm::length(body->m_angular_velocity) > 0.05f) {
+            transform->orientation() +=
+                glm::quat(0.0f, body->m_angular_velocity) * transform->orientation() * 0.5f * dt;
+            transform->orientation() = glm::normalize(transform->orientation());
+        }
 
         // Clear force and torque.
         body->m_force = glm::vec3(0.0f);
