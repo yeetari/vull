@@ -16,6 +16,7 @@ target_sources(vull-engine PRIVATE
     renderer/Device.cc
     renderer/Image.cc
     renderer/Instance.cc
+    renderer/RenderGraph.cc
     renderer/RenderSystem.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
