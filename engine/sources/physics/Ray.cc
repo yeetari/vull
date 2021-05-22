@@ -45,7 +45,7 @@ Ray::Ray(World *world, const glm::vec3 &start_point, const glm::vec3 &direction,
 
         JohnsonSimplexSolver jss;
         for (int i = 0; i < 1000; i++) {
-            if ((v_sqrd <= 0.000001f * jss.max_vertex_sqrd()) || jss.is_full_simplex()) {
+            if ((v_sqrd <= 0.0000001f * jss.max_vertex_sqrd()) || jss.is_full_simplex()) {
                 if (hit_param < best_param) {
                     bool ok = true;
                     for (auto ignore_id : to_ignore) {
