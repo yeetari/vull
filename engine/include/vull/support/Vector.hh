@@ -22,7 +22,8 @@ class Vector {
 
 public:
     constexpr Vector() = default;
-    explicit Vector(SizeType size);
+    template <typename... Args>
+    explicit Vector(SizeType size, Args &&... args);
     Vector(const Vector &) = delete;
     Vector(Vector &&other) noexcept
         : m_data(std::exchange(other.m_data, nullptr)), m_capacity(std::exchange(other.m_capacity, 0)),
@@ -32,14 +33,10 @@ public:
     Vector &operator=(const Vector &) = delete;
     Vector &operator=(Vector &&) = delete;
 
-    T *begin() { return m_data; }
-    T *end() { return m_data + m_size; }
-    const T *begin() const { return m_data; }
-    const T *end() const { return m_data + m_size; }
-
     void ensure_capacity(SizeType capacity);
     void reallocate(SizeType capacity);
-    void resize(SizeType size);
+    template <typename... Args>
+    void resize(SizeType size, Args &&... args);
 
     template <typename... Args>
     T &emplace(Args &&...args);
@@ -47,10 +44,15 @@ public:
     void push(T &&elem);
     std::conditional_t<std::is_trivially_copyable_v<T>, T, void> pop();
 
-    bool empty() const { return m_size == 0; }
+    T *begin() { return m_data; }
+    T *end() { return m_data + m_size; }
+    const T *begin() const { return m_data; }
+    const T *end() const { return m_data + m_size; }
+
     T &operator[](SizeType index);
     const T &operator[](SizeType index) const;
 
+    bool empty() const { return m_size == 0; }
     T *data() const { return m_data; }
     SizeType capacity() const { return m_capacity; }
     SizeType size() const { return m_size; }
@@ -58,8 +60,9 @@ public:
 };
 
 template <typename T, typename SizeType>
-Vector<T, SizeType>::Vector(SizeType size) {
-    resize(size);
+template <typename... Args>
+Vector<T, SizeType>::Vector(SizeType size, Args &&... args) {
+    resize(size, std::forward<Args>(args)...);
 }
 
 template <typename T, typename SizeType>
@@ -97,15 +100,19 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
         std::free(m_data);
     } else {
         new_data = static_cast<T *>(std::realloc(m_data, capacity * sizeof(T)));
-        std::memset(static_cast<void *>(new_data + m_capacity), 0, capacity - m_capacity);
     }
     m_data = new_data;
     m_capacity = capacity;
 }
 
 template <typename T, typename SizeType>
-void Vector<T, SizeType>::resize(SizeType size) {
-    ensure_capacity(m_size = size);
+template <typename... Args>
+void Vector<T, SizeType>::resize(SizeType size, Args &&... args) {
+    ensure_capacity(size);
+    for (SizeType i = m_size; i < size; i++) {
+        new (begin() + i) T(std::forward<Args>(args)...);
+    }
+    m_size = size;
 }
 
 template <typename T, typename SizeType>
@@ -148,12 +155,12 @@ std::conditional_t<std::is_trivially_copyable_v<T>, T, void> Vector<T, SizeType>
 
 template <typename T, typename SizeType>
 T &Vector<T, SizeType>::operator[](SizeType index) {
-    ASSERT(index < m_size);
+    ASSERT(index < m_capacity);
     return begin()[index];
 }
 
 template <typename T, typename SizeType>
 const T &Vector<T, SizeType>::operator[](SizeType index) const {
-    ASSERT(index < m_size);
+    ASSERT(index < m_capacity);
     return begin()[index];
 }
