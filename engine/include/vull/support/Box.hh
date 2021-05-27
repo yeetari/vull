@@ -18,7 +18,8 @@ public:
     constexpr Box() : m_data(nullptr) {}
     constexpr explicit Box(T *data) : m_data(data) {}
     Box(const Box &) = delete;
-    Box(Box &&other) noexcept : m_data(std::exchange(other.m_data, nullptr)) {}
+    template <typename U>
+    Box(Box<U> &&other) noexcept requires std::derived_from<U, T> : m_data(std::exchange(other.data(), nullptr)) {}
     ~Box() { delete m_data; }
 
     Box &operator=(const Box &) = delete;
