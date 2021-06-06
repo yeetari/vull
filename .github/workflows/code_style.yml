@@ -4,7 +4,7 @@ jobs:
   clang-format:
     name: Clang Format
     runs-on: ubuntu-latest
-    container: ubuntu:devel
+    container: ubuntu:hirsute
     steps:
       - name: Install tools
         run: |
@@ -23,7 +23,7 @@ jobs:
   include-what-you-use:
     name: Include What You Use
     runs-on: ubuntu-latest
-    container: ubuntu:devel
+    container: ubuntu:hirsute
     steps:
       - name: Install tools and dependencies
         run: |

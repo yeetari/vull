@@ -4,7 +4,7 @@ jobs:
   clang-tidy:
     name: Clang Tidy
     runs-on: ubuntu-latest
-    container: ubuntu:devel
+    container: ubuntu:hirsute
     steps:
       - name: Install tools and dependencies
         run: |
