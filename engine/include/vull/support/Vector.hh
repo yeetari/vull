@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Span.hh>
 
 #include <algorithm>
 #include <cstdint>
@@ -23,7 +24,7 @@ class Vector {
 public:
     constexpr Vector() = default;
     template <typename... Args>
-    explicit Vector(SizeType size, Args &&... args);
+    explicit Vector(SizeType size, Args &&...args);
     Vector(const Vector &) = delete;
     Vector(Vector &&other) noexcept
         : m_data(std::exchange(other.m_data, nullptr)), m_capacity(std::exchange(other.m_capacity, 0)),
@@ -33,16 +34,20 @@ public:
     Vector &operator=(const Vector &) = delete;
     Vector &operator=(Vector &&) = delete;
 
+    void clear();
     void ensure_capacity(SizeType capacity);
     void reallocate(SizeType capacity);
     template <typename... Args>
-    void resize(SizeType size, Args &&... args);
+    void resize(SizeType size, Args &&...args);
 
     template <typename... Args>
     T &emplace(Args &&...args);
     void push(const T &elem);
     void push(T &&elem);
     std::conditional_t<std::is_trivially_copyable_v<T>, T, void> pop();
+
+    constexpr operator Span<T>() { return {data(), size()}; }
+    constexpr operator Span<const T>() const { return {data(), size()}; }
 
     T *begin() { return m_data; }
     T *end() { return m_data + m_size; }
@@ -61,7 +66,7 @@ public:
 
 template <typename T, typename SizeType>
 template <typename... Args>
-Vector<T, SizeType>::Vector(SizeType size, Args &&... args) {
+Vector<T, SizeType>::Vector(SizeType size, Args &&...args) {
     resize(size, std::forward<Args>(args)...);
 }
 
@@ -74,6 +79,17 @@ Vector<T, SizeType>::~Vector() {
         }
     }
     std::free(m_data);
+}
+
+template <typename T, typename SizeType>
+void Vector<T, SizeType>::clear() {
+    if constexpr (!std::is_trivially_copyable_v<T>) {
+        for (auto *elem = end(); elem != begin();) {
+            --elem;
+            elem->~T();
+        }
+    }
+    m_size = 0;
 }
 
 template <typename T, typename SizeType>
@@ -107,7 +123,7 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
 
 template <typename T, typename SizeType>
 template <typename... Args>
-void Vector<T, SizeType>::resize(SizeType size, Args &&... args) {
+void Vector<T, SizeType>::resize(SizeType size, Args &&...args) {
     ensure_capacity(size);
     for (SizeType i = m_size; i < size; i++) {
         new (begin() + i) T(std::forward<Args>(args)...);
