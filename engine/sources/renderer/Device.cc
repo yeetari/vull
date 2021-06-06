@@ -1,7 +1,5 @@
 #include <vull/renderer/Device.hh>
 
-#include <vull/renderer/Buffer.hh>
-#include <vull/renderer/Image.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 #include <vull/support/Optional.hh>
@@ -41,26 +39,12 @@ const char *queue_flag(VkQueueFlags flag) {
     }
 }
 
-VkBufferUsageFlags buffer_usage(BufferType type) {
+VkMemoryPropertyFlags memory_flags(MemoryType type) {
     switch (type) {
-    case BufferType::IndexBuffer:
-        return VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    case BufferType::StorageBuffer:
-        return VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    case BufferType::UniformBuffer:
-        return VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    case BufferType::VertexBuffer:
-        return VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    default:
-        ENSURE_NOT_REACHED();
-    }
-}
-
-VkMemoryPropertyFlags memory_flags(MemoryUsage usage) {
-    switch (usage) {
-    case MemoryUsage::CpuToGpu:
-        return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    case MemoryUsage::GpuOnly:
+    case MemoryType::CpuToGpu:
+        // TODO: Use `VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT` if available.
+        return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    case MemoryType::GpuOnly:
         return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     default:
         ENSURE_NOT_REACHED();
@@ -145,9 +129,9 @@ Optional<std::uint32_t> Device::find_memory_type(const VkMemoryRequirements &req
     return {};
 }
 
-VkDeviceMemory Device::allocate_memory(const VkMemoryRequirements &requirements, MemoryUsage usage, bool dedicated,
+VkDeviceMemory Device::allocate_memory(const VkMemoryRequirements &requirements, MemoryType type, bool dedicated,
                                        VkBuffer dedicated_buffer, VkImage dedicated_image) const {
-    auto memory_type_index = find_memory_type(requirements, memory_flags(usage));
+    auto memory_type_index = find_memory_type(requirements, memory_flags(type));
     ENSURE(memory_type_index);
 
     VkMemoryAllocateInfo memory_ai{
@@ -166,34 +150,4 @@ VkDeviceMemory Device::allocate_memory(const VkMemoryRequirements &requirements,
     VkDeviceMemory memory;
     ENSURE(vkAllocateMemory(m_device, &memory_ai, nullptr, &memory) == VK_SUCCESS);
     return memory;
-}
-
-Buffer Device::create_buffer(std::size_t size, BufferType type, MemoryUsage memory_usage, bool dedicated) const {
-    VkBufferCreateInfo buffer_ci{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = size,
-        .usage = buffer_usage(type),
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-    VkBuffer buffer;
-    ENSURE(vkCreateBuffer(m_device, &buffer_ci, nullptr, &buffer) == VK_SUCCESS);
-
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(m_device, buffer, &memory_requirements);
-
-    VkDeviceMemory memory = allocate_memory(memory_requirements, memory_usage, dedicated, buffer, nullptr);
-    ENSURE(vkBindBufferMemory(m_device, buffer, memory, 0) == VK_SUCCESS);
-    return {this, buffer, memory};
-}
-
-Image Device::create_image(const VkImageCreateInfo &image_ci, MemoryUsage memory_usage, bool dedicated) const {
-    VkImage image;
-    ENSURE(vkCreateImage(m_device, &image_ci, nullptr, &image) == VK_SUCCESS);
-
-    VkMemoryRequirements memory_requirements;
-    vkGetImageMemoryRequirements(m_device, image, &memory_requirements);
-
-    VkDeviceMemory memory = allocate_memory(memory_requirements, memory_usage, dedicated, nullptr, image);
-    ENSURE(vkBindImageMemory(m_device, image, memory, 0) == VK_SUCCESS);
-    return {this, image, memory};
 }

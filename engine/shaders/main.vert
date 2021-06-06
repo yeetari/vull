@@ -3,7 +3,7 @@
 layout (location = 0) in vec3 g_position;
 layout (location = 1) in vec3 g_normal;
 
-layout (set = 1, binding = 0) uniform UniformBuffer {
+layout (set = 0, binding = 2) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
     vec3 camera_position;

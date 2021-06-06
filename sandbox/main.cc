@@ -129,7 +129,7 @@ int main() {
     world.add<PhysicsSystem>();
     world.add<VehicleSystem>();
     world.add<VehicleControllerSystem>(window);
-    world.add<RenderSystem>(device, swapchain, window, vertices, indices);
+    world.add<RenderSystem>(device, swapchain, vertices, indices);
 
     auto sponza = world.create_entity();
     sponza.add<Mesh>(sponza_count, suzanne_count);

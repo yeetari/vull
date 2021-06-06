@@ -3,19 +3,19 @@
 
 layout (local_size_x_id = 0, local_size_y_id = 0, local_size_z = 1) in;
 
-layout (set = 0, binding = 0, std140) readonly buffer Lights {
+layout (set = 0, binding = 1, std140) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (set = 0, binding = 1) writeonly buffer LightVisibilities {
+layout (set = 0, binding = 3) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (set = 1, binding = 0) uniform UniformBuffer {
+layout (set = 0, binding = 2) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
     vec3 camera_position;
 } g_ubo;
-layout (set = 2, binding = 0) uniform sampler2D g_depth_sampler;
+layout (set = 0, binding = 0) uniform sampler2D g_depth_sampler;
 
 struct ViewFrustum {
     vec4 planes[6];

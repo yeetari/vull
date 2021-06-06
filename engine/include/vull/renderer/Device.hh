@@ -1,7 +1,5 @@
 #pragma once
 
-#include <vull/renderer/Buffer.hh>
-#include <vull/renderer/Image.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Vector.hh>
 
@@ -9,14 +7,7 @@
 
 #include <cstdint>
 
-enum class BufferType {
-    IndexBuffer,
-    StorageBuffer,
-    UniformBuffer,
-    VertexBuffer,
-};
-
-enum class MemoryUsage {
+enum class MemoryType {
     CpuToGpu,
     GpuOnly,
 };
@@ -38,10 +29,8 @@ public:
     Device &operator=(const Device &) = delete;
     Device &operator=(Device &&) = delete;
 
-    VkDeviceMemory allocate_memory(const VkMemoryRequirements &requirements, MemoryUsage usage, bool dedicated,
+    VkDeviceMemory allocate_memory(const VkMemoryRequirements &requirements, MemoryType type, bool dedicated,
                                    VkBuffer dedicated_buffer, VkImage dedicated_image) const;
-    Buffer create_buffer(std::size_t size, BufferType type, MemoryUsage memory_usage, bool dedicated) const;
-    Image create_image(const VkImageCreateInfo &image_ci, MemoryUsage memory_usage, bool dedicated) const;
 
     VkPhysicalDevice physical() const { return m_physical; }
     VkDevice operator*() const { return m_device; }

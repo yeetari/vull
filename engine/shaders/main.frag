@@ -12,7 +12,7 @@ layout (set = 0, binding = 0, std140) readonly buffer Lights {
 layout (set = 0, binding = 1) readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (set = 1, binding = 0) uniform UniformBuffer {
+layout (set = 0, binding = 2) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
     vec3 camera_position;

@@ -59,7 +59,9 @@ int rate_present_mode(VkPresentModeKHR present_mode, SwapchainMode swapchain_mod
 
 } // namespace
 
-Swapchain::Swapchain(const Device &device, const Surface &surface, SwapchainMode mode) : m_device(device) {
+Swapchain::Swapchain(const Device &device, const Surface &surface, SwapchainMode mode)
+    : m_device(device), m_extent{surface.extent().width, surface.extent().height, 1},
+      m_format(VK_FORMAT_B8G8R8A8_SRGB) {
     // Get present queue.
     for (std::uint32_t i = 0; i < device.queue_families().size(); i++) {
         VkBool32 present_supported = VK_FALSE;
