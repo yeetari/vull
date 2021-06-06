@@ -33,11 +33,6 @@ class RenderSystem final : public System<RenderSystem> {
     std::uint32_t m_frame_index{0};
     VkQueue m_queue{nullptr};
 
-    VkShaderModule m_depth_pass_vertex_shader{nullptr};
-    VkShaderModule m_light_cull_pass_compute_shader{nullptr};
-    VkShaderModule m_main_pass_vertex_shader{nullptr};
-    VkShaderModule m_main_pass_fragment_shader{nullptr};
-
     Vector<VkFence> m_frame_fences;
     Vector<VkSemaphore> m_image_available_semaphores;
     Vector<VkSemaphore> m_rendering_finished_semaphores;
@@ -46,7 +41,6 @@ class RenderSystem final : public System<RenderSystem> {
     UniformBuffer m_ubo{};
 
     void create_queue();
-    void load_shaders();
     void create_sync_objects();
 
 public:

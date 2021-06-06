@@ -1,6 +1,5 @@
 #include <vull/renderer/RenderSystem.hh>
 
-#include <vull/Config.hh>
 #include <vull/core/Entity.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
@@ -8,6 +7,7 @@
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderGraph.hh>
+#include <vull/renderer/Shader.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh>
@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <fstream>
 #include <limits>
 #include <string>
 
@@ -36,38 +35,6 @@ constexpr int k_tile_size = 32; // TODO: Configurable.
 constexpr VkDeviceSize k_lights_buffer_size = k_max_light_count * sizeof(PointLight) + sizeof(glm::vec4);
 constexpr VkDeviceSize k_light_visibility_size = k_max_lights_per_tile * sizeof(std::uint32_t) + sizeof(std::uint32_t);
 
-Vector<char> load_binary(const std::string &path) {
-    std::ifstream file(path, std::ios::ate | std::ios::binary);
-    ENSURE(file);
-    Vector<char> buffer(file.tellg());
-    file.seekg(0);
-    file.read(buffer.data(), buffer.capacity());
-    return buffer;
-}
-
-VkShaderModule load_shader(const Device &device, const std::string &path) {
-    auto binary = load_binary(k_shader_path + path);
-    VkShaderModuleCreateInfo shader_module_ci{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = binary.size(),
-        .pCode = reinterpret_cast<const std::uint32_t *>(binary.data()),
-    };
-    VkShaderModule shader_module = nullptr;
-    ENSURE(vkCreateShaderModule(*device, &shader_module_ci, nullptr, &shader_module) == VK_SUCCESS);
-    return shader_module;
-}
-
-VkPipelineShaderStageCreateInfo shader_stage_ci(VkShaderStageFlagBits stage, VkShaderModule module,
-                                                const VkSpecializationInfo *specialisation_info = nullptr) {
-    return {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = stage,
-        .module = module,
-        .pName = "main",
-        .pSpecializationInfo = specialisation_info,
-    };
-}
-
 } // namespace
 
 RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, const Vector<Vertex> &vertices,
@@ -78,7 +45,6 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
     m_col_tile_count = (swapchain_extent.height + (swapchain_extent.height % k_tile_size)) / k_tile_size;
 
     create_queue();
-    load_shaders();
     create_sync_objects();
 
     struct SpecialisationData {
@@ -97,27 +63,27 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
     Array specialisation_map_entries{
         VkSpecializationMapEntry{
             .constantID = 0,
-            .offset = offsetof(SpecialisationData, tile_size), // NOLINT
+            .offset = offsetof(SpecialisationData, tile_size),
             .size = sizeof(SpecialisationData::tile_size),
         },
         VkSpecializationMapEntry{
             .constantID = 1,
-            .offset = offsetof(SpecialisationData, max_lights_per_tile), // NOLINT
+            .offset = offsetof(SpecialisationData, max_lights_per_tile),
             .size = sizeof(SpecialisationData::max_lights_per_tile),
         },
         VkSpecializationMapEntry{
             .constantID = 2,
-            .offset = offsetof(SpecialisationData, tile_count), // NOLINT
+            .offset = offsetof(SpecialisationData, tile_count),
             .size = sizeof(SpecialisationData::tile_count),
         },
         VkSpecializationMapEntry{
             .constantID = 3,
-            .offset = offsetof(SpecialisationData, viewport_width), // NOLINT
+            .offset = offsetof(SpecialisationData, viewport_width),
             .size = sizeof(SpecialisationData::viewport_width),
         },
         VkSpecializationMapEntry{
             .constantID = 4,
-            .offset = offsetof(SpecialisationData, viewport_height), // NOLINT
+            .offset = offsetof(SpecialisationData, viewport_height),
             .size = sizeof(SpecialisationData::viewport_height),
         },
     };
@@ -127,6 +93,11 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
         .dataSize = sizeof(SpecialisationData),
         .pData = &specialisation_data,
     };
+
+    Shader depth_pass_shader(device, "depth.vert.spv");
+    Shader light_cull_pass_shader(device, "light_cull.comp.spv");
+    Shader main_pass_vertex_shader(device, "main.vert.spv");
+    Shader main_pass_fragment_shader(device, "main.frag.spv");
 
     auto *back_buffer = m_graph.add<SwapchainResource>(swapchain);
     back_buffer->set_clear_value(VkClearValue{.color{{0.4f, 0.6f, 0.7f, 1.0f}}});
@@ -156,15 +127,14 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .size = sizeof(glm::mat4),
     });
-    m_depth_pass->set_vertex_shader(shader_stage_ci(VK_SHADER_STAGE_VERTEX_BIT, m_depth_pass_vertex_shader));
+    m_depth_pass->set_vertex_shader(depth_pass_shader);
     m_depth_pass->reads_from(index_buffer);
     m_depth_pass->reads_from(m_uniform_buffer);
     m_depth_pass->reads_from(vertex_buffer);
     m_depth_pass->add_output(depth_buffer);
 
     auto *light_cull_pass = m_graph.add<ComputeStage>("light cull pass");
-    light_cull_pass->set_shader(
-        shader_stage_ci(VK_SHADER_STAGE_COMPUTE_BIT, m_light_cull_pass_compute_shader, &specialisation_info));
+    light_cull_pass->set_shader(light_cull_pass_shader, &specialisation_info);
     light_cull_pass->reads_from(depth_buffer);
     light_cull_pass->reads_from(m_light_buffer);
     light_cull_pass->reads_from(m_uniform_buffer);
@@ -175,9 +145,8 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
         .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
         .size = sizeof(glm::mat4),
     });
-    m_main_pass->set_vertex_shader(shader_stage_ci(VK_SHADER_STAGE_VERTEX_BIT, m_main_pass_vertex_shader));
-    m_main_pass->set_fragment_shader(
-        shader_stage_ci(VK_SHADER_STAGE_FRAGMENT_BIT, m_main_pass_fragment_shader, &specialisation_info));
+    m_main_pass->set_vertex_shader(main_pass_vertex_shader);
+    m_main_pass->set_fragment_shader(main_pass_fragment_shader, &specialisation_info);
     m_main_pass->reads_from(index_buffer);
     m_main_pass->reads_from(m_light_buffer);
     m_main_pass->reads_from(light_visibility_buffer);
@@ -192,10 +161,6 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
 
     m_compiled_graph = m_graph.compile(back_buffer);
     m_executable_graph = m_compiled_graph->build_objects(device, swapchain.image_count());
-    vkDestroyShaderModule(*m_device, m_main_pass_fragment_shader, nullptr);
-    vkDestroyShaderModule(*m_device, m_main_pass_vertex_shader, nullptr);
-    vkDestroyShaderModule(*m_device, m_light_cull_pass_compute_shader, nullptr);
-    vkDestroyShaderModule(*m_device, m_depth_pass_vertex_shader, nullptr);
 
     for (std::uint32_t i = 0; i < m_executable_graph->frame_datas().size(); i++) {
         auto &frame_data = m_executable_graph->frame_data(i);
@@ -231,15 +196,6 @@ void RenderSystem::create_queue() {
     }
     // This will still be nullptr if no queue supporting both compute and graphics is found.
     ENSURE(m_queue != nullptr);
-}
-
-void RenderSystem::load_shaders() {
-    // Load shaders into vulkan shader modules.
-    Log::debug("renderer", "Loading shaders");
-    m_depth_pass_vertex_shader = load_shader(m_device, "depth.vert.spv");
-    m_light_cull_pass_compute_shader = load_shader(m_device, "light_cull.comp.spv");
-    m_main_pass_vertex_shader = load_shader(m_device, "main.vert.spv");
-    m_main_pass_fragment_shader = load_shader(m_device, "main.frag.spv");
 }
 
 void RenderSystem::create_sync_objects() {

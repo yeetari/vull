@@ -16,6 +16,7 @@ target_sources(vull-engine PRIVATE
     renderer/Instance.cc
     renderer/RenderGraph.cc
     renderer/RenderSystem.cc
+    renderer/Shader.cc
     renderer/Surface.cc
     renderer/Swapchain.cc
     support/Assert.cc

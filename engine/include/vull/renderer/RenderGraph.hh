@@ -17,6 +17,7 @@ class Device;
 class ExecutableGraph;
 class FrameData;
 class RenderGraph;
+class Shader;
 
 enum class ResourceKind {
     Buffer,
@@ -202,7 +203,7 @@ public:
     static constexpr auto k_kind = StageKind::Compute;
     ComputeStage(std::uint32_t index, std::string &&name) : RenderStage(k_kind, index, name) {}
 
-    void set_shader(const VkPipelineShaderStageCreateInfo &shader) { m_shader = shader; }
+    void set_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
 };
 
 class GraphicsStage : public RenderStage {
@@ -223,8 +224,8 @@ public:
     void add_input(const ImageResource *resource) { m_inputs.push(resource); }
     void add_output(const ImageResource *resource) { m_outputs.push(resource); }
 
-    void set_vertex_shader(const VkPipelineShaderStageCreateInfo &shader) { m_vertex_shader = shader; }
-    void set_fragment_shader(const VkPipelineShaderStageCreateInfo &shader) { m_fragment_shader = shader; }
+    void set_vertex_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
+    void set_fragment_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
 };
 
 class RenderGraph {

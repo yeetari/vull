@@ -1,6 +1,7 @@
 #include <vull/renderer/RenderGraph.hh>
 
 #include <vull/renderer/Device.hh>
+#include <vull/renderer/Shader.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -67,6 +68,36 @@ void BufferResource::add_vertex_attribute(VkFormat format, std::uint32_t offset)
         .format = format,
         .offset = offset,
     });
+}
+
+void ComputeStage::set_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
+    m_shader = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+        .module = *shader,
+        .pName = "main",
+        .pSpecializationInfo = specialisation_info,
+    };
+}
+
+void GraphicsStage::set_vertex_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
+    m_vertex_shader = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = *shader,
+        .pName = "main",
+        .pSpecializationInfo = specialisation_info,
+    };
+}
+
+void GraphicsStage::set_fragment_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
+    m_fragment_shader = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = *shader,
+        .pName = "main",
+        .pSpecializationInfo = specialisation_info,
+    };
 }
 
 Box<CompiledGraph> RenderGraph::compile(const RenderResource *target) const {
