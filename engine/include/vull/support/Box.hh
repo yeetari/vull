@@ -12,6 +12,7 @@ class Box { // NOLINT
 public:
     template <typename... Args>
     static Box create(Args &&...args) {
+        // NOLINTNEXTLINE
         return Box(new T(std::forward<Args>(args)...));
     }
 
