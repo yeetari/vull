@@ -110,7 +110,7 @@ void update_wheel(Wheel &wheel, Axle &axle, const glm::vec3 &axle_position, Worl
     // Apply suspension force.
     float spring_force =
         wheel.suspension_compression() * axle.suspension_stiffness() * clipped_inv_contact_dot_suspension;
-    float damper_force = (suspension_relative_velocity < 0.0f ? 2.2f : 0.8f) * suspension_relative_velocity;
+    float damper_force = suspension_relative_velocity * axle.suspension_damping();
     float suspension_force = (spring_force - damper_force) * chassis->mass();
     suspension_force = glm::max(suspension_force, 0.0f);
     suspension_force *= glm::dot(ray.hit_normal(), transform->up());
