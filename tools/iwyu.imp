@@ -12,6 +12,7 @@
   { "include": ["@<glm/detail/type_vec4.*>", "private", "<glm/vec4.hpp>", "public" ] },
   { "include": ["<glm/ext/matrix_clip_space.inl>", "private", "<glm/gtc/matrix_transform.hpp>", "public" ] },
   { "include": ["<glm/ext/matrix_transform.inl>", "private", "<glm/gtc/matrix_transform.hpp>", "public" ] },
+  { "include": ["<glm/ext/quaternion_common.inl>", "private", "<glm/gtc/quaternion.hpp>", "public" ] },
   { "include": ["<glm/ext/quaternion_geometric.inl>", "private", "<glm/gtc/quaternion.hpp>", "public" ] },
   { "include": ["<glm/ext/quaternion_transform.inl>", "private", "<glm/gtc/quaternion.hpp>", "public" ] },
   { "include": ["<glm/ext/quaternion_trigonometric.inl>", "private", "<glm/gtc/quaternion.hpp>", "public" ] },
