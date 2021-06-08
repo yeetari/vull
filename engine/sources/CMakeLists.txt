@@ -5,6 +5,7 @@ target_sources(vull-engine PRIVATE
     core/Transform.cc
     core/World.cc
     io/Window.cc
+    maths/BezierCurve.cc
     physics/shape/BoxShape.cc
     physics/shape/SphereShape.cc
     physics/JohnsonSimplexSolver.cc
