@@ -20,6 +20,7 @@ if(NOT TARGET glfw)
     FetchContent_Declare(glfw3
         GIT_REPOSITORY https://github.com/glfw/glfw.git
         GIT_TAG 3.3.2
+        GIT_SHALLOW ON
         GIT_PROGRESS ON)
     FetchContent_MakeAvailable(glfw3)
 endif()
@@ -28,6 +29,7 @@ if(NOT TARGET glm::glm)
     FetchContent_Declare(glm
         GIT_REPOSITORY https://github.com/g-truc/glm.git
         GIT_TAG 0.9.9.8
+        GIT_SHALLOW ON
         GIT_PROGRESS ON)
     FetchContent_MakeAvailable(glm)
 endif()
