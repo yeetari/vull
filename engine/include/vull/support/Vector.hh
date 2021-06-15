@@ -125,8 +125,12 @@ template <typename T, typename SizeType>
 template <typename... Args>
 void Vector<T, SizeType>::resize(SizeType size, Args &&...args) {
     ensure_capacity(size);
-    for (SizeType i = m_size; i < size; i++) {
-        new (begin() + i) T(std::forward<Args>(args)...);
+    if constexpr (!std::is_trivially_copyable_v<T> || sizeof...(Args) != 0) {
+        for (SizeType i = m_size; i < size; i++) {
+            new (begin() + i) T(std::forward<Args>(args)...);
+        }
+    } else {
+        std::memset(begin() + m_size, 0, size * sizeof(T) - m_size * sizeof(T));
     }
     m_size = size;
 }
