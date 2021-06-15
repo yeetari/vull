@@ -249,7 +249,5 @@ void RenderSystem::update(World *world, float) {
     // Present output to swapchain.
     Array present_wait_semaphores{m_rendering_finished_semaphores[m_frame_index]};
     m_swapchain.present(image_index, present_wait_semaphores);
-
-    m_frame_index++;
-    m_frame_index %= m_swapchain.image_count();
+    m_frame_index = (m_frame_index + 1) % m_swapchain.image_count();
 }
