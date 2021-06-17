@@ -118,7 +118,6 @@ Checks: >
   hicpp-no-array-decay,
   hicpp-no-assembler,
   hicpp-noexcept-move,
-  hicpp-signed-bitwise,
   hicpp-special-member-functions,
   hicpp-static-assert,
   hicpp-undelegated-constructor,

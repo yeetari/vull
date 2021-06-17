@@ -4,6 +4,7 @@ target_sources(vull-engine PRIVATE
     core/System.cc
     core/Transform.cc
     core/World.cc
+    io/PackFile.cc
     io/Window.cc
     maths/BezierCurve.cc
     physics/shape/BoxShape.cc

@@ -28,5 +28,6 @@
   { "symbol": ["glm::quat", "private", "<glm/gtc/quaternion.hpp>", "public" ] },
   { "symbol": ["glm::vec3", "private", "<glm/vec3.hpp>", "public"] },
   { "symbol": ["glm::vec4", "private", "<glm/vec4.hpp>", "public"] },
+  { "symbol": ["std::exception", "private", "<exception>", "public" ] },
   { "symbol": ["std::size_t", "private", "<cstdint>", "public" ] }
 ]
