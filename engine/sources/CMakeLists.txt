@@ -17,9 +17,11 @@ target_sources(vull-engine PRIVATE
     physics/Vehicle.cc
     renderer/Camera.cc
     renderer/Device.cc
+    renderer/Fence.cc
     renderer/Instance.cc
     renderer/RenderGraph.cc
     renderer/RenderSystem.cc
+    renderer/Semaphore.cc
     renderer/Shader.cc
     renderer/Surface.cc
     renderer/Swapchain.cc

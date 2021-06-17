@@ -1,6 +1,8 @@
 #include <vull/renderer/RenderGraph.hh>
 
 #include <vull/renderer/Device.hh>
+#include <vull/renderer/Fence.hh>
+#include <vull/renderer/Semaphore.hh>
 #include <vull/renderer/Shader.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/support/Array.hh>
@@ -881,13 +883,13 @@ FrameData::~FrameData() {
     vkDestroyCommandPool(*m_device, m_command_pool, nullptr);
 }
 
-void FrameData::insert_signal_semaphore(const RenderStage *stage, VkSemaphore semaphore) {
-    m_signal_semaphores[stage->m_index].push(semaphore);
+void FrameData::insert_signal_semaphore(const RenderStage *stage, const Semaphore &semaphore) {
+    m_signal_semaphores[stage->m_index].push(*semaphore);
 }
 
-void FrameData::insert_wait_semaphore(const RenderStage *stage, VkSemaphore semaphore,
+void FrameData::insert_wait_semaphore(const RenderStage *stage, const Semaphore &semaphore,
                                       VkPipelineStageFlags wait_stage) {
-    m_wait_semaphores[stage->m_index].push(semaphore);
+    m_wait_semaphores[stage->m_index].push(*semaphore);
     m_wait_stages[stage->m_index].push(wait_stage);
 }
 
@@ -1032,7 +1034,7 @@ ExecutableGraph::~ExecutableGraph() {
     }
 }
 
-void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, VkFence signal_fence) {
+void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence) {
     auto &frame_data = m_frame_datas[frame_index % m_frame_datas.size()];
 
     // Execute transfers.
@@ -1092,7 +1094,7 @@ void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, VkFence s
             .pSignalSemaphores = signal_semaphores.data(),
         });
     }
-    vkQueueSubmit(queue, m_submit_infos.size(), m_submit_infos.data(), signal_fence);
+    vkQueueSubmit(queue, m_submit_infos.size(), m_submit_infos.data(), *signal_fence);
 }
 
 FrameData &ExecutableGraph::frame_data(std::uint32_t index) {

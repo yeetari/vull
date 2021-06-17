@@ -8,6 +8,8 @@
 #include <cstdint>
 
 class Device;
+class Fence;
+class Semaphore;
 class Surface;
 
 enum class SwapchainMode {
@@ -34,7 +36,7 @@ public:
     Swapchain &operator=(const Swapchain &) = delete;
     Swapchain &operator=(Swapchain &&) = delete;
 
-    std::uint32_t acquire_next_image(VkSemaphore semaphore, VkFence fence) const;
+    std::uint32_t acquire_next_image(const Semaphore &semaphore, const Fence &fence) const;
     void present(std::uint32_t image_index, Span<VkSemaphore> wait_semaphores) const;
 
     VkExtent3D extent() const { return m_extent; }

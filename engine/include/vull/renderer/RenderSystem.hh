@@ -1,8 +1,10 @@
 #pragma once
 
 #include <vull/core/System.hh>
+#include <vull/renderer/Fence.hh>      // IWYU pragma: keep
 #include <vull/renderer/PointLight.hh> // IWYU pragma: keep
 #include <vull/renderer/RenderGraph.hh>
+#include <vull/renderer/Semaphore.hh> // IWYU pragma: keep
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh> // IWYU pragma: keep
 #include <vull/support/Box.hh>
@@ -34,9 +36,9 @@ class RenderSystem final : public System<RenderSystem> {
     std::uint32_t m_frame_index{0};
     VkQueue m_queue{nullptr};
 
-    Vector<VkFence> m_frame_fences;
-    Vector<VkSemaphore> m_image_available_semaphores;
-    Vector<VkSemaphore> m_rendering_finished_semaphores;
+    Vector<Fence> m_frame_fences;
+    Vector<Semaphore> m_image_available_semaphores;
+    Vector<Semaphore> m_rendering_finished_semaphores;
 
     Vector<PointLight> m_lights;
     UniformBuffer m_ubo{};

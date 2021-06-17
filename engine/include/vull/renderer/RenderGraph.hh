@@ -15,8 +15,10 @@
 class CompiledGraph;
 class Device;
 class ExecutableGraph;
+class Fence;
 class FrameData;
 class RenderGraph;
+class Semaphore;
 class Shader;
 
 enum class ResourceKind {
@@ -376,8 +378,8 @@ public:
     FrameData &operator=(const FrameData &) = delete;
     FrameData &operator=(FrameData &&) = delete;
 
-    void insert_signal_semaphore(const RenderStage *stage, VkSemaphore semaphore);
-    void insert_wait_semaphore(const RenderStage *stage, VkSemaphore semaphore, VkPipelineStageFlags wait_stage);
+    void insert_signal_semaphore(const RenderStage *stage, const Semaphore &semaphore);
+    void insert_wait_semaphore(const RenderStage *stage, const Semaphore &semaphore, VkPipelineStageFlags wait_stage);
 
     void transfer(const RenderResource *resource, const void *data, VkDeviceSize size);
     template <typename T>
@@ -425,7 +427,7 @@ public:
     ExecutableGraph &operator=(const ExecutableGraph &) = delete;
     ExecutableGraph &operator=(ExecutableGraph &&) = delete;
 
-    void render(std::uint32_t frame_index, VkQueue queue, VkFence signal_fence);
+    void render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence);
     FrameData &frame_data(std::uint32_t index);
 
     Vector<FrameData> &frame_datas() { return m_frame_datas; }

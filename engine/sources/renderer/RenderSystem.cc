@@ -5,9 +5,11 @@
 #include <vull/core/World.hh>
 #include <vull/io/FileSystem.hh>
 #include <vull/renderer/Device.hh>
+#include <vull/renderer/Fence.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderGraph.hh>
+#include <vull/renderer/Semaphore.hh>
 #include <vull/renderer/Shader.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
@@ -25,7 +27,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <string>
 
 namespace {
@@ -176,15 +177,6 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
 
 RenderSystem::~RenderSystem() {
     vkDeviceWaitIdle(*m_device);
-    for (auto *semaphore : m_rendering_finished_semaphores) {
-        vkDestroySemaphore(*m_device, semaphore, nullptr);
-    }
-    for (auto *semaphore : m_image_available_semaphores) {
-        vkDestroySemaphore(*m_device, semaphore, nullptr);
-    }
-    for (auto *fence : m_frame_fences) {
-        vkDestroyFence(*m_device, fence, nullptr);
-    }
 }
 
 void RenderSystem::create_queue() {
@@ -201,25 +193,9 @@ void RenderSystem::create_queue() {
 }
 
 void RenderSystem::create_sync_objects() {
-    VkFenceCreateInfo fence_ci{
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-    };
-    VkSemaphoreCreateInfo semaphore_ci{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-    };
-    m_frame_fences.resize(m_swapchain.image_count());
-    m_image_available_semaphores.resize(m_swapchain.image_count());
-    m_rendering_finished_semaphores.resize(m_swapchain.image_count());
-    for (std::uint32_t i = 0; i < m_frame_fences.capacity(); i++) {
-        ENSURE(vkCreateFence(*m_device, &fence_ci, nullptr, &m_frame_fences[i]) == VK_SUCCESS);
-    }
-    for (std::uint32_t i = 0; i < m_image_available_semaphores.capacity(); i++) {
-        ENSURE(vkCreateSemaphore(*m_device, &semaphore_ci, nullptr, &m_image_available_semaphores[i]) == VK_SUCCESS);
-    }
-    for (std::uint32_t i = 0; i < m_rendering_finished_semaphores.capacity(); i++) {
-        ENSURE(vkCreateSemaphore(*m_device, &semaphore_ci, nullptr, &m_rendering_finished_semaphores[i]) == VK_SUCCESS);
-    }
+    m_frame_fences.resize(m_swapchain.image_count(), m_device, true);
+    m_image_available_semaphores.resize(m_swapchain.image_count(), m_device);
+    m_rendering_finished_semaphores.resize(m_swapchain.image_count(), m_device);
 }
 
 void RenderSystem::update(World *world, float) {
@@ -234,9 +210,9 @@ void RenderSystem::update(World *world, float) {
     m_main_pass->set_on_record(on_record);
 
     // Wait for previous frame rendering to finish, and request the next swapchain image.
-    std::uint32_t image_index = m_swapchain.acquire_next_image(m_image_available_semaphores[m_frame_index], nullptr);
-    vkWaitForFences(*m_device, 1, &m_frame_fences[m_frame_index], VK_TRUE, std::numeric_limits<std::uint64_t>::max());
-    vkResetFences(*m_device, 1, &m_frame_fences[m_frame_index]);
+    std::uint32_t image_index = m_swapchain.acquire_next_image(m_image_available_semaphores[m_frame_index], {});
+    m_frame_fences[m_frame_index].block();
+    m_frame_fences[m_frame_index].reset();
 
     auto &frame_data = m_executable_graph->frame_data(m_frame_index);
     frame_data.upload(m_uniform_buffer, m_ubo);
@@ -249,7 +225,7 @@ void RenderSystem::update(World *world, float) {
     m_executable_graph->render(m_frame_index, m_queue, m_frame_fences[m_frame_index]);
 
     // Present output to swapchain.
-    Array present_wait_semaphores{m_rendering_finished_semaphores[m_frame_index]};
+    Array present_wait_semaphores{*m_rendering_finished_semaphores[m_frame_index]};
     m_swapchain.present(image_index, present_wait_semaphores);
     m_frame_index = (m_frame_index + 1) % m_swapchain.image_count();
 }
