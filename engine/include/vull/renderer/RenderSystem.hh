@@ -6,6 +6,7 @@
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh> // IWYU pragma: keep
 #include <vull/support/Box.hh>
+#include <vull/support/Span.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
 
 #include <vulkan/vulkan_core.h>
@@ -44,8 +45,8 @@ class RenderSystem final : public System<RenderSystem> {
     void create_sync_objects();
 
 public:
-    RenderSystem(const Device &device, const Swapchain &swapchain, const Vector<Vertex> &vertices,
-                 const Vector<std::uint32_t> &indices);
+    RenderSystem(const Device &device, const Swapchain &swapchain, Span<std::uint8_t> vertices,
+                 Span<std::uint8_t> indices);
     RenderSystem(const RenderSystem &) = delete;
     RenderSystem(RenderSystem &&) = delete;
     ~RenderSystem() override;

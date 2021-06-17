@@ -1,10 +1,11 @@
 #include "Config.hh"
 #include "VehicleController.hh"
 
-#include <vull/Config.hh>
 #include <vull/core/Entity.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
+#include <vull/io/FileSystem.hh>
+#include <vull/io/PackFile.hh>
 #include <vull/io/Window.hh>
 #include <vull/physics/Collider.hh>
 #include <vull/physics/PhysicsSystem.hh>
@@ -21,13 +22,10 @@
 #include <vull/renderer/Surface.hh>
 #include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
-#include <vull/renderer/Vertex.hh>
 #include <vull/support/Array.hh>
-#include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
-#define TINYOBJLOADER_IMPLEMENTATION
 #include <GLFW/glfw3.h>
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
@@ -37,15 +35,12 @@
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
-#include <tiny_obj_loader.h>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
 #include <cstdlib>
 #include <string>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace {
 
@@ -55,7 +50,8 @@ float g_prev_y = 0; // NOLINT
 } // namespace
 
 // NOLINTNEXTLINE
-int main() {
+int main(int, char **argv) {
+    FileSystem::initialise(argv[0]);
     Config config("config");
     config.parse();
 
@@ -89,41 +85,8 @@ int main() {
     Surface surface(instance, device, window);
     Swapchain swapchain(device, surface, swapchain_mode);
 
-    Vector<Vertex> vertices;
-    Vector<std::uint32_t> indices;
-    std::unordered_map<Vertex, std::uint32_t> unique_vertices;
-    auto load_obj = [&](const char *obj) -> std::uint32_t {
-        tinyobj::ObjReader reader;
-        ENSURE(reader.ParseFromFile(std::string(k_model_path) + obj));
-        std::uint32_t index_count = 0;
-        for (const auto &shape : reader.GetShapes()) {
-            index_count += shape.mesh.indices.size();
-        }
-        indices.ensure_capacity(index_count);
-        const auto &attrib = reader.GetAttrib();
-        for (const auto &shape : reader.GetShapes()) {
-            for (const auto &index : shape.mesh.indices) {
-                Vertex vertex{};
-                vertex.position.x = attrib.vertices[3 * index.vertex_index + 0];
-                vertex.position.y = attrib.vertices[3 * index.vertex_index + 1];
-                vertex.position.z = attrib.vertices[3 * index.vertex_index + 2];
-                vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
-                vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
-                vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
-                if (!unique_vertices.contains(vertex)) {
-                    unique_vertices.emplace(vertex, vertices.size());
-                    vertices.push(vertex);
-                }
-                indices.push(unique_vertices.at(vertex));
-            }
-        }
-        return index_count;
-    };
-    std::uint32_t suzanne_count = load_obj("suzanne.obj");
-    std::uint32_t sponza_count = load_obj("sponza.obj");
-    std::uint32_t sphere_count = load_obj("sphere.obj");
-    std::uint32_t cube_count = load_obj("cube.obj");
-    std::uint32_t tire_count = load_obj("tire.obj");
+    auto vertices = FileSystem::load(PackEntryType::VertexBuffer, "sandbox");
+    auto indices = FileSystem::load(PackEntryType::IndexBuffer, "sandbox");
 
     World world;
     world.add<PhysicsSystem>();
@@ -131,15 +94,18 @@ int main() {
     world.add<VehicleControllerSystem>(window);
     world.add<RenderSystem>(device, swapchain, vertices, indices);
 
+    auto cube_mesh = FileSystem::load_mesh("sandbox/meshes/cube");
+    auto tire_mesh = FileSystem::load_mesh("sandbox/meshes/tire");
+
     auto sponza = world.create_entity();
-    sponza.add<Mesh>(sponza_count, suzanne_count);
+    sponza.add<Mesh>(FileSystem::load_mesh("sandbox/meshes/sponza"));
     sponza.add<Transform>(glm::vec3(0.0f, -24.5f, 300.0f), glm::vec3(0.01f));
 
     BoxShape floor_shape(glm::vec3(1000.0f, 1.0f, 1000.0f));
     auto floor = world.create_entity();
     floor.add<Collider>(floor_shape);
     floor.add<RigidBody>(floor_shape, 0.0f, 0.0f);
-    floor.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    floor.add<Mesh>(cube_mesh);
     floor.add<Transform>(glm::vec3(0.0f, -25.0f, 0.0f), floor_shape.half_size());
 
     auto *renderer = world.get<RenderSystem>();
@@ -182,7 +148,7 @@ int main() {
     BoxShape car_shape(glm::vec3(3.0f, 1.0f, 5.0f));
     auto car = world.create_entity();
     car.add<Collider>(car_shape);
-    car.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    car.add<Mesh>(cube_mesh);
     car.add<RigidBody>(car_shape, 5.0_t, 0.1f);
     car.add<Transform>(glm::vec3(100.0f, -15.0f, 95.0f), car_shape.half_size());
     car.add<VehicleController>();
@@ -194,7 +160,7 @@ int main() {
     auto *vehicle = car.add<Vehicle>();
     auto create_wheel = [&](Axle &axle, float radius, float x_offset, float roll) {
         auto visual_wheel = world.create_entity();
-        visual_wheel.add<Mesh>(tire_count, suzanne_count + sponza_count + sphere_count + cube_count);
+        visual_wheel.add<Mesh>(tire_mesh);
         visual_wheel.add<Transform>(glm::vec3(0.0f));
         axle.add_wheel(radius, x_offset, visual_wheel.id()).set_roll(roll);
     };
@@ -211,7 +177,7 @@ int main() {
             for (int y = 0; y < 8; y++) {
                 auto box = world.create_entity();
                 box.add<Collider>(box_shape);
-                box.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+                box.add<Mesh>(cube_mesh);
                 box.add<RigidBody>(box_shape, 10.0_kg, 0.0f);
                 box.add<Transform>(glm::vec3(static_cast<float>(x) * 5.0f, static_cast<float>(y) * 4.5f - 15.0f,
                                              static_cast<float>(z) * 5.0f + 150.0f),
@@ -230,7 +196,7 @@ int main() {
         auto &shape = stair_shapes[i];
         auto stair = world.create_entity();
         stair.add<Collider>(shape);
-        stair.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        stair.add<Mesh>(cube_mesh);
         stair.add<RigidBody>(shape, 0.0f, 0.0f);
         stair.add<Transform>(
             glm::vec3(-100.0f, 0.15f * static_cast<float>(i + 1) - 24.0f, static_cast<float>(i) * 2.5f + 150.0f),
@@ -240,7 +206,7 @@ int main() {
     BoxShape ramp_shape(glm::vec3(10.0f, 1.0f, 50.0f));
     auto ramp = world.create_entity();
     ramp.add<Collider>(ramp_shape);
-    ramp.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+    ramp.add<Mesh>(cube_mesh);
     ramp.add<RigidBody>(ramp_shape, 0.0f, 0.0f);
     ramp.add<Transform>(glm::vec3(100.0f, -12.5f, 150.0f), ramp_shape.half_size())->orientation() =
         glm::angleAxis(glm::radians(-15.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -249,14 +215,14 @@ int main() {
     for (int i = 0; i < 10; i++) {
         auto line = world.create_entity();
         line.add<Collider>(line_shape);
-        line.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        line.add<Mesh>(cube_mesh);
         line.add<RigidBody>(line_shape, 0.0f, 0.0f);
         line.add<Transform>(glm::vec3(50.0f, -23.4f, static_cast<float>(i) * 8.0f + 200.0f), line_shape.half_size());
     }
     for (int i = 0; i < 10; i++) {
         auto line = world.create_entity();
         line.add<Collider>(line_shape);
-        line.add<Mesh>(cube_count, suzanne_count + sponza_count + sphere_count);
+        line.add<Mesh>(cube_mesh);
         line.add<RigidBody>(line_shape, 0.0f, 0.0f);
         line.add<Transform>(glm::vec3(60.0f, -23.4f, static_cast<float>(i) * 8.0f + 204.0f), line_shape.half_size());
     }
@@ -348,7 +314,7 @@ int main() {
             user_ptr.fire = false;
             auto bullet = world.create_entity();
             bullet.add<Collider>(sphere_shape);
-            bullet.add<Mesh>(suzanne_count, 0);
+            bullet.add<Mesh>(FileSystem::load_mesh("sandbox/meshes/suzanne"));
             bullet.add<RigidBody>(sphere_shape, 100.0f, 0.1f);
             bullet.add<Transform>(user_ptr.free_camera_active ? ubo.camera_position : car_position);
 

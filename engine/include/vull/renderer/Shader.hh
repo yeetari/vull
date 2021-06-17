@@ -1,8 +1,10 @@
 #pragma once
 
+#include <vull/support/Vector.hh>
+
 #include <vulkan/vulkan_core.h>
 
-#include <string>
+#include <cstdint>
 
 class Device;
 
@@ -11,7 +13,7 @@ class Shader {
     VkShaderModule m_module{nullptr};
 
 public:
-    Shader(const Device &device, const std::string &path);
+    Shader(const Device &device, const Vector<std::uint8_t> &binary);
     Shader(const Shader &) = delete;
     Shader(Shader &&) = delete;
     ~Shader();

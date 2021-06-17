@@ -3,6 +3,7 @@
 #include <vull/core/Entity.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
+#include <vull/io/FileSystem.hh>
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
@@ -15,6 +16,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Log.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 
 #include <glm/mat4x4.hpp>
@@ -37,8 +39,8 @@ constexpr VkDeviceSize k_light_visibility_size = k_max_lights_per_tile * sizeof(
 
 } // namespace
 
-RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, const Vector<Vertex> &vertices,
-                           const Vector<std::uint32_t> &indices)
+RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Span<std::uint8_t> vertices,
+                           Span<std::uint8_t> indices)
     : m_device(device), m_swapchain(swapchain) {
     auto swapchain_extent = swapchain.extent();
     m_row_tile_count = (swapchain_extent.width + (swapchain_extent.width % k_tile_size)) / k_tile_size;
@@ -94,10 +96,10 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, con
         .pData = &specialisation_data,
     };
 
-    Shader depth_pass_shader(device, "depth.vert.spv");
-    Shader light_cull_pass_shader(device, "light_cull.comp.spv");
-    Shader main_pass_vertex_shader(device, "main.vert.spv");
-    Shader main_pass_fragment_shader(device, "main.frag.spv");
+    Shader depth_pass_shader(device, FileSystem::load_shader("builtin/shaders/depth.vert"));
+    Shader light_cull_pass_shader(device, FileSystem::load_shader("builtin/shaders/light_cull.comp"));
+    Shader main_pass_vertex_shader(device, FileSystem::load_shader("builtin/shaders/main.vert"));
+    Shader main_pass_fragment_shader(device, FileSystem::load_shader("builtin/shaders/main.frag"));
 
     auto *back_buffer = m_graph.add<SwapchainResource>(swapchain);
     back_buffer->set_clear_value(VkClearValue{.color{{0.4f, 0.6f, 0.7f, 1.0f}}});
