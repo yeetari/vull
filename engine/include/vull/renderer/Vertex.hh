@@ -1,5 +1,7 @@
 #pragma once
 
+#define GLM_ENABLE_EXPERIMENTAL
+#define GLM_EXT_INCLUDED
 #include <glm/gtx/hash.hpp>
 #include <glm/vec3.hpp>
 

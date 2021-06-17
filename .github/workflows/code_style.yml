@@ -54,7 +54,7 @@ jobs:
           cmake . -Bbuild
       - name: Run include-what-you-use
         run: |
-          find engine/sources sandbox \
+          find engine/sources sandbox tools \
             -name '*.cc' \
             -print0 |
           parallel -0 \
