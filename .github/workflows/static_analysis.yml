@@ -18,6 +18,7 @@ jobs:
             clang \
             clang-tidy \
             cmake \
+            git \
             libglfw3-dev \
             libglm-dev \
             parallel \

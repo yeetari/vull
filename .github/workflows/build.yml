@@ -18,6 +18,7 @@ jobs:
             clang \
             clang-format \
             cmake \
+            git \
             libglfw3-dev \
             libglm-dev \
             ninja-build \

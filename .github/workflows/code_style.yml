@@ -36,6 +36,7 @@ jobs:
           apt install -y \
             clang \
             cmake \
+            git \
             libclang-dev \
             libglfw3-dev \
             libglm-dev \
