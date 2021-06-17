@@ -37,18 +37,36 @@ find_package(Threads REQUIRED)
 find_package(Vulkan REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
-# TODO: Make this generate and use .d files.
+# TODO: Remove this policy, generator checks and use target_sources instead of set_property when the cmake minimum
+#       version is bumped to >= 3.20.
+if(CMAKE_VERSION VERSION_GREATER "3.19.0")
+    cmake_policy(SET CMP0116 NEW)
+endif()
 function(target_add_shader target shader)
     set(source ${CMAKE_CURRENT_SOURCE_DIR}/${shader})
     set(output ${CMAKE_CURRENT_BINARY_DIR}/${shader}.spv)
-    add_custom_command(
-        OUTPUT ${output}
-        COMMAND ${GLSLC} -O ${source} -o ${output}
-        DEPENDS ${source}
-        DEPENDS ${CMAKE_SOURCE_DIR}/engine/shaders/common.glsl # TODO: This isn't right.
-        VERBATIM)
-    add_custom_target(${shader}-target DEPENDS ${output})
-    add_dependencies(${target} ${shader}-target)
+    if(CMAKE_GENERATOR MATCHES "Ninja")
+        add_custom_command(
+            OUTPUT ${output}
+            COMMAND ${GLSLC} -MD -O ${source} -o ${output}
+            DEPENDS ${source}
+            DEPFILE ${output}.d
+            VERBATIM)
+    elseif(CMAKE_GENERATOR MATCHES "Unix Makefiles")
+        add_custom_command(
+            OUTPUT ${output}
+            COMMAND ${GLSLC} -O ${source} -o ${output}
+            DEPENDS ${source}
+            IMPLICIT_DEPENDS CXX ${source}
+            VERBATIM)
+    else()
+        add_custom_command(
+            OUTPUT ${output}
+            COMMAND ${GLSLC} -O ${source} -o ${output}
+            DEPENDS ${source}
+            VERBATIM)
+    endif()
+    set_property(TARGET ${target} APPEND PROPERTY SOURCES ${output})
 endfunction()
 
 # TODO: Enable fast math for MSVC too.
