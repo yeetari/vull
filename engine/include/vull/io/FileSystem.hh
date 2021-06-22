@@ -2,6 +2,7 @@
 
 #include <vull/io/PackFile.hh>
 #include <vull/renderer/Mesh.hh>
+#include <vull/renderer/Texture.hh>
 #include <vull/support/Vector.hh>
 
 #include <cstdint>
@@ -11,5 +12,6 @@ struct FileSystem {
     static void deinitialise();
     static Vector<std::uint8_t> load(PackEntryType type, const char *name);
     static Mesh load_mesh(const char *name);
+    static Texture load_texture(const char *name);
     static Vector<std::uint8_t> load_shader(const char *name);
 };

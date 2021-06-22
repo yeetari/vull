@@ -22,6 +22,13 @@ PackMesh::PackMesh(const Vector<std::uint8_t> &data) {
                      (static_cast<std::uint64_t>(data[10]) << 48u) | (static_cast<std::uint64_t>(data[11]) << 56u);
 }
 
+PackTexture::PackTexture(const Vector<std::uint8_t> &data) {
+    m_width = (static_cast<std::uint32_t>(data[0]) << 0u) | (static_cast<std::uint32_t>(data[1]) << 8u) |
+              (static_cast<std::uint32_t>(data[2]) << 16u) | (static_cast<std::uint32_t>(data[3]) << 24u);
+    m_height = (static_cast<std::uint32_t>(data[4]) << 0u) | (static_cast<std::uint32_t>(data[5]) << 8u) |
+               (static_cast<std::uint32_t>(data[6]) << 16u) | (static_cast<std::uint32_t>(data[7]) << 24u);
+}
+
 const char *PackFile::entry_type_str(PackEntryType type) {
     switch (type) {
     case PackEntryType::VertexBuffer:
@@ -32,6 +39,8 @@ const char *PackFile::entry_type_str(PackEntryType type) {
         return "mesh";
     case PackEntryType::Shader:
         return "shader";
+    case PackEntryType::Texture:
+        return "texture";
     default:
         return "unknown";
     }
@@ -90,7 +99,8 @@ PackEntry PackFile::read_entry() {
         read({reinterpret_cast<std::uint8_t *>(name.data()), name_length});
         return {type, std::move(name), k_mesh_size};
     }
-    case PackEntryType::Shader: {
+    case PackEntryType::Shader:
+    case PackEntryType::Texture: {
         std::string name;
         while (true) {
             char ch;

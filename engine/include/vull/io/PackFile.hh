@@ -13,6 +13,7 @@ enum class PackEntryType : std::uint8_t {
     IndexBuffer = 1,
     Mesh = 2,
     Shader = 3,
+    Texture = 4,
 };
 
 class PackEntry {
@@ -38,6 +39,17 @@ public:
 
     std::uint32_t index_count() const { return m_index_count; }
     std::uint64_t index_offset() const { return m_index_offset; }
+};
+
+class PackTexture {
+    std::uint32_t m_width;
+    std::uint32_t m_height;
+
+public:
+    explicit PackTexture(const Vector<std::uint8_t> &data);
+
+    std::uint32_t width() const { return m_width; }
+    std::uint32_t height() const { return m_height; }
 };
 
 class PackFile {

@@ -2,15 +2,18 @@
 
 #include <vull/io/PackFile.hh>
 #include <vull/renderer/Mesh.hh>
+#include <vull/renderer/Texture.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace {
 
@@ -80,6 +83,14 @@ Mesh FileSystem::load_mesh(const char *name) {
     auto data = load(PackEntryType::Mesh, name);
     PackMesh mesh(data);
     return {mesh.index_count(), mesh.index_offset()};
+}
+
+Texture FileSystem::load_texture(const char *name) {
+    auto data = load(PackEntryType::Texture, name);
+    PackTexture texture(data);
+    Vector<std::uint8_t> pixels(data.size_bytes() - 8);
+    std::memcpy(pixels.data(), data.data() + 8, pixels.capacity());
+    return {texture.width(), texture.height(), std::move(pixels)};
 }
 
 Vector<std::uint8_t> FileSystem::load_shader(const char *name) {
