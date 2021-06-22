@@ -6,6 +6,7 @@
 #include <vull/io/FileSystem.hh>
 #include <vull/renderer/Device.hh>
 #include <vull/renderer/Fence.hh>
+#include <vull/renderer/Material.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderGraph.hh>
@@ -28,6 +29,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+
+class Texture;
 
 namespace {
 
@@ -110,10 +113,16 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     depth_buffer->set_extent(swapchain.extent());
     depth_buffer->set_format(VK_FORMAT_D32_SFLOAT);
 
+    m_texture_array = m_graph.add<ImageResource>(ImageType::Array, MemoryUsage::TransferOnce);
+    m_texture_array->set_format(VK_FORMAT_BC2_SRGB_BLOCK);
+    m_texture_array->set_image_count(500);
+    m_texture_array->set_name("texture array");
+
     auto *index_buffer = m_graph.add<BufferResource>(BufferType::IndexBuffer, MemoryUsage::TransferOnce);
     auto *vertex_buffer = m_graph.add<BufferResource>(BufferType::VertexBuffer, MemoryUsage::TransferOnce);
     vertex_buffer->add_vertex_attribute(VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
     vertex_buffer->add_vertex_attribute(VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal));
+    vertex_buffer->add_vertex_attribute(VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv));
     vertex_buffer->set_element_size(sizeof(Vertex));
 
     auto *light_visibility_buffer = m_graph.add<BufferResource>(BufferType::StorageBuffer, MemoryUsage::GpuOnly);
@@ -145,8 +154,8 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
 
     m_main_pass = m_graph.add<GraphicsStage>("main pass");
     m_main_pass->add_push_constant_range(VkPushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .size = sizeof(glm::mat4),
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        .size = sizeof(glm::mat4) + sizeof(std::uint32_t),
     });
     m_main_pass->set_vertex_shader(main_pass_vertex_shader);
     m_main_pass->set_fragment_shader(main_pass_fragment_shader, &specialisation_info);
@@ -155,6 +164,7 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     m_main_pass->reads_from(light_visibility_buffer);
     m_main_pass->reads_from(m_uniform_buffer);
     m_main_pass->reads_from(vertex_buffer);
+    m_main_pass->reads_from(m_texture_array);
     m_main_pass->add_input(depth_buffer);
     m_main_pass->add_output(back_buffer);
 
@@ -198,16 +208,35 @@ void RenderSystem::create_sync_objects() {
     m_rendering_finished_semaphores.resize(m_swapchain.image_count(), m_device);
 }
 
+std::uint32_t RenderSystem::upload_texture(const Texture &texture) {
+    for (auto &frame_data : m_executable_graph->frame_datas()) {
+        frame_data.transfer(m_texture_array, texture, m_texture_index);
+    }
+    return m_texture_index++;
+}
+
 void RenderSystem::update(World *world, float) {
-    auto on_record = [world](VkCommandBuffer cmd_buf, VkPipelineLayout pipeline_layout) {
+    m_depth_pass->set_on_record([world](VkCommandBuffer cmd_buf, VkPipelineLayout pipeline_layout) {
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
             auto matrix = transform->scaled_matrix();
             vkCmdPushConstants(cmd_buf, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &matrix);
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
         }
-    };
-    m_depth_pass->set_on_record(on_record);
-    m_main_pass->set_on_record(on_record);
+    });
+    m_main_pass->set_on_record([world](VkCommandBuffer cmd_buf, VkPipelineLayout pipeline_layout) {
+        for (auto [entity, material, mesh, transform] : world->view<Material, Mesh, Transform>()) {
+            struct PushConstant {
+                glm::mat4 transform;
+                std::uint32_t albedo_index;
+            } push_constant{
+                .transform = transform->scaled_matrix(),
+                .albedo_index = material->albedo_index(),
+            };
+            vkCmdPushConstants(cmd_buf, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(PushConstant), &push_constant);
+            vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
+        }
+    });
 
     // Wait for previous frame rendering to finish, and request the next swapchain image.
     std::uint32_t image_index = m_swapchain.acquire_next_image(m_image_available_semaphores[m_frame_index], {});

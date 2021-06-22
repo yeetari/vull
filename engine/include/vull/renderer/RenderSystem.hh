@@ -17,6 +17,7 @@
 
 class Device;
 class Swapchain;
+class Texture;
 struct World;
 
 class RenderSystem final : public System<RenderSystem> {
@@ -30,10 +31,12 @@ class RenderSystem final : public System<RenderSystem> {
     Box<ExecutableGraph> m_executable_graph;
     BufferResource *m_light_buffer;
     BufferResource *m_uniform_buffer;
+    ImageResource *m_texture_array;
     GraphicsStage *m_depth_pass;
     GraphicsStage *m_main_pass;
 
     std::uint32_t m_frame_index{0};
+    std::uint32_t m_texture_index{0};
     VkQueue m_queue{nullptr};
 
     Vector<Fence> m_frame_fences;
@@ -56,6 +59,7 @@ public:
     RenderSystem &operator=(const RenderSystem &) = delete;
     RenderSystem &operator=(RenderSystem &&) = delete;
 
+    std::uint32_t upload_texture(const Texture &texture);
     void update(World *world, float dt) override;
 
     Vector<PointLight> &lights() { return m_lights; }
