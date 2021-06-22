@@ -10,10 +10,11 @@
 struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;
+    glm::vec2 uv;
 };
 
 inline bool operator==(const Vertex &lhs, const Vertex &rhs) {
-    return lhs.position == rhs.position && lhs.normal == rhs.normal;
+    return lhs.position == rhs.position && lhs.normal == rhs.normal && lhs.uv == rhs.uv;
 }
 
 namespace std {
@@ -21,7 +22,7 @@ namespace std {
 template <>
 struct hash<Vertex> {
     std::size_t operator()(const Vertex &vertex) const {
-        return hash<glm::vec3>{}(vertex.position) ^ hash<glm::vec3>{}(vertex.normal);
+        return hash<glm::vec3>{}(vertex.position) ^ hash<glm::vec3>{}(vertex.normal) ^ hash<glm::vec2>{}(vertex.uv);
     }
 };
 

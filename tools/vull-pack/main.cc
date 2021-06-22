@@ -121,6 +121,12 @@ void write(int argc, char **argv) {
                             attrib.normals[index.normal_index * 3 + 2],
                         },
                     };
+                    if (!attrib.texcoords.empty()) {
+                        vertex.uv = {
+                            attrib.texcoords[index.texcoord_index * 2 + 0],
+                            attrib.texcoords[index.texcoord_index * 2 + 1],
+                        };
+                    }
                     if (!unique_vertices.contains(vertex)) {
                         unique_vertices.emplace(vertex, vertices.size());
                         vertices.push(vertex);
