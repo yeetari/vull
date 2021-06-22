@@ -1,7 +1,6 @@
 FetchContent_Declare(vull-sandbox-assets
     GIT_REPOSITORY https://github.com/yeetari/vull-sandbox-assets.git
-    GIT_TAG 3f21d2cfcf8658d651573133f25018cc507b1c66
-    GIT_SHALLOW ON
+    GIT_TAG 9607d956e178211130798e3a4aa87d3e04a73983
     GIT_PROGRESS ON
     SOURCE_DIR assets)
 FetchContent_MakeAvailable(vull-sandbox-assets)
