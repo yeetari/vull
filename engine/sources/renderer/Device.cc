@@ -93,8 +93,15 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
     VkPhysicalDeviceFeatures device_features{
         .samplerAnisotropy = VK_TRUE,
     };
+    VkPhysicalDeviceVulkan12Features device_12_features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+        .descriptorIndexing = VK_TRUE,
+        .descriptorBindingPartiallyBound = VK_TRUE,
+        .runtimeDescriptorArray = VK_TRUE,
+    };
     VkDeviceCreateInfo device_ci{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &device_12_features,
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = 1,

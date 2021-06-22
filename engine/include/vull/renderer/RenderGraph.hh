@@ -20,6 +20,7 @@ class FrameData;
 class RenderGraph;
 class Semaphore;
 class Shader;
+class Texture;
 
 enum class ResourceKind {
     Buffer,
@@ -105,6 +106,7 @@ public:
 };
 
 enum class ImageType {
+    Array,
     Depth,
     Normal,
     Swapchain,
@@ -120,6 +122,7 @@ private:
     VkClearValue m_clear_value{};
     VkExtent3D m_extent{};
     VkFormat m_format{VK_FORMAT_UNDEFINED};
+    std::uint32_t m_image_count{1};
 
 public:
     static constexpr auto k_kind = ResourceKind::Image;
@@ -133,6 +136,7 @@ public:
     void set_clear_value(VkClearValue clear_value) { m_clear_value = clear_value; }
     void set_extent(VkExtent3D extent) { m_extent = extent; }
     void set_format(VkFormat format) { m_format = format; }
+    void set_image_count(std::uint32_t image_count) { m_image_count = image_count; }
 
     ImageType type() const { return m_type; }
 };
@@ -325,18 +329,23 @@ private:
     Vector<VkImage> m_images;
     Vector<VkImageView> m_image_views;
     Vector<VkSampler> m_samplers;
-
-    // Staging resources.
-    Vector<VkDeviceMemory> m_staging_memories;
-    Vector<VkBuffer> m_staging_buffers;
+    Vector<Vector<VkDeviceMemory>> m_array_memories;
+    Vector<Vector<VkImage>> m_array_images;
+    Vector<Vector<VkImageView>> m_array_image_views;
 
     // Per frame transfers.
-    struct Transfer {
+    struct BufferTransfer {
         VkBuffer src;
         VkBuffer dst;
         VkDeviceSize size;
     };
-    Vector<Transfer> m_transfer_queue;
+    struct ImageTransfer {
+        VkBuffer src;
+        VkImage dst;
+        VkExtent3D extent;
+    };
+    Vector<BufferTransfer> m_buffer_transfer_queue;
+    Vector<ImageTransfer> m_image_transfer_queue;
 
     // Command synchronisation.
     struct PhysicalBarrier {
@@ -352,7 +361,9 @@ private:
     Vector<Vector<VkSemaphore>> m_wait_semaphores;
     Vector<Vector<VkPipelineStageFlags>> m_wait_stages;
 
-    void ensure_physical(const RenderResource *, VkDeviceSize);
+    VkBuffer create_staging_buffer(const void *data, VkDeviceSize size);
+    void ensure_buffer(const BufferResource *buffer, VkDeviceSize size);
+    void ensure_image(const ImageResource *image, VkExtent3D extent, std::uint32_t index);
 
 public:
     FrameData(const Device &device, const RenderGraph *graph, const CompiledGraph *compiled_graph,
@@ -369,9 +380,11 @@ public:
           m_framebuffers(std::move(other.m_framebuffers)), m_sizes(std::move(other.m_sizes)),
           m_memories(std::move(other.m_memories)), m_buffers(std::move(other.m_buffers)),
           m_images(std::move(other.m_images)), m_image_views(std::move(other.m_image_views)),
-          m_samplers(std::move(other.m_samplers)), m_staging_memories(std::move(other.m_staging_memories)),
-          m_staging_buffers(std::move(other.m_staging_buffers)), m_transfer_queue(std::move(other.m_transfer_queue)),
-          m_barriers(std::move(other.m_barriers)), m_signal_semaphores(std::move(other.m_signal_semaphores)),
+          m_samplers(std::move(other.m_samplers)), m_array_memories(std::move(other.m_array_memories)),
+          m_array_images(std::move(other.m_array_images)), m_array_image_views(std::move(other.m_array_image_views)),
+          m_buffer_transfer_queue(std::move(other.m_buffer_transfer_queue)),
+          m_image_transfer_queue(std::move(other.m_image_transfer_queue)), m_barriers(std::move(other.m_barriers)),
+          m_signal_semaphores(std::move(other.m_signal_semaphores)),
           m_wait_semaphores(std::move(other.m_wait_semaphores)), m_wait_stages(std::move(other.m_wait_stages)) {}
     ~FrameData();
 
@@ -381,17 +394,18 @@ public:
     void insert_signal_semaphore(const RenderStage *stage, const Semaphore &semaphore);
     void insert_wait_semaphore(const RenderStage *stage, const Semaphore &semaphore, VkPipelineStageFlags wait_stage);
 
-    void transfer(const RenderResource *resource, const void *data, VkDeviceSize size);
+    void transfer(const BufferResource *buffer, const void *data, VkDeviceSize size);
     template <typename T>
-    void transfer(const RenderResource *resource, const T &data);
+    void transfer(const BufferResource *buffer, const T &data);
     template <typename T, template <typename> typename Container>
-    void transfer(const RenderResource *resource, const Container<T> &data);
+    void transfer(const BufferResource *buffer, const Container<T> &data);
+    void transfer(const ImageResource *image, const Texture &texture, std::uint32_t index = 0);
 
-    void upload(const RenderResource *resource, const void *data, VkDeviceSize size, VkDeviceSize offset = 0);
+    void upload(const BufferResource *buffer, const void *data, VkDeviceSize size, VkDeviceSize offset = 0);
     template <typename T>
-    void upload(const RenderResource *resource, const T &data, VkDeviceSize offset = 0);
+    void upload(const BufferResource *buffer, const T &data, VkDeviceSize offset = 0);
     template <typename T, template <typename> typename Container>
-    void upload(const RenderResource *resource, const Container<T> &data, VkDeviceSize offset = 0);
+    void upload(const BufferResource *buffer, const Container<T> &data, VkDeviceSize offset = 0);
 };
 
 class ExecutableGraph {
@@ -457,21 +471,21 @@ T *RenderGraph::add(Args &&...args) {
 }
 
 template <typename T>
-void FrameData::transfer(const RenderResource *resource, const T &data) {
-    transfer(resource, &data, sizeof(T));
+void FrameData::transfer(const BufferResource *buffer, const T &data) {
+    transfer(buffer, &data, sizeof(T));
 }
 
 template <typename T, template <typename> typename Container>
-void FrameData::transfer(const RenderResource *resource, const Container<T> &data) {
-    transfer(resource, data.data(), data.size_bytes());
+void FrameData::transfer(const BufferResource *buffer, const Container<T> &data) {
+    transfer(buffer, data.data(), data.size_bytes());
 }
 
 template <typename T>
-void FrameData::upload(const RenderResource *resource, const T &data, VkDeviceSize offset) {
-    upload(resource, &data, sizeof(T), offset);
+void FrameData::upload(const BufferResource *buffer, const T &data, VkDeviceSize offset) {
+    upload(buffer, &data, sizeof(T), offset);
 }
 
 template <typename T, template <typename> typename Container>
-void FrameData::upload(const RenderResource *resource, const Container<T> &data, VkDeviceSize offset) {
-    upload(resource, data.data(), data.size_bytes(), offset);
+void FrameData::upload(const BufferResource *buffer, const Container<T> &data, VkDeviceSize offset) {
+    upload(buffer, data.data(), data.size_bytes(), offset);
 }

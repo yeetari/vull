@@ -5,6 +5,7 @@
 #include <vull/renderer/Semaphore.hh>
 #include <vull/renderer/Shader.hh>
 #include <vull/renderer/Swapchain.hh>
+#include <vull/renderer/Texture.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
@@ -360,8 +361,9 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         frame_data.m_images.resize(m_graph->resources().size());
         frame_data.m_image_views.resize(m_graph->resources().size());
         frame_data.m_samplers.resize(m_graph->resources().size());
-        frame_data.m_staging_memories.resize(m_graph->resources().size());
-        frame_data.m_staging_buffers.resize(m_graph->resources().size());
+        frame_data.m_array_memories.resize(m_graph->resources().size());
+        frame_data.m_array_images.resize(m_graph->resources().size());
+        frame_data.m_array_image_views.resize(m_graph->resources().size());
 
         for (const auto &swapchain : m_graph->swapchains()) {
             frame_data.m_image_views[swapchain->m_index] = swapchain->m_swapchain.image_views()[i];
@@ -386,7 +388,7 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         descriptor_counts[descriptor_type(buffer->m_type)] += accessors[*buffer].size();
     }
     for (const auto &image : m_graph->images()) {
-        descriptor_counts[VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER] += accessors[*image].size();
+        descriptor_counts[VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER] += accessors[*image].size() * image->m_image_count;
     }
 
     // Create descriptor pool.
@@ -414,8 +416,10 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         const VkShaderStageFlags stage_flags =
             stage->is<ComputeStage>() ? VK_SHADER_STAGE_COMPUTE_BIT : VK_SHADER_STAGE_ALL_GRAPHICS;
         Vector<VkDescriptorSetLayoutBinding> bindings;
+        Vector<VkDescriptorBindingFlags> binding_flags;
         auto &binding_locations = resource_bindings[stage->m_index];
         bindings.ensure_capacity(m_graph->resources().size());
+        binding_flags.ensure_capacity(m_graph->resources().size());
         binding_locations.resize(m_graph->resources().size());
 
         auto create_binding = [&](const RenderResource *resource) {
@@ -424,6 +428,7 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
                 .descriptorCount = 1,
                 .stageFlags = stage_flags,
             };
+            VkDescriptorBindingFlags binding_flag = 0;
             if (const auto *buffer = resource->as<BufferResource>()) {
                 switch (buffer->m_type) {
                 case BufferType::StorageBuffer:
@@ -435,10 +440,15 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
                 default:
                     return;
                 }
-            } else if (resource->is<ImageResource>()) {
+            } else if (const auto *image = resource->as<ImageResource>()) {
                 binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                binding.descriptorCount = image->m_image_count;
+                if (image->m_type == ImageType::Array) {
+                    binding_flag |= VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+                }
             }
             bindings.push(binding);
+            binding_flags.push(binding_flag);
 
             Log::trace("render-graph", "%s -> %d (%s)", resource->m_name.c_str(), binding.binding,
                        stage->m_name.c_str());
@@ -451,8 +461,15 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
             create_binding(resource);
         }
 
+        VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_ci{
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+            .bindingCount = bindings.size(),
+            .pBindingFlags = binding_flags.data(),
+        };
+
         VkDescriptorSetLayoutCreateInfo layout_ci{
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = &binding_flags_ci,
             .bindingCount = bindings.size(),
             .pBindings = bindings.data(),
         };
@@ -476,14 +493,17 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         if (buffer->m_usage == MemoryUsage::GpuOnly) {
             ASSERT(buffer->m_initial_size != 0);
             for (auto &frame_data : frame_datas) {
-                frame_data.ensure_physical(*buffer, buffer->m_initial_size);
+                frame_data.ensure_buffer(*buffer, buffer->m_initial_size);
             }
         }
     }
     for (const auto &image : m_graph->images()) {
-        ASSERT(image->m_usage == MemoryUsage::GpuOnly);
-        for (auto &frame_data : frame_datas) {
-            frame_data.ensure_physical(*image, 0);
+        if (image->m_usage == MemoryUsage::GpuOnly) {
+            ASSERT(image->m_type != ImageType::Array);
+            ASSERT(image->m_extent.width != 0 && image->m_extent.height != 0 && image->m_extent.depth != 0);
+            for (auto &frame_data : frame_datas) {
+                frame_data.ensure_image(*image, image->m_extent, 0);
+            }
         }
     }
 
@@ -688,174 +708,216 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
     return executable_graph;
 }
 
-// NOLINTNEXTLINE
-void FrameData::ensure_physical(const RenderResource *resource, VkDeviceSize size) {
-    if (const auto *image = resource->as<ImageResource>()) {
-        auto &physical_image = m_images[image->m_index];
-        auto &physical_image_view = m_image_views[image->m_index];
-        auto &physical_sampler = m_samplers[image->m_index];
-        auto &physical_memory = m_memories[image->m_index];
+VkBuffer FrameData::create_staging_buffer(const void *data, VkDeviceSize size) {
+    VkBufferCreateInfo buffer_ci{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    VkBuffer staging_buffer;
+    ENSURE(vkCreateBuffer(*m_device, &buffer_ci, nullptr, &staging_buffer) == VK_SUCCESS);
 
-        VkImageUsageFlags usage = 0;
-        if (image->m_type == ImageType::Depth) {
-            usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        }
-        for (const auto *stage : m_compiled_graph->stage_order()) {
-            if (std::find(stage->m_reads.begin(), stage->m_reads.end(), image) != stage->m_reads.end()) {
-                usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-            }
-        }
-        VkImageCreateInfo image_ci{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = image->m_format,
-            .extent = image->m_extent,
-            .mipLevels = 1,
-            .arrayLayers = 1,
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        };
-        ENSURE(vkCreateImage(*m_device, &image_ci, nullptr, &physical_image) == VK_SUCCESS);
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(*m_device, staging_buffer, &memory_requirements);
 
-        VkMemoryRequirements memory_requirements;
-        vkGetImageMemoryRequirements(*m_device, physical_image, &memory_requirements);
+    VkDeviceMemory staging_memory =
+        m_device.allocate_memory(memory_requirements, MemoryType::CpuToGpu, false, staging_buffer, nullptr);
+    ENSURE(vkBindBufferMemory(*m_device, staging_buffer, staging_memory, 0) == VK_SUCCESS);
 
-        physical_memory =
-            m_device.allocate_memory(memory_requirements, MemoryType::GpuOnly, true, nullptr, physical_image);
-        ENSURE(vkBindImageMemory(*m_device, physical_image, physical_memory, 0) == VK_SUCCESS);
+    void *staging_data;
+    vkMapMemory(*m_device, staging_memory, 0, VK_WHOLE_SIZE, 0, &staging_data);
+    std::memcpy(staging_data, data, size);
+    vkUnmapMemory(*m_device, staging_memory);
+    return staging_buffer;
+    // TODO: Push buffer to a deletion queue.
+}
 
-        VkImageViewCreateInfo image_view_ci{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = physical_image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = image->m_format,
-            .subresourceRange{
-                .aspectMask = image->m_type == ImageType::Depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        ENSURE(vkCreateImageView(*m_device, &image_view_ci, nullptr, &physical_image_view) == VK_SUCCESS);
-
-        // TODO: Don't always create a sampler.
-        VkSamplerCreateInfo sampler_ci{
-            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-            .magFilter = VK_FILTER_NEAREST,
-            .minFilter = VK_FILTER_NEAREST,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-            .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-            .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
-        };
-        ENSURE(vkCreateSampler(*m_device, &sampler_ci, nullptr, &physical_sampler) == VK_SUCCESS);
-
-        // TODO: Insert transition if needed.
-        VkDescriptorImageInfo image_info{
-            .sampler = m_samplers[image->m_index],
-            .imageView = m_image_views[image->m_index],
-        };
-        for (const auto *stage : m_compiled_graph->stage_order()) {
-            if (std::find(stage->m_reads.begin(), stage->m_reads.end(), image) == stage->m_reads.end() &&
-                std::find(stage->m_writes.begin(), stage->m_writes.end(), image) == stage->m_writes.end()) {
-                continue;
-            }
-            bool is_write = std::find(stage->m_writes.begin(), stage->m_writes.end(), image) != stage->m_writes.end();
-            switch (image->m_type) {
-            case ImageType::Depth:
-                image_info.imageLayout = is_write ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL
-                                                  : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-                break;
-            case ImageType::Normal:
-                image_info.imageLayout =
-                    is_write ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                break;
-            default:
-                ENSURE_NOT_REACHED();
-            }
-            VkWriteDescriptorSet write{
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = m_descriptor_sets[stage->m_index],
-                .dstBinding = m_executable_graph->m_resource_bindings[stage->m_index][image->m_index],
-                .descriptorCount = 1,
-                .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                .pImageInfo = &image_info,
-            };
-            vkUpdateDescriptorSets(*m_device, 1, &write, 0, nullptr);
-        }
-    }
-    if (m_sizes[resource->m_index] >= size) {
+void FrameData::ensure_buffer(const BufferResource *buffer, VkDeviceSize size) {
+    if (m_sizes[buffer->m_index] >= size) {
         return;
     }
-    m_sizes[resource->m_index] = size;
-    if (const auto *buffer = resource->as<BufferResource>()) {
-        auto &physical_buffer = m_buffers[buffer->m_index];
-        auto &physical_memory = m_memories[buffer->m_index];
+    m_sizes[buffer->m_index] = size;
 
-        // Destroy old buffer.
-        vkDestroyBuffer(*m_device, physical_buffer, nullptr);
-        vkFreeMemory(*m_device, physical_memory, nullptr);
+    auto &physical_buffer = m_buffers[buffer->m_index];
+    auto &physical_memory = m_memories[buffer->m_index];
 
-        // Create new buffer with required size.
-        VkBufferUsageFlags usage = buffer_usage(buffer->m_type);
-        if (buffer->m_usage == MemoryUsage::TransferOnce) {
-            usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    // Destroy old buffer.
+    vkDestroyBuffer(*m_device, physical_buffer, nullptr);
+    vkFreeMemory(*m_device, physical_memory, nullptr);
+
+    // Create new buffer with required size.
+    VkBufferUsageFlags usage = buffer_usage(buffer->m_type);
+    if (buffer->m_usage == MemoryUsage::TransferOnce) {
+        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    }
+    VkBufferCreateInfo buffer_ci{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    ENSURE(vkCreateBuffer(*m_device, &buffer_ci, nullptr, &physical_buffer) == VK_SUCCESS);
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(*m_device, physical_buffer, &memory_requirements);
+
+    physical_memory = m_device.allocate_memory(
+        memory_requirements, buffer->m_usage == MemoryUsage::HostVisible ? MemoryType::CpuToGpu : MemoryType::GpuOnly,
+        buffer->m_usage != MemoryUsage::HostVisible, physical_buffer, nullptr);
+    ENSURE(vkBindBufferMemory(*m_device, physical_buffer, physical_memory, 0) == VK_SUCCESS);
+
+    // Index and vertex buffers never have associated descriptors.
+    if (buffer->m_type == BufferType::IndexBuffer || buffer->m_type == BufferType::VertexBuffer) {
+        return;
+    }
+
+    // Update descriptor.
+    VkDescriptorBufferInfo buffer_info{
+        .buffer = m_buffers[buffer->m_index],
+        .range = VK_WHOLE_SIZE,
+    };
+    for (const auto *stage : m_compiled_graph->stage_order()) {
+        if (std::find(stage->m_reads.begin(), stage->m_reads.end(), buffer) == stage->m_reads.end() &&
+            std::find(stage->m_writes.begin(), stage->m_writes.end(), buffer) == stage->m_writes.end()) {
+            continue;
         }
-        VkBufferCreateInfo buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        VkWriteDescriptorSet write{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = m_descriptor_sets[stage->m_index],
+            .dstBinding = m_executable_graph->m_resource_bindings[stage->m_index][buffer->m_index],
+            .descriptorCount = 1,
+            .descriptorType = descriptor_type(buffer->m_type),
+            .pBufferInfo = &buffer_info,
         };
-        ENSURE(vkCreateBuffer(*m_device, &buffer_ci, nullptr, &physical_buffer) == VK_SUCCESS);
+        vkUpdateDescriptorSets(*m_device, 1, &write, 0, nullptr);
+    }
+}
 
-        VkMemoryRequirements memory_requirements;
-        vkGetBufferMemoryRequirements(*m_device, physical_buffer, &memory_requirements);
+void FrameData::ensure_image(const ImageResource *image, VkExtent3D extent, std::uint32_t index) {
+    // TODO: Make nicer. Maybe push to vectors instead of resizing everywhere.
+    if (image->m_type == ImageType::Array) {
+        m_array_memories[image->m_index].ensure_capacity(index + 1);
+        m_array_images[image->m_index].ensure_capacity(index + 1);
+        m_array_image_views[image->m_index].ensure_capacity(index + 1);
+    }
 
-        physical_memory = m_device.allocate_memory(
-            memory_requirements,
-            buffer->m_usage == MemoryUsage::HostVisible ? MemoryType::CpuToGpu : MemoryType::GpuOnly,
-            buffer->m_usage != MemoryUsage::HostVisible, physical_buffer, nullptr);
-        ENSURE(vkBindBufferMemory(*m_device, physical_buffer, physical_memory, 0) == VK_SUCCESS);
+    auto &physical_image =
+        image->m_type == ImageType::Array ? m_array_images[image->m_index][index] : m_images[image->m_index];
+    auto &physical_image_view =
+        image->m_type == ImageType::Array ? m_array_image_views[image->m_index][index] : m_image_views[image->m_index];
+    auto &physical_sampler = m_samplers[image->m_index];
+    auto &physical_memory =
+        image->m_type == ImageType::Array ? m_array_memories[image->m_index][index] : m_memories[image->m_index];
 
-        // Index and vertex buffers never have associated descriptors.
-        if (buffer->m_type == BufferType::IndexBuffer || buffer->m_type == BufferType::VertexBuffer) {
-            return;
+    VkImageUsageFlags usage = 0;
+    if (image->m_usage == MemoryUsage::TransferOnce) {
+        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    }
+    if (image->m_type == ImageType::Depth) {
+        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    }
+    for (const auto *stage : m_compiled_graph->stage_order()) {
+        if (std::find(stage->m_reads.begin(), stage->m_reads.end(), image) != stage->m_reads.end()) {
+            usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
         }
+    }
+    VkImageCreateInfo image_ci{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = image->m_format,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    ENSURE(vkCreateImage(*m_device, &image_ci, nullptr, &physical_image) == VK_SUCCESS);
 
-        // Update descriptor.
-        VkDescriptorBufferInfo buffer_info{
-            .buffer = m_buffers[buffer->m_index],
-            .range = VK_WHOLE_SIZE,
+    VkMemoryRequirements memory_requirements;
+    vkGetImageMemoryRequirements(*m_device, physical_image, &memory_requirements);
+
+    physical_memory = m_device.allocate_memory(memory_requirements, MemoryType::GpuOnly, true, nullptr, physical_image);
+    ENSURE(vkBindImageMemory(*m_device, physical_image, physical_memory, 0) == VK_SUCCESS);
+
+    VkImageViewCreateInfo image_view_ci{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .image = physical_image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = image->m_format,
+        .subresourceRange{
+            .aspectMask = image->m_type == ImageType::Depth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    ENSURE(vkCreateImageView(*m_device, &image_view_ci, nullptr, &physical_image_view) == VK_SUCCESS);
+
+    // TODO: Don't create a new sampler.
+    VkSamplerCreateInfo sampler_ci{
+        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+        .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    };
+    if (image->m_type == ImageType::Depth) {
+        sampler_ci.magFilter = VK_FILTER_NEAREST;
+        sampler_ci.minFilter = VK_FILTER_NEAREST;
+        sampler_ci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        sampler_ci.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler_ci.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        sampler_ci.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    } else {
+        sampler_ci.magFilter = VK_FILTER_LINEAR;
+        sampler_ci.minFilter = VK_FILTER_LINEAR;
+        sampler_ci.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        sampler_ci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_ci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_ci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_ci.anisotropyEnable = VK_TRUE;
+        sampler_ci.maxAnisotropy = 16.0f;
+    }
+    ENSURE(vkCreateSampler(*m_device, &sampler_ci, nullptr, &physical_sampler) == VK_SUCCESS);
+
+    // TODO: Insert transition if needed.
+    VkDescriptorImageInfo image_info{
+        .sampler = physical_sampler,
+        .imageView = physical_image_view,
+    };
+    for (const auto *stage : m_compiled_graph->stage_order()) {
+        if (std::find(stage->m_reads.begin(), stage->m_reads.end(), image) == stage->m_reads.end() &&
+            std::find(stage->m_writes.begin(), stage->m_writes.end(), image) == stage->m_writes.end()) {
+            continue;
+        }
+        bool is_write = std::find(stage->m_writes.begin(), stage->m_writes.end(), image) != stage->m_writes.end();
+        switch (image->m_type) {
+        case ImageType::Array:
+        case ImageType::Normal:
+            image_info.imageLayout =
+                is_write ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            break;
+        case ImageType::Depth:
+            image_info.imageLayout =
+                is_write ? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+            break;
+        default:
+            ENSURE_NOT_REACHED();
+        }
+        VkWriteDescriptorSet write{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = m_descriptor_sets[stage->m_index],
+            .dstBinding = m_executable_graph->m_resource_bindings[stage->m_index][image->m_index],
+            .dstArrayElement = index,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = &image_info,
         };
-        for (const auto *stage : m_compiled_graph->stage_order()) {
-            if (std::find(stage->m_reads.begin(), stage->m_reads.end(), buffer) == stage->m_reads.end() &&
-                std::find(stage->m_writes.begin(), stage->m_writes.end(), buffer) == stage->m_writes.end()) {
-                continue;
-            }
-            VkWriteDescriptorSet write{
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = m_descriptor_sets[stage->m_index],
-                .dstBinding = m_executable_graph->m_resource_bindings[stage->m_index][buffer->m_index],
-                .descriptorCount = 1,
-                .descriptorType = descriptor_type(buffer->m_type),
-                .pBufferInfo = &buffer_info,
-            };
-            vkUpdateDescriptorSets(*m_device, 1, &write, 0, nullptr);
-        }
+        vkUpdateDescriptorSets(*m_device, 1, &write, 0, nullptr);
     }
 }
 
 FrameData::~FrameData() {
-    for (auto *staging_buffer : m_staging_buffers) {
-        vkDestroyBuffer(*m_device, staging_buffer, nullptr);
-    }
-    for (auto *staging_memory : m_staging_memories) {
-        vkFreeMemory(*m_device, staging_memory, nullptr);
-    }
     for (auto *sampler : m_samplers) {
         vkDestroySampler(*m_device, sampler, nullptr);
     }
@@ -893,50 +955,38 @@ void FrameData::insert_wait_semaphore(const RenderStage *stage, const Semaphore 
     m_wait_stages[stage->m_index].push(wait_stage);
 }
 
-void FrameData::transfer(const RenderResource *resource, const void *data, VkDeviceSize size) {
-    const auto *buffer = resource->as<BufferResource>();
-    ASSERT(buffer != nullptr && buffer->m_usage == MemoryUsage::TransferOnce);
-    ensure_physical(resource, size);
+void FrameData::transfer(const BufferResource *buffer, const void *data, VkDeviceSize size) {
+    ASSERT(buffer->m_usage == MemoryUsage::TransferOnce);
+    ensure_buffer(buffer, size);
 
-    // Create staging buffer.
-    auto &physical_buffer = m_staging_buffers[buffer->m_index];
-    auto &physical_memory = m_staging_memories[buffer->m_index];
-    VkBufferCreateInfo buffer_ci{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = size,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
-    ENSURE(vkCreateBuffer(*m_device, &buffer_ci, nullptr, &physical_buffer) == VK_SUCCESS);
-
-    VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(*m_device, physical_buffer, &memory_requirements);
-
-    physical_memory =
-        m_device.allocate_memory(memory_requirements, MemoryType::CpuToGpu, false, physical_buffer, nullptr);
-    ENSURE(vkBindBufferMemory(*m_device, physical_buffer, physical_memory, 0) == VK_SUCCESS);
-
-    void *staging_data;
-    vkMapMemory(*m_device, m_staging_memories[buffer->m_index], 0, VK_WHOLE_SIZE, 0, &staging_data);
-    std::memcpy(staging_data, data, size);
-    vkUnmapMemory(*m_device, m_staging_memories[buffer->m_index]);
-
-    m_transfer_queue.push(Transfer{
-        .src = m_staging_buffers[buffer->m_index],
+    VkBuffer staging_buffer = create_staging_buffer(data, size);
+    m_buffer_transfer_queue.push(BufferTransfer{
+        .src = staging_buffer,
         .dst = m_buffers[buffer->m_index],
         .size = size,
     });
-
-    // TODO: Delete staging buffer.
 }
 
-void FrameData::upload(const RenderResource *resource, const void *data, VkDeviceSize size, VkDeviceSize offset) {
-    ASSERT(resource->m_usage == MemoryUsage::HostVisible);
-    ensure_physical(resource, size);
+void FrameData::transfer(const ImageResource *image, const Texture &texture, std::uint32_t index) {
+    ASSERT(image->m_usage == MemoryUsage::TransferOnce);
+    VkExtent3D extent{texture.width(), texture.height(), 1};
+    ensure_image(image, extent, index);
+
+    VkBuffer staging_buffer = create_staging_buffer(texture.data().data(), texture.data().size_bytes());
+    m_image_transfer_queue.push(ImageTransfer{
+        .src = staging_buffer,
+        .dst = image->m_type == ImageType::Array ? m_array_images[image->m_index][index] : m_images[image->m_index],
+        .extent = extent,
+    });
+}
+
+void FrameData::upload(const BufferResource *buffer, const void *data, VkDeviceSize size, VkDeviceSize offset) {
+    ASSERT(buffer->m_usage == MemoryUsage::HostVisible);
+    ensure_buffer(buffer, size);
     void *mapped_data;
-    vkMapMemory(*m_device, m_memories[resource->m_index], 0, VK_WHOLE_SIZE, 0, &mapped_data);
+    vkMapMemory(*m_device, m_memories[buffer->m_index], 0, VK_WHOLE_SIZE, 0, &mapped_data);
     std::memcpy(static_cast<char *>(mapped_data) + offset, data, size);
-    vkUnmapMemory(*m_device, m_memories[resource->m_index]);
+    vkUnmapMemory(*m_device, m_memories[buffer->m_index]);
 }
 
 void ExecutableGraph::record_compute_commands(const ComputeStage *stage, FrameData &frame_data) {
@@ -1038,21 +1088,54 @@ void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fen
     auto &frame_data = m_frame_datas[frame_index % m_frame_datas.size()];
 
     // Execute transfers.
-    if (!frame_data.m_transfer_queue.empty()) {
+    if (!frame_data.m_buffer_transfer_queue.empty() || !frame_data.m_image_transfer_queue.empty()) {
         vkResetCommandPool(*m_device, frame_data.m_transfer_pool, 0);
         VkCommandBufferBeginInfo transfer_buffer_bi{
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         };
         vkBeginCommandBuffer(frame_data.m_transfer_buffer, &transfer_buffer_bi);
-        while (!frame_data.m_transfer_queue.empty()) {
-            auto transfer = frame_data.m_transfer_queue.pop();
-            VkBufferCopy copy{
-                .srcOffset = 0,
-                .dstOffset = 0,
+        while (!frame_data.m_buffer_transfer_queue.empty()) {
+            auto transfer = frame_data.m_buffer_transfer_queue.pop();
+            VkBufferCopy region{
                 .size = transfer.size,
             };
-            vkCmdCopyBuffer(frame_data.m_transfer_buffer, transfer.src, transfer.dst, 1, &copy);
+            vkCmdCopyBuffer(frame_data.m_transfer_buffer, transfer.src, transfer.dst, 1, &region);
+        }
+        while (!frame_data.m_image_transfer_queue.empty()) {
+            auto transfer = frame_data.m_image_transfer_queue.pop();
+            VkImageMemoryBarrier transition_barrier{
+                .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                .dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+                .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                .image = transfer.dst,
+                .subresourceRange{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            };
+            vkCmdPipelineBarrier(frame_data.m_transfer_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                                 VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &transition_barrier);
+
+            VkBufferImageCopy region{
+                .imageSubresource{
+                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                    .layerCount = 1,
+                },
+                .imageExtent = transfer.extent,
+            };
+            vkCmdCopyBufferToImage(frame_data.m_transfer_buffer, transfer.src, transfer.dst,
+                                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+            transition_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            transition_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            transition_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            transition_barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            vkCmdPipelineBarrier(frame_data.m_transfer_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                                 &transition_barrier);
         }
         VkMemoryBarrier barrier{
             .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
