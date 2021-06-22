@@ -5,11 +5,17 @@
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
+#define STB_DXT_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
+#include <glm/vec2.hpp>
+#include <stb_dxt.h>
+#include <stb_image.h>
 #include <tiny_obj_loader.h>
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <exception>
 #include <filesystem>
 #include <istream>
@@ -42,6 +48,11 @@ void read(int argc, char **argv) {
             PackMesh mesh(data);
             Log::info("vull-pack", "  Index count: %u", mesh.index_count());
             Log::info("vull-pack", "  Index offset: %lu", mesh.index_offset());
+        } else if (entry.type() == PackEntryType::Texture) {
+            auto data = pack.read_data(entry);
+            PackTexture texture(data);
+            Log::info("vull-pack", "  Width: %u", texture.width());
+            Log::info("vull-pack", "  Height: %u", texture.height());
         } else {
             pack.skip_data(entry);
         }
@@ -49,6 +60,7 @@ void read(int argc, char **argv) {
     std::fclose(input);
 }
 
+// NOLINTNEXTLINE
 void write(int argc, char **argv) {
     if (argc != 4) {
         std::printf("Usage: %s write <vpak> <directory>\n", argv[0]);
@@ -63,6 +75,7 @@ void write(int argc, char **argv) {
     };
     Vector<InputFile> obj_inputs;
     Vector<InputFile> spv_inputs;
+    Vector<InputFile> tex_inputs;
 
     std::string directory(argv[3]);
     for (const auto &entry : std::filesystem::recursive_directory_iterator(directory)) {
@@ -86,10 +99,15 @@ void write(int argc, char **argv) {
                 .path = entry.path().string(),
                 .name = std::move(name),
             });
+        } else if (extension == ".jpg" || extension == ".png") {
+            tex_inputs.push(InputFile{
+                .path = entry.path().string(),
+                .name = std::move(name),
+            });
         }
     }
 
-    std::uint16_t entry_count = obj_inputs.size() + spv_inputs.size();
+    std::uint16_t entry_count = obj_inputs.size() + spv_inputs.size() + tex_inputs.size();
     if (!obj_inputs.empty()) {
         entry_count += 2;
     }
@@ -171,6 +189,42 @@ void write(int argc, char **argv) {
         pack.write_entry_header(PackEntryType::Shader, buffer.size_bytes() + input.name.length() + 1);
         pack.write({reinterpret_cast<const std::uint8_t *>(input.name.c_str()), input.name.length() + 1});
         pack.write(buffer);
+    }
+
+    for (const auto &input : tex_inputs) {
+        std::uint32_t width;
+        std::uint32_t height;
+        auto *image = stbi_load(input.path.c_str(), reinterpret_cast<int *>(&width), reinterpret_cast<int *>(&height),
+                                nullptr, STBI_rgb_alpha);
+        ENSURE(image != nullptr);
+
+        const std::uint32_t x_block_count = width / 4;
+        const std::uint32_t y_block_count = height / 4;
+        Vector<std::uint8_t> compressed_image(x_block_count * y_block_count * 16);
+        for (std::uint32_t y_block = 0; y_block < y_block_count; y_block++) {
+            for (std::uint32_t x_block = 0; x_block < x_block_count; x_block++) {
+                // NOLINTNEXTLINE
+                Array<std::uint8_t, 64> src;
+                for (std::uint32_t y = 0; y < 4; y++) {
+                    std::memcpy(src.data() + y * 16, image + ((y_block * width * 4) + (y * width) + (x_block * 4)) * 4,
+                                16);
+                }
+                stb_compress_dxt_block(compressed_image.data() + (y_block * x_block_count + x_block) * 16, src.data(),
+                                       1, STB_DXT_HIGHQUAL);
+            }
+        }
+        stbi_image_free(image);
+
+        Array<std::uint8_t, 8> texture_bytes{
+            static_cast<std::uint8_t>(width >> 0u & 0xffu),   static_cast<std::uint8_t>(width >> 8u & 0xffu),
+            static_cast<std::uint8_t>(width >> 16u & 0xffu),  static_cast<std::uint8_t>(width >> 24u & 0xffu),
+            static_cast<std::uint8_t>(height >> 0u & 0xffu),  static_cast<std::uint8_t>(height >> 8u & 0xffu),
+            static_cast<std::uint8_t>(height >> 16u & 0xffu), static_cast<std::uint8_t>(height >> 24u & 0xffu),
+        };
+        pack.write_entry_header(PackEntryType::Texture, compressed_image.size_bytes() + input.name.length() + 9);
+        pack.write({reinterpret_cast<const std::uint8_t *>(input.name.c_str()), input.name.length() + 1});
+        pack.write(texture_bytes);
+        pack.write(compressed_image);
     }
     std::fflush(output);
     std::fclose(output);
