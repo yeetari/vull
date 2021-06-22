@@ -18,6 +18,7 @@
 #include <vull/renderer/Instance.hh>
 #include <vull/renderer/Material.hh>
 #include <vull/renderer/Mesh.hh>
+#include <vull/renderer/MeshOffset.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderSystem.hh>
 #include <vull/renderer/Surface.hh>
@@ -151,13 +152,14 @@ int main(int, char **argv) {
     ubo.proj = glm::perspective(glm::radians(45.0f), window.aspect_ratio(), 0.1f, 1000.0f);
     ubo.proj[1][1] *= -1;
 
-    BoxShape car_shape(glm::vec3(3.0f, 1.0f, 5.0f));
+    BoxShape car_shape(glm::vec3(3.0f, 1.0f, 6.5f));
     auto car = world.create_entity();
     car.add<Collider>(car_shape);
     car.add<Material>(pink_texture);
-    car.add<Mesh>(cube_mesh);
+    car.add<Mesh>(FileSystem::load_mesh("sandbox/meshes/car"));
+    car.add<MeshOffset>(glm::vec3(0.0f, -2.5f, 0.0f));
     car.add<RigidBody>(car_shape, 5.0_t, 0.1f);
-    car.add<Transform>(glm::vec3(100.0f, -15.0f, 95.0f), car_shape.half_size());
+    car.add<Transform>(glm::vec3(100.0f, -15.0f, 95.0f), glm::vec3(0.45f));
     car.add<VehicleController>();
 
     auto *chassis = car.get<RigidBody>();
@@ -172,12 +174,12 @@ int main(int, char **argv) {
         visual_wheel.add<Transform>(glm::vec3(0.0f));
         axle.add_wheel(radius, x_offset, visual_wheel.id()).set_roll(roll);
     };
-    auto &front_axle = vehicle->add_axle(2.2f, 8.0f, 2.0f, 5.0f);
-    create_wheel(front_axle, 1.1f, -3.5f, glm::radians(90.0f)); // FL
-    create_wheel(front_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // FR
+    auto &front_axle = vehicle->add_axle(2.2f, 8.0f, 2.0f, 5.3f);
+    create_wheel(front_axle, 1.1f, -3.0f, glm::radians(90.0f)); // FL
+    create_wheel(front_axle, 1.1f, 3.0f, glm::radians(-90.0f)); // FR
     auto &rear_axle = vehicle->add_axle(2.2f, 8.0f, 2.0f, -5.0f);
-    create_wheel(rear_axle, 1.1f, -3.5f, glm::radians(90.0f)); // RL
-    create_wheel(rear_axle, 1.1f, 3.5f, glm::radians(-90.0f)); // RR
+    create_wheel(rear_axle, 1.1f, -3.0f, glm::radians(90.0f)); // RL
+    create_wheel(rear_axle, 1.1f, 3.0f, glm::radians(-90.0f)); // RR
 
     BoxShape box_shape(glm::vec3(2.0f));
     for (int x = 0; x < 2; x++) {
