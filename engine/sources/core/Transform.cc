@@ -25,3 +25,7 @@ glm::vec3 Transform::up() const {
 glm::vec3 Transform::local_to_world(const glm::vec3 &point) const {
     return m_position + (m_orientation * point);
 }
+
+Transform Transform::translated(const glm::vec3 &translation) const {
+    return {m_position + m_orientation * translation, m_orientation, m_scale};
+}

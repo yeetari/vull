@@ -8,6 +8,7 @@
 #include <vull/renderer/Fence.hh>
 #include <vull/renderer/Material.hh>
 #include <vull/renderer/Mesh.hh>
+#include <vull/renderer/MeshOffset.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderGraph.hh>
 #include <vull/renderer/Semaphore.hh>
@@ -218,18 +219,23 @@ std::uint32_t RenderSystem::upload_texture(const Texture &texture) {
 void RenderSystem::update(World *world, float) {
     m_depth_pass->set_on_record([world](VkCommandBuffer cmd_buf, VkPipelineLayout pipeline_layout) {
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {
-            auto matrix = transform->scaled_matrix();
+            auto *mesh_offset = entity.get<MeshOffset>();
+            auto matrix = mesh_offset != nullptr ? transform->translated(mesh_offset->offset()).scaled_matrix()
+                                                 : transform->scaled_matrix();
             vkCmdPushConstants(cmd_buf, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &matrix);
             vkCmdDrawIndexed(cmd_buf, mesh->index_count(), 1, mesh->index_offset(), 0, 0);
         }
     });
     m_main_pass->set_on_record([world](VkCommandBuffer cmd_buf, VkPipelineLayout pipeline_layout) {
         for (auto [entity, material, mesh, transform] : world->view<Material, Mesh, Transform>()) {
+            auto *mesh_offset = entity.get<MeshOffset>();
+            auto matrix = mesh_offset != nullptr ? transform->translated(mesh_offset->offset()).scaled_matrix()
+                                                 : transform->scaled_matrix();
             struct PushConstant {
                 glm::mat4 transform;
                 std::uint32_t albedo_index;
             } push_constant{
-                .transform = transform->scaled_matrix(),
+                .transform = matrix,
                 .albedo_index = material->albedo_index(),
             };
             vkCmdPushConstants(cmd_buf, pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
