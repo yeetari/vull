@@ -1,21 +1,21 @@
 #version 450
 #include "common.glsl"
 
-layout (local_size_x_id = 0, local_size_y_id = 0, local_size_z = 1) in;
+layout (local_size_x_id = 0, local_size_y_id = 0) in;
 
-layout (set = 0, binding = 1, std140) readonly buffer Lights {
+layout (binding = 1, std430) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (set = 0, binding = 3) writeonly buffer LightVisibilities {
+layout (binding = 3) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (set = 0, binding = 2) uniform UniformBuffer {
+layout (binding = 2) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
     vec3 camera_position;
 } g_ubo;
-layout (set = 0, binding = 0) uniform sampler2D g_depth_sampler;
+layout (binding = 0) uniform sampler2D g_depth_sampler;
 
 struct ViewFrustum {
     vec4 planes[6];
@@ -72,9 +72,9 @@ bool has_collided(PointLight light, ViewFrustum frustum) {
 
 void main() {
     ivec2 tile_id = ivec2(gl_WorkGroupID.xy);
-    uint tile_index = tile_id.y * gl_NumWorkGroups.x + tile_id.x;
+    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
     if (gl_LocalInvocationIndex == 0) {
-        g_min_depth_int = 0xFFFFFFFF;
+        g_min_depth_int = 0xffffffff;
         g_max_depth_int = 0;
         g_tile_light_count = 0;
     }
