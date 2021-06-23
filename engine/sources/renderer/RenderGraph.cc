@@ -10,6 +10,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Log.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 
 #include <algorithm>
@@ -316,8 +317,7 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
     pipeline_layouts.resize(m_stage_order.size());
     render_passes.resize(m_stage_order.size());
 
-    for (std::uint32_t i = 0; i < frame_datas.size(); i++) {
-        auto &frame_data = frame_datas[i];
+    for (auto &frame_data : frame_datas) {
         frame_data.m_command_buffers.ensure_capacity(m_stage_order.size());
         frame_data.m_descriptor_sets.ensure_capacity(m_stage_order.size());
         frame_data.m_barriers.resize(m_stage_order.size());
@@ -364,10 +364,6 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         frame_data.m_array_memories.resize(m_graph->resources().size());
         frame_data.m_array_images.resize(m_graph->resources().size());
         frame_data.m_array_image_views.resize(m_graph->resources().size());
-
-        for (const auto &swapchain : m_graph->swapchains()) {
-            frame_data.m_image_views[swapchain->m_index] = swapchain->m_swapchain.image_views()[i];
-        }
     }
 
     std::unordered_map<const RenderResource *, Vector<const RenderStage *>> accessors;
@@ -618,24 +614,52 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
         ENSURE(vkCreateRenderPass(*device, &render_pass_ci, nullptr, &render_passes[stage->m_index]) == VK_SUCCESS);
 
         for (auto &frame_data : frame_datas) {
-            Vector<VkImageView> framebuffer_attachments;
-            framebuffer_attachments.ensure_capacity(image_order.size());
+            Vector<VkFramebufferAttachmentImageInfo> attachment_infos;
+            Vector<VkFormat> view_formats;
+            attachment_infos.ensure_capacity(image_order.size());
+            view_formats.ensure_capacity(image_order.size());
             for (const auto *image : image_order) {
-                framebuffer_attachments.push(frame_data.m_image_views[image->m_index]);
+                VkImageUsageFlags usage = 0;
+                switch (image->m_type) {
+                case ImageType::Depth:
+                    usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+                    break;
+                default:
+                    usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+                    break;
+                }
+                for (const auto *s : m_stage_order) {
+                    if (std::find(s->m_reads.begin(), s->m_reads.end(), image) != s->m_reads.end()) {
+                        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+                    }
+                }
+                attachment_infos.push(VkFramebufferAttachmentImageInfo{
+                    .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENT_IMAGE_INFO,
+                    .usage = usage,
+                    .width = image->m_extent.width,
+                    .height = image->m_extent.height,
+                    .layerCount = 1,
+                    .viewFormatCount = 1,
+                    .pViewFormats = &view_formats.emplace(image->m_format),
+                });
             }
+            VkFramebufferAttachmentsCreateInfo attachments_ci{
+                .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO,
+                .attachmentImageInfoCount = attachment_infos.size(),
+                .pAttachmentImageInfos = attachment_infos.data(),
+            };
             VkFramebufferCreateInfo framebuffer_ci{
                 .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                .pNext = &attachments_ci,
+                .flags = VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT,
                 .renderPass = render_passes[stage->m_index],
-                .attachmentCount = framebuffer_attachments.size(),
-                .pAttachments = framebuffer_attachments.data(),
+                .attachmentCount = attachment_infos.size(),
                 .width = stage->m_outputs[0]->m_extent.width,
                 .height = stage->m_outputs[0]->m_extent.height,
                 .layers = 1,
             };
-            if (!framebuffer_attachments.empty()) {
-                ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr,
-                                           &frame_data.m_framebuffers[stage->m_index]) == VK_SUCCESS);
-            }
+            ENSURE(vkCreateFramebuffer(*device, &framebuffer_ci, nullptr, &frame_data.m_framebuffers[stage->m_index]) ==
+                   VK_SUCCESS);
         }
     }
 
@@ -812,7 +836,7 @@ void FrameData::ensure_image(const ImageResource *image, VkExtent3D extent, std:
 
     VkImageUsageFlags usage = 0;
     if (image->m_usage == MemoryUsage::TransferOnce) {
-        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
     if (image->m_type == ImageType::Depth) {
         usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -1010,7 +1034,8 @@ void ExecutableGraph::record_compute_commands(const ComputeStage *stage, FrameDa
     vkEndCommandBuffer(cmd_buf);
 }
 
-void ExecutableGraph::record_graphics_commands(const GraphicsStage *stage, FrameData &frame_data) {
+void ExecutableGraph::record_graphics_commands(const GraphicsStage *stage, FrameData &frame_data,
+                                               const Span<std::uint32_t> &swapchain_indices) {
     auto *cmd_buf = frame_data.m_command_buffers[stage->m_index];
     VkCommandBufferBeginInfo cmd_buf_bi{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -1024,14 +1049,32 @@ void ExecutableGraph::record_graphics_commands(const GraphicsStage *stage, Frame
                              barrier.buffers.data(), barrier.images.size(), barrier.images.data());
     }
 
+    auto &image_order = m_image_orders[stage->m_index];
+
     Vector<VkClearValue> clear_values;
-    clear_values.ensure_capacity(m_image_orders[stage->m_index].size());
-    for (const auto *image : m_image_orders[stage->m_index]) {
+    clear_values.ensure_capacity(image_order.size());
+    for (const auto *image : image_order) {
         clear_values.push(image->m_clear_value);
     }
 
+    Vector<VkImageView> attachments;
+    attachments.ensure_capacity(image_order.size());
+    for (std::uint32_t swapchain_index = 0; const auto *image : image_order) {
+        if (image->m_type != ImageType::Swapchain) {
+            attachments.push(frame_data.m_image_views[image->m_index]);
+            continue;
+        }
+        const auto *swapchain = image->as_non_null<SwapchainResource>();
+        attachments.push(swapchain->m_swapchain.image_views()[swapchain_indices[swapchain_index++]]);
+    }
+    VkRenderPassAttachmentBeginInfo attachment_bi{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
+        .attachmentCount = attachments.size(),
+        .pAttachments = attachments.data(),
+    };
     VkRenderPassBeginInfo render_pass_bi{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = &attachment_bi,
         .renderPass = m_render_passes[stage->m_index],
         .framebuffer = frame_data.m_framebuffers[stage->m_index],
         .renderArea{.extent{stage->m_outputs[0]->m_extent.width, stage->m_outputs[0]->m_extent.height}},
@@ -1084,7 +1127,8 @@ ExecutableGraph::~ExecutableGraph() {
     }
 }
 
-void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence) {
+void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence,
+                             Span<std::uint32_t> swapchain_indices) {
     auto &frame_data = m_frame_datas[frame_index % m_frame_datas.size()];
 
     // Execute transfers.
@@ -1159,7 +1203,7 @@ void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fen
         record_compute_commands(*stage, frame_data);
     }
     for (const auto &stage : m_graph->graphics_stages()) {
-        record_graphics_commands(*stage, frame_data);
+        record_graphics_commands(*stage, frame_data, swapchain_indices);
     }
 
     m_submit_infos.clear();

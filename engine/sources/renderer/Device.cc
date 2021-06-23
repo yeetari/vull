@@ -98,6 +98,7 @@ Device::Device(VkPhysicalDevice physical) : m_physical(physical) {
         .descriptorIndexing = VK_TRUE,
         .descriptorBindingPartiallyBound = VK_TRUE,
         .runtimeDescriptorArray = VK_TRUE,
+        .imagelessFramebuffer = VK_TRUE,
     };
     VkDeviceCreateInfo device_ci{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
