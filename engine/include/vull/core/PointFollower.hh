@@ -24,6 +24,8 @@ private:
 
 public:
     PointFollower(const Vector<glm::vec3> &points, float speed) : m_points(points), m_speed(speed) {}
+
+    std::uint32_t next_point() const { return m_next_point; }
 };
 
 struct PointFollowerSystem final : public System<PointFollowerSystem> {

@@ -84,6 +84,7 @@ function(target_enable_optimisations target)
     endif()
 endfunction()
 
+add_subdirectory(benchmark)
 add_subdirectory(engine)
 add_subdirectory(sandbox)
 add_subdirectory(tools)
