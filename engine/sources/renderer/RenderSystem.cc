@@ -257,7 +257,8 @@ void RenderSystem::update(World *world, float) {
     frame_data.upload(m_light_buffer, light_count);
     frame_data.upload(m_light_buffer, m_lights, sizeof(glm::vec4));
 
-    m_executable_graph->render(m_frame_index, m_queue, m_frame_fences[m_frame_index]);
+    Array swapchain_indices{image_index};
+    m_executable_graph->render(m_frame_index, m_queue, m_frame_fences[m_frame_index], swapchain_indices);
 
     // Present output to swapchain.
     Array present_wait_semaphores{*m_rendering_finished_semaphores[m_frame_index]};

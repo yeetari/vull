@@ -142,7 +142,7 @@ public:
 };
 
 class SwapchainResource : public ImageResource {
-    friend CompiledGraph;
+    friend ExecutableGraph;
 
 private:
     const Swapchain &m_swapchain;
@@ -431,7 +431,7 @@ private:
           m_frame_datas(frame_queue_length, device, graph, compiled_graph, this) {}
 
     void record_compute_commands(const ComputeStage *, FrameData &);
-    void record_graphics_commands(const GraphicsStage *, FrameData &);
+    void record_graphics_commands(const GraphicsStage *, FrameData &, const Span<std::uint32_t> &);
 
 public:
     ExecutableGraph(const ExecutableGraph &) = delete;
@@ -441,7 +441,8 @@ public:
     ExecutableGraph &operator=(const ExecutableGraph &) = delete;
     ExecutableGraph &operator=(ExecutableGraph &&) = delete;
 
-    void render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence);
+    void render(std::uint32_t frame_index, VkQueue queue, const Fence &signal_fence,
+                Span<std::uint32_t> swapchain_indices);
     FrameData &frame_data(std::uint32_t index);
 
     Vector<FrameData> &frame_datas() { return m_frame_datas; }
