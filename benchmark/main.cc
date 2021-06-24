@@ -25,6 +25,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/vec3.hpp>
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cstdint>
@@ -33,6 +34,17 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
+void *operator new(std::size_t count) {
+    auto *ptr = malloc(count);
+    TracyAlloc(ptr, count);
+    return ptr;
+}
+
+void operator delete(void *ptr) noexcept {
+    TracyFree(ptr);
+    free(ptr);
+}
 
 int main() {
     FileSystem::initialise("./sandbox/vull-sandbox");
@@ -46,7 +58,7 @@ int main() {
     Instance instance({required_extensions, required_extension_count});
     Device device(instance.physical_devices()[0]);
     Surface surface(instance, device, window);
-    Swapchain swapchain(device, surface, SwapchainMode::NoVsync);
+    Swapchain swapchain(device, surface, SwapchainMode::LowLatency);
 
     auto vertices = FileSystem::load(PackEntryType::VertexBuffer, "sandbox");
     auto indices = FileSystem::load(PackEntryType::IndexBuffer, "sandbox");
@@ -143,7 +155,8 @@ int main() {
             glm::lookAt(position, position + orientation * glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         world.update(dt);
-        Window::poll_events();
+        { ZoneScopedN("Window::poll_events") Window::poll_events(); }
+        FrameMark
     }
     FileSystem::deinitialise();
 

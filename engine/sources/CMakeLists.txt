@@ -26,4 +26,5 @@ target_sources(vull-engine PRIVATE
     renderer/Surface.cc
     renderer/Swapchain.cc
     support/Assert.cc
-    support/Log.cc)
+    support/Log.cc
+    ../../tracy/TracyClient.cpp)

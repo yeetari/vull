@@ -25,6 +25,7 @@
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
+#include <tracy/Tracy.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include <cstddef>
@@ -245,23 +246,39 @@ void RenderSystem::update(World *world, float) {
     });
 
     // Wait for previous frame rendering to finish, and request the next swapchain image.
-    std::uint32_t image_index = m_swapchain.acquire_next_image(m_image_available_semaphores[m_frame_index], {});
-    m_frame_fences[m_frame_index].block();
-    m_frame_fences[m_frame_index].reset();
+    std::uint32_t image_index = 0;
+    {
+        ZoneScopedN("Acquire next swapchain image")
+        image_index = m_swapchain.acquire_next_image(m_image_available_semaphores[m_frame_index], {});;
+    }
+    {
+        ZoneScopedN("Block & reset frame fence")
+        m_frame_fences[m_frame_index].block();
+        m_frame_fences[m_frame_index].reset();
+    }
 
-    auto &frame_data = m_executable_graph->frame_data(m_frame_index);
-    frame_data.upload(m_uniform_buffer, m_ubo);
+    {
+        ZoneScopedN("Upload frame data to GPU")
+        auto &frame_data = m_executable_graph->frame_data(m_frame_index);
+        frame_data.upload(m_uniform_buffer, m_ubo);
 
-    // Update dynamic light data.
-    const std::uint32_t light_count = m_lights.size();
-    frame_data.upload(m_light_buffer, light_count);
-    frame_data.upload(m_light_buffer, m_lights, sizeof(glm::vec4));
+        // Update dynamic light data.
+        const std::uint32_t light_count = m_lights.size();
+        frame_data.upload(m_light_buffer, light_count);
+        frame_data.upload(m_light_buffer, m_lights, sizeof(glm::vec4));
+    }
 
-    Array swapchain_indices{image_index};
-    m_executable_graph->render(m_frame_index, m_queue, m_frame_fences[m_frame_index], swapchain_indices);
+    {
+        ZoneScopedN("ExecutableGraph::render")
+        Array swapchain_indices{image_index};
+        m_executable_graph->render(m_frame_index, m_queue, m_frame_fences[m_frame_index], swapchain_indices);
+    }
 
     // Present output to swapchain.
-    Array present_wait_semaphores{*m_rendering_finished_semaphores[m_frame_index]};
-    m_swapchain.present(image_index, present_wait_semaphores);
+    {
+        ZoneScopedN("Present to swapchain")
+        Array present_wait_semaphores{*m_rendering_finished_semaphores[m_frame_index]};
+        m_swapchain.present(image_index, present_wait_semaphores);
+    }
     m_frame_index = (m_frame_index + 1) % m_swapchain.image_count();
 }

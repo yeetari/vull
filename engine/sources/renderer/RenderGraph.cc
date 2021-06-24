@@ -12,6 +12,9 @@
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyVulkan.hpp>
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -299,6 +302,10 @@ void CompiledGraph::build_graphics_pipeline(const Device &device, const Graphics
     ENSURE(vkCreateGraphicsPipelines(*device, nullptr, 1, &pipeline_ci, nullptr, pipeline) == VK_SUCCESS);
 }
 
+static VkCommandPool s_tracy_pool;
+static VkCommandBuffer s_tracy_buffer;
+static TracyVkCtx s_vk_ctx;
+
 // NOLINTNEXTLINE
 Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uint32_t frame_queue_length) {
     Box<ExecutableGraph> executable_graph(new ExecutableGraph(this, m_graph, device, frame_queue_length));
@@ -315,6 +322,25 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
     pipelines.resize(m_stage_order.size());
     pipeline_layouts.resize(m_stage_order.size());
     render_passes.resize(m_stage_order.size());
+
+    VkQueue queue;
+    vkGetDeviceQueue(*device, 0, 0, &queue);
+    VkCommandPoolCreateInfo tracy_pool_ci{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = 0,
+    };
+    ENSURE(vkCreateCommandPool(*device, &tracy_pool_ci, nullptr, &s_tracy_pool) == VK_SUCCESS);
+
+    VkCommandBufferAllocateInfo tracy_buffer_ai{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = s_tracy_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    ENSURE(vkAllocateCommandBuffers(*device, &tracy_buffer_ai, &s_tracy_buffer) == VK_SUCCESS);
+
+    s_vk_ctx = TracyVkContext(device.physical(), *device, queue, s_tracy_buffer);
 
     for (std::uint32_t i = 0; i < frame_datas.size(); i++) {
         auto &frame_data = frame_datas[i];
@@ -1020,17 +1046,20 @@ void ExecutableGraph::record_compute_commands(const ComputeStage *stage, FrameDa
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
+    {
+        TracyVkZone(s_vk_ctx, cmd_buf, "Compute stage");
 
-    const auto &barrier = frame_data.m_barriers[stage->m_index];
-    if (barrier.dst != 0) {
-        vkCmdPipelineBarrier(cmd_buf, barrier.src, barrier.dst, 0, 0, nullptr, barrier.buffers.size(),
-                             barrier.buffers.data(), barrier.images.size(), barrier.images.data());
+        const auto &barrier = frame_data.m_barriers[stage->m_index];
+        if (barrier.dst != 0) {
+            vkCmdPipelineBarrier(cmd_buf, barrier.src, barrier.dst, 0, 0, nullptr, barrier.buffers.size(),
+                                 barrier.buffers.data(), barrier.images.size(), barrier.images.data());
+        }
+
+        vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline_layouts[stage->m_index], 0, 1,
+                                &frame_data.m_descriptor_sets[stage->m_index], 0, nullptr);
+        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelines[stage->m_index]);
+        stage->m_on_record(cmd_buf, m_pipeline_layouts[stage->m_index]);
     }
-
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline_layouts[stage->m_index], 0, 1,
-                            &frame_data.m_descriptor_sets[stage->m_index], 0, nullptr);
-    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipelines[stage->m_index]);
-    stage->m_on_record(cmd_buf, m_pipeline_layouts[stage->m_index]);
     vkEndCommandBuffer(cmd_buf);
 }
 
@@ -1042,77 +1071,81 @@ void ExecutableGraph::record_graphics_commands(const GraphicsStage *stage, Frame
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
+    {
+        TracyVkZone(s_vk_ctx, cmd_buf, "Graphics stage");
 
-    const auto &barrier = frame_data.m_barriers[stage->m_index];
-    if (barrier.dst != 0) {
-        vkCmdPipelineBarrier(cmd_buf, barrier.src, barrier.dst, 0, 0, nullptr, barrier.buffers.size(),
-                             barrier.buffers.data(), barrier.images.size(), barrier.images.data());
-    }
-
-    auto &image_order = m_image_orders[stage->m_index];
-
-    Vector<VkClearValue> clear_values;
-    clear_values.ensure_capacity(image_order.size());
-    for (const auto *image : image_order) {
-        clear_values.push(image->m_clear_value);
-    }
-
-    Vector<VkImageView> attachments;
-    attachments.ensure_capacity(image_order.size());
-    for (std::uint32_t swapchain_index = 0; const auto *image : image_order) {
-        if (image->m_type != ImageType::Swapchain) {
-            attachments.push(frame_data.m_image_views[image->m_index]);
-            continue;
-        }
-        const auto *swapchain = image->as_non_null<SwapchainResource>();
-        attachments.push(swapchain->m_swapchain.image_views()[swapchain_indices[swapchain_index++]]);
-    }
-    VkRenderPassAttachmentBeginInfo attachment_bi{
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
-        .attachmentCount = attachments.size(),
-        .pAttachments = attachments.data(),
-    };
-    VkRenderPassBeginInfo render_pass_bi{
-        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .pNext = &attachment_bi,
-        .renderPass = m_render_passes[stage->m_index],
-        .framebuffer = frame_data.m_framebuffers[stage->m_index],
-        .renderArea{.extent{stage->m_outputs[0]->m_extent.width, stage->m_outputs[0]->m_extent.height}},
-        .clearValueCount = clear_values.size(),
-        .pClearValues = clear_values.data(),
-    };
-    vkCmdBeginRenderPass(cmd_buf, &render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts[stage->m_index], 0, 1,
-                            &frame_data.m_descriptor_sets[stage->m_index], 0, nullptr);
-    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[stage->m_index]);
-
-    Vector<VkBuffer> vertex_buffers;
-    for (const auto *resource : stage->m_reads) {
-        const auto *buffer = resource->as<BufferResource>();
-        if (buffer == nullptr) {
-            continue;
+        const auto &barrier = frame_data.m_barriers[stage->m_index];
+        if (barrier.dst != 0) {
+            vkCmdPipelineBarrier(cmd_buf, barrier.src, barrier.dst, 0, 0, nullptr, barrier.buffers.size(),
+                                 barrier.buffers.data(), barrier.images.size(), barrier.images.data());
         }
 
-        auto *physical_buffer = frame_data.m_buffers[buffer->m_index];
-        if (buffer->m_type == BufferType::IndexBuffer) {
-            // TODO: Get index type from buffer resource.
-            vkCmdBindIndexBuffer(cmd_buf, physical_buffer, 0, VK_INDEX_TYPE_UINT32);
-        } else if (buffer->m_type == BufferType::VertexBuffer) {
-            vertex_buffers.push(physical_buffer);
-        }
-    }
+        auto &image_order = m_image_orders[stage->m_index];
 
-    Vector<VkDeviceSize> offsets;
-    for (std::uint32_t i = 0; i < vertex_buffers.size(); i++) {
-        offsets.push(0);
+        Vector<VkClearValue> clear_values;
+        clear_values.ensure_capacity(image_order.size());
+        for (const auto *image : image_order) {
+            clear_values.push(image->m_clear_value);
+        }
+
+        Vector<VkImageView> attachments;
+        attachments.ensure_capacity(image_order.size());
+        for (std::uint32_t swapchain_index = 0; const auto *image : image_order) {
+            if (image->m_type != ImageType::Swapchain) {
+                attachments.push(frame_data.m_image_views[image->m_index]);
+                continue;
+            }
+            const auto *swapchain = image->as_non_null<SwapchainResource>();
+            attachments.push(swapchain->m_swapchain.image_views()[swapchain_indices[swapchain_index++]]);
+        }
+        VkRenderPassAttachmentBeginInfo attachment_bi{
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO,
+            .attachmentCount = attachments.size(),
+            .pAttachments = attachments.data(),
+        };
+        VkRenderPassBeginInfo render_pass_bi{
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = &attachment_bi,
+            .renderPass = m_render_passes[stage->m_index],
+            .framebuffer = frame_data.m_framebuffers[stage->m_index],
+            .renderArea{.extent{stage->m_outputs[0]->m_extent.width, stage->m_outputs[0]->m_extent.height}},
+            .clearValueCount = clear_values.size(),
+            .pClearValues = clear_values.data(),
+        };
+        vkCmdBeginRenderPass(cmd_buf, &render_pass_bi, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline_layouts[stage->m_index], 0, 1,
+                                &frame_data.m_descriptor_sets[stage->m_index], 0, nullptr);
+        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[stage->m_index]);
+
+        Vector<VkBuffer> vertex_buffers;
+        for (const auto *resource : stage->m_reads) {
+            const auto *buffer = resource->as<BufferResource>();
+            if (buffer == nullptr) {
+                continue;
+            }
+
+            auto *physical_buffer = frame_data.m_buffers[buffer->m_index];
+            if (buffer->m_type == BufferType::IndexBuffer) {
+                // TODO: Get index type from buffer resource.
+                vkCmdBindIndexBuffer(cmd_buf, physical_buffer, 0, VK_INDEX_TYPE_UINT32);
+            } else if (buffer->m_type == BufferType::VertexBuffer) {
+                vertex_buffers.push(physical_buffer);
+            }
+        }
+
+        Vector<VkDeviceSize> offsets;
+        for (std::uint32_t i = 0; i < vertex_buffers.size(); i++) {
+            offsets.push(0);
+        }
+        vkCmdBindVertexBuffers(cmd_buf, 0, vertex_buffers.size(), vertex_buffers.data(), offsets.data());
+        stage->m_on_record(cmd_buf, m_pipeline_layouts[stage->m_index]);
+        vkCmdEndRenderPass(cmd_buf);
     }
-    vkCmdBindVertexBuffers(cmd_buf, 0, vertex_buffers.size(), vertex_buffers.data(), offsets.data());
-    stage->m_on_record(cmd_buf, m_pipeline_layouts[stage->m_index]);
-    vkCmdEndRenderPass(cmd_buf);
     vkEndCommandBuffer(cmd_buf);
 }
 
 ExecutableGraph::~ExecutableGraph() {
+    TracyVkDestroy(s_vk_ctx);
     for (auto *descriptor_set_layout : m_descriptor_set_layouts) {
         vkDestroyDescriptorSetLayout(*m_device, descriptor_set_layout, nullptr);
     }
@@ -1199,12 +1232,20 @@ void ExecutableGraph::render(std::uint32_t frame_index, VkQueue queue, const Fen
 
     // Reset and re-record command buffers.
     vkResetCommandPool(*m_device, frame_data.m_command_pool, 0);
+    vkResetCommandPool(*m_device, s_tracy_pool, 0);
+    VkCommandBufferBeginInfo cmd_buf_bi{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    vkBeginCommandBuffer(s_tracy_buffer, &cmd_buf_bi);
     for (const auto &stage : m_graph->compute_stages()) {
         record_compute_commands(*stage, frame_data);
     }
     for (const auto &stage : m_graph->graphics_stages()) {
         record_graphics_commands(*stage, frame_data, swapchain_indices);
     }
+    TracyVkCollect(s_vk_ctx, s_tracy_buffer);
+    vkEndCommandBuffer(s_tracy_buffer);
 
     m_submit_infos.clear();
     for (const auto *stage : m_compiled_graph->stage_order()) {
