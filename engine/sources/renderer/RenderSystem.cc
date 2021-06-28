@@ -4,16 +4,11 @@
 #include <vull/core/Transform.hh>
 #include <vull/core/World.hh>
 #include <vull/io/FileSystem.hh>
-#include <vull/renderer/Device.hh>
-#include <vull/renderer/Fence.hh>
 #include <vull/renderer/Material.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/MeshOffset.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderGraph.hh>
-#include <vull/renderer/Semaphore.hh>
-#include <vull/renderer/Shader.hh>
-#include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh>
 #include <vull/support/Array.hh>
@@ -22,6 +17,11 @@
 #include <vull/support/Log.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Device.hh>
+#include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/Semaphore.hh>
+#include <vull/vulkan/Shader.hh>
+#include <vull/vulkan/Swapchain.hh>
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>

@@ -1,7 +1,7 @@
-#include <vull/renderer/Semaphore.hh>
+#include <vull/vulkan/Semaphore.hh>
 
-#include <vull/renderer/Device.hh>
 #include <vull/support/Assert.hh>
+#include <vull/vulkan/Device.hh>
 
 #include <vulkan/vulkan_core.h>
 

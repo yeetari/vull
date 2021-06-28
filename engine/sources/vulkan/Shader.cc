@@ -1,8 +1,8 @@
-#include <vull/renderer/Shader.hh>
+#include <vull/vulkan/Shader.hh>
 
-#include <vull/renderer/Device.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Device.hh>
 
 #include <vulkan/vulkan_core.h>
 

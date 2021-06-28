@@ -14,19 +14,19 @@
 #include <vull/physics/shape/BoxShape.hh>
 #include <vull/physics/shape/SphereShape.hh>
 #include <vull/renderer/Camera.hh>
-#include <vull/renderer/Device.hh>
-#include <vull/renderer/Instance.hh>
 #include <vull/renderer/Material.hh>
 #include <vull/renderer/Mesh.hh>
 #include <vull/renderer/MeshOffset.hh>
 #include <vull/renderer/PointLight.hh>
 #include <vull/renderer/RenderSystem.hh>
-#include <vull/renderer/Surface.hh>
-#include <vull/renderer/Swapchain.hh>
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Log.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Device.hh>
+#include <vull/vulkan/Instance.hh>
+#include <vull/vulkan/Surface.hh>
+#include <vull/vulkan/Swapchain.hh>
 
 #include <GLFW/glfw3.h>
 #include <glm/common.hpp>

@@ -16,14 +16,14 @@ target_sources(vull-engine PRIVATE
     physics/RigidBody.cc
     physics/Vehicle.cc
     renderer/Camera.cc
-    renderer/Device.cc
-    renderer/Fence.cc
-    renderer/Instance.cc
     renderer/RenderGraph.cc
     renderer/RenderSystem.cc
-    renderer/Semaphore.cc
-    renderer/Shader.cc
-    renderer/Surface.cc
-    renderer/Swapchain.cc
     support/Assert.cc
-    support/Log.cc)
+    support/Log.cc
+    vulkan/Device.cc
+    vulkan/Fence.cc
+    vulkan/Instance.cc
+    vulkan/Semaphore.cc
+    vulkan/Shader.cc
+    vulkan/Surface.cc
+    vulkan/Swapchain.cc)

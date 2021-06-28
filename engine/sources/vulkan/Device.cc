@@ -1,4 +1,4 @@
-#include <vull/renderer/Device.hh>
+#include <vull/vulkan/Device.hh>
 
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>

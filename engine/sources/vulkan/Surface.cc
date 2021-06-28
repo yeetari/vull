@@ -1,10 +1,10 @@
-#include <vull/renderer/Surface.hh>
+#include <vull/vulkan/Surface.hh>
 
 #include <vull/io/Window.hh>
-#include <vull/renderer/Device.hh>
-#include <vull/renderer/Instance.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
+#include <vull/vulkan/Device.hh>
+#include <vull/vulkan/Instance.hh>
 
 #include <GLFW/glfw3.h>
 

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <vull/renderer/Swapchain.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Castable.hh>
 #include <vull/support/Span.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Swapchain.hh>
 
 #include <vulkan/vulkan_core.h>
 

@@ -1,7 +1,7 @@
-#include <vull/renderer/Fence.hh>
+#include <vull/vulkan/Fence.hh>
 
-#include <vull/renderer/Device.hh>
 #include <vull/support/Assert.hh>
+#include <vull/vulkan/Device.hh>
 
 #include <vulkan/vulkan_core.h>
 

@@ -1,4 +1,4 @@
-#include <vull/renderer/Instance.hh>
+#include <vull/vulkan/Instance.hh>
 
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>

@@ -1,13 +1,13 @@
-#include <vull/renderer/Swapchain.hh>
+#include <vull/vulkan/Swapchain.hh>
 
-#include <vull/renderer/Device.hh>
-#include <vull/renderer/Fence.hh>
-#include <vull/renderer/Semaphore.hh>
-#include <vull/renderer/Surface.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Log.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Device.hh>
+#include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/Semaphore.hh>
+#include <vull/vulkan/Surface.hh>
 
 #include <algorithm>
 #include <limits>
