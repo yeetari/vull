@@ -74,34 +74,9 @@ void BufferResource::add_vertex_attribute(VkFormat format, std::uint32_t offset)
     });
 }
 
-void ComputeStage::set_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
-    m_shader = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
-        .module = *shader,
-        .pName = "main",
-        .pSpecializationInfo = specialisation_info,
-    };
-}
-
-void GraphicsStage::set_vertex_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
-    m_vertex_shader = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = *shader,
-        .pName = "main",
-        .pSpecializationInfo = specialisation_info,
-    };
-}
-
-void GraphicsStage::set_fragment_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info) {
-    m_fragment_shader = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = *shader,
-        .pName = "main",
-        .pSpecializationInfo = specialisation_info,
-    };
+void RenderStage::add_shader(const Shader &shader, const VkSpecializationInfo &specialisation_info) {
+    m_shaders.push(&shader);
+    m_specialisation_infos.push(specialisation_info);
 }
 
 Box<CompiledGraph> RenderGraph::compile(const RenderResource *target) const {
@@ -172,9 +147,16 @@ Box<CompiledGraph> RenderGraph::compile(const RenderResource *target) const {
 
 void CompiledGraph::build_compute_pipeline(const Device &device, const ComputeStage *stage,
                                            VkPipelineLayout pipeline_layout, VkPipeline *pipeline) {
+    VkPipelineShaderStageCreateInfo shader_stage_ci{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = stage->m_shaders[0]->stage(),
+        .module = **stage->m_shaders[0],
+        .pName = "main",
+        .pSpecializationInfo = &stage->m_specialisation_infos[0],
+    };
     VkComputePipelineCreateInfo pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-        .stage = stage->m_shader,
+        .stage = shader_stage_ci,
         .layout = pipeline_layout,
     };
     ENSURE(vkCreateComputePipelines(*device, nullptr, 1, &pipeline_ci, nullptr, pipeline) == VK_SUCCESS);
@@ -274,19 +256,22 @@ void CompiledGraph::build_graphics_pipeline(const Device &device, const Graphics
         .pAttachments = &blend_attachment,
     };
 
-    Array<VkPipelineShaderStageCreateInfo, 2> shaders{};
-    std::uint32_t shader_count = 0;
-    if (stage->m_vertex_shader.module != nullptr) {
-        shaders[shader_count++] = stage->m_vertex_shader;
-    }
-    if (stage->m_fragment_shader.module != nullptr) {
-        shaders[shader_count++] = stage->m_fragment_shader;
+    Vector<VkPipelineShaderStageCreateInfo> shader_stage_cis;
+    shader_stage_cis.ensure_capacity(stage->m_shaders.size());
+    for (std::uint32_t i = 0; const auto *shader : stage->m_shaders) {
+        shader_stage_cis.push(VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = shader->stage(),
+            .module = **shader,
+            .pName = "main",
+            .pSpecializationInfo = &stage->m_specialisation_infos[i++],
+        });
     }
 
     VkGraphicsPipelineCreateInfo pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-        .stageCount = shader_count,
-        .pStages = shaders.data(),
+        .stageCount = shader_stage_cis.size(),
+        .pStages = shader_stage_cis.data(),
         .pVertexInputState = &vertex_input,
         .pInputAssemblyState = &input_assembly,
         .pViewportState = &viewport_state,
@@ -665,12 +650,24 @@ Box<ExecutableGraph> CompiledGraph::build_objects(const Device &device, std::uin
 
     // Create pipeline layouts.
     for (const auto *stage : m_stage_order) {
+        VkShaderStageFlags push_constant_stages = 0;
+        std::uint32_t push_constant_size = 0;
+        for (const auto *shader : stage->m_shaders) {
+            push_constant_size = std::max(push_constant_size, shader->push_constant_size());
+            if (shader->push_constant_size() != 0) {
+                push_constant_stages |= shader->stage();
+            }
+        }
+        VkPushConstantRange push_constant_range{
+            .stageFlags = push_constant_stages,
+            .size = push_constant_size,
+        };
         VkPipelineLayoutCreateInfo pipeline_layout_ci{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
             .setLayoutCount = 1,
             .pSetLayouts = &descriptor_set_layouts[stage->m_index],
-            .pushConstantRangeCount = stage->m_push_constant_ranges.size(),
-            .pPushConstantRanges = stage->m_push_constant_ranges.data(),
+            .pushConstantRangeCount = push_constant_size != 0 ? 1u : 0u,
+            .pPushConstantRanges = &push_constant_range,
         };
         ENSURE(vkCreatePipelineLayout(*device, &pipeline_layout_ci, nullptr, &pipeline_layouts[stage->m_index]) ==
                VK_SUCCESS);

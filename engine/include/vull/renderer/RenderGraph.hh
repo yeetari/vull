@@ -176,7 +176,8 @@ private:
 
     Vector<const RenderResource *> m_reads;
     Vector<const RenderResource *> m_writes;
-    Vector<VkPushConstantRange> m_push_constant_ranges;
+    Vector<const Shader *> m_shaders;
+    Vector<VkSpecializationInfo> m_specialisation_infos;
 
     // TODO: Create a new object to pass to the record function that encapsulates the command buffer and stage info.
     std::function<void(VkCommandBuffer, VkPipelineLayout)> m_on_record;
@@ -194,7 +195,7 @@ public:
     void reads_from(const RenderResource *resource) { m_reads.push(resource); }
     void writes_to(const RenderResource *resource) { m_writes.push(resource); }
 
-    void add_push_constant_range(VkPushConstantRange range) { m_push_constant_ranges.push(range); }
+    void add_shader(const Shader &shader, const VkSpecializationInfo &specialisation_info = {});
     void set_on_record(std::function<void(VkCommandBuffer, VkPipelineLayout)> on_record) {
         m_on_record = std::move(on_record);
     }
@@ -203,14 +204,9 @@ public:
 class ComputeStage : public RenderStage {
     friend CompiledGraph;
 
-private:
-    VkPipelineShaderStageCreateInfo m_shader{};
-
 public:
     static constexpr auto k_kind = StageKind::Compute;
     ComputeStage(std::uint32_t index, std::string &&name) : RenderStage(k_kind, index, name) {}
-
-    void set_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
 };
 
 class GraphicsStage : public RenderStage {
@@ -221,8 +217,6 @@ class GraphicsStage : public RenderStage {
 private:
     Vector<const ImageResource *> m_inputs;
     Vector<const ImageResource *> m_outputs;
-    VkPipelineShaderStageCreateInfo m_vertex_shader{};
-    VkPipelineShaderStageCreateInfo m_fragment_shader{};
 
 public:
     static constexpr auto k_kind = StageKind::Graphics;
@@ -230,9 +224,6 @@ public:
 
     void add_input(const ImageResource *resource) { m_inputs.push(resource); }
     void add_output(const ImageResource *resource) { m_outputs.push(resource); }
-
-    void set_vertex_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
-    void set_fragment_shader(const Shader &shader, const VkSpecializationInfo *specialisation_info = nullptr);
 };
 
 class RenderGraph {

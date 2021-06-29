@@ -136,30 +136,22 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     m_light_buffer->set_name("light buffer");
 
     m_depth_pass = m_graph.add<GraphicsStage>("depth pass");
-    m_depth_pass->add_push_constant_range(VkPushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .size = sizeof(glm::mat4),
-    });
-    m_depth_pass->set_vertex_shader(depth_pass_shader);
+    m_depth_pass->add_shader(depth_pass_shader);
     m_depth_pass->reads_from(index_buffer);
     m_depth_pass->reads_from(m_uniform_buffer);
     m_depth_pass->reads_from(vertex_buffer);
     m_depth_pass->add_output(depth_buffer);
 
     auto *light_cull_pass = m_graph.add<ComputeStage>("light cull pass");
-    light_cull_pass->set_shader(light_cull_pass_shader, &specialisation_info);
+    light_cull_pass->add_shader(light_cull_pass_shader, specialisation_info);
     light_cull_pass->reads_from(depth_buffer);
     light_cull_pass->reads_from(m_light_buffer);
     light_cull_pass->reads_from(m_uniform_buffer);
     light_cull_pass->writes_to(light_visibility_buffer);
 
     m_main_pass = m_graph.add<GraphicsStage>("main pass");
-    m_main_pass->add_push_constant_range(VkPushConstantRange{
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        .size = sizeof(glm::mat4) + sizeof(std::uint32_t),
-    });
-    m_main_pass->set_vertex_shader(main_pass_vertex_shader);
-    m_main_pass->set_fragment_shader(main_pass_fragment_shader, &specialisation_info);
+    m_main_pass->add_shader(main_pass_vertex_shader);
+    m_main_pass->add_shader(main_pass_fragment_shader, specialisation_info);
     m_main_pass->reads_from(index_buffer);
     m_main_pass->reads_from(m_light_buffer);
     m_main_pass->reads_from(light_visibility_buffer);
