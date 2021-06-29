@@ -12,8 +12,11 @@ class Shader {
     const Device &m_device;
     VkShaderModule m_module{nullptr};
 
+    VkShaderStageFlagBits m_stage;
+    std::uint32_t m_push_constant_size{0};
+
 public:
-    Shader(const Device &device, const Vector<std::uint8_t> &binary);
+    Shader(const Device &device, Vector<std::uint8_t> &&binary);
     Shader(const Shader &) = delete;
     Shader(Shader &&) = delete;
     ~Shader();
@@ -22,4 +25,6 @@ public:
     Shader &operator=(Shader &&) = delete;
 
     VkShaderModule operator*() const { return m_module; }
+    VkShaderStageFlagBits stage() const { return m_stage; }
+    std::uint32_t push_constant_size() const { return m_push_constant_size; }
 };
