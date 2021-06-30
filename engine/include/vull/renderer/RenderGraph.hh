@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 class CompiledGraph;
@@ -177,7 +178,7 @@ private:
     Vector<const RenderResource *> m_reads;
     Vector<const RenderResource *> m_writes;
     Vector<const Shader *> m_shaders;
-    Vector<VkSpecializationInfo> m_specialisation_infos;
+    std::unordered_map<std::string, std::size_t> m_specialisation_constants;
 
     // TODO: Create a new object to pass to the record function that encapsulates the command buffer and stage info.
     std::function<void(VkCommandBuffer, VkPipelineLayout)> m_on_record;
@@ -195,7 +196,8 @@ public:
     void reads_from(const RenderResource *resource) { m_reads.push(resource); }
     void writes_to(const RenderResource *resource) { m_writes.push(resource); }
 
-    void add_shader(const Shader &shader, const VkSpecializationInfo &specialisation_info = {});
+    void add_shader(const Shader &shader);
+    void set_constant(std::string name, std::size_t value);
     void set_on_record(std::function<void(VkCommandBuffer, VkPipelineLayout)> on_record) {
         m_on_record = std::move(on_record);
     }

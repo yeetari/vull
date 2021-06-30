@@ -54,53 +54,6 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     create_queue();
     create_sync_objects();
 
-    struct SpecialisationData {
-        std::uint32_t tile_size;
-        std::uint32_t max_lights_per_tile;
-        std::uint32_t tile_count;
-        std::uint32_t viewport_width;
-        std::uint32_t viewport_height;
-    } specialisation_data{
-        .tile_size = k_tile_size,
-        .max_lights_per_tile = k_max_lights_per_tile,
-        .tile_count = m_row_tile_count,
-        .viewport_width = swapchain_extent.width,
-        .viewport_height = swapchain_extent.height,
-    };
-    Array specialisation_map_entries{
-        VkSpecializationMapEntry{
-            .constantID = 0,
-            .offset = offsetof(SpecialisationData, tile_size),
-            .size = sizeof(SpecialisationData::tile_size),
-        },
-        VkSpecializationMapEntry{
-            .constantID = 1,
-            .offset = offsetof(SpecialisationData, max_lights_per_tile),
-            .size = sizeof(SpecialisationData::max_lights_per_tile),
-        },
-        VkSpecializationMapEntry{
-            .constantID = 2,
-            .offset = offsetof(SpecialisationData, tile_count),
-            .size = sizeof(SpecialisationData::tile_count),
-        },
-        VkSpecializationMapEntry{
-            .constantID = 3,
-            .offset = offsetof(SpecialisationData, viewport_width),
-            .size = sizeof(SpecialisationData::viewport_width),
-        },
-        VkSpecializationMapEntry{
-            .constantID = 4,
-            .offset = offsetof(SpecialisationData, viewport_height),
-            .size = sizeof(SpecialisationData::viewport_height),
-        },
-    };
-    VkSpecializationInfo specialisation_info{
-        .mapEntryCount = specialisation_map_entries.size(),
-        .pMapEntries = specialisation_map_entries.data(),
-        .dataSize = sizeof(SpecialisationData),
-        .pData = &specialisation_data,
-    };
-
     Shader depth_pass_shader(device, FileSystem::load_shader("builtin/shaders/depth.vert"));
     Shader light_cull_pass_shader(device, FileSystem::load_shader("builtin/shaders/light_cull.comp"));
     Shader main_pass_vertex_shader(device, FileSystem::load_shader("builtin/shaders/main.vert"));
@@ -143,21 +96,29 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     m_depth_pass->add_output(depth_buffer);
 
     auto *light_cull_pass = m_graph.add<ComputeStage>("light cull pass");
-    light_cull_pass->add_shader(light_cull_pass_shader, specialisation_info);
+    light_cull_pass->add_shader(light_cull_pass_shader);
     light_cull_pass->reads_from(depth_buffer);
     light_cull_pass->reads_from(m_light_buffer);
     light_cull_pass->reads_from(m_uniform_buffer);
+    light_cull_pass->set_constant("k_tile_size", k_tile_size);
+    light_cull_pass->set_constant("k_max_lights_per_tile", k_max_lights_per_tile);
+    light_cull_pass->set_constant("k_row_tile_count", m_row_tile_count);
+    light_cull_pass->set_constant("k_viewport_width", swapchain_extent.width);
+    light_cull_pass->set_constant("k_viewport_height", swapchain_extent.height);
     light_cull_pass->writes_to(light_visibility_buffer);
 
     m_main_pass = m_graph.add<GraphicsStage>("main pass");
     m_main_pass->add_shader(main_pass_vertex_shader);
-    m_main_pass->add_shader(main_pass_fragment_shader, specialisation_info);
+    m_main_pass->add_shader(main_pass_fragment_shader);
     m_main_pass->reads_from(index_buffer);
     m_main_pass->reads_from(m_light_buffer);
     m_main_pass->reads_from(light_visibility_buffer);
     m_main_pass->reads_from(m_uniform_buffer);
     m_main_pass->reads_from(vertex_buffer);
     m_main_pass->reads_from(m_texture_array);
+    m_main_pass->set_constant("k_tile_size", k_tile_size);
+    m_main_pass->set_constant("k_max_lights_per_tile", k_max_lights_per_tile);
+    m_main_pass->set_constant("k_row_tile_count", m_row_tile_count);
     m_main_pass->add_input(depth_buffer);
     m_main_pass->add_output(back_buffer);
 

@@ -1,7 +1,6 @@
 #include <vull/renderer/RenderGraph.hh>
 
 #include <vull/renderer/Texture.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Log.hh>
@@ -15,6 +14,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <sstream>
@@ -74,9 +74,12 @@ void BufferResource::add_vertex_attribute(VkFormat format, std::uint32_t offset)
     });
 }
 
-void RenderStage::add_shader(const Shader &shader, const VkSpecializationInfo &specialisation_info) {
+void RenderStage::add_shader(const Shader &shader) {
     m_shaders.push(&shader);
-    m_specialisation_infos.push(specialisation_info);
+}
+
+void RenderStage::set_constant(std::string name, std::size_t value) {
+    m_specialisation_constants[std::move(name)] = value;
 }
 
 Box<CompiledGraph> RenderGraph::compile(const RenderResource *target) const {
@@ -147,12 +150,43 @@ Box<CompiledGraph> RenderGraph::compile(const RenderResource *target) const {
 
 void CompiledGraph::build_compute_pipeline(const Device &device, const ComputeStage *stage,
                                            VkPipelineLayout pipeline_layout, VkPipeline *pipeline) {
+    Vector<VkSpecializationMapEntry> specialisation_map_entries;
+    Vector<std::size_t> specialisation_values;
+    for (const auto *shader : stage->m_shaders) {
+        for (const auto &constant_info : shader->specialisation_constants()) {
+            if (!stage->m_specialisation_constants.contains(constant_info.name)) {
+                Log::error("render-graph", "Missing value for specialisation constant %s in stage %s",
+                           constant_info.name.c_str(), stage->m_name.c_str());
+                std::exit(1);
+            }
+            if (std::find_if(specialisation_map_entries.begin(), specialisation_map_entries.end(),
+                             [&constant_info](const VkSpecializationMapEntry &entry) {
+                                 return constant_info.id == entry.constantID;
+                             }) != specialisation_map_entries.end()) {
+                continue;
+            }
+            std::size_t value = stage->m_specialisation_constants.at(constant_info.name);
+            specialisation_map_entries.push(VkSpecializationMapEntry{
+                .constantID = constant_info.id,
+                .offset = specialisation_values.size_bytes(),
+                .size = constant_info.size,
+            });
+            specialisation_values.push(value);
+        }
+    }
+    VkSpecializationInfo specialisation_info{
+        .mapEntryCount = specialisation_map_entries.size(),
+        .pMapEntries = specialisation_map_entries.data(),
+        .dataSize = specialisation_values.size_bytes(),
+        .pData = specialisation_values.data(),
+    };
+
     VkPipelineShaderStageCreateInfo shader_stage_ci{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = stage->m_shaders[0]->stage(),
         .module = **stage->m_shaders[0],
         .pName = "main",
-        .pSpecializationInfo = &stage->m_specialisation_infos[0],
+        .pSpecializationInfo = &specialisation_info,
     };
     VkComputePipelineCreateInfo pipeline_ci{
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
@@ -165,6 +199,37 @@ void CompiledGraph::build_compute_pipeline(const Device &device, const ComputeSt
 void CompiledGraph::build_graphics_pipeline(const Device &device, const GraphicsStage *stage,
                                             VkPipelineLayout pipeline_layout, VkRenderPass render_pass,
                                             VkPipeline *pipeline) {
+    Vector<VkSpecializationMapEntry> specialisation_map_entries;
+    Vector<std::size_t> specialisation_values;
+    for (const auto *shader : stage->m_shaders) {
+        for (const auto &constant_info : shader->specialisation_constants()) {
+            if (!stage->m_specialisation_constants.contains(constant_info.name)) {
+                Log::error("render-graph", "Missing value for specialisation constant %s in stage %s",
+                           constant_info.name.c_str(), stage->m_name.c_str());
+                std::exit(1);
+            }
+            if (std::find_if(specialisation_map_entries.begin(), specialisation_map_entries.end(),
+                             [&constant_info](const VkSpecializationMapEntry &entry) {
+                                 return constant_info.id == entry.constantID;
+                             }) != specialisation_map_entries.end()) {
+                continue;
+            }
+            std::size_t value = stage->m_specialisation_constants.at(constant_info.name);
+            specialisation_map_entries.push(VkSpecializationMapEntry{
+                .constantID = constant_info.id,
+                .offset = specialisation_values.size_bytes(),
+                .size = constant_info.size,
+            });
+            specialisation_values.push(value);
+        }
+    }
+    VkSpecializationInfo specialisation_info{
+        .mapEntryCount = specialisation_map_entries.size(),
+        .pMapEntries = specialisation_map_entries.data(),
+        .dataSize = specialisation_values.size_bytes(),
+        .pData = specialisation_values.data(),
+    };
+
     // Build vertex layout attributes and bindings.
     Vector<VkVertexInputAttributeDescription> vertex_attributes;
     Vector<VkVertexInputBindingDescription> vertex_bindings;
@@ -258,13 +323,13 @@ void CompiledGraph::build_graphics_pipeline(const Device &device, const Graphics
 
     Vector<VkPipelineShaderStageCreateInfo> shader_stage_cis;
     shader_stage_cis.ensure_capacity(stage->m_shaders.size());
-    for (std::uint32_t i = 0; const auto *shader : stage->m_shaders) {
+    for (const auto *shader : stage->m_shaders) {
         shader_stage_cis.push(VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = shader->stage(),
             .module = **shader,
             .pName = "main",
-            .pSpecializationInfo = &stage->m_specialisation_infos[i++],
+            .pSpecializationInfo = &specialisation_info,
         });
     }
 
