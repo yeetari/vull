@@ -48,21 +48,21 @@ function(target_add_shader target shader)
     if(CMAKE_GENERATOR MATCHES "Ninja")
         add_custom_command(
             OUTPUT ${output}
-            COMMAND ${GLSLC} -MD -O ${source} -o ${output}
+            COMMAND ${GLSLC} -MD -O -g ${source} -o ${output}
             DEPENDS ${source}
             DEPFILE ${output}.d
             VERBATIM)
     elseif(CMAKE_GENERATOR MATCHES "Unix Makefiles")
         add_custom_command(
             OUTPUT ${output}
-            COMMAND ${GLSLC} -O ${source} -o ${output}
+            COMMAND ${GLSLC} -O -g ${source} -o ${output}
             DEPENDS ${source}
             IMPLICIT_DEPENDS CXX ${source}
             VERBATIM)
     else()
         add_custom_command(
             OUTPUT ${output}
-            COMMAND ${GLSLC} -O ${source} -o ${output}
+            COMMAND ${GLSLC} -O -g ${source} -o ${output}
             DEPENDS ${source}
             VERBATIM)
     endif()
