@@ -2,9 +2,10 @@
 
 #include <vull/core/System.hh>
 #include <vull/renderer/PointLight.hh> // IWYU pragma: keep
-#include <vull/renderer/RenderGraph.hh>
 #include <vull/renderer/UniformBuffer.hh>
 #include <vull/renderer/Vertex.hh> // IWYU pragma: keep
+#include <vull/rendering/ExecutableGraph.hh>
+#include <vull/rendering/RenderGraph.hh>
 #include <vull/support/Box.hh>
 #include <vull/support/Span.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
@@ -16,6 +17,8 @@
 #include <cstdint>
 
 class Device;
+class GraphicsStage;
+class RenderSwapchain;
 class Swapchain;
 class Texture;
 struct World;
@@ -29,9 +32,7 @@ class RenderSystem final : public System<RenderSystem> {
     RenderGraph m_graph;
     Box<CompiledGraph> m_compiled_graph;
     Box<ExecutableGraph> m_executable_graph;
-    BufferResource *m_light_buffer;
-    BufferResource *m_uniform_buffer;
-    ImageResource *m_texture_array;
+    RenderSwapchain *m_back_buffer;
     GraphicsStage *m_depth_pass;
     GraphicsStage *m_main_pass;
 
@@ -45,9 +46,6 @@ class RenderSystem final : public System<RenderSystem> {
 
     Vector<PointLight> m_lights;
     UniformBuffer m_ubo{};
-
-    void create_queue();
-    void create_sync_objects();
 
 public:
     RenderSystem(const Device &device, const Swapchain &swapchain, Span<std::uint8_t> vertices,

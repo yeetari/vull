@@ -16,8 +16,17 @@ target_sources(vull-engine PRIVATE
     physics/RigidBody.cc
     physics/Vehicle.cc
     renderer/Camera.cc
-    renderer/RenderGraph.cc
     renderer/RenderSystem.cc
+    rendering/ComputeStage.cc
+    rendering/ExecutableGraph.cc
+    rendering/GraphicsStage.cc
+    rendering/RenderBuffer.cc
+    rendering/RenderFrame.cc
+    rendering/RenderGraph.cc
+    rendering/RenderStage.cc
+    rendering/RenderSwapchain.cc
+    rendering/RenderTexture.cc
+    rendering/RenderVertexBuffer.cc
     support/Assert.cc
     support/Log.cc
     vulkan/Device.cc

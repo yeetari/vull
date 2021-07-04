@@ -18,6 +18,8 @@ target_add_shader(vull-builtin-pack ../engine/shaders/depth.vert)
 target_add_shader(vull-builtin-pack ../engine/shaders/light_cull.comp)
 target_add_shader(vull-builtin-pack ../engine/shaders/main.frag)
 target_add_shader(vull-builtin-pack ../engine/shaders/main.vert)
+target_add_shader(vull-builtin-pack ../engine/shaders/flat.vert)
+target_add_shader(vull-builtin-pack ../engine/shaders/flat.frag)
 
 add_custom_command(
     OUTPUT sandbox.vpak
