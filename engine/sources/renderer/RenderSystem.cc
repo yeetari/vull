@@ -73,10 +73,13 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     vertex_buffer->add_attribute(VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal));
     vertex_buffer->add_attribute(VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv));
 
+    m_uniform_buffer = m_graph.add<RenderBuffer>(BufferType::UniformBuffer, MemoryUsage::HostVisible);
+
     m_depth_pass = m_graph.add<GraphicsStage>("depth pass");
     m_depth_pass->add_output(depth_buffer);
     m_depth_pass->add_shader(vertex_shader);
     m_depth_pass->reads_from(index_buffer);
+    m_depth_pass->reads_from(m_uniform_buffer);
     m_depth_pass->reads_from(vertex_buffer);
 
     m_main_pass = m_graph.add<GraphicsStage>("main pass");
@@ -85,10 +88,12 @@ RenderSystem::RenderSystem(const Device &device, const Swapchain &swapchain, Spa
     m_main_pass->add_shader(vertex_shader);
     m_main_pass->add_shader(fragment_shader);
     m_main_pass->reads_from(index_buffer);
+    m_main_pass->reads_from(m_uniform_buffer);
     m_main_pass->reads_from(vertex_buffer);
 
     m_compiled_graph = m_graph.compile(m_back_buffer);
-    m_executable_graph = m_compiled_graph->build_objects(device, swapchain.image_count());
+    m_executable_graph = m_compiled_graph->build_objects(
+        device, 1); // TODO: Add resource multiplexer and change back to swapchain.image_count().
 
     // TODO: Very sad, might have to make virtual transfer in MemoryResource protected.
     index_buffer->MemoryResource::transfer(indices);
@@ -109,7 +114,7 @@ RenderSystem::~RenderSystem() {
     vkDeviceWaitIdle(*m_device);
 }
 
-std::uint32_t RenderSystem::upload_texture(const Texture &texture) {
+std::uint32_t RenderSystem::upload_texture(const Texture &) {
     //    for (auto &frame_data : m_executable_graph->frame_datas()) {
     //        frame_data.transfer(m_texture_array, texture, m_texture_index);
     //    }
@@ -123,6 +128,7 @@ void RenderSystem::update(World *world, float) {
     m_frame_fences[m_frame_index].reset();
 
     m_back_buffer->set_image_index(image_index);
+    m_uniform_buffer->MemoryResource::upload(m_ubo); // TODO: Sad :(.
     m_executable_graph->start_frame(m_frame_index);
     {
         for (auto [entity, mesh, transform] : world->view<Mesh, Transform>()) {

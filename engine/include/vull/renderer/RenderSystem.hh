@@ -18,6 +18,7 @@
 
 class Device;
 class GraphicsStage;
+class RenderBuffer;
 class RenderSwapchain;
 class Swapchain;
 class Texture;
@@ -33,6 +34,7 @@ class RenderSystem final : public System<RenderSystem> {
     Box<CompiledGraph> m_compiled_graph;
     Box<ExecutableGraph> m_executable_graph;
     RenderSwapchain *m_back_buffer;
+    RenderBuffer *m_uniform_buffer;
     GraphicsStage *m_depth_pass;
     GraphicsStage *m_main_pass;
 

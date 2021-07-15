@@ -35,6 +35,7 @@ public:
 
     void build_objects(const Device &device, ExecutableGraph *executable_graph) override;
     void transfer(const void *data, VkDeviceSize size) override;
+    void upload(const void *data, VkDeviceSize size) override;
 
     TextureType type() const { return m_type; }
     const VkClearValue &clear_value() const { return m_clear_value; }

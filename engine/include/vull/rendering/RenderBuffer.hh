@@ -29,6 +29,7 @@ public:
     RenderBuffer &operator=(RenderBuffer &&) = delete;
 
     void transfer(const void *data, VkDeviceSize size) override;
+    void upload(const void *data, VkDeviceSize size) override;
 
     BufferType type() const { return m_type; }
     VkBuffer buffer() const { return m_buffer; }

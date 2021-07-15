@@ -21,7 +21,9 @@ class RenderFrame {
     const Device &m_device;
     VkCommandPool m_command_pool{nullptr};
     VkCommandBuffer m_transfer_buffer{nullptr};
+    VkDescriptorPool m_descriptor_pool{nullptr};
     Vector<VkCommandBuffer> m_command_buffers;
+    Vector<VkDescriptorSet> m_descriptor_sets;
     Vector<StagingBuffer> m_staging_buffer_deletion_queue;
 
 public:
@@ -30,7 +32,8 @@ public:
     RenderFrame(RenderFrame &&other) noexcept
         : m_device(other.m_device), m_command_pool(std::exchange(other.m_command_pool, nullptr)),
           m_transfer_buffer(std::exchange(other.m_transfer_buffer, nullptr)),
-          m_command_buffers(std::move(other.m_command_buffers)),
+          m_descriptor_pool(std::exchange(other.m_descriptor_pool, nullptr)),
+          m_command_buffers(std::move(other.m_command_buffers)), m_descriptor_sets(std::move(other.m_descriptor_sets)),
           m_staging_buffer_deletion_queue(std::move(other.m_staging_buffer_deletion_queue)) {}
     ~RenderFrame();
 

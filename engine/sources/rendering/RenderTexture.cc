@@ -91,3 +91,9 @@ void RenderTexture::transfer(const void *, VkDeviceSize) {
     ASSERT(m_usage == MemoryUsage::Transfer);
     ENSURE_NOT_REACHED();
 }
+
+void RenderTexture::upload(const void *, VkDeviceSize) {
+    ASSERT(m_executable_graph != nullptr);
+    ASSERT(m_usage == MemoryUsage::HostVisible);
+    ENSURE_NOT_REACHED();
+}

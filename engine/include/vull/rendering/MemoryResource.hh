@@ -23,7 +23,10 @@ public:
     void transfer(const T &data);
     template <typename T, template <typename> typename Container>
     void transfer(const Container<T> &data);
-//    void upload() {}
+
+    virtual void upload(const void *data, VkDeviceSize size) = 0;
+    template <typename T>
+    void upload(const T &data);
 };
 
 template <typename T>
@@ -34,4 +37,9 @@ void MemoryResource::transfer(const T &data) {
 template <typename T, template <typename> typename Container>
 void MemoryResource::transfer(const Container<T> &data) {
     transfer(data.data(), data.size_bytes());
+}
+
+template <typename T>
+void MemoryResource::upload(const T &data) {
+    upload(&data, sizeof(T));
 }

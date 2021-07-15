@@ -20,6 +20,17 @@ VkBufferUsageFlags buffer_usage(BufferType type) {
     }
 }
 
+VkDescriptorType descriptor_type(BufferType type) {
+    switch (type) {
+    case BufferType::StorageBuffer:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case BufferType::UniformBuffer:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    default:
+        ENSURE_NOT_REACHED();
+    }
+}
+
 } // namespace
 
 RenderBuffer::RenderBuffer(BufferType type, MemoryUsage usage) : MemoryResource(usage), m_type(type) {
@@ -80,8 +91,29 @@ void RenderBuffer::ensure_size(VkDeviceSize size) {
         return;
     }
 
-    // TODO: Update descriptors.
-    ASSERT(m_readers.empty() && m_writers.empty());
+    // Update descriptor.
+    VkDescriptorBufferInfo buffer_info{
+        .buffer = m_buffer,
+        .range = VK_WHOLE_SIZE,
+    };
+    auto update_descriptor = [this, &buffer_info](const RenderStage *stage) {
+        ENSURE_NOT_REACHED();
+        VkWriteDescriptorSet write{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = nullptr,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = descriptor_type(m_type),
+            .pBufferInfo = &buffer_info,
+        };
+        vkUpdateDescriptorSets(**m_device, 1, &write, 0, nullptr);
+    };
+    for (const auto *reader : m_readers) {
+        update_descriptor(reader);
+    }
+    for (const auto *writer : m_writers) {
+        update_descriptor(writer);
+    }
 }
 
 void RenderBuffer::transfer(const void *data, VkDeviceSize size) {
@@ -95,4 +127,16 @@ void RenderBuffer::transfer(const void *data, VkDeviceSize size) {
         .dst = m_buffer,
         .size = size,
     });
+}
+
+void RenderBuffer::upload(const void *data, VkDeviceSize size) {
+    ASSERT(m_executable_graph != nullptr);
+    ASSERT(m_usage == MemoryUsage::HostVisible);
+    ensure_size(size);
+
+    // TODO: Keep persistently mapped?
+    void *mapped_data;
+    vkMapMemory(**m_device, m_memory, 0, VK_WHOLE_SIZE, 0, &mapped_data);
+    std::memcpy(mapped_data, data, size);
+    vkUnmapMemory(**m_device, m_memory);
 }

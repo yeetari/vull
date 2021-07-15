@@ -21,9 +21,26 @@ RenderFrame::RenderFrame(const Device &device, std::uint32_t stage_count) : m_de
     };
     ENSURE(vkAllocateCommandBuffers(*device, &command_buffer_ai, m_command_buffers.data()) == VK_SUCCESS);
     m_transfer_buffer = m_command_buffers[stage_count];
+
+    VkDescriptorPoolCreateInfo descriptor_pool_ci{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = stage_count,
+        .poolSizeCount = 0,
+        .pPoolSizes = nullptr,
+    };
+    ENSURE(vkCreateDescriptorPool(*device, &descriptor_pool_ci, nullptr, &m_descriptor_pool) == VK_SUCCESS);
+
+    VkDescriptorSetAllocateInfo descriptor_set_ai{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = m_descriptor_pool,
+        .descriptorSetCount = stage_count,
+        .pSetLayouts = nullptr,
+    };
+    ENSURE(vkAllocateDescriptorSets(*device, &descriptor_set_ai, m_descriptor_sets.data()) == VK_SUCCESS);
 }
 
 RenderFrame::~RenderFrame() {
+    vkDestroyDescriptorPool(*m_device, m_descriptor_pool, nullptr);
     vkDestroyCommandPool(*m_device, m_command_pool, nullptr);
 }
 
