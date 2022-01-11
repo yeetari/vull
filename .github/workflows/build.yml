@@ -1,0 +1,51 @@
+# TODO: Run tests and at least build benchmarks.
+name: Build
+on: [push, pull_request]
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: ubuntu:21.10
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { cc: clang, cxx: clang++ }
+          - { cc: gcc,   cxx: g++ }
+    steps:
+      - name: Update package lists
+        run: apt update -qq
+      - name: Add cmake and vulkan-sdk repositories
+        run: |
+          apt install -y gnupg2 wget
+          wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add -
+          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
+          echo 'deb https://apt.kitware.com/ubuntu focal main' > /etc/apt/sources.list.d/kitware.list
+          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          apt update -qq
+      - name: Install tools and dependencies
+        run: >-
+          apt install -y
+          clang
+          cmake
+          gcc
+          g++
+          git
+          libx11-dev
+          libxcb-util-dev
+          ninja-build
+          vulkan-sdk
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure CMake
+        run: >-
+          cmake .
+          -Bbuild
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_COMPILER=${{ matrix.config.cc }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
+          -GNinja
+      - name: Build
+        run: cmake --build build

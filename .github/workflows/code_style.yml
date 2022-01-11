@@ -1,0 +1,75 @@
+name: Code Style
+on: [push, pull_request]
+jobs:
+  clang-format:
+    name: Clang Format
+    runs-on: ubuntu-latest
+    container: ubuntu:21.10
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Update package lists
+        run: apt update -qq
+      - name: Install tools
+        run: >-
+          apt install -y
+          clang-format
+          git
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Run clang-format
+        shell: bash
+        run: |
+          find . -name '*.cc' -or -name '*.hh' | xargs clang-format -i
+          git diff | tee format-diff
+          if [ -s format-diff ]; then exit 1; fi
+
+  include-what-you-use:
+    name: Include What You Use
+    runs-on: ubuntu-latest
+    container: ubuntu:21.10
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Update package lists
+        run: apt update -qq
+      - name: Add cmake and vulkan-sdk repositories
+        run: |
+          apt install -y gnupg2 wget
+          wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add -
+          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
+          echo 'deb https://apt.kitware.com/ubuntu focal main' > /etc/apt/sources.list.d/kitware.list
+          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
+          apt update -qq
+      - name: Install tools and dependencies
+        run: >-
+          apt install -y
+          clang
+          cmake
+          git
+          libclang-dev
+          libx11-dev
+          libxcb-util-dev
+          llvm-dev
+          parallel
+          vulkan-sdk
+      - name: Build IWYU
+        run: |
+          mkdir /opt/include-what-you-use
+          wget -qO /opt/include-what-you-use.tar.gz https://include-what-you-use.org/downloads/include-what-you-use-0.17.src.tar.gz
+          tar xfz /opt/include-what-you-use.tar.gz -C /opt
+          cmake -B/opt/include-what-you-use/build /opt/include-what-you-use
+          cmake --build /opt/include-what-you-use/build --target install
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Configure CMake
+        run: cmake . -Bbuild
+      - name: Run include-what-you-use
+        run: |
+          find engine/sources sandbox \
+            -name '*.cc' \
+            -print0 |
+          parallel -0 \
+            include-what-you-use -std=c++20 -Iengine/include -Ibuild/engine/include {} 2>&1 |
+          grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | tee output
+          if [ -s output ]; then exit 1; fi

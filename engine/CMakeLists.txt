@@ -1,0 +1,6 @@
+add_library(vull)
+add_subdirectory(sources)
+target_compile_features(vull PRIVATE cxx_std_20)
+target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
+target_include_directories(vull PUBLIC include PRIVATE sources)
+target_link_libraries(vull PRIVATE Vulkan::Vulkan X11::xcb X11::xcb_util)
