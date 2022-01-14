@@ -35,7 +35,7 @@ jobs:
         run: cmake . -Bbuild -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - name: Run clang-tidy
         run: |
-          find engine/sources sandbox tools \
+          find engine/sources sandbox \
             -name '*.cc' \
             -print0 |
           parallel -0 \
