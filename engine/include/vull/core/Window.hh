@@ -1,10 +1,14 @@
 #pragma once
 
+#include <vull/vulkan/Swapchain.hh>
+
 #include <stdint.h>
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
 namespace vull {
+
+class Context;
 
 class Window {
     const uint32_t m_width;
@@ -23,6 +27,7 @@ public:
     Window &operator=(const Window &) = delete;
     Window &operator=(Window &&) = delete;
 
+    Swapchain create_swapchain(const Context &context);
     void close();
     void poll_events();
 

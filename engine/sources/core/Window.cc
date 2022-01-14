@@ -1,8 +1,12 @@
 #include <vull/core/Window.hh>
 
 #include <vull/support/Assert.hh>
+#include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Swapchain.hh>
 
 #include <stdlib.h>
+#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_xcb.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xproto.h>
 
@@ -40,6 +44,17 @@ Window::~Window() {
     free(m_delete_window_atom);
     xcb_destroy_window(m_connection, m_id);
     xcb_disconnect(m_connection);
+}
+
+Swapchain Window::create_swapchain(const Context &context) {
+    VkXcbSurfaceCreateInfoKHR surface_ci{
+        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+        .connection = m_connection,
+        .window = m_id,
+    };
+    VkSurfaceKHR surface = nullptr;
+    vkCreateXcbSurfaceKHR(context.instance(), &surface_ci, nullptr, &surface);
+    return {context, {m_width, m_height}, surface};
 }
 
 void Window::close() {
