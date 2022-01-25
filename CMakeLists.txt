@@ -14,7 +14,7 @@ function(target_add_shader target shader)
     set(output ${CMAKE_CURRENT_BINARY_DIR}/${shader}.spv)
     add_custom_command(
         OUTPUT ${output}
-        COMMAND ${GLSLC} -MD -O -g ${source} -o ${output}
+        COMMAND ${GLSLC} -MD -O -g --target-env=vulkan1.2 ${source} -o ${output}
         DEPENDS ${source}
         DEPFILE ${output}.d
         VERBATIM)
