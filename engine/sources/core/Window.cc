@@ -12,7 +12,7 @@
 
 namespace vull {
 
-Window::Window(uint32_t width, uint32_t height) : m_width(width), m_height(height) {
+Window::Window(uint32_t width, uint32_t height, bool fullscreen) : m_width(width), m_height(height) {
     // Open an X connection.
     m_connection = xcb_connect(nullptr, nullptr);
     VULL_ENSURE(xcb_connection_has_error(m_connection) == 0, "Failed to create X connection");
@@ -34,6 +34,17 @@ Window::Window(uint32_t width, uint32_t height) : m_width(width), m_height(heigh
     xcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, m_id, protocols_atom->atom, XCB_ATOM_ATOM, 32, 1,
                         &m_delete_window_atom->atom);
     free(protocols_atom);
+
+    if (fullscreen) {
+        auto wm_state_atom_request = xcb_intern_atom(m_connection, 0, 13, "_NET_WM_STATE");
+        auto *wm_state_atom = xcb_intern_atom_reply(m_connection, wm_state_atom_request, nullptr);
+        auto wm_fullscreen_atom_request = xcb_intern_atom(m_connection, 0, 24, "_NET_WM_STATE_FULLSCREEN");
+        auto *wm_fullscreen_atom = xcb_intern_atom_reply(m_connection, wm_fullscreen_atom_request, nullptr);
+        xcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, m_id, wm_state_atom->atom, XCB_ATOM_ATOM, 32, 1,
+                            &wm_fullscreen_atom->atom);
+        free(wm_fullscreen_atom);
+        free(wm_state_atom);
+    }
 
     // Make the window visible and wait for the server to process the requests.
     xcb_map_window(m_connection, m_id);

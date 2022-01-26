@@ -19,7 +19,7 @@ class Window {
     bool m_should_close{false};
 
 public:
-    Window(uint32_t width, uint32_t height);
+    Window(uint32_t width, uint32_t height, bool fullscreen);
     Window(const Window &) = delete;
     Window(Window &&) = delete;
     ~Window();
