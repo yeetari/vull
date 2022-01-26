@@ -63,7 +63,7 @@ for extension_name in desired_extensions.copy():
 # Build a list of desired commands to generate prototypes for, starting with core commands and then any from extensions.
 desired_commands = []
 for core_command in registry.findall('feature/require/command'):
-    desired_commands.append(core_command.get('name'))
+    desired_commands.append(command_dict.get(core_command.get('name')))
 for extension_name in desired_extensions:
     extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
     assert extension
@@ -74,7 +74,10 @@ for extension_name in desired_extensions:
         if functionality.get('extension') and functionality.get('extension') not in desired_extensions:
             continue
         for command in functionality.findall('command'):
-            desired_commands.append(command.get('name'))
+            desired_commands.append(command_dict.get(command.get('name')))
+
+desired_commands.sort(key=lambda cmd: cmd.findtext('proto/name'))
+desired_commands = list(dict.fromkeys(desired_commands))
 
 # Generate header.
 generation_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
@@ -94,22 +97,24 @@ with open('../engine/include/vull/vulkan/ContextTable.hh', 'w') as file:
     file.write('    void load_instance(PFN_vkGetInstanceProcAddr get_instance_proc_addr);\n')
     file.write('    void load_device();\n\n')
     file.write('private:\n')
-    for desired_command in sorted(desired_commands):
-        if desired_command == 'vkGetInstanceProcAddr':
+    for command in desired_commands:
+        name = command.findtext('proto/name')
+        if name == 'vkGetInstanceProcAddr':
             continue
-        file.write('    PFN_' + desired_command + ' m_' + desired_command + ';\n')
+        file.write('    PFN_' + name + ' m_' + name + ';\n')
     file.write('\npublic:\n')
-    for desired_command in sorted(desired_commands):
-        if desired_command == 'vkGetInstanceProcAddr':
+    for command in desired_commands:
+        name = command.findtext('proto/name')
+        if name == 'vkGetInstanceProcAddr':
             continue
-        command = command_dict.get(desired_command)
 
         # Write function prototype.
-        file.write('    {} {}('.format(command.findtext('proto/type'), desired_command))
+        file.write('    {} {}('.format(command.findtext('proto/type'), name))
         param_index = 0
         for param in command.findall('param'):
-            name = param.findtext('name')
-            if name == 'device' or name == 'instance' or name == 'physicalDevice' or name == 'pAllocator':
+            param_name = param.findtext('name')
+            if param_name == 'device' or param_name == 'instance' or param_name == 'physicalDevice' \
+                    or param_name == 'pAllocator':
                 continue
             if param_index != 0:
                 file.write(', ')
@@ -135,20 +140,21 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
     loader_commands = []
     instance_commands = []
     device_commands = []
-    for desired_command in sorted(desired_commands):
-        if desired_command == 'vkGetInstanceProcAddr':
+    for command in desired_commands:
+        name = command.findtext('proto/name')
+        if name == 'vkGetInstanceProcAddr':
             continue
-        command = command_dict.get(desired_command)
+
         vk_type = command.findtext('param[1]/type')
-        if desired_command == 'vkGetDeviceProcAddr':
+        if name == 'vkGetDeviceProcAddr':
             vk_type = 'VkInstance'
 
         if is_parent_of('VkDevice', vk_type):
-            device_commands.append(desired_command)
+            device_commands.append(name)
         elif is_parent_of('VkInstance', vk_type):
-            instance_commands.append(desired_command)
+            instance_commands.append(name)
         else:
-            loader_commands.append(desired_command)
+            loader_commands.append(name)
 
     file.write('void ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {\n')
     for command in loader_commands:
@@ -165,17 +171,18 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
         file.write('    m_{0} = reinterpret_cast<PFN_{0}>(vkGetDeviceProcAddr("{0}"));\n'.format(command))
     file.write('}\n\n')
 
-    for desired_command in sorted(desired_commands):
-        if desired_command == 'vkGetInstanceProcAddr':
+    for command in desired_commands:
+        name = command.findtext('proto/name')
+        if name == 'vkGetInstanceProcAddr':
             continue
-        command = command_dict.get(desired_command)
 
         # Write function prototype.
-        file.write('{} ContextTable::{}('.format(command.findtext('proto/type'), desired_command))
+        file.write('{} ContextTable::{}('.format(command.findtext('proto/type'), name))
         param_index = 0
         for param in command.findall('param'):
-            name = param.findtext('name')
-            if name == 'device' or name == 'instance' or name == 'physicalDevice' or name == 'pAllocator':
+            param_name = param.findtext('name')
+            if param_name == 'device' or param_name == 'instance' or param_name == 'physicalDevice' \
+                    or param_name == 'pAllocator':
                 continue
             if param_index != 0:
                 file.write(', ')
@@ -190,21 +197,21 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
         file.write(') const {\n')
 
         # Write function body.
-        file.write('    return m_{}('.format(desired_command))
+        file.write('    return m_{}('.format(name))
         param_index = 0
         for param in command.findall('param'):
-            name = param.findtext('name')
-            if name == 'device':
-                name = 'm_device'
-            elif name == 'instance':
-                name = 'm_instance'
-            elif name == 'physicalDevice':
-                name = 'm_physical_device'
-            elif name == 'pAllocator':
-                name = 'nullptr'
+            param_name = param.findtext('name')
+            if param_name == 'device':
+                param_name = 'm_device'
+            elif param_name == 'instance':
+                param_name = 'm_instance'
+            elif param_name == 'physicalDevice':
+                param_name = 'm_physical_device'
+            elif param_name == 'pAllocator':
+                param_name = 'nullptr'
             if param_index != 0:
                 file.write(', ')
-            file.write(name)
+            file.write(param_name)
             param_index += 1
         file.write(');\n')
         file.write('}\n\n')
