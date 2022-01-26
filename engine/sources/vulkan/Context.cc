@@ -3,15 +3,27 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/ContextTable.hh>
 
+#include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 namespace vull {
 
-Context::Context() {
-    constexpr Array enabled_extensions{
+Context::Context() : ContextTable{} {
+    void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
+    if (libvulkan == nullptr) {
+        libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
+        VULL_ENSURE(libvulkan != nullptr, "Failed to find vulkan");
+    }
+    auto *vkGetInstanceProcAddr =
+        reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(libvulkan, "vkGetInstanceProcAddr"));
+    load_loader(vkGetInstanceProcAddr);
+
+    Array enabled_instance_extensions{
+        "VK_KHR_get_physical_device_properties2",
         "VK_KHR_surface",
         "VK_KHR_xcb_surface",
     };
@@ -22,8 +34,8 @@ Context::Context() {
     VkInstanceCreateInfo instance_ci{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &application_info,
-        .enabledExtensionCount = enabled_extensions.size(),
-        .ppEnabledExtensionNames = enabled_extensions.data(),
+        .enabledExtensionCount = enabled_instance_extensions.size(),
+        .ppEnabledExtensionNames = enabled_instance_extensions.data(),
     };
 #ifndef NDEBUG
     uint32_t layer_count = 0;
@@ -47,23 +59,24 @@ Context::Context() {
         fputs("Validation layer not present!", stderr);
     }
 #endif
-    VULL_ENSURE(vkCreateInstance(&instance_ci, nullptr, &m_instance) == VK_SUCCESS);
+    VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == VK_SUCCESS);
+    load_instance(vkGetInstanceProcAddr);
 
     uint32_t physical_device_count = 1;
-    VkResult enumeration_result = vkEnumeratePhysicalDevices(m_instance, &physical_device_count, &m_physical_device);
+    VkResult enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
     VULL_ENSURE(enumeration_result == VK_SUCCESS || enumeration_result == VK_INCOMPLETE);
     VULL_ENSURE(physical_device_count == 1);
 
     VkPhysicalDeviceMemoryProperties memory_properties;
-    vkGetPhysicalDeviceMemoryProperties(m_physical_device, &memory_properties);
+    vkGetPhysicalDeviceMemoryProperties(&memory_properties);
     for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
         m_memory_types.push(memory_properties.memoryTypes[i]);
     }
 
     uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &queue_family_count, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, nullptr);
     m_queue_families.ensure_size(queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_physical_device, &queue_family_count, m_queue_families.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, m_queue_families.data());
 
     Vector<VkDeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0f;
@@ -76,20 +89,46 @@ Context::Context() {
         });
     }
 
-    const char *swapchain_extension_name = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    VkPhysicalDeviceFeatures device_features{
+        .tessellationShader = VK_TRUE,
+        .fillModeNonSolid = VK_TRUE,
+    };
+    VkPhysicalDeviceVulkan12Features device_12_features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+    };
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
+        .pNext = &device_12_features,
+        .dynamicRendering = VK_TRUE,
+    };
+    VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT,
+        .pNext = &dynamic_rendering_features,
+        .shaderSharedFloat32AtomicMinMax = VK_TRUE,
+    };
+
+    Array enabled_device_extensions{
+        VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
+        VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    };
     VkDeviceCreateInfo device_ci{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &atomic_float_min_max_features,
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
-        .enabledExtensionCount = 1,
-        .ppEnabledExtensionNames = &swapchain_extension_name,
+        .enabledExtensionCount = enabled_device_extensions.size(),
+        .ppEnabledExtensionNames = enabled_device_extensions.data(),
+        .pEnabledFeatures = &device_features,
     };
-    VULL_ENSURE(vkCreateDevice(m_physical_device, &device_ci, nullptr, &m_device) == VK_SUCCESS);
+    VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == VK_SUCCESS);
+    load_device();
 }
 
 Context::~Context() {
-    vkDestroyDevice(m_device, nullptr);
-    vkDestroyInstance(m_instance, nullptr);
+    vkDestroyDevice();
+    vkDestroyInstance();
 }
 
 } // namespace vull

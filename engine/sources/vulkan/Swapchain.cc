@@ -14,8 +14,7 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
         .format = VK_FORMAT_B8G8R8A8_SRGB,
         .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
     };
-    VULL_ENSURE(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context.physical_device(), m_surface,
-                                                          &m_surface_capabilities) == VK_SUCCESS);
+    VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) == VK_SUCCESS);
 
     VkSwapchainCreateInfoKHR swapchain_ci{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -33,17 +32,17 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
         .presentMode = VK_PRESENT_MODE_FIFO_KHR,
         .clipped = VK_TRUE,
     };
-    VULL_ENSURE(vkCreateSwapchainKHR(context.device(), &swapchain_ci, nullptr, &m_swapchain) == VK_SUCCESS);
+    VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == VK_SUCCESS);
 
     uint32_t image_count = 0;
-    vkGetSwapchainImagesKHR(context.device(), m_swapchain, &image_count, nullptr);
-    Vector<VkImage> images(image_count);
+    context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, nullptr);
+    m_images.ensure_size(image_count);
     m_image_views.ensure_size(image_count);
-    vkGetSwapchainImagesKHR(context.device(), m_swapchain, &image_count, images.data());
+    context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, m_images.data());
     for (uint32_t i = 0; i < image_count; i++) {
         VkImageViewCreateInfo image_view_ci{
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = images[i],
+            .image = m_images[i],
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
             .format = surface_format.format,
             .components{
@@ -58,15 +57,15 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
                 .layerCount = 1,
             },
         };
-        VULL_ENSURE(vkCreateImageView(m_context.device(), &image_view_ci, nullptr, &m_image_views[i]) == VK_SUCCESS);
+        VULL_ENSURE(context.vkCreateImageView(&image_view_ci, &m_image_views[i]) == VK_SUCCESS);
     }
 
     // Find a present queue.
     for (uint32_t i = 0; i < context.queue_families().size(); i++) {
         VkBool32 present_supported = VK_FALSE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(context.physical_device(), i, m_surface, &present_supported);
+        context.vkGetPhysicalDeviceSurfaceSupportKHR(i, m_surface, &present_supported);
         if (present_supported == VK_TRUE) {
-            vkGetDeviceQueue(context.device(), i, 0, &m_present_queue);
+            context.vkGetDeviceQueue(i, 0, &m_present_queue);
             return;
         }
     }
@@ -75,15 +74,15 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
 
 Swapchain::~Swapchain() {
     for (auto *image_view : m_image_views) {
-        vkDestroyImageView(m_context.device(), image_view, nullptr);
+        m_context.vkDestroyImageView(image_view);
     }
-    vkDestroySwapchainKHR(m_context.device(), m_swapchain, nullptr);
-    vkDestroySurfaceKHR(m_context.instance(), m_surface, nullptr);
+    m_context.vkDestroySwapchainKHR(m_swapchain);
+    m_context.vkDestroySurfaceKHR(m_surface);
 }
 
 uint32_t Swapchain::acquire_image(VkSemaphore semaphore) const {
     uint32_t image_index = 0;
-    vkAcquireNextImageKHR(m_context.device(), m_swapchain, ~0ull, semaphore, nullptr, &image_index);
+    m_context.vkAcquireNextImageKHR(m_swapchain, ~0ull, semaphore, nullptr, &image_index);
     return image_index;
 }
 
@@ -96,7 +95,7 @@ void Swapchain::present(uint32_t image_index, Span<VkSemaphore> wait_semaphores)
         .pSwapchains = &m_swapchain,
         .pImageIndices = &image_index,
     };
-    vkQueuePresentKHR(m_present_queue, &present_info);
+    m_context.vkQueuePresentKHR(m_present_queue, &present_info);
 }
 
 } // namespace vull

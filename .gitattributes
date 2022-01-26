@@ -1,2 +1,6 @@
 # Enable highlighting for compute shaders.
 *.comp linguist-language=GLSL
+
+# Mark vk.xml generated files.
+engine/include/vull/vulkan/ContextTable.hh linguist-generated
+engine/sources/vulkan/ContextTable.cc linguist-generated

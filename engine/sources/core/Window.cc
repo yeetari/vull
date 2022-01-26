@@ -64,7 +64,7 @@ Swapchain Window::create_swapchain(const Context &context) {
         .window = m_id,
     };
     VkSurfaceKHR surface = nullptr;
-    vkCreateXcbSurfaceKHR(context.instance(), &surface_ci, nullptr, &surface);
+    context.vkCreateXcbSurfaceKHR(&surface_ci, &surface);
     return {context, {m_width, m_height}, surface};
 }
 

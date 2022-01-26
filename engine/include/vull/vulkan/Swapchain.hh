@@ -16,6 +16,7 @@ class Swapchain {
     const VkSurfaceKHR m_surface;
     VkSurfaceCapabilitiesKHR m_surface_capabilities{};
     VkSwapchainKHR m_swapchain{nullptr};
+    Vector<VkImage> m_images;
     Vector<VkImageView> m_image_views;
     VkQueue m_present_queue{nullptr};
 
@@ -31,8 +32,10 @@ public:
     uint32_t acquire_image(VkSemaphore semaphore) const;
     void present(uint32_t image_index, Span<VkSemaphore> wait_semaphores) const;
 
-    VkExtent2D extent() const { return m_extent; }
-    const VkImageView &image_view(uint32_t index) const { return m_image_views[index]; }
+    VkExtent2D extent_2D() const { return m_extent; }
+    VkExtent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
+    VkImage image(uint32_t index) const { return m_images[index]; }
+    VkImageView image_view(uint32_t index) const { return m_image_views[index]; }
 };
 
 } // namespace vull

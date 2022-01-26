@@ -20,7 +20,7 @@ jobs:
       - name: Run clang-format
         shell: bash
         run: |
-          find . -name '*.cc' -or -name '*.hh' | xargs clang-format -i
+          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' | xargs clang-format -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 
@@ -68,8 +68,13 @@ jobs:
         run: |
           find engine/sources sandbox \
             -name '*.cc' \
+            -and -not -name 'ContextTable.cc' \
             -print0 |
           parallel -0 \
-            include-what-you-use -std=c++20 -Iengine/include -Ibuild/engine/include {} 2>&1 |
+            include-what-you-use \
+              -std=c++20 \
+              -Iengine/include -Ibuild/engine/include \
+              -fno-exceptions -fno-rtti -nostdinc++ \
+              {} 2>&1 |
           grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | tee output
           if [ -s output ]; then exit 1; fi

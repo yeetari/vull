@@ -37,6 +37,7 @@ jobs:
         run: |
           find engine/sources sandbox \
             -name '*.cc' \
+            -and -not -name 'ContextTable.cc' \
             -print0 |
           parallel -0 \
             clang-tidy -p build --header-filter=vull/ --quiet {} 2>/dev/null |
