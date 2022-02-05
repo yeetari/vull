@@ -23,6 +23,7 @@ if(VULL_BUILD_WARNINGS)
             -Werror
             -Wall
             -Wextra
+            -Wno-class-memaccess
             -Wno-missing-field-initializers
             -Wno-unknown-pragmas)
     endif()
