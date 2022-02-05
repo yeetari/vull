@@ -2,6 +2,7 @@
 
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Lsan.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
@@ -81,6 +82,7 @@ Swapchain::~Swapchain() {
 }
 
 uint32_t Swapchain::acquire_image(VkSemaphore semaphore) const {
+    LsanDisabler lsan_disabler;
     uint32_t image_index = 0;
     m_context.vkAcquireNextImageKHR(m_swapchain, ~0ull, semaphore, nullptr, &image_index);
     return image_index;

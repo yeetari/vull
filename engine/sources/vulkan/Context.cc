@@ -2,6 +2,7 @@
 
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Lsan.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/ContextTable.hh>
 
@@ -13,6 +14,7 @@
 namespace vull {
 
 Context::Context() : ContextTable{} {
+    LsanDisabler lsan_disabler;
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
         libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
