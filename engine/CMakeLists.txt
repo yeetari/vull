@@ -1,4 +1,6 @@
-add_library(vull)
+# TODO: Being an object library might increase the build time for executables linking to vull, investigate when vull
+#       is a bit bigger.
+add_library(vull OBJECT)
 add_subdirectory(sources)
 target_compile_definitions(vull PUBLIC VK_NO_PROTOTYPES)
 target_compile_features(vull PRIVATE cxx_std_20)
