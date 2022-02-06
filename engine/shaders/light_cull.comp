@@ -1,0 +1,96 @@
+#version 460
+#include "common.glsl"
+
+#extension GL_EXT_shader_atomic_float2 : enable
+
+layout (local_size_x_id = 0) in;
+
+layout (binding = 0) readonly uniform UniformBuffer {
+    mat4 proj;
+    mat4 view;
+    vec3 camera_position;
+} g_ubo;
+layout (binding = 1, std430) readonly buffer Lights {
+    uint g_light_count;
+    PointLight g_lights[];
+};
+layout (binding = 2) writeonly buffer LightVisibilities {
+    LightVisibility g_light_visibilities[];
+};
+layout (binding = 3) uniform sampler2D g_depth_sampler;
+
+struct ViewFrustum {
+    vec3 planes[4];
+};
+
+shared float g_min_depth;
+shared float g_max_depth;
+shared uint g_tile_light_count;
+shared ViewFrustum g_frustum;
+
+ViewFrustum create_frustum(ivec2 tile_id) {
+    mat4 inv_proj = inverse(g_ubo.proj);
+    vec2 ndc_tile_size = 2.0f * vec2(k_tile_size) / vec2(k_viewport_width, k_viewport_height);
+    vec4 ndc_points[4];
+    ndc_points[0] = vec4(tile_id * ndc_tile_size - 1.0f, 1.0f, 1.0f);
+    ndc_points[1] = vec4(vec2(ndc_points[0].x, ndc_points[0].y + ndc_tile_size.y), 1.0f, 1.0f);
+    ndc_points[2] = vec4(ndc_points[0].xy + ndc_tile_size, 1.0f, 1.0f);
+    ndc_points[3] = vec4(vec2(ndc_points[0].x + ndc_tile_size.x, ndc_points[0].y), 1.0f, 1.0f);
+    for (uint i = 0; i < 4; i++) {
+        ndc_points[i] = inv_proj * ndc_points[i];
+        ndc_points[i] /= ndc_points[i].w;
+    }
+    ViewFrustum frustum;
+    for (uint i = 0; i < 4; i++) {
+        frustum.planes[i] = normalize(cross(ndc_points[i].xyz, ndc_points[(i + 1) & 3u].xyz));
+    }
+    return frustum;
+}
+
+bool is_light_visible(PointLight light) {
+    vec3 position = (g_ubo.view * vec4(light.position, 1.0f)).xyz;
+    for (uint i = 0; i < 4; i++) {
+        if (dot(position, g_frustum.planes[i]) > light.radius) {
+            return false;
+        }
+    }
+    if (position.z + g_max_depth < -light.radius || position.z + g_min_depth > light.radius) {
+        return false;
+    }
+    return true;
+}
+
+void main() {
+    ivec2 tile_id = ivec2(gl_WorkGroupID.xy);
+    uint tile_index = tile_id.y * gl_NumWorkGroups.x + tile_id.x;
+    if (gl_LocalInvocationIndex == 0) {
+        g_min_depth = 1.0f / 0.0f;
+        g_max_depth = 0.0f;
+        g_tile_light_count = 0;
+    }
+    barrier();
+    if (gl_LocalInvocationIndex == 0) {
+        g_frustum = create_frustum(tile_id);
+    }
+    for (uint y = 0; y < k_tile_size; y++) {
+        vec2 sample_location = vec2(k_tile_size) * tile_id + vec2(gl_LocalInvocationIndex, y);
+        float depth = linearise_depth(texelFetch(g_depth_sampler, ivec2(sample_location), 0).r, g_ubo.proj);
+        atomicMin(g_min_depth, depth);
+        atomicMax(g_max_depth, depth);
+    }
+    barrier();
+    for (uint i = gl_LocalInvocationIndex; i < g_light_count; i += k_tile_size) {
+        if (!is_light_visible(g_lights[i])) {
+            continue;
+        }
+        uint slot = atomicAdd(g_tile_light_count, 1);
+        if (slot >= k_tile_max_light_count) {
+            break;
+        }
+        g_light_visibilities[tile_index].indices[slot] = i;
+    }
+    barrier();
+    if (gl_LocalInvocationIndex == 0) {
+        g_light_visibilities[tile_index].count = min(g_tile_light_count, k_tile_max_light_count);
+    }
+}

@@ -2,6 +2,9 @@
 #       is a bit bigger.
 add_library(vull OBJECT)
 add_subdirectory(sources)
+target_add_shader(vull shaders/light_cull.comp)
+target_add_shader(vull shaders/terrain.vert)
+target_add_shader(vull shaders/terrain.frag)
 target_compile_definitions(vull PUBLIC VK_NO_PROTOTYPES)
 target_compile_features(vull PRIVATE cxx_std_20)
 target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
