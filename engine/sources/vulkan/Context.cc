@@ -12,6 +12,20 @@
 #include <string.h>
 
 namespace vull {
+namespace {
+
+VkMemoryPropertyFlags memory_flags(MemoryType type) {
+    switch (type) {
+    case MemoryType::DeviceLocal:
+        return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    case MemoryType::HostVisible:
+        return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
+} // namespace
 
 Context::Context() : ContextTable{} {
     LsanDisabler lsan_disabler;
@@ -131,6 +145,31 @@ Context::Context() : ContextTable{} {
 Context::~Context() {
     vkDestroyDevice();
     vkDestroyInstance();
+}
+
+uint32_t Context::find_memory_type_index(const VkMemoryRequirements &requirements, MemoryType type) const {
+    const auto flags = memory_flags(type);
+    for (uint32_t i = 0; i < m_memory_types.size(); i++) {
+        if ((requirements.memoryTypeBits & (1u << i)) == 0u) {
+            continue;
+        }
+        if ((m_memory_types[i].propertyFlags & flags) != flags) {
+            continue;
+        }
+        return i;
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
+VkDeviceMemory Context::allocate_memory(const VkMemoryRequirements &requirements, MemoryType type) const {
+    VkMemoryAllocateInfo memory_ai{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = find_memory_type_index(requirements, type),
+    };
+    VkDeviceMemory memory;
+    VULL_ENSURE(vkAllocateMemory(&memory_ai, &memory) == VK_SUCCESS);
+    return memory;
 }
 
 } // namespace vull
