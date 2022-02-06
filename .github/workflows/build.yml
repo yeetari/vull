@@ -35,6 +35,7 @@ jobs:
           git
           libx11-dev
           libxcb-util-dev
+          libxcb-xkb-dev
           ninja-build
           vulkan-sdk
       - name: Checkout

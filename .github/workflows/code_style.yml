@@ -50,6 +50,7 @@ jobs:
           libclang-dev
           libx11-dev
           libxcb-util-dev
+          libxcb-xkb-dev
           llvm-dev
           parallel
           vulkan-sdk
