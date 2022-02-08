@@ -3,9 +3,38 @@
 import sys
 import warnings
 from argparse import ArgumentParser
-from datetime import datetime
+from operator import itemgetter
 from urllib import request
 from xml.etree import ElementTree
+
+from ordered_set import OrderedSet
+
+
+# Removes the Vk prefix from a type name.
+def convert_type(orig):
+    if orig.endswith('Flags') or orig.endswith('FlagBits'):
+        orig = orig.replace('Flags', '')
+        orig = orig.replace('FlagBits', '')
+        # Hardcoded list of enum endings to omit the Flags suffix from.
+        if not orig.endswith('Access') and not orig.endswith('Aspect') and not orig.endswith(
+                'Component') and not orig.endswith('Count') and not orig.endswith('Feature') and not orig.endswith(
+                'Mode') and not orig.endswith('Stage') and not orig.endswith('Usage'):
+            orig += 'Flags'
+    return orig[2:] if orig.startswith('Vk') else orig
+
+
+# A post order DFS to visit the type order graph.
+def dfs(graph, visited, node, action):
+    if node not in visited and node in graph:
+        visited.add(node)
+        for successor in graph[node]:
+            dfs(graph, visited, successor, action)
+        action(node)
+
+
+# https://www.khronos.org/registry/vulkan/specs/1.3/styleguide.html#_assigning_extension_token_values
+def enum_offset(ext_num, offset):
+    return 1000000000 + (ext_num - 1) * 1000 + offset
 
 
 # Returns true if parent_name is a parent type of derived_name (e.g. VkDevice is a parent of VkCommandBuffer).
@@ -21,12 +50,13 @@ def is_parent_of(parent_name, derived_name):
     return any([is_parent_of(parent_name, p) for p in parents.split(',')])
 
 
-desired_extensions = {
+desired_extensions = OrderedSet([
+    'VK_EXT_shader_atomic_float2',
     'VK_KHR_dynamic_rendering',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
     'VK_KHR_xcb_surface',
-}
+])
 
 args_parser = ArgumentParser(description='Parse vk.xml')
 args_parser.add_argument('--download-latest', action='store_true')
@@ -49,8 +79,10 @@ for alias in filter(lambda cmd: cmd.get('alias'), registry.findall('commands/com
 
 # Build a dictionary of type names (e.g. 'VkImage') to type elements.
 type_dict = {}
-for vk_type in filter(lambda ty: ty.findtext('name'), registry.findall('types/type')):
-    type_dict[vk_type.findtext('name')] = vk_type
+for vk_type in registry.findall('types/type'):
+    name = vk_type.findtext('name') or vk_type.get('name')
+    assert name
+    type_dict[name] = vk_type
 
 # Make sure any dependency extensions are added.
 for extension_name in desired_extensions.copy():
@@ -60,10 +92,16 @@ for extension_name in desired_extensions.copy():
         for dependency in dependencies.split(','):
             desired_extensions.add(dependency)
 
-# Build a list of desired commands to generate prototypes for, starting with core commands and then any from extensions.
-desired_commands = []
+# Build a list of desired commands, enum extensions and types, starting with core ones and then any from extensions.
+desired_command_names = []
+desired_enum_extensions = []
+desired_type_names = []
 for core_command in registry.findall('feature/require/command'):
-    desired_commands.append(command_dict.get(core_command.get('name')))
+    desired_command_names.append(core_command.get('name'))
+for core_enum_extension in registry.findall('feature/require/enum'):
+    desired_enum_extensions.append((core_enum_extension, None))
+for core_type in registry.findall('feature/require/type'):
+    desired_type_names.append(core_type.get('name'))
 for extension_name in desired_extensions:
     extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
     assert extension
@@ -73,26 +111,76 @@ for extension_name in desired_extensions:
     for functionality in extension.findall('require'):
         if functionality.get('extension') and functionality.get('extension') not in desired_extensions:
             continue
-        for command in functionality.findall('command'):
-            desired_commands.append(command_dict.get(command.get('name')))
+        for extension_command in functionality.findall('command'):
+            desired_command_names.append(extension_command.get('name'))
+        for extension_enum_extension in functionality.findall('enum'):
+            desired_enum_extensions.append((extension_enum_extension, extension.get('number')))
+        for extension_type in functionality.findall('type'):
+            desired_type_names.append(extension_type.get('name'))
 
+# Build a list of desired commands to be emitted.
+desired_commands = []
+for command_name in desired_command_names:
+    desired_commands.append(command_dict.get(command_name))
+
+# Alphabetically sort and deduplicate commands.
 desired_commands.sort(key=lambda cmd: cmd.findtext('proto/name'))
 desired_commands = list(dict.fromkeys(desired_commands))
 
-# Generate header.
-generation_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+for enum_extension, extnumber in filter(lambda e: e[0].get('extends') and not e[0].get('alias'),
+                                        desired_enum_extensions):
+    definition = registry.find('.//enums[@name="{}"]'.format(enum_extension.get('extends')))
+    direction = enum_extension.get('dir') or '+'
+    extnumber = enum_extension.get('extnumber') or extnumber
+
+    value = None
+    if not enum_extension.get('bitpos'):
+        value = enum_extension.get('value') or enum_offset(int(extnumber), int(enum_extension.get('offset')))
+    if direction == '-':
+        value = -value
+
+    assert not enum_extension.get('type')
+    definition.append(definition.makeelement('enum', {
+        'bitpos': enum_extension.get('bitpos'),
+        'name': enum_extension.get('name'),
+        'value': value,
+    }))
+
+# Build a type order graph. We need this for emitting types in the right order.
+# TODO: Do we need to do this, it seems some of the requires attributes in the spec are incorrect? How does the real
+#       generator ensure correct order? In any case, this should still be a relatively future-proof solution.
+type_order_graph = {}
+for type_name in desired_type_names:
+    vk_type = type_dict.get(type_name)
+    if type_name not in type_order_graph:
+        type_order_graph[type_name] = OrderedSet()
+    for member in vk_type.findall('member'):
+        if member_type := member.findtext('type'):
+            type_order_graph[type_name].add(member_type)
+
+            # Some types (e.g. VkSurfaceTransformFlagsKHR) aren't included as a type in the extension definition.
+            # TODO: Report this as a spec bug?
+            if member_type not in desired_type_names:
+                desired_type_names.append(member_type)
+
+# Build an ordered list of desired types to be emitted.
+desired_types = []
+type_order_visited = set()
+for type_name in desired_type_names:
+    vk_type = type_dict.get(type_name)
+    dfs(type_order_graph, type_order_visited, type_name, lambda node: desired_types.append((node, type_dict.get(node))))
+
+# Generate context table header.
 with open('../engine/include/vull/vulkan/ContextTable.hh', 'w') as file:
-    file.write('// File generated by tools/gen_vk.py on {}\n'.format(generation_time))
+    file.write('// File generated by tools/gen_vk.py\n')
     file.write('#pragma once\n\n')
-    file.write('#include <xcb/xcb.h> // NOLINT\n')
-    file.write('#include <vulkan/vulkan_core.h> // NOLINT\n')
-    file.write('#include <vulkan/vulkan_xcb.h> // NOLINT\n\n')
-    file.write('namespace vull {\n\n')
+    file.write('#include <vull/vulkan/Vulkan.hh>\n\n')
+    file.write('namespace vull::vk {\n\n')
     file.write('class ContextTable {\n')
     file.write('protected:\n')
-    file.write('    VkInstance m_instance; // NOLINT\n')
-    file.write('    VkPhysicalDevice m_physical_device; // NOLINT\n')
-    file.write('    VkDevice m_device; // NOLINT\n\n')
+    file.write('    Instance m_instance; // NOLINT\n')
+    file.write('    PhysicalDevice m_physical_device; // NOLINT\n')
+    file.write('    Device m_device; // NOLINT\n\n')
     file.write('    void load_loader(PFN_vkGetInstanceProcAddr get_instance_proc_addr);\n')
     file.write('    void load_instance(PFN_vkGetInstanceProcAddr get_instance_proc_addr);\n')
     file.write('    void load_device();\n\n')
@@ -109,7 +197,7 @@ with open('../engine/include/vull/vulkan/ContextTable.hh', 'w') as file:
             continue
 
         # Write function prototype.
-        file.write('    {} {}('.format(command.findtext('proto/type'), name))
+        file.write('    {} {}('.format(convert_type(command.findtext('proto/type')), name))
         param_index = 0
         for param in command.findall('param'):
             param_name = param.findtext('name')
@@ -121,7 +209,7 @@ with open('../engine/include/vull/vulkan/ContextTable.hh', 'w') as file:
             param_str = ''
             for param_part in param.itertext():
                 if len(param_part.strip()) != 0:
-                    param_str += param_part.strip()
+                    param_str += convert_type(param_part.strip())
                     if len(param_part.strip()) != 1:
                         param_str += ' '
             file.write(param_str.strip())
@@ -129,13 +217,13 @@ with open('../engine/include/vull/vulkan/ContextTable.hh', 'w') as file:
         file.write(') const; // NOLINT\n')
 
     file.write('};\n\n')
-    file.write('} // namespace vull\n')
+    file.write('} // namespace vull::vk\n')
 
-# Generate source file.
+# Generate context table source file.
 with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
-    file.write('// File generated by tools/gen_vk.py on {}\n'.format(generation_time))
+    file.write('// File generated by tools/gen_vk.py\n')
     file.write('#include <vull/vulkan/ContextTable.hh>\n\n')
-    file.write('namespace vull {\n\n')
+    file.write('namespace vull::vk {\n\n')
 
     loader_commands = []
     instance_commands = []
@@ -177,7 +265,7 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
             continue
 
         # Write function prototype.
-        file.write('{} ContextTable::{}('.format(command.findtext('proto/type'), name))
+        file.write('{} ContextTable::{}('.format(convert_type(command.findtext('proto/type')), name))
         param_index = 0
         for param in command.findall('param'):
             param_name = param.findtext('name')
@@ -189,7 +277,7 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
             param_str = ''
             for param_part in param.itertext():
                 if len(param_part.strip()) != 0:
-                    param_str += param_part.strip()
+                    param_str += convert_type(param_part.strip())
                     if len(param_part.strip()) != 1:
                         param_str += ' '
             file.write(param_str.strip())
@@ -215,4 +303,157 @@ with open('../engine/sources/vulkan/ContextTable.cc', 'w') as file:
             param_index += 1
         file.write(');\n')
         file.write('}\n\n')
-    file.write('} // namespace vull\n')
+    file.write('} // namespace vull::vk\n')
+
+# Generate type header file.
+with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
+    file.write('// File generated by tools/gen_vk.py\n')
+    file.write('#pragma once\n\n')
+    # TODO: Infer these includes.
+    file.write('#include <stdint.h>\n')
+    file.write('#include <xcb/xcb.h>\n\n')
+    file.write('namespace vull::vk {\n\n')
+
+    # Emit VKAPI_PTR.
+    file.write('#if defined(_WIN32)\n')
+    file.write('#define VKAPI_PTR __stdcall\n')
+    file.write('#else\n')
+    file.write('#define VKAPI_PTR\n')
+    file.write('#endif\n\n')
+
+    # Emit hardcoded constants.
+    # TODO: Rename these too.
+    hardcoded_constants = registry.find('.//enums[@name="API Constants"]')
+    for constant in filter(lambda c: not c.get('alias'), hardcoded_constants.findall('enum')):
+        file.write(
+            'constexpr {} {} = {};\n'.format(constant.get('type'), constant.get('name'), constant.get('value').lower()))
+    file.write('\n')
+
+    # Emit base types.
+    file.write('// Base types.\n')
+    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'basetype', desired_types),
+                                     key=itemgetter(0)):
+        c_type = vk_type.findtext('type')
+        file.write('using {} = {};\n'.format(convert_type(type_name), convert_type(c_type)))
+    file.write('\n')
+
+    # Emit bitmasks if an enum doesn't exist.
+    file.write('// Bitmasks.\n')
+    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'bitmask', desired_types),
+                                     key=itemgetter(0)):
+        c_type = vk_type.findtext('type')
+        if not registry.find('.//enums[@name="{}"]'.format(type_name[:-1] + 'Bits')):
+            file.write('using {} = {};\n'.format(convert_type(type_name), convert_type(c_type)))
+    file.write('\n')
+
+    # Emit handles.
+    file.write('// Handles.\n')
+    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'handle', desired_types),
+                                     key=itemgetter(0)):
+        file.write('using {0} = struct {0}_T *;\n'.format(convert_type(type_name)))
+    file.write('\n')
+
+    # Emit enums.
+    file.write('// Enums.\n')
+    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'enum', desired_types),
+                                     key=itemgetter(0)):
+        definition = registry.find('.//enums[@name="{}"]'.format(type_name))
+        if len(definition.findall('enum')) == 0:
+            # Don't generate empty enums, a bitmask will already have been generated.
+            continue
+        converted_type_name = convert_type(type_name)
+        file.write('enum class {} {{\n'.format(converted_type_name))
+
+        # Emit None enumerant if needed.
+        if converted_type_name.endswith('Flags'):
+            file.write('    None = 0,\n')
+
+        assert definition.get('bitwidth') or '32' == '32'
+        for enumerant in definition.findall('enum'):
+            if enumerant.get('alias'):
+                # Ignore alias enumerants, we want to force upgrade to the core version.
+                continue
+
+            # One of these must be set for the enumerant.
+            bitpos = enumerant.get('bitpos')
+            value = enumerant.get('value')
+
+            # Convert enumerant name, from e.g. VK_FRONT_FACE_COUNTER_CLOCKWISE to CounterClockwise.
+            name = enumerant.get('name').title()
+            name = name.replace('_', '')
+            name = name.replace(type_name.replace('FlagBits', ''), '')
+            name = name.replace('Vk', '')
+            name = name.replace('Bit', '')
+            for vendor in registry.findall('tags/tag'):
+                vendor_name = vendor.get('name')
+                if name.endswith(vendor_name.title()):
+                    name = name[:name.index(vendor_name.title())] + vendor_name
+
+            # After simplifying the name, the first character may now be a digit (for example VK_IMAGE_TYPE_1D turns
+            # into 1D), which isn't a valid identifier so we prefix with an underscore.
+            if name[0].isdigit():
+                name = '_' + name
+            file.write('    {} = {},\n'.format(name, value or '1u << {}u'.format(bitpos)))
+        file.write('};\n')
+
+        # Emit operators for flags.
+        if 'FlagBits' in type_name:
+            file.write('inline constexpr {0} operator&({0} a, {0} b) {{\n'.format(converted_type_name))
+            file.write('    return static_cast<{}>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));\n'.format(
+                converted_type_name))
+            file.write('}\n')
+            file.write('inline constexpr {0} operator|({0} a, {0} b) {{\n'.format(converted_type_name))
+            file.write('    return static_cast<{}>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));\n'.format(
+                converted_type_name))
+            file.write('}\n')
+        file.write('\n')
+
+    # Emit function pointers.
+    file.write('// Function pointers.\n')
+    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'funcpointer', desired_types),
+                                     key=itemgetter(0)):
+        file.write('// NOLINTNEXTLINE\n')
+        file.write('{}\n'.format(''.join(vk_type.itertext()).replace('Vk', '')))
+    file.write('\n')
+
+    # Emit structs and unions.
+    file.write('// Structs and unions.\n')
+    for type_name, vk_type in filter(lambda ty: ty[1].get('category') == 'struct' or ty[1].get('category') == 'union',
+                                     desired_types):
+        file.write('{} {} {{\n'.format(vk_type.get('category'), convert_type(type_name)))
+        for member in vk_type.findall('member'):
+            member_text = ''
+            for part in member.iter():
+                if part.tag != 'comment' and part.text:
+                    member_text += (convert_type(part.text).strip())
+                    member_text += ' '
+                if part.tag != 'member':
+                    if tail := part.tail:
+                        member_text += tail.strip()
+
+            # Small hack to make clang-tidy stop complaining about the use of C-arrays.
+            if '[' in member_text:
+                file.write('    // NOLINTNEXTLINE\n')
+
+            file.write('    {};\n'.format(member_text.strip()))
+        file.write('};\n\n')
+
+    # Emit command function pointers.
+    file.write('// Command function pointers.\n')
+    for command in desired_commands:
+        file.write('using PFN_{} = {} (*)('.format(command.findtext('proto/name'),
+                                                   convert_type(command.findtext('proto/type'))))
+        param_index = 0
+        for param in command.findall('param'):
+            if param_index != 0:
+                file.write(', ')
+            param_str = ''
+            for param_part in param.itertext():
+                if len(param_part.strip()) != 0:
+                    param_str += convert_type(param_part.strip())
+                    if len(param_part.strip()) != 1:
+                        param_str += ' '
+            file.write(param_str.strip())
+            param_index += 1
+        file.write('); // NOLINT\n')
+    file.write('\n} // namespace vull::vk\n')
