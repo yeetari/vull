@@ -501,11 +501,11 @@ int main() {
     vull::Array descriptor_pool_sizes{
         vull::vk::DescriptorPoolSize{
             .type = vull::vk::DescriptorType::UniformBuffer,
-            .descriptorCount = 4,
+            .descriptorCount = 1,
         },
         vull::vk::DescriptorPoolSize{
             .type = vull::vk::DescriptorType::StorageBuffer,
-            .descriptorCount = 4,
+            .descriptorCount = 2,
         },
         vull::vk::DescriptorPoolSize{
             .type = vull::vk::DescriptorType::CombinedImageSampler,
