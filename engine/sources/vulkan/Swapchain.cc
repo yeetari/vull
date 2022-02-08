@@ -6,19 +6,21 @@
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Vulkan.hh>
 
 namespace vull {
 
-Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR surface)
+Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR surface)
     : m_context(context), m_extent(extent), m_surface(surface) {
-    VkSurfaceFormatKHR surface_format{
-        .format = VK_FORMAT_B8G8R8A8_SRGB,
-        .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+    vk::SurfaceFormatKHR surface_format{
+        .format = vk::Format::B8G8R8A8Srgb,
+        .colorSpace = vk::ColorSpaceKHR::ColorSpaceSrgbNonlinearKHR,
     };
-    VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) == VK_SUCCESS);
+    VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
+                vk::Result::Success);
 
-    VkSwapchainCreateInfoKHR swapchain_ci{
-        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+    vk::SwapchainCreateInfoKHR swapchain_ci{
+        .sType = vk::StructureType::SwapchainCreateInfoKHR,
         .surface = surface,
         .minImageCount = min(m_surface_capabilities.minImageCount + 1,
                              m_surface_capabilities.maxImageCount != 0u ? m_surface_capabilities.maxImageCount : ~0u),
@@ -26,14 +28,14 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
         .imageColorSpace = surface_format.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .imageUsage = vk::ImageUsage::ColorAttachment,
+        .imageSharingMode = vk::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
-        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
-        .clipped = VK_TRUE,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::CompositeAlphaOpaqueKHR,
+        .presentMode = vk::PresentModeKHR::PresentModeFifoKHR,
+        .clipped = vk::VK_TRUE,
     };
-    VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == VK_SUCCESS);
+    VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == vk::Result::Success);
 
     uint32_t image_count = 0;
     context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, nullptr);
@@ -41,31 +43,31 @@ Swapchain::Swapchain(const Context &context, VkExtent2D extent, VkSurfaceKHR sur
     m_image_views.ensure_size(image_count);
     context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, m_images.data());
     for (uint32_t i = 0; i < image_count; i++) {
-        VkImageViewCreateInfo image_view_ci{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        vk::ImageViewCreateInfo image_view_ci{
+            .sType = vk::StructureType::ImageViewCreateInfo,
             .image = m_images[i],
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .viewType = vk::ImageViewType::_2D,
             .format = surface_format.format,
             .components{
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
-                VK_COMPONENT_SWIZZLE_IDENTITY,
+                vk::ComponentSwizzle::Identity,
+                vk::ComponentSwizzle::Identity,
+                vk::ComponentSwizzle::Identity,
+                vk::ComponentSwizzle::Identity,
             },
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = vk::ImageAspect::Color,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        VULL_ENSURE(context.vkCreateImageView(&image_view_ci, &m_image_views[i]) == VK_SUCCESS);
+        VULL_ENSURE(context.vkCreateImageView(&image_view_ci, &m_image_views[i]) == vk::Result::Success);
     }
 
     // Find a present queue.
     for (uint32_t i = 0; i < context.queue_families().size(); i++) {
-        VkBool32 present_supported = VK_FALSE;
+        vk::Bool32 present_supported = vk::VK_FALSE;
         context.vkGetPhysicalDeviceSurfaceSupportKHR(i, m_surface, &present_supported);
-        if (present_supported == VK_TRUE) {
+        if (present_supported == vk::VK_TRUE) {
             context.vkGetDeviceQueue(i, 0, &m_present_queue);
             return;
         }
@@ -81,16 +83,16 @@ Swapchain::~Swapchain() {
     m_context.vkDestroySurfaceKHR(m_surface);
 }
 
-uint32_t Swapchain::acquire_image(VkSemaphore semaphore) const {
+uint32_t Swapchain::acquire_image(vk::Semaphore semaphore) const {
     LsanDisabler lsan_disabler;
     uint32_t image_index = 0;
     m_context.vkAcquireNextImageKHR(m_swapchain, ~0ull, semaphore, nullptr, &image_index);
     return image_index;
 }
 
-void Swapchain::present(uint32_t image_index, Span<VkSemaphore> wait_semaphores) const {
-    VkPresentInfoKHR present_info{
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+void Swapchain::present(uint32_t image_index, Span<vk::Semaphore> wait_semaphores) const {
+    vk::PresentInfoKHR present_info{
+        .sType = vk::StructureType::PresentInfoKHR,
         .waitSemaphoreCount = wait_semaphores.size(),
         .pWaitSemaphores = wait_semaphores.data(),
         .swapchainCount = 1,

@@ -4,11 +4,10 @@
 #include <vull/support/Assert.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Swapchain.hh>
+#include <vull/vulkan/Vulkan.hh>
 
 #include <stdlib.h>
 #include <string.h>
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_xcb.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xproto.h>
 
@@ -126,12 +125,12 @@ Key Window::translate_keycode(uint8_t keycode) {
 }
 
 Swapchain Window::create_swapchain(const Context &context) {
-    VkXcbSurfaceCreateInfoKHR surface_ci{
-        .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+    vk::XcbSurfaceCreateInfoKHR surface_ci{
+        .sType = vk::StructureType::XcbSurfaceCreateInfoKHR,
         .connection = m_connection,
         .window = m_id,
     };
-    VkSurfaceKHR surface = nullptr;
+    vk::SurfaceKHR surface;
     context.vkCreateXcbSurfaceKHR(&surface_ci, &surface);
     return {context, {m_width, m_height}, surface};
 }

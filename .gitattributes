@@ -3,4 +3,5 @@
 
 # Mark vk.xml generated files.
 engine/include/vull/vulkan/ContextTable.hh linguist-generated
+engine/include/vull/vulkan/Vulkan.hh linguist-generated
 engine/sources/vulkan/ContextTable.cc linguist-generated

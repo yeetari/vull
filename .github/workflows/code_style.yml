@@ -20,7 +20,7 @@ jobs:
       - name: Run clang-format
         shell: bash
         run: |
-          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' | xargs clang-format -i
+          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 

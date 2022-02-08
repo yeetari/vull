@@ -9,6 +9,7 @@
 #include <vull/terrain/Terrain.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Swapchain.hh>
+#include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -16,24 +17,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <vulkan/vulkan_core.h>
 
 namespace {
 
-VkShaderModule load_shader(const vull::Context &context, const char *path) {
+vull::vk::ShaderModule load_shader(const vull::Context &context, const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
     vull::LargeVector<uint32_t> binary(static_cast<size_t>(ftell(file)) / sizeof(uint32_t));
     fseek(file, 0, SEEK_SET);
     VULL_ENSURE(fread(binary.data(), sizeof(uint32_t), binary.size(), file) == binary.size());
     fclose(file);
-    VkShaderModuleCreateInfo module_ci{
-        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+    vull::vk::ShaderModuleCreateInfo module_ci{
+        .sType = vull::vk::StructureType::ShaderModuleCreateInfo,
         .codeSize = binary.size_bytes(),
         .pCode = binary.data(),
     };
-    VkShaderModule module;
-    VULL_ENSURE(context.vkCreateShaderModule(&module_ci, &module) == VK_SUCCESS);
+    vull::vk::ShaderModule module;
+    VULL_ENSURE(context.vkCreateShaderModule(&module_ci, &module) == vull::vk::Result::Success);
     return module;
 }
 
@@ -44,30 +44,30 @@ int main() {
     vull::Context context;
     auto swapchain = window.create_swapchain(context);
 
-    VkCommandPool command_pool = nullptr;
-    VkQueue queue = nullptr;
+    vull::vk::CommandPool command_pool = nullptr;
+    vull::vk::Queue queue = nullptr;
     for (uint32_t i = 0; i < context.queue_families().size(); i++) {
         const auto &family = context.queue_families()[i];
-        if ((family.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0u) {
-            VkCommandPoolCreateInfo command_pool_ci{
-                .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        if ((family.queueFlags & vull::vk::QueueFlags::Graphics) != vull::vk::QueueFlags::None) {
+            vull::vk::CommandPoolCreateInfo command_pool_ci{
+                .sType = vull::vk::StructureType::CommandPoolCreateInfo,
                 .queueFamilyIndex = i,
             };
-            VULL_ENSURE(context.vkCreateCommandPool(&command_pool_ci, &command_pool) == VK_SUCCESS,
+            VULL_ENSURE(context.vkCreateCommandPool(&command_pool_ci, &command_pool) == vull::vk::Result::Success,
                         "Failed to create command pool");
             context.vkGetDeviceQueue(i, 0, &queue);
             break;
         }
     }
 
-    VkCommandBufferAllocateInfo command_buffer_ai{
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    vull::vk::CommandBufferAllocateInfo command_buffer_ai{
+        .sType = vull::vk::StructureType::CommandBufferAllocateInfo,
         .commandPool = command_pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .level = vull::vk::CommandBufferLevel::Primary,
         .commandBufferCount = 1,
     };
-    VkCommandBuffer command_buffer;
-    VULL_ENSURE(context.vkAllocateCommandBuffers(&command_buffer_ai, &command_buffer) == VK_SUCCESS);
+    vull::vk::CommandBuffer command_buffer;
+    VULL_ENSURE(context.vkAllocateCommandBuffers(&command_buffer_ai, &command_buffer) == vull::vk::Result::Success);
 
     constexpr uint32_t tile_size = 32;
     uint32_t row_tile_count = (window.width() + (window.width() % tile_size)) / tile_size;
@@ -88,33 +88,33 @@ int main() {
     };
 
     vull::Array specialisation_map_entries{
-        VkSpecializationMapEntry{
+        vull::vk::SpecializationMapEntry{
             .constantID = 0,
             .offset = offsetof(SpecialisationData, tile_size),
             .size = sizeof(SpecialisationData::tile_size),
         },
-        VkSpecializationMapEntry{
+        vull::vk::SpecializationMapEntry{
             .constantID = 1,
             .offset = offsetof(SpecialisationData, tile_max_light_count),
             .size = sizeof(SpecialisationData::tile_max_light_count),
         },
-        VkSpecializationMapEntry{
+        vull::vk::SpecializationMapEntry{
             .constantID = 2,
             .offset = offsetof(SpecialisationData, row_tile_count),
             .size = sizeof(SpecialisationData::row_tile_count),
         },
-        VkSpecializationMapEntry{
+        vull::vk::SpecializationMapEntry{
             .constantID = 3,
             .offset = offsetof(SpecialisationData, viewport_width),
             .size = sizeof(SpecialisationData::viewport_width),
         },
-        VkSpecializationMapEntry{
+        vull::vk::SpecializationMapEntry{
             .constantID = 4,
             .offset = offsetof(SpecialisationData, viewport_height),
             .size = sizeof(SpecialisationData::viewport_height),
         },
     };
-    VkSpecializationInfo specialisation_info{
+    vull::vk::SpecializationInfo specialisation_info{
         .mapEntryCount = specialisation_map_entries.size(),
         .pMapEntries = specialisation_map_entries.data(),
         .dataSize = sizeof(SpecialisationData),
@@ -124,29 +124,29 @@ int main() {
     auto *light_cull_shader = load_shader(context, "engine/shaders/light_cull.comp.spv");
     auto *terrain_vertex_shader = load_shader(context, "engine/shaders/terrain.vert.spv");
     auto *terrain_fragment_shader = load_shader(context, "engine/shaders/terrain.frag.spv");
-    VkPipelineShaderStageCreateInfo depth_pass_shader_stage_ci{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+    vull::vk::PipelineShaderStageCreateInfo depth_pass_shader_stage_ci{
+        .sType = vull::vk::StructureType::PipelineShaderStageCreateInfo,
+        .stage = vull::vk::ShaderStage::Vertex,
         .module = terrain_vertex_shader,
         .pName = "main",
     };
-    VkPipelineShaderStageCreateInfo light_cull_shader_stage_ci{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+    vull::vk::PipelineShaderStageCreateInfo light_cull_shader_stage_ci{
+        .sType = vull::vk::StructureType::PipelineShaderStageCreateInfo,
+        .stage = vull::vk::ShaderStage::Compute,
         .module = light_cull_shader,
         .pName = "main",
         .pSpecializationInfo = &specialisation_info,
     };
     vull::Array terrain_shader_stage_cis{
-        VkPipelineShaderStageCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        vull::vk::PipelineShaderStageCreateInfo{
+            .sType = vull::vk::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vull::vk::ShaderStage::Vertex,
             .module = terrain_vertex_shader,
             .pName = "main",
         },
-        VkPipelineShaderStageCreateInfo{
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        vull::vk::PipelineShaderStageCreateInfo{
+            .sType = vull::vk::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vull::vk::ShaderStage::Fragment,
             .module = terrain_fragment_shader,
             .pName = "main",
             .pSpecializationInfo = &specialisation_info,
@@ -154,138 +154,137 @@ int main() {
     };
 
     vull::Array set_bindings{
-        VkDescriptorSetLayoutBinding{
+        vull::vk::DescriptorSetLayoutBinding{
             .binding = 0,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::UniformBuffer,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_ALL,
+            .stageFlags = vull::vk::ShaderStage::All,
         },
-        VkDescriptorSetLayoutBinding{
+        vull::vk::DescriptorSetLayoutBinding{
             .binding = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = vull::vk::ShaderStage::Compute | vull::vk::ShaderStage::Fragment,
         },
-        VkDescriptorSetLayoutBinding{
+        vull::vk::DescriptorSetLayoutBinding{
             .binding = 2,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = vull::vk::ShaderStage::Compute | vull::vk::ShaderStage::Fragment,
         },
-        VkDescriptorSetLayoutBinding{
+        vull::vk::DescriptorSetLayoutBinding{
             .binding = 3,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorType = vull::vk::DescriptorType::CombinedImageSampler,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+            .stageFlags = vull::vk::ShaderStage::Compute,
         },
-        VkDescriptorSetLayoutBinding{
+        vull::vk::DescriptorSetLayoutBinding{
             .binding = 4,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorType = vull::vk::DescriptorType::CombinedImageSampler,
             .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = vull::vk::ShaderStage::Vertex | vull::vk::ShaderStage::Fragment,
         },
     };
-    VkDescriptorSetLayoutCreateInfo set_layout_ci{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    vull::vk::DescriptorSetLayoutCreateInfo set_layout_ci{
+        .sType = vull::vk::StructureType::DescriptorSetLayoutCreateInfo,
         .bindingCount = set_bindings.size(),
         .pBindings = set_bindings.data(),
     };
-    VkDescriptorSetLayout set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == VK_SUCCESS);
+    vull::vk::DescriptorSetLayout set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vull::vk::Result::Success);
 
-    VkPipelineLayoutCreateInfo pipeline_layout_ci{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    vull::vk::PipelineLayoutCreateInfo pipeline_layout_ci{
+        .sType = vull::vk::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &set_layout,
     };
-    VkPipelineLayout pipeline_layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == VK_SUCCESS);
+    vull::vk::PipelineLayout pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vull::vk::Result::Success);
 
     vull::Array vertex_attribute_descriptions{
-        VkVertexInputAttributeDescription{
+        vull::vk::VertexInputAttributeDescription{
             .location = 0,
-            .format = VK_FORMAT_R32G32_SFLOAT,
+            .format = vull::vk::Format::R32G32Sfloat,
             .offset = offsetof(vull::ChunkVertex, position),
         },
     };
-    VkVertexInputBindingDescription vertex_binding_description{
+    vull::vk::VertexInputBindingDescription vertex_binding_description{
         .stride = sizeof(vull::ChunkVertex),
-        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        .inputRate = vull::vk::VertexInputRate::Vertex,
     };
-    VkPipelineVertexInputStateCreateInfo vertex_input_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+    vull::vk::PipelineVertexInputStateCreateInfo vertex_input_state{
+        .sType = vull::vk::StructureType::PipelineVertexInputStateCreateInfo,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertex_binding_description,
         .vertexAttributeDescriptionCount = vertex_attribute_descriptions.size(),
         .pVertexAttributeDescriptions = vertex_attribute_descriptions.data(),
     };
-    VkPipelineInputAssemblyStateCreateInfo input_assembly_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+    vull::vk::PipelineInputAssemblyStateCreateInfo input_assembly_state{
+        .sType = vull::vk::StructureType::PipelineInputAssemblyStateCreateInfo,
+        .topology = vull::vk::PrimitiveTopology::TriangleList,
     };
 
-    VkRect2D scissor{
+    vull::vk::Rect2D scissor{
         .extent = swapchain.extent_2D(),
     };
-    VkViewport viewport{
+    vull::vk::Viewport viewport{
         .width = static_cast<float>(window.width()),
         .height = static_cast<float>(window.height()),
         .maxDepth = 1.0f,
     };
-    VkPipelineViewportStateCreateInfo viewport_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+    vull::vk::PipelineViewportStateCreateInfo viewport_state{
+        .sType = vull::vk::StructureType::PipelineViewportStateCreateInfo,
         .viewportCount = 1,
         .pViewports = &viewport,
         .scissorCount = 1,
         .pScissors = &scissor,
     };
 
-    VkPipelineRasterizationStateCreateInfo rasterisation_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
-        .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
-        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+    vull::vk::PipelineRasterizationStateCreateInfo rasterisation_state{
+        .sType = vull::vk::StructureType::PipelineRasterizationStateCreateInfo,
+        .polygonMode = vull::vk::PolygonMode::Fill,
+        .cullMode = vull::vk::CullMode::Back,
+        .frontFace = vull::vk::FrontFace::CounterClockwise,
         .lineWidth = 1.0f,
     };
 
-    VkPipelineMultisampleStateCreateInfo multisample_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+    vull::vk::PipelineMultisampleStateCreateInfo multisample_state{
+        .sType = vull::vk::StructureType::PipelineMultisampleStateCreateInfo,
+        .rasterizationSamples = vull::vk::SampleCount::_1,
         .minSampleShading = 1.0f,
     };
 
-    VkPipelineDepthStencilStateCreateInfo depth_pass_depth_stencil_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL,
+    vull::vk::PipelineDepthStencilStateCreateInfo depth_pass_depth_stencil_state{
+        .sType = vull::vk::StructureType::PipelineDepthStencilStateCreateInfo,
+        .depthTestEnable = vull::vk::VK_TRUE,
+        .depthWriteEnable = vull::vk::VK_TRUE,
+        .depthCompareOp = vull::vk::CompareOp::GreaterOrEqual,
     };
-    VkPipelineDepthStencilStateCreateInfo terrain_pass_depth_stencil_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable = VK_TRUE,
-        .depthCompareOp = VK_COMPARE_OP_EQUAL,
+    vull::vk::PipelineDepthStencilStateCreateInfo terrain_pass_depth_stencil_state{
+        .sType = vull::vk::StructureType::PipelineDepthStencilStateCreateInfo,
+        .depthTestEnable = vull::vk::VK_TRUE,
+        .depthCompareOp = vull::vk::CompareOp::Equal,
     };
 
-    VkPipelineColorBlendAttachmentState terrain_pass_blend_attachment{
-        // NOLINTNEXTLINE
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                          VK_COLOR_COMPONENT_A_BIT, // NOLINT
+    vull::vk::PipelineColorBlendAttachmentState terrain_pass_blend_attachment{
+        .colorWriteMask = vull::vk::ColorComponent::R | vull::vk::ColorComponent::G | vull::vk::ColorComponent::B |
+                          vull::vk::ColorComponent::A,
     };
-    VkPipelineColorBlendStateCreateInfo terrain_pass_blend_state{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+    vull::vk::PipelineColorBlendStateCreateInfo terrain_pass_blend_state{
+        .sType = vull::vk::StructureType::PipelineColorBlendStateCreateInfo,
         .attachmentCount = 1,
         .pAttachments = &terrain_pass_blend_attachment,
     };
 
-    VkFormat depth_format = VK_FORMAT_D32_SFLOAT;
-    VkPipelineRenderingCreateInfoKHR depth_pass_rendering_create_info{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+    const auto depth_format = vull::vk::Format::D32Sfloat;
+    vull::vk::PipelineRenderingCreateInfoKHR depth_pass_rendering_create_info{
+        .sType = vull::vk::StructureType::PipelineRenderingCreateInfoKHR,
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
 
-    VkGraphicsPipelineCreateInfo depth_pass_pipeline_ci{
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    vull::vk::GraphicsPipelineCreateInfo depth_pass_pipeline_ci{
+        .sType = vull::vk::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &depth_pass_rendering_create_info,
         .stageCount = 1,
         .pStages = &depth_pass_shader_stage_ci,
@@ -297,30 +296,30 @@ int main() {
         .pDepthStencilState = &depth_pass_depth_stencil_state,
         .layout = pipeline_layout,
     };
-    VkPipeline depth_pass_pipeline;
+    vull::vk::Pipeline depth_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &depth_pass_pipeline_ci, &depth_pass_pipeline) ==
-                VK_SUCCESS);
+                vull::vk::Result::Success);
 
-    VkComputePipelineCreateInfo light_cull_pipeline_ci{
-        .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+    vull::vk::ComputePipelineCreateInfo light_cull_pipeline_ci{
+        .sType = vull::vk::StructureType::ComputePipelineCreateInfo,
         .stage = light_cull_shader_stage_ci,
         .layout = pipeline_layout,
     };
-    VkPipeline light_cull_pipeline;
+    vull::vk::Pipeline light_cull_pipeline;
     VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
-                VK_SUCCESS);
+                vull::vk::Result::Success);
 
-    VkFormat colour_format = VK_FORMAT_B8G8R8A8_SRGB;
-    VkPipelineRenderingCreateInfoKHR terrain_pass_rendering_create_info{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
+    const auto colour_format = vull::vk::Format::B8G8R8A8Srgb;
+    vull::vk::PipelineRenderingCreateInfoKHR terrain_pass_rendering_create_info{
+        .sType = vull::vk::StructureType::PipelineRenderingCreateInfoKHR,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colour_format,
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
 
-    VkGraphicsPipelineCreateInfo terrain_pass_pipeline_ci{
-        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+    vull::vk::GraphicsPipelineCreateInfo terrain_pass_pipeline_ci{
+        .sType = vull::vk::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &terrain_pass_rendering_create_info,
         .stageCount = terrain_shader_stage_cis.size(),
         .pStages = terrain_shader_stage_cis.data(),
@@ -333,108 +332,108 @@ int main() {
         .pColorBlendState = &terrain_pass_blend_state,
         .layout = pipeline_layout,
     };
-    VkPipeline terrain_pass_pipeline;
+    vull::vk::Pipeline terrain_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &terrain_pass_pipeline_ci, &terrain_pass_pipeline) ==
-                VK_SUCCESS);
+                vull::vk::Result::Success);
 
-    VkImageCreateInfo depth_image_ci{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
+    vull::vk::ImageCreateInfo depth_image_ci{
+        .sType = vull::vk::StructureType::ImageCreateInfo,
+        .imageType = vull::vk::ImageType::_2D,
         .format = depth_format,
         .extent = swapchain.extent_3D(),
         .mipLevels = 1,
         .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .samples = vull::vk::SampleCount::_1,
+        .tiling = vull::vk::ImageTiling::Optimal,
+        .usage = vull::vk::ImageUsage::DepthStencilAttachment | vull::vk::ImageUsage::Sampled,
+        .sharingMode = vull::vk::SharingMode::Exclusive,
+        .initialLayout = vull::vk::ImageLayout::Undefined,
     };
-    VkImage depth_image;
-    VULL_ENSURE(context.vkCreateImage(&depth_image_ci, &depth_image) == VK_SUCCESS);
+    vull::vk::Image depth_image;
+    VULL_ENSURE(context.vkCreateImage(&depth_image_ci, &depth_image) == vull::vk::Result::Success);
 
-    VkMemoryRequirements depth_image_requirements;
+    vull::vk::MemoryRequirements depth_image_requirements{};
     context.vkGetImageMemoryRequirements(depth_image, &depth_image_requirements);
-    VkDeviceMemory depth_image_memory =
+    vull::vk::DeviceMemory depth_image_memory =
         context.allocate_memory(depth_image_requirements, vull::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindImageMemory(depth_image, depth_image_memory, 0) == VK_SUCCESS);
+    VULL_ENSURE(context.vkBindImageMemory(depth_image, depth_image_memory, 0) == vull::vk::Result::Success);
 
-    VkImageViewCreateInfo depth_image_view_ci{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    vull::vk::ImageViewCreateInfo depth_image_view_ci{
+        .sType = vull::vk::StructureType::ImageViewCreateInfo,
         .image = depth_image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .viewType = vull::vk::ImageViewType::_2D,
         .format = depth_format,
         .subresourceRange{
-            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .aspectMask = vull::vk::ImageAspect::Depth,
             .levelCount = 1,
             .layerCount = 1,
         },
     };
-    VkImageView depth_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == VK_SUCCESS);
+    vull::vk::ImageView depth_image_view;
+    VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == vull::vk::Result::Success);
 
-    VkSamplerCreateInfo depth_sampler_ci{
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter = VK_FILTER_NEAREST,
-        .minFilter = VK_FILTER_NEAREST,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    vull::vk::SamplerCreateInfo depth_sampler_ci{
+        .sType = vull::vk::StructureType::SamplerCreateInfo,
+        .magFilter = vull::vk::Filter::Nearest,
+        .minFilter = vull::vk::Filter::Nearest,
+        .mipmapMode = vull::vk::SamplerMipmapMode::Nearest,
+        .addressModeU = vull::vk::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vull::vk::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vull::vk::SamplerAddressMode::ClampToEdge,
+        .borderColor = vull::vk::BorderColor::FloatOpaqueWhite,
     };
-    VkSampler depth_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == VK_SUCCESS);
+    vull::vk::Sampler depth_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vull::vk::Result::Success);
 
     vull::Terrain terrain(2048.0f, 0);
-    VkImageCreateInfo height_image_ci{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format = VK_FORMAT_R32_SFLOAT,
+    vull::vk::ImageCreateInfo height_image_ci{
+        .sType = vull::vk::StructureType::ImageCreateInfo,
+        .imageType = vull::vk::ImageType::_2D,
+        .format = vull::vk::Format::R32Sfloat,
         .extent = {static_cast<uint32_t>(terrain.size()), static_cast<uint32_t>(terrain.size()), 1},
         .mipLevels = 1,
         .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_LINEAR,
-        .usage = VK_IMAGE_USAGE_SAMPLED_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .samples = vull::vk::SampleCount::_1,
+        .tiling = vull::vk::ImageTiling::Linear,
+        .usage = vull::vk::ImageUsage::Sampled,
+        .sharingMode = vull::vk::SharingMode::Exclusive,
+        .initialLayout = vull::vk::ImageLayout::Undefined,
     };
-    VkImage height_image;
-    VULL_ENSURE(context.vkCreateImage(&height_image_ci, &height_image) == VK_SUCCESS);
+    vull::vk::Image height_image;
+    VULL_ENSURE(context.vkCreateImage(&height_image_ci, &height_image) == vull::vk::Result::Success);
 
-    VkMemoryRequirements height_image_requirements;
+    vull::vk::MemoryRequirements height_image_requirements{};
     context.vkGetImageMemoryRequirements(height_image, &height_image_requirements);
-    VkDeviceMemory height_image_memory =
+    vull::vk::DeviceMemory height_image_memory =
         context.allocate_memory(height_image_requirements, vull::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindImageMemory(height_image, height_image_memory, 0) == VK_SUCCESS);
+    VULL_ENSURE(context.vkBindImageMemory(height_image, height_image_memory, 0) == vull::vk::Result::Success);
 
-    VkImageViewCreateInfo height_image_view_ci{
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+    vull::vk::ImageViewCreateInfo height_image_view_ci{
+        .sType = vull::vk::StructureType::ImageViewCreateInfo,
         .image = height_image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .viewType = vull::vk::ImageViewType::_2D,
         .format = height_image_ci.format,
         .subresourceRange{
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .aspectMask = vull::vk::ImageAspect::Color,
             .levelCount = 1,
             .layerCount = 1,
         },
     };
-    VkImageView height_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&height_image_view_ci, &height_image_view) == VK_SUCCESS);
+    vull::vk::ImageView height_image_view;
+    VULL_ENSURE(context.vkCreateImageView(&height_image_view_ci, &height_image_view) == vull::vk::Result::Success);
 
-    VkSamplerCreateInfo height_sampler_ci{
-        .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter = VK_FILTER_LINEAR,
-        .minFilter = VK_FILTER_LINEAR,
-        .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT,
-        .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE,
+    vull::vk::SamplerCreateInfo height_sampler_ci{
+        .sType = vull::vk::StructureType::SamplerCreateInfo,
+        .magFilter = vull::vk::Filter::Linear,
+        .minFilter = vull::vk::Filter::Linear,
+        .mipmapMode = vull::vk::SamplerMipmapMode::Linear,
+        .addressModeU = vull::vk::SamplerAddressMode::MirroredRepeat,
+        .addressModeV = vull::vk::SamplerAddressMode::MirroredRepeat,
+        .addressModeW = vull::vk::SamplerAddressMode::MirroredRepeat,
+        .borderColor = vull::vk::BorderColor::FloatOpaqueWhite,
     };
-    VkSampler height_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&height_sampler_ci, &height_sampler) == VK_SUCCESS);
+    vull::vk::Sampler height_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&height_sampler_ci, &height_sampler) == vull::vk::Result::Success);
 
     struct UniformBuffer {
         vull::Mat4f proj;
@@ -442,20 +441,20 @@ int main() {
         vull::Vec3f camera_position;
         float terrain_size{0.0f};
     };
-    VkBufferCreateInfo uniform_buffer_ci{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    vull::vk::BufferCreateInfo uniform_buffer_ci{
+        .sType = vull::vk::StructureType::BufferCreateInfo,
         .size = sizeof(UniformBuffer),
-        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .usage = vull::vk::BufferUsage::UniformBuffer,
+        .sharingMode = vull::vk::SharingMode::Exclusive,
     };
-    VkBuffer uniform_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &uniform_buffer) == VK_SUCCESS);
+    vull::vk::Buffer uniform_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &uniform_buffer) == vull::vk::Result::Success);
 
-    VkMemoryRequirements uniform_buffer_requirements;
+    vull::vk::MemoryRequirements uniform_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(uniform_buffer, &uniform_buffer_requirements);
-    VkDeviceMemory uniform_buffer_memory =
+    vull::vk::DeviceMemory uniform_buffer_memory =
         context.allocate_memory(uniform_buffer_requirements, vull::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(uniform_buffer, uniform_buffer_memory, 0) == VK_SUCCESS);
+    VULL_ENSURE(context.vkBindBufferMemory(uniform_buffer, uniform_buffer_memory, 0) == vull::vk::Result::Success);
 
     struct PointLight {
         vull::Vec3f position;
@@ -463,153 +462,154 @@ int main() {
         vull::Vec3f colour;
         float padding{0.0f};
     };
-    VkDeviceSize lights_buffer_size = sizeof(PointLight) * 3000 + sizeof(float) * 4;
-    VkDeviceSize light_visibility_size = (specialisation_data.tile_max_light_count + 1) * sizeof(uint32_t);
-    VkDeviceSize light_visibilities_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
+    vull::vk::DeviceSize lights_buffer_size = sizeof(PointLight) * 3000 + sizeof(float) * 4;
+    vull::vk::DeviceSize light_visibility_size = (specialisation_data.tile_max_light_count + 1) * sizeof(uint32_t);
+    vull::vk::DeviceSize light_visibilities_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
 
-    VkBufferCreateInfo lights_buffer_ci{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    vull::vk::BufferCreateInfo lights_buffer_ci{
+        .sType = vull::vk::StructureType::BufferCreateInfo,
         .size = lights_buffer_size,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .usage = vull::vk::BufferUsage::StorageBuffer,
+        .sharingMode = vull::vk::SharingMode::Exclusive,
     };
-    VkBuffer lights_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&lights_buffer_ci, &lights_buffer) == VK_SUCCESS);
+    vull::vk::Buffer lights_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&lights_buffer_ci, &lights_buffer) == vull::vk::Result::Success);
 
-    VkMemoryRequirements lights_buffer_requirements;
+    vull::vk::MemoryRequirements lights_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(lights_buffer, &lights_buffer_requirements);
-    VkDeviceMemory lights_buffer_memory =
+    vull::vk::DeviceMemory lights_buffer_memory =
         context.allocate_memory(lights_buffer_requirements, vull::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(lights_buffer, lights_buffer_memory, 0) == VK_SUCCESS);
+    VULL_ENSURE(context.vkBindBufferMemory(lights_buffer, lights_buffer_memory, 0) == vull::vk::Result::Success);
 
-    VkBufferCreateInfo light_visibilities_buffer_ci{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    vull::vk::BufferCreateInfo light_visibilities_buffer_ci{
+        .sType = vull::vk::StructureType::BufferCreateInfo,
         .size = light_visibilities_buffer_size,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .usage = vull::vk::BufferUsage::StorageBuffer,
+        .sharingMode = vull::vk::SharingMode::Exclusive,
     };
-    VkBuffer light_visibilities_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&light_visibilities_buffer_ci, &light_visibilities_buffer) == VK_SUCCESS);
+    vull::vk::Buffer light_visibilities_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&light_visibilities_buffer_ci, &light_visibilities_buffer) ==
+                vull::vk::Result::Success);
 
-    VkMemoryRequirements light_visibilities_buffer_requirements;
+    vull::vk::MemoryRequirements light_visibilities_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(light_visibilities_buffer, &light_visibilities_buffer_requirements);
-    VkDeviceMemory light_visibilities_buffer_memory =
+    vull::vk::DeviceMemory light_visibilities_buffer_memory =
         context.allocate_memory(light_visibilities_buffer_requirements, vull::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindBufferMemory(light_visibilities_buffer, light_visibilities_buffer_memory, 0) ==
-                VK_SUCCESS);
+                vull::vk::Result::Success);
 
     vull::Array descriptor_pool_sizes{
-        VkDescriptorPoolSize{
-            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        vull::vk::DescriptorPoolSize{
+            .type = vull::vk::DescriptorType::UniformBuffer,
             .descriptorCount = 4,
         },
-        VkDescriptorPoolSize{
-            .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        vull::vk::DescriptorPoolSize{
+            .type = vull::vk::DescriptorType::StorageBuffer,
             .descriptorCount = 4,
         },
-        VkDescriptorPoolSize{
-            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        vull::vk::DescriptorPoolSize{
+            .type = vull::vk::DescriptorType::CombinedImageSampler,
             .descriptorCount = 2,
         },
     };
-    VkDescriptorPoolCreateInfo descriptor_pool_ci{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    vull::vk::DescriptorPoolCreateInfo descriptor_pool_ci{
+        .sType = vull::vk::StructureType::DescriptorPoolCreateInfo,
         .maxSets = 1,
         .poolSizeCount = descriptor_pool_sizes.size(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
-    VkDescriptorPool descriptor_pool;
-    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &descriptor_pool) == VK_SUCCESS);
+    vull::vk::DescriptorPool descriptor_pool;
+    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &descriptor_pool) == vull::vk::Result::Success);
 
-    VkDescriptorSetAllocateInfo descriptor_set_ai{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    vull::vk::DescriptorSetAllocateInfo descriptor_set_ai{
+        .sType = vull::vk::StructureType::DescriptorSetAllocateInfo,
         .descriptorPool = descriptor_pool,
         .descriptorSetCount = 1,
         .pSetLayouts = &set_layout,
     };
-    VkDescriptorSet descriptor_set;
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &descriptor_set) == VK_SUCCESS);
+    vull::vk::DescriptorSet descriptor_set;
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &descriptor_set) == vull::vk::Result::Success);
 
-    VkDescriptorBufferInfo uniform_buffer_info{
+    vull::vk::DescriptorBufferInfo uniform_buffer_info{
         .buffer = uniform_buffer,
-        .range = VK_WHOLE_SIZE,
+        .range = vull::vk::VK_WHOLE_SIZE,
     };
-    VkDescriptorBufferInfo lights_buffer_info{
+    vull::vk::DescriptorBufferInfo lights_buffer_info{
         .buffer = lights_buffer,
-        .range = VK_WHOLE_SIZE,
+        .range = vull::vk::VK_WHOLE_SIZE,
     };
-    VkDescriptorBufferInfo light_visibilities_buffer_info{
+    vull::vk::DescriptorBufferInfo light_visibilities_buffer_info{
         .buffer = light_visibilities_buffer,
-        .range = VK_WHOLE_SIZE,
+        .range = vull::vk::VK_WHOLE_SIZE,
     };
-    VkDescriptorImageInfo depth_sampler_image_info{
+    vull::vk::DescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
         .imageView = depth_image_view,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .imageLayout = vull::vk::ImageLayout::ShaderReadOnlyOptimal,
     };
-    VkDescriptorImageInfo height_sampler_image_info{
+    vull::vk::DescriptorImageInfo height_sampler_image_info{
         .sampler = height_sampler,
         .imageView = height_image_view,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .imageLayout = vull::vk::ImageLayout::ShaderReadOnlyOptimal,
     };
     vull::Array descriptor_writes{
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        vull::vk::WriteDescriptorSet{
+            .sType = vull::vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::UniformBuffer,
             .pBufferInfo = &uniform_buffer_info,
         },
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        vull::vk::WriteDescriptorSet{
+            .sType = vull::vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 1,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::StorageBuffer,
             .pBufferInfo = &lights_buffer_info,
         },
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        vull::vk::WriteDescriptorSet{
+            .sType = vull::vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 2,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .descriptorType = vull::vk::DescriptorType::StorageBuffer,
             .pBufferInfo = &light_visibilities_buffer_info,
         },
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        vull::vk::WriteDescriptorSet{
+            .sType = vull::vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 3,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorType = vull::vk::DescriptorType::CombinedImageSampler,
             .pImageInfo = &depth_sampler_image_info,
         },
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        vull::vk::WriteDescriptorSet{
+            .sType = vull::vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 4,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorType = vull::vk::DescriptorType::CombinedImageSampler,
             .pImageInfo = &height_sampler_image_info,
         },
     };
     context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
 
-    VkFenceCreateInfo fence_ci{
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+    vull::vk::FenceCreateInfo fence_ci{
+        .sType = vull::vk::StructureType::FenceCreateInfo,
+        .flags = vull::vk::FenceCreateFlags::Signaled,
     };
-    VkFence fence;
-    VULL_ENSURE(context.vkCreateFence(&fence_ci, &fence) == VK_SUCCESS);
+    vull::vk::Fence fence;
+    VULL_ENSURE(context.vkCreateFence(&fence_ci, &fence) == vull::vk::Result::Success);
 
-    VkSemaphoreCreateInfo semaphore_ci{
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+    vull::vk::SemaphoreCreateInfo semaphore_ci{
+        .sType = vull::vk::StructureType::SemaphoreCreateInfo,
     };
-    VkSemaphore image_available_semaphore;
-    VkSemaphore rendering_finished_semaphore;
-    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &image_available_semaphore) == VK_SUCCESS);
-    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &rendering_finished_semaphore) == VK_SUCCESS);
+    vull::vk::Semaphore image_available_semaphore;
+    vull::vk::Semaphore rendering_finished_semaphore;
+    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &image_available_semaphore) == vull::vk::Result::Success);
+    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &rendering_finished_semaphore) == vull::vk::Result::Success);
 
     srand(0);
     auto rand_float = [](float min, float max) {
@@ -661,8 +661,8 @@ int main() {
 
     void *lights_data;
     void *ubo_data;
-    context.vkMapMemory(lights_buffer_memory, 0, VK_WHOLE_SIZE, 0, &lights_data);
-    context.vkMapMemory(uniform_buffer_memory, 0, VK_WHOLE_SIZE, 0, &ubo_data);
+    context.vkMapMemory(lights_buffer_memory, 0, vull::vk::VK_WHOLE_SIZE, 0, &lights_data);
+    context.vkMapMemory(uniform_buffer_memory, 0, vull::vk::VK_WHOLE_SIZE, 0, &ubo_data);
 
     auto get_time = [] {
         struct timespec ts {};
@@ -672,13 +672,13 @@ int main() {
             1000000000);
     };
 
-    VkBuffer vertex_buffer = nullptr;
-    VkDeviceMemory vertex_buffer_memory = nullptr;
-    VkBuffer index_buffer = nullptr;
-    VkDeviceMemory index_buffer_memory = nullptr;
+    vull::vk::Buffer vertex_buffer = nullptr;
+    vull::vk::DeviceMemory vertex_buffer_memory = nullptr;
+    vull::vk::Buffer index_buffer = nullptr;
+    vull::vk::DeviceMemory index_buffer_memory = nullptr;
 
     float *height_data;
-    context.vkMapMemory(height_image_memory, 0, VK_WHOLE_SIZE, 0, reinterpret_cast<void **>(&height_data));
+    context.vkMapMemory(height_image_memory, 0, vull::vk::VK_WHOLE_SIZE, 0, reinterpret_cast<void **>(&height_data));
     for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
         for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
             height_data[x + z * height_image_ci.extent.width] =
@@ -703,7 +703,7 @@ int main() {
         }
 
         uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
-        context.vkWaitForFences(1, &fence, VK_TRUE, ~0ul);
+        context.vkWaitForFences(1, &fence, vull::vk::VK_TRUE, ~0ul);
         context.vkResetFences(1, &fence);
 
         yaw += window.delta_x() * 0.005f;
@@ -754,104 +754,101 @@ int main() {
             chunk->build_geometry(vertices, indices);
         }
 
-        VkBufferCreateInfo vertex_buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        vull::vk::BufferCreateInfo vertex_buffer_ci{
+            .sType = vull::vk::StructureType::BufferCreateInfo,
             .size = vertices.size_bytes(),
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .usage = vull::vk::BufferUsage::VertexBuffer,
+            .sharingMode = vull::vk::SharingMode::Exclusive,
         };
-        VULL_ENSURE(context.vkCreateBuffer(&vertex_buffer_ci, &vertex_buffer) == VK_SUCCESS);
+        VULL_ENSURE(context.vkCreateBuffer(&vertex_buffer_ci, &vertex_buffer) == vull::vk::Result::Success);
 
-        VkMemoryRequirements vertex_buffer_requirements;
+        vull::vk::MemoryRequirements vertex_buffer_requirements{};
         context.vkGetBufferMemoryRequirements(vertex_buffer, &vertex_buffer_requirements);
         vertex_buffer_memory = context.allocate_memory(vertex_buffer_requirements, vull::MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == VK_SUCCESS);
+        VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == vull::vk::Result::Success);
 
         void *vertex_data;
-        context.vkMapMemory(vertex_buffer_memory, 0, VK_WHOLE_SIZE, 0, &vertex_data);
+        context.vkMapMemory(vertex_buffer_memory, 0, vull::vk::VK_WHOLE_SIZE, 0, &vertex_data);
         memcpy(vertex_data, vertices.data(), vertices.size_bytes());
         context.vkUnmapMemory(vertex_buffer_memory);
 
-        VkBufferCreateInfo index_buffer_ci{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        vull::vk::BufferCreateInfo index_buffer_ci{
+            .sType = vull::vk::StructureType::BufferCreateInfo,
             .size = indices.size_bytes(),
-            .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .usage = vull::vk::BufferUsage::IndexBuffer,
+            .sharingMode = vull::vk::SharingMode::Exclusive,
         };
-        VULL_ENSURE(context.vkCreateBuffer(&index_buffer_ci, &index_buffer) == VK_SUCCESS);
+        VULL_ENSURE(context.vkCreateBuffer(&index_buffer_ci, &index_buffer) == vull::vk::Result::Success);
 
-        VkMemoryRequirements index_buffer_requirements;
+        vull::vk::MemoryRequirements index_buffer_requirements{};
         context.vkGetBufferMemoryRequirements(index_buffer, &index_buffer_requirements);
         index_buffer_memory = context.allocate_memory(index_buffer_requirements, vull::MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == VK_SUCCESS);
+        VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == vull::vk::Result::Success);
 
         void *index_data;
-        context.vkMapMemory(index_buffer_memory, 0, VK_WHOLE_SIZE, 0, &index_data);
+        context.vkMapMemory(index_buffer_memory, 0, vull::vk::VK_WHOLE_SIZE, 0, &index_data);
         memcpy(index_data, indices.data(), indices.size_bytes());
         context.vkUnmapMemory(index_buffer_memory);
 
-        context.vkResetCommandPool(command_pool, 0);
-        VkCommandBufferBeginInfo cmd_buf_bi{
-            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+        context.vkResetCommandPool(command_pool, vull::vk::CommandPoolResetFlags::None);
+        vull::vk::CommandBufferBeginInfo cmd_buf_bi{
+            .sType = vull::vk::StructureType::CommandBufferBeginInfo,
+            .flags = vull::vk::CommandBufferUsage::OneTimeSubmit,
         };
         context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
-        context.vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, 1,
+        context.vkCmdBindDescriptorSets(command_buffer, vull::vk::PipelineBindPoint::Compute, pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
-        context.vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1,
+        context.vkCmdBindDescriptorSets(command_buffer, vull::vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
 
-        vull::Array vertex_offsets{VkDeviceSize{0}};
+        vull::Array vertex_offsets{vull::vk::DeviceSize{0}};
         context.vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, vertex_offsets.data());
-        context.vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT32);
+        context.vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, vull::vk::IndexType::Uint32);
 
-        VkImageMemoryBarrier height_image_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_NONE_KHR,
-            .dstAccessMask = VK_ACCESS_NONE_KHR,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        vull::vk::ImageMemoryBarrier height_image_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .oldLayout = vull::vk::ImageLayout::Undefined,
+            .newLayout = vull::vk::ImageLayout::ShaderReadOnlyOptimal,
             .image = height_image,
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = vull::vk::ImageAspect::Color,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                                     &height_image_barrier);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::TopOfPipe,
+                                     vull::vk::PipelineStage::TopOfPipe, vull::vk::DependencyFlags::None, 0, nullptr, 0,
+                                     nullptr, 1, &height_image_barrier);
 
-        VkImageMemoryBarrier depth_write_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_NONE_KHR,
-            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        vull::vk::ImageMemoryBarrier depth_write_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .dstAccessMask = vull::vk::Access::DepthStencilAttachmentWrite,
+            .oldLayout = vull::vk::ImageLayout::Undefined,
+            .newLayout = vull::vk::ImageLayout::DepthAttachmentOptimal,
             .image = depth_image,
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .aspectMask = vull::vk::ImageAspect::Depth,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-                                     0, 0, nullptr, 0, nullptr, 1, &depth_write_barrier);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::ComputeShader,
+                                     vull::vk::PipelineStage::EarlyFragmentTests |
+                                         vull::vk::PipelineStage::LateFragmentTests,
+                                     vull::vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_write_barrier);
 
-        VkRenderingAttachmentInfoKHR depth_write_attachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        vull::vk::RenderingAttachmentInfoKHR depth_write_attachment{
+            .sType = vull::vk::StructureType::RenderingAttachmentInfoKHR,
             .imageView = depth_image_view,
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .imageLayout = vull::vk::ImageLayout::DepthAttachmentOptimal,
+            .loadOp = vull::vk::AttachmentLoadOp::Clear,
+            .storeOp = vull::vk::AttachmentStoreOp::Store,
             .clearValue{
                 .depthStencil{0.0f, 0},
             },
         };
-        VkRenderingInfoKHR depth_pass_rendering_info{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+        vull::vk::RenderingInfoKHR depth_pass_rendering_info{
+            .sType = vull::vk::StructureType::RenderingInfoKHR,
             .renderArea{
                 .extent = swapchain.extent_2D(),
             },
@@ -859,102 +856,103 @@ int main() {
             .pDepthAttachment = &depth_write_attachment,
         };
         context.vkCmdBeginRenderingKHR(command_buffer, &depth_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, depth_pass_pipeline);
+        context.vkCmdBindPipeline(command_buffer, vull::vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
         context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
         context.vkCmdEndRenderingKHR(command_buffer);
 
-        VkImageMemoryBarrier depth_sample_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        vull::vk::ImageMemoryBarrier depth_sample_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .srcAccessMask = vull::vk::Access::DepthStencilAttachmentWrite,
+            .dstAccessMask = vull::vk::Access::ShaderRead,
+            .oldLayout = vull::vk::ImageLayout::DepthAttachmentOptimal,
+            .newLayout = vull::vk::ImageLayout::ShaderReadOnlyOptimal,
             .image = depth_image,
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .aspectMask = vull::vk::ImageAspect::Depth,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
         context.vkCmdPipelineBarrier(
-            command_buffer, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &depth_sample_barrier);
-        context.vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, light_cull_pipeline);
+            command_buffer, vull::vk::PipelineStage::EarlyFragmentTests | vull::vk::PipelineStage::LateFragmentTests,
+            vull::vk::PipelineStage::ComputeShader, vull::vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1,
+            &depth_sample_barrier);
+        context.vkCmdBindPipeline(command_buffer, vull::vk::PipelineBindPoint::Compute, light_cull_pipeline);
         context.vkCmdDispatch(command_buffer, row_tile_count, col_tile_count, 1);
 
         vull::Array terrain_pass_buffer_barriers{
-            VkBufferMemoryBarrier{
-                .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            vull::vk::BufferMemoryBarrier{
+                .sType = vull::vk::StructureType::BufferMemoryBarrier,
+                .srcAccessMask = vull::vk::Access::ShaderWrite,
+                .dstAccessMask = vull::vk::Access::ShaderRead,
                 .buffer = lights_buffer,
                 .size = lights_buffer_size,
             },
-            VkBufferMemoryBarrier{
-                .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-                .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-                .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            vull::vk::BufferMemoryBarrier{
+                .sType = vull::vk::StructureType::BufferMemoryBarrier,
+                .srcAccessMask = vull::vk::Access::ShaderWrite,
+                .dstAccessMask = vull::vk::Access::ShaderRead,
                 .buffer = light_visibilities_buffer,
                 .size = light_visibilities_buffer_size,
             },
         };
-        context.vkCmdPipelineBarrier(
-            command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr,
-            terrain_pass_buffer_barriers.size(), terrain_pass_buffer_barriers.data(), 0, nullptr);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::ComputeShader,
+                                     vull::vk::PipelineStage::FragmentShader, vull::vk::DependencyFlags::None, 0,
+                                     nullptr, terrain_pass_buffer_barriers.size(), terrain_pass_buffer_barriers.data(),
+                                     0, nullptr);
 
-        VkImageMemoryBarrier colour_write_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_NONE_KHR,
-            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        vull::vk::ImageMemoryBarrier colour_write_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .dstAccessMask = vull::vk::Access::ColorAttachmentWrite,
+            .oldLayout = vull::vk::ImageLayout::Undefined,
+            .newLayout = vull::vk::ImageLayout::ColorAttachmentOptimal,
             .image = swapchain.image(image_index),
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = vull::vk::ImageAspect::Color,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        VkImageMemoryBarrier depth_read_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_SHADER_READ_BIT,
-            .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT,
-            .oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
+        vull::vk::ImageMemoryBarrier depth_read_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .srcAccessMask = vull::vk::Access::ShaderRead,
+            .dstAccessMask = vull::vk::Access::DepthStencilAttachmentRead,
+            .oldLayout = vull::vk::ImageLayout::ShaderReadOnlyOptimal,
+            .newLayout = vull::vk::ImageLayout::DepthReadOnlyOptimal,
             .image = depth_image,
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .aspectMask = vull::vk::ImageAspect::Depth,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                                     &colour_write_barrier);
-        context.vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-                                         VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-                                     0, 0, nullptr, 0, nullptr, 1, &depth_read_barrier);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::TopOfPipe,
+                                     vull::vk::PipelineStage::ColorAttachmentOutput, vull::vk::DependencyFlags::None, 0,
+                                     nullptr, 0, nullptr, 1, &colour_write_barrier);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::ComputeShader,
+                                     vull::vk::PipelineStage::EarlyFragmentTests |
+                                         vull::vk::PipelineStage::LateFragmentTests,
+                                     vull::vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_read_barrier);
 
-        VkRenderingAttachmentInfoKHR colour_write_attachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        vull::vk::RenderingAttachmentInfoKHR colour_write_attachment{
+            .sType = vull::vk::StructureType::RenderingAttachmentInfoKHR,
             .imageView = swapchain.image_view(image_index),
-            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .imageLayout = vull::vk::ImageLayout::ColorAttachmentOptimal,
+            .loadOp = vull::vk::AttachmentLoadOp::Clear,
+            .storeOp = vull::vk::AttachmentStoreOp::Store,
             .clearValue{
                 .color{{0.47f, 0.5f, 0.67f, 1.0f}},
             },
         };
-        VkRenderingAttachmentInfoKHR depth_read_attachment{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
+        vull::vk::RenderingAttachmentInfoKHR depth_read_attachment{
+            .sType = vull::vk::StructureType::RenderingAttachmentInfoKHR,
             .imageView = depth_image_view,
-            .imageLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_NONE_KHR,
+            .imageLayout = vull::vk::ImageLayout::DepthReadOnlyOptimal,
+            .loadOp = vull::vk::AttachmentLoadOp::Load,
+            .storeOp = vull::vk::AttachmentStoreOp::NoneKHR,
         };
-        VkRenderingInfoKHR terrain_pass_rendering_info{
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
+        vull::vk::RenderingInfoKHR terrain_pass_rendering_info{
+            .sType = vull::vk::StructureType::RenderingInfoKHR,
             .renderArea{
                 .extent = swapchain.extent_2D(),
             },
@@ -964,31 +962,30 @@ int main() {
             .pDepthAttachment = &depth_read_attachment,
         };
         context.vkCmdBeginRenderingKHR(command_buffer, &terrain_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, terrain_pass_pipeline);
+        context.vkCmdBindPipeline(command_buffer, vull::vk::PipelineBindPoint::Graphics, terrain_pass_pipeline);
         context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
         context.vkCmdEndRenderingKHR(command_buffer);
 
-        VkImageMemoryBarrier colour_present_barrier{
-            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            .dstAccessMask = VK_ACCESS_NONE_KHR,
-            .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        vull::vk::ImageMemoryBarrier colour_present_barrier{
+            .sType = vull::vk::StructureType::ImageMemoryBarrier,
+            .srcAccessMask = vull::vk::Access::ColorAttachmentWrite,
+            .oldLayout = vull::vk::ImageLayout::ColorAttachmentOptimal,
+            .newLayout = vull::vk::ImageLayout::PresentSrcKHR,
             .image = swapchain.image(image_index),
             .subresourceRange{
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .aspectMask = vull::vk::ImageAspect::Color,
                 .levelCount = 1,
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1,
-                                     &colour_present_barrier);
+        context.vkCmdPipelineBarrier(command_buffer, vull::vk::PipelineStage::ColorAttachmentOutput,
+                                     vull::vk::PipelineStage::BottomOfPipe, vull::vk::DependencyFlags::None, 0, nullptr,
+                                     0, nullptr, 1, &colour_present_barrier);
         context.vkEndCommandBuffer(command_buffer);
 
-        VkPipelineStageFlags wait_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        VkSubmitInfo submit_info{
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        vull::vk::PipelineStage wait_stage_mask = vull::vk::PipelineStage::ColorAttachmentOutput;
+        vull::vk::SubmitInfo submit_info{
+            .sType = vull::vk::StructureType::SubmitInfo,
             .waitSemaphoreCount = 1,
             .pWaitSemaphores = &image_available_semaphore,
             .pWaitDstStageMask = &wait_stage_mask,
