@@ -115,6 +115,8 @@ Context::Context() : ContextTable{} {
     };
     vk::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan12Features,
+        .descriptorBindingPartiallyBound = vk::VK_TRUE,
+        .runtimeDescriptorArray = vk::VK_TRUE,
     };
     vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{
         .sType = vk::StructureType::PhysicalDeviceDynamicRenderingFeaturesKHR,
