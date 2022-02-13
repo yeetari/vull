@@ -5,6 +5,8 @@ project(vull CXX)
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 
+find_package(Freetype REQUIRED)
+find_package(harfbuzz REQUIRED)
 find_package(X11 REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
