@@ -4,7 +4,7 @@ jobs:
   clang-tidy:
     name: Clang Tidy
     runs-on: ubuntu-latest
-    container: ubuntu:21.10
+    container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
@@ -25,11 +25,13 @@ jobs:
           clang-tidy
           cmake
           git
+          libfreetype-dev
+          libharfbuzz-dev
           libx11-dev
           libxcb-util-dev
           libxcb-xkb-dev
           parallel
-          vulkan-sdk
+          shaderc
       - name: Checkout
         uses: actions/checkout@v2
       - name: Configure CMake

@@ -4,7 +4,7 @@ jobs:
   clang-format:
     name: Clang Format
     runs-on: ubuntu-latest
-    container: ubuntu:21.10
+    container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
@@ -27,7 +27,7 @@ jobs:
   include-what-you-use:
     name: Include What You Use
     runs-on: ubuntu-latest
-    container: ubuntu:21.10
+    container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
@@ -48,12 +48,14 @@ jobs:
           cmake
           git
           libclang-dev
+          libfreetype-dev
+          libharfbuzz-dev
           libx11-dev
           libxcb-util-dev
           libxcb-xkb-dev
           llvm-dev
           parallel
-          vulkan-sdk
+          shaderc
       - name: Build IWYU
         run: |
           mkdir /opt/include-what-you-use
@@ -74,6 +76,8 @@ jobs:
           parallel -0 \
             include-what-you-use \
               -std=c++20 \
+              -isystem/usr/include/freetype2 \
+              -isystem/usr/include/harfbuzz \
               -Iengine/include -Ibuild/engine/include \
               -fno-exceptions -fno-rtti -nostdinc++ \
               {} 2>&1 |

@@ -5,7 +5,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    container: ubuntu:21.10
+    container: ubuntu:22.04
     env:
       DEBIAN_FRONTEND: noninteractive
     strategy:
@@ -33,11 +33,13 @@ jobs:
           gcc
           g++
           git
+          libfreetype-dev
+          libharfbuzz-dev
           libx11-dev
           libxcb-util-dev
           libxcb-xkb-dev
           ninja-build
-          vulkan-sdk
+          shaderc
       - name: Checkout
         uses: actions/checkout@v2
       - name: Configure CMake
