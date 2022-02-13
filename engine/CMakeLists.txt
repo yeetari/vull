@@ -5,6 +5,8 @@ add_subdirectory(sources)
 target_add_shader(vull shaders/light_cull.comp)
 target_add_shader(vull shaders/terrain.vert)
 target_add_shader(vull shaders/terrain.frag)
+target_add_shader(vull shaders/ui.vert)
+target_add_shader(vull shaders/ui.frag)
 target_compile_definitions(vull PUBLIC VK_NO_PROTOTYPES)
 target_compile_features(vull PRIVATE cxx_std_20)
 target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
@@ -18,6 +20,7 @@ if(VULL_BUILD_WARNINGS)
             -Weverything
             -Wno-c++98-compat
             -Wno-c++98-compat-pedantic
+            -Wno-double-promotion
             # Disabling this should be fine as it's now allowed in C++ 20.
             -Wno-gnu-zero-variadic-macro-arguments
             -Wno-padded)
@@ -27,6 +30,7 @@ if(VULL_BUILD_WARNINGS)
             -Wall
             -Wextra
             -Wno-class-memaccess
+            -Wno-double-promotion
             -Wno-missing-field-initializers
             -Wno-unknown-pragmas)
     endif()
