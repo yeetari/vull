@@ -11,6 +11,8 @@ find_program(GLSLC glslc REQUIRED)
 function(target_add_shader target shader)
     set(source ${CMAKE_CURRENT_SOURCE_DIR}/${shader})
     set(output ${CMAKE_CURRENT_BINARY_DIR}/${shader}.spv)
+    cmake_path(GET output PARENT_PATH parent_dir)
+    file(MAKE_DIRECTORY ${parent_dir})
     add_custom_command(
         OUTPUT ${output}
         COMMAND ${GLSLC} -MD -O -g --target-env=vulkan1.2 ${source} -o ${output}
