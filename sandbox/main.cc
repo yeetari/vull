@@ -54,6 +54,7 @@ int main() {
         if ((family.queueFlags & vk::QueueFlags::Graphics) != vk::QueueFlags::None) {
             vk::CommandPoolCreateInfo command_pool_ci{
                 .sType = vk::StructureType::CommandPoolCreateInfo,
+                .flags = vk::CommandPoolCreateFlags::Transient,
                 .queueFamilyIndex = i,
             };
             VULL_ENSURE(context.vkCreateCommandPool(&command_pool_ci, &command_pool) == vk::Result::Success,
