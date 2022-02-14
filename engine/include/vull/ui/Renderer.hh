@@ -12,6 +12,7 @@ using FT_Library = struct FT_LibraryRec_ *;
 namespace vull {
 
 class Context;
+class Swapchain;
 
 } // namespace vull
 
@@ -25,17 +26,23 @@ struct Object {
 
 class Renderer {
     const Context &m_context;
-    const vk::DescriptorSet m_descriptor_set;
+    const Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
+    vk::Sampler m_font_sampler{nullptr};
     vk::Buffer m_object_buffer{nullptr};
     vk::DeviceMemory m_object_buffer_memory{nullptr};
-    vk::Sampler m_font_sampler{nullptr};
+    vk::DescriptorPool m_descriptor_pool{nullptr};
+    vk::DescriptorSetLayout m_descriptor_set_layout{nullptr};
+    vk::DescriptorSet m_descriptor_set{nullptr};
+    vk::PipelineLayout m_pipeline_layout{nullptr};
+    vk::Pipeline m_pipeline{nullptr};
 
     Object *m_objects{nullptr};
     uint32_t m_object_index{0};
 
 public:
-    Renderer(const Context &context, vk::DescriptorSet descriptor_set);
+    Renderer(const Context &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
+             vk::ShaderModule fragment_shader, vk::SpecializationInfo *specialisation_info);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();
@@ -45,9 +52,8 @@ public:
 
     GpuFont load_font(const char *path, ssize_t size);
 
-    void new_frame();
     void draw_text(GpuFont &font, const Vec2u &position, const char *text);
-    uint32_t object_count() const { return m_object_index; }
+    void render(vk::CommandBuffer command_buffer, uint32_t image_index);
 };
 
 } // namespace vull::ui

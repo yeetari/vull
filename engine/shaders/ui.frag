@@ -7,7 +7,7 @@ layout (location = 0) in FragmentData {
     flat uint glyph_index;
 } g_fragment;
 
-layout (binding = 6) uniform sampler2D g_font_samplers[];
+layout (binding = 1) uniform sampler2D g_font_samplers[];
 layout (location = 0) out vec4 g_out_colour;
 
 void main() {

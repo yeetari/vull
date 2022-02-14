@@ -157,22 +157,6 @@ int main() {
             .pSpecializationInfo = &specialisation_info,
         },
     };
-    Array ui_shader_stage_cis{
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Vertex,
-            .module = ui_vertex_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Fragment,
-            .module = ui_fragment_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
-    };
 
     Array set_bindings{
         vk::DescriptorSetLayoutBinding{
@@ -205,32 +189,9 @@ int main() {
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
         },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 5,
-            .descriptorType = vk::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Vertex,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 6,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 2000,
-            .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
-        },
-    };
-    Array set_binding_flags{
-        vk::DescriptorBindingFlags::None,           vk::DescriptorBindingFlags::None, vk::DescriptorBindingFlags::None,
-        vk::DescriptorBindingFlags::None,           vk::DescriptorBindingFlags::None, vk::DescriptorBindingFlags::None,
-        vk::DescriptorBindingFlags::PartiallyBound,
-    };
-    vk::DescriptorSetLayoutBindingFlagsCreateInfo set_binding_flags_ci{
-        .sType = vk::StructureType::DescriptorSetLayoutBindingFlagsCreateInfo,
-        .bindingCount = set_bindings.size(),
-        .pBindingFlags = set_binding_flags.data(),
     };
     vk::DescriptorSetLayoutCreateInfo set_layout_ci{
         .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
-        .pNext = &set_binding_flags_ci,
         .bindingCount = set_bindings.size(),
         .pBindings = set_bindings.data(),
     };
@@ -263,9 +224,6 @@ int main() {
         .vertexAttributeDescriptionCount = vertex_attribute_descriptions.size(),
         .pVertexAttributeDescriptions = vertex_attribute_descriptions.data(),
     };
-    vk::PipelineVertexInputStateCreateInfo ui_vertex_input_state{
-        .sType = vk::StructureType::PipelineVertexInputStateCreateInfo,
-    };
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_state{
         .sType = vk::StructureType::PipelineInputAssemblyStateCreateInfo,
         .topology = vk::PrimitiveTopology::TriangleList,
@@ -294,13 +252,6 @@ int main() {
         .frontFace = vk::FrontFace::CounterClockwise,
         .lineWidth = 1.0f,
     };
-    vk::PipelineRasterizationStateCreateInfo ui_rasterisation_state{
-        .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
-        .polygonMode = vk::PolygonMode::Fill,
-        .cullMode = vk::CullMode::None,
-        .frontFace = vk::FrontFace::Clockwise,
-        .lineWidth = 1.0f,
-    };
 
     vk::PipelineMultisampleStateCreateInfo multisample_state{
         .sType = vk::StructureType::PipelineMultisampleStateCreateInfo,
@@ -327,22 +278,6 @@ int main() {
         .sType = vk::StructureType::PipelineColorBlendStateCreateInfo,
         .attachmentCount = 1,
         .pAttachments = &terrain_pass_blend_attachment,
-    };
-
-    vk::PipelineColorBlendAttachmentState ui_pass_blend_attachment{
-        .blendEnable = vk::VK_TRUE,
-        .srcColorBlendFactor = vk::BlendFactor::SrcAlpha,
-        .dstColorBlendFactor = vk::BlendFactor::OneMinusSrcAlpha,
-        .colorBlendOp = vk::BlendOp::Add,
-        .srcAlphaBlendFactor = vk::BlendFactor::One,
-        .dstAlphaBlendFactor = vk::BlendFactor::Zero,
-        .alphaBlendOp = vk::BlendOp::Add,
-        .colorWriteMask = vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
-    };
-    vk::PipelineColorBlendStateCreateInfo ui_pass_blend_state{
-        .sType = vk::StructureType::PipelineColorBlendStateCreateInfo,
-        .attachmentCount = 1,
-        .pAttachments = &ui_pass_blend_attachment,
     };
 
     const auto depth_format = vk::Format::D32Sfloat;
@@ -403,28 +338,6 @@ int main() {
     };
     vk::Pipeline terrain_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &terrain_pass_pipeline_ci, &terrain_pass_pipeline) ==
-                vk::Result::Success);
-
-    vk::PipelineRenderingCreateInfoKHR ui_pass_rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfoKHR,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &colour_format,
-    };
-    vk::GraphicsPipelineCreateInfo ui_pass_pipeline_ci{
-        .sType = vk::StructureType::GraphicsPipelineCreateInfo,
-        .pNext = &ui_pass_rendering_create_info,
-        .stageCount = ui_shader_stage_cis.size(),
-        .pStages = ui_shader_stage_cis.data(),
-        .pVertexInputState = &ui_vertex_input_state,
-        .pInputAssemblyState = &input_assembly_state,
-        .pViewportState = &viewport_state,
-        .pRasterizationState = &ui_rasterisation_state,
-        .pMultisampleState = &multisample_state,
-        .pColorBlendState = &ui_pass_blend_state,
-        .layout = pipeline_layout,
-    };
-    vk::Pipeline ui_pass_pipeline;
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &ui_pass_pipeline_ci, &ui_pass_pipeline) ==
                 vk::Result::Success);
 
     vk::ImageCreateInfo depth_image_ci{
@@ -594,11 +507,11 @@ int main() {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::StorageBuffer,
-            .descriptorCount = 3,
+            .descriptorCount = 2,
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 3 + set_bindings[6].descriptorCount,
+            .descriptorCount = 2,
         },
     };
     vk::DescriptorPoolCreateInfo descriptor_pool_ci{
@@ -804,7 +717,7 @@ int main() {
     context.vkQueueSubmit(queue, 1, &transition_submit_info, nullptr);
     context.vkQueueWaitIdle(queue);
 
-    ui::Renderer ui(context, descriptor_set);
+    ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader, &specialisation_info);
     auto font = ui.load_font("../engine/fonts/Roboto-Regular.ttf", 24);
 
     float previous_time = get_time();
@@ -830,8 +743,6 @@ int main() {
         // NOLINTNEXTLINE
         sprintf(position_buf.data(), "Camera position: (%f, %f, %f)", ubo.camera_position.x(), ubo.camera_position.y(),
                 ubo.camera_position.z());
-
-        ui.new_frame();
         ui.draw_text(font, {100u, 100u}, position_buf.data());
 
         yaw += window.delta_x() * 0.005f;
@@ -1079,26 +990,7 @@ int main() {
         context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
         context.vkCmdEndRenderingKHR(command_buffer);
 
-        vk::RenderingAttachmentInfoKHR ui_colour_write_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfoKHR,
-            .imageView = swapchain.image_view(image_index),
-            .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::Load,
-            .storeOp = vk::AttachmentStoreOp::Store,
-        };
-        vk::RenderingInfoKHR ui_pass_rendering_info{
-            .sType = vk::StructureType::RenderingInfoKHR,
-            .renderArea{
-                .extent = swapchain.extent_2D(),
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &ui_colour_write_attachment,
-        };
-        context.vkCmdBeginRenderingKHR(command_buffer, &ui_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, ui_pass_pipeline);
-        context.vkCmdDraw(command_buffer, 6, ui.object_count(), 0, 0);
-        context.vkCmdEndRenderingKHR(command_buffer);
+        ui.render(command_buffer, image_index);
 
         vk::ImageMemoryBarrier colour_present_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1156,7 +1048,6 @@ int main() {
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
     context.vkDestroyImage(depth_image);
-    context.vkDestroyPipeline(ui_pass_pipeline);
     context.vkDestroyPipeline(terrain_pass_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
     context.vkDestroyPipeline(depth_pass_pipeline);

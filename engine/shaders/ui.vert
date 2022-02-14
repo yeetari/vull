@@ -9,10 +9,10 @@ struct UiObject {
     float padding;
 };
 
-layout (binding = 5) readonly buffer UiData {
+layout (binding = 0) readonly buffer UiData {
     UiObject g_objects[];
 };
-layout (binding = 6) uniform sampler2D g_font_samplers[];
+layout (binding = 1) uniform sampler2D g_font_samplers[];
 
 layout (location = 0) out FragmentData {
     vec2 uv;

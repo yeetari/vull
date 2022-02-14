@@ -115,6 +115,7 @@ Context::Context() : ContextTable{} {
     };
     vk::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan12Features,
+        .shaderSampledImageArrayNonUniformIndexing = vk::VK_TRUE,
         .descriptorBindingPartiallyBound = vk::VK_TRUE,
         .runtimeDescriptorArray = vk::VK_TRUE,
     };
