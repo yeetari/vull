@@ -1,7 +1,6 @@
 target_sources(vull PRIVATE
     core/Window.cc
     support/Assert.cc
-    support/Lsan.cc
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc
