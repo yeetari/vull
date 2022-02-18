@@ -39,6 +39,9 @@ template <typename T>
 using RemoveRef = typename detail::RemoveRefImpl<T>::type;
 
 template <typename T>
+T declval();
+
+template <typename T>
 constexpr T &&forward(RemoveRef<T> &arg) {
     return static_cast<T &&>(arg);
 }
