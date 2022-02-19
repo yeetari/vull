@@ -719,7 +719,7 @@ int main() {
     context.vkQueueWaitIdle(queue);
 
     ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader, &specialisation_info);
-    auto font = ui.load_font("../engine/fonts/Roboto-Regular.ttf", 24);
+    auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
 
     float previous_time = get_time();
     float fps_previous_time = get_time();
