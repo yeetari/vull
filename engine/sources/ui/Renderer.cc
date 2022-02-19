@@ -19,7 +19,7 @@
 namespace vull::ui {
 
 Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
-                   vk::ShaderModule fragment_shader, vk::SpecializationInfo *specialisation_info)
+                   vk::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
 
@@ -38,7 +38,7 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     // TODO: Dynamic resizing.
     vk::BufferCreateInfo object_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
-        .size = sizeof(Object) * 1000,
+        .size = sizeof(Object) * 2000,
         .usage = vk::BufferUsage::StorageBuffer,
         .sharingMode = vk::SharingMode::Exclusive,
     };
@@ -74,13 +74,13 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
             .binding = 0,
             .descriptorType = vk::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Vertex,
+            .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 1,
             .descriptorType = vk::DescriptorType::CombinedImageSampler,
             .descriptorCount = descriptor_pool_sizes[1].descriptorCount,
-            .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
+            .stageFlags = vk::ShaderStage::Fragment,
         },
     };
     Array set_binding_flags{
@@ -175,7 +175,6 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
             .stage = vk::ShaderStage::Vertex,
             .module = vertex_shader,
             .pName = "main",
-            .pSpecializationInfo = specialisation_info,
         },
         vk::PipelineShaderStageCreateInfo{
             .sType = vk::StructureType::PipelineShaderStageCreateInfo,
@@ -238,7 +237,16 @@ GpuFont Renderer::load_font(const char *path, ssize_t size) {
     return {m_context, Font(face)};
 }
 
-void Renderer::draw_text(GpuFont &font, const Vec2u &position, const char *text) {
+void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill) {
+    m_objects[m_object_index++] = {
+        .colour = colour,
+        .position = position / m_swapchain.dimensions(),
+        .scale = scale / m_swapchain.dimensions(),
+        .type = fill ? ObjectType::Rect : ObjectType::RectOutline,
+    };
+}
+
+void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2u &position, const char *text) {
     auto cursor_x = static_cast<int32_t>(position.x());
     auto cursor_y = static_cast<int32_t>(position.y());
     for (auto [glyph_index, x_advance, y_advance, x_offset, y_offset] : font.shape(text)) {
@@ -250,8 +258,11 @@ void Renderer::draw_text(GpuFont &font, const Vec2u &position, const char *text)
                              static_cast<float>(cursor_y + y_offset / 64)); // NOLINT
         glyph_position += {glyph->disp_x, glyph->disp_y};
         m_objects[m_object_index++] = {
-            .position = glyph_position,
+            .colour = {colour.x(), colour.y(), colour.z(), 1.0f},
+            .position = glyph_position / m_swapchain.dimensions(),
+            .scale = Vec2f(64.0f) / m_swapchain.dimensions(),
             .glyph_index = glyph_index,
+            .type = ObjectType::TextGlyph,
         };
         cursor_x += x_advance / 64;
         cursor_y += y_advance / 64;

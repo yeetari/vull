@@ -718,7 +718,7 @@ int main() {
     context.vkQueueSubmit(queue, 1, &transition_submit_info, nullptr);
     context.vkQueueWaitIdle(queue);
 
-    ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader, &specialisation_info);
+    ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader);
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
 
     float previous_time = get_time();
@@ -744,7 +744,7 @@ int main() {
         // NOLINTNEXTLINE
         sprintf(position_buf.data(), "Camera position: (%f, %f, %f)", ubo.camera_position.x(), ubo.camera_position.y(),
                 ubo.camera_position.z());
-        ui.draw_text(font, {100u, 100u}, position_buf.data());
+        ui.draw_text(font, {1.0f}, {100u, 100u}, position_buf.data());
 
         yaw += window.delta_x() * 0.005f;
         pitch -= window.delta_y() * 0.005f;

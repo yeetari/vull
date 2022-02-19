@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/maths/Vec.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -32,6 +33,7 @@ public:
     uint32_t acquire_image(vk::Semaphore semaphore) const;
     void present(uint32_t image_index, Span<vk::Semaphore> wait_semaphores) const;
 
+    Vec2f dimensions() const { return {static_cast<float>(m_extent.width), static_cast<float>(m_extent.height)}; }
     vk::Extent2D extent_2D() const { return m_extent; }
     vk::Extent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
     vk::Image image(uint32_t index) const { return m_images[index]; }

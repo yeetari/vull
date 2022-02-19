@@ -18,10 +18,18 @@ class Swapchain;
 
 namespace vull::ui {
 
+enum class ObjectType {
+    Rect = 0,
+    RectOutline = 1,
+    TextGlyph = 2,
+};
+
 struct Object {
+    Vec4f colour;
     Vec2f position;
+    Vec2f scale;
     uint32_t glyph_index{0};
-    float padding{0.0f};
+    ObjectType type{ObjectType::Rect};
 };
 
 class Renderer {
@@ -42,7 +50,7 @@ class Renderer {
 
 public:
     Renderer(const Context &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
-             vk::ShaderModule fragment_shader, vk::SpecializationInfo *specialisation_info);
+             vk::ShaderModule fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();
@@ -52,7 +60,8 @@ public:
 
     GpuFont load_font(const char *path, ssize_t size);
 
-    void draw_text(GpuFont &font, const Vec2u &position, const char *text);
+    void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill = true);
+    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2u &position, const char *text);
     void render(vk::CommandBuffer command_buffer, uint32_t image_index);
 };
 

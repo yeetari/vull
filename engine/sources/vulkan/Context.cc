@@ -118,6 +118,7 @@ Context::Context() : ContextTable{} {
         .shaderSampledImageArrayNonUniformIndexing = vk::VK_TRUE,
         .descriptorBindingPartiallyBound = vk::VK_TRUE,
         .runtimeDescriptorArray = vk::VK_TRUE,
+        .scalarBlockLayout = vk::VK_TRUE,
     };
     vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{
         .sType = vk::StructureType::PhysicalDeviceDynamicRenderingFeaturesKHR,

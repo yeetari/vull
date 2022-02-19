@@ -12,8 +12,8 @@
 namespace vull::ui {
 namespace {
 
-constexpr size_t k_glyph_pixel_count = 128ull * 128ull;
-constexpr uint32_t k_glyph_size = 128ull;
+constexpr size_t k_glyph_pixel_count = 64ull * 64ull;
+constexpr uint32_t k_glyph_size = 64ull;
 
 } // namespace
 
@@ -74,7 +74,7 @@ void GpuFont::rasterise(uint32_t glyph_index, vk::DescriptorSet descriptor_set, 
     const auto memory_size = k_glyph_pixel_count * sizeof(float);
     m_context.vkMapMemory(m_memory, memory_offset, memory_size, 0, reinterpret_cast<void **>(&image_data));
     memset(image_data, 0, memory_size);
-    Font::rasterise({image_data, 128 * 128}, glyph_index);
+    Font::rasterise({image_data, k_glyph_pixel_count}, glyph_index);
     m_context.vkUnmapMemory(m_memory);
 
     vk::DescriptorImageInfo image_info{
