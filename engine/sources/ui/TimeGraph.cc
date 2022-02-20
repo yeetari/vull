@@ -59,7 +59,7 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font) {
         Vec2f bar_base = position + Vec2f(x_offset, m_size.y() - 1.0f);
         uint32_t section_index = 0;
         for (float y_offset = 0.0f; const auto &section : m_bars[bar_index].sections) {
-            float height = section.duration / max_total_time * m_size.y();
+            float height = section.duration / max_total_time * (m_size.y() - 2.0f);
             renderer.draw_rect(colour_for_section(section_index++), bar_base + Vec2f(0.0f, y_offset),
                                Vec2f(m_bar_width, -height));
             y_offset -= height;
