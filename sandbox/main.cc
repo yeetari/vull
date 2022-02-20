@@ -4,10 +4,12 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/terrain/Chunk.hh>
 #include <vull/terrain/Terrain.hh>
 #include <vull/ui/Renderer.hh>
+#include <vull/ui/TimeGraph.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -670,9 +672,8 @@ int main() {
     auto get_time = [] {
         struct timespec ts {};
         clock_gettime(CLOCK_MONOTONIC, &ts);
-        return static_cast<float>(
-            static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
-            1000000000);
+        return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
+               1000000000;
     };
 
     vk::Buffer vertex_buffer = nullptr;
@@ -719,14 +720,15 @@ int main() {
     context.vkQueueWaitIdle(queue);
 
     ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader);
+    ui::TimeGraph time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.9f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
 
-    float previous_time = get_time();
-    float fps_previous_time = get_time();
+    double previous_time = get_time();
+    double fps_previous_time = get_time();
     uint32_t frame_count = 0;
     while (!window.should_close()) {
-        float current_time = get_time();
-        float dt = current_time - previous_time;
+        double current_time = get_time();
+        auto dt = static_cast<float>(current_time - previous_time);
         previous_time = current_time;
         frame_count++;
         if (current_time - fps_previous_time >= 1.0f) {
@@ -736,15 +738,26 @@ int main() {
             fps_previous_time = current_time;
         }
 
+        ui::TimeGraph::Bar frame_bar;
+
+        double start_time = get_time();
         uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
+        frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
+
+        start_time = get_time();
         context.vkWaitForFences(1, &fence, vk::VK_TRUE, ~0ul);
         context.vkResetFences(1, &fence);
+        frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
 
         Array<char, 256> position_buf{};
         // NOLINTNEXTLINE
         sprintf(position_buf.data(), "Camera position: (%f, %f, %f)", ubo.camera_position.x(), ubo.camera_position.y(),
                 ubo.camera_position.z());
-        ui.draw_text(font, {1.0f}, {100u, 100u}, position_buf.data());
+
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 400.0f});
+        time_graph.draw(ui, {110.0f, 200.0f}, font);
+        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95u, 140u}, position_buf.data());
 
         yaw += window.delta_x() * 0.005f;
         pitch -= window.delta_y() * 0.005f;
@@ -785,6 +798,7 @@ int main() {
         context.vkFreeMemory(vertex_buffer_memory);
         context.vkDestroyBuffer(vertex_buffer);
 
+        start_time = get_time();
         Vector<Chunk *> chunks;
         terrain.update(ubo.camera_position, chunks);
 
@@ -793,7 +807,9 @@ int main() {
         for (auto *chunk : chunks) {
             chunk->build_geometry(vertices, indices);
         }
+        frame_bar.sections.push({"Terrain", static_cast<float>(get_time() - start_time)});
 
+        start_time = get_time();
         vk::BufferCreateInfo vertex_buffer_ci{
             .sType = vk::StructureType::BufferCreateInfo,
             .size = vertices.size_bytes(),
@@ -829,7 +845,9 @@ int main() {
         context.vkMapMemory(index_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &index_data);
         memcpy(index_data, indices.data(), indices.size_bytes());
         context.vkUnmapMemory(index_buffer_memory);
+        frame_bar.sections.push({"Terrain buffers", static_cast<float>(get_time() - start_time)});
 
+        start_time = get_time();
         context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
         vk::CommandBufferBeginInfo cmd_buf_bi{
             .sType = vk::StructureType::CommandBufferBeginInfo,
@@ -1022,9 +1040,11 @@ int main() {
             .pSignalSemaphores = &rendering_finished_semaphore,
         };
         context.vkQueueSubmit(queue, 1, &submit_info, fence);
+        frame_bar.sections.push({"Record", static_cast<float>(get_time() - start_time)});
         Array wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, wait_semaphores.span());
         window.poll_events();
+        time_graph.add_bar(move(frame_bar));
     }
     context.vkDeviceWaitIdle();
     context.vkDestroySemaphore(rendering_finished_semaphore);
