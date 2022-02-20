@@ -8,6 +8,7 @@ target_sources(vull PRIVATE
     ui/Font.cc
     ui/GpuFont.cc
     ui/Renderer.cc
+    ui/TimeGraph.cc
     vulkan/Context.cc
     vulkan/ContextTable.cc
     vulkan/Swapchain.cc)
