@@ -36,7 +36,8 @@ public:
     TimeGraph(const Vec2f &size, const Vec3f &base_colour, float bar_width = 3.0f, float bar_spacing = 1.0f);
 
     void add_bar(Bar &&bar);
-    void draw(Renderer &renderer, const Vec2f &position, GpuFont &font); // TODO: Take in Optional<GpuFont &>
+    // TODO: Take in Optional<GpuFont &> and make font (legend rendering) and title rendering optional parameters.
+    void draw(Renderer &renderer, const Vec2f &position, GpuFont &font, const char *title);
 };
 
 } // namespace vull::ui

@@ -719,9 +719,21 @@ int main() {
     context.vkQueueSubmit(queue, 1, &transition_submit_info, nullptr);
     context.vkQueueWaitIdle(queue);
 
+    vk::QueryPoolCreateInfo query_pool_ci{
+        .sType = vk::StructureType::QueryPoolCreateInfo,
+        .queryType = vk::QueryType::Timestamp,
+        .queryCount = 8,
+    };
+    vk::QueryPool query_pool;
+    context.vkCreateQueryPool(&query_pool_ci, &query_pool);
+
     ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader);
-    ui::TimeGraph time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.9f, 0.0f, 0.7f));
+    ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.6f, 0.7f, 0.8f));
+    ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
+
+    vk::PhysicalDeviceProperties device_properties{};
+    context.vkGetPhysicalDeviceProperties(&device_properties);
 
     double previous_time = get_time();
     double fps_previous_time = get_time();
@@ -738,16 +750,36 @@ int main() {
             fps_previous_time = current_time;
         }
 
-        ui::TimeGraph::Bar frame_bar;
+        ui::TimeGraph::Bar cpu_frame_bar;
 
         double start_time = get_time();
         uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
-        frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
         context.vkWaitForFences(1, &fence, vk::VK_TRUE, ~0ul);
         context.vkResetFences(1, &fence);
-        frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
+
+        Array<uint64_t, 8> timestamp_data{};
+        VULL_ENSURE(context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
+                                                  timestamp_data.data(), sizeof(uint64_t),
+                                                  vk::QueryResultFlags::_64) == vk::Result::Success);
+
+        ui::TimeGraph::Bar gpu_frame_bar;
+        gpu_frame_bar.sections.push({"Depth pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
+                                                    device_properties.limits.timestampPeriod) /
+                                                       1000000000.0f});
+        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
+                                                    device_properties.limits.timestampPeriod) /
+                                                       1000000000.0f});
+        gpu_frame_bar.sections.push({"Terrain pass", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
+                                                      device_properties.limits.timestampPeriod) /
+                                                         1000000000.0f});
+        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[7] - timestamp_data[6])) *
+                                            device_properties.limits.timestampPeriod) /
+                                               1000000000.0f});
+        gpu_time_graph.add_bar(move(gpu_frame_bar));
 
         Array<char, 256> position_buf{};
         // NOLINTNEXTLINE
@@ -755,8 +787,9 @@ int main() {
                 ubo.camera_position.z());
 
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 400.0f});
-        time_graph.draw(ui, {110.0f, 200.0f}, font);
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
+        cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
+        gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
         ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95u, 140u}, position_buf.data());
 
         yaw += window.delta_x() * 0.005f;
@@ -807,7 +840,7 @@ int main() {
         for (auto *chunk : chunks) {
             chunk->build_geometry(vertices, indices);
         }
-        frame_bar.sections.push({"Terrain", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Terrain", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
         vk::BufferCreateInfo vertex_buffer_ci{
@@ -845,7 +878,7 @@ int main() {
         context.vkMapMemory(index_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &index_data);
         memcpy(index_data, indices.data(), indices.size_bytes());
         context.vkUnmapMemory(index_buffer_memory);
-        frame_bar.sections.push({"Terrain buffers", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Terrain buffers", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
         context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
@@ -854,6 +887,7 @@ int main() {
             .flags = vk::CommandBufferUsage::OneTimeSubmit,
         };
         context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
+        context.vkCmdResetQueryPool(command_buffer, query_pool, 0, query_pool_ci.queryCount);
         context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
         context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
@@ -875,7 +909,7 @@ int main() {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ComputeShader,
+        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::TopOfPipe,
                                      vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                      vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_write_barrier);
 
@@ -898,6 +932,7 @@ int main() {
             .pDepthAttachment = &depth_write_attachment,
             .pStencilAttachment = &depth_write_attachment,
         };
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
         context.vkCmdBeginRenderingKHR(command_buffer, &depth_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
         context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
@@ -920,8 +955,11 @@ int main() {
                                      vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                      vk::PipelineStage::ComputeShader, vk::DependencyFlags::None, 0, nullptr, 0,
                                      nullptr, 1, &depth_sample_barrier);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 1);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Compute, light_cull_pipeline);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 2);
         context.vkCmdDispatch(command_buffer, row_tile_count, col_tile_count, 1);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::ComputeShader, query_pool, 3);
 
         Array terrain_pass_buffer_barriers{
             vk::BufferMemoryBarrier{
@@ -1004,12 +1042,33 @@ int main() {
             .pDepthAttachment = &depth_read_attachment,
             .pStencilAttachment = &depth_read_attachment,
         };
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
         context.vkCmdBeginRenderingKHR(command_buffer, &terrain_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pass_pipeline);
         context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
         context.vkCmdEndRenderingKHR(command_buffer);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
 
+        vk::ImageMemoryBarrier ui_colour_write_barrier{
+            .sType = vk::StructureType::ImageMemoryBarrier,
+            .srcAccessMask = vk::Access::ColorAttachmentWrite,
+            .dstAccessMask = vk::Access::ColorAttachmentRead,
+            .oldLayout = vk::ImageLayout::ColorAttachmentOptimal,
+            .newLayout = vk::ImageLayout::ColorAttachmentOptimal,
+            .image = swapchain.image(image_index),
+            .subresourceRange{
+                .aspectMask = vk::ImageAspect::Color,
+                .levelCount = 1,
+                .layerCount = 1,
+            },
+        };
+        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ColorAttachmentOutput,
+                                     vk::PipelineStage::ColorAttachmentOutput, vk::DependencyFlags::None, 0, nullptr, 0,
+                                     nullptr, 1, &ui_colour_write_barrier);
+
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::ColorAttachmentOutput, query_pool, 6);
         ui.render(command_buffer, image_index);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 7);
 
         vk::ImageMemoryBarrier colour_present_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1040,13 +1099,14 @@ int main() {
             .pSignalSemaphores = &rendering_finished_semaphore,
         };
         context.vkQueueSubmit(queue, 1, &submit_info, fence);
-        frame_bar.sections.push({"Record", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Record", static_cast<float>(get_time() - start_time)});
         Array wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, wait_semaphores.span());
         window.poll_events();
-        time_graph.add_bar(move(frame_bar));
+        cpu_time_graph.add_bar(move(cpu_frame_bar));
     }
     context.vkDeviceWaitIdle();
+    context.vkDestroyQueryPool(query_pool);
     context.vkDestroySemaphore(rendering_finished_semaphore);
     context.vkDestroySemaphore(image_available_semaphore);
     context.vkDestroyFence(fence);

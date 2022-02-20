@@ -39,7 +39,7 @@ void TimeGraph::add_bar(Bar &&bar) {
     m_bars.enqueue(move(bar));
 }
 
-void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font) {
+void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font, const char *title) {
     // Draw outline.
     renderer.draw_rect(Vec4f(1.0f), position, m_size + Vec2f(1.0f, 0.0f), false);
 
@@ -65,6 +65,13 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font) {
             y_offset -= height;
         }
     }
+
+    Array<char, 256> scale_buf{};
+    // NOLINTNEXTLINE
+    sprintf(scale_buf.data(), "%s: %f ms", title, max_total_time * 1000.0f);
+    renderer.draw_text(font, Vec3f(1.0f),
+                       Vec2u(static_cast<uint32_t>(position.x()), static_cast<uint32_t>(position.y() - 20.0f)),
+                       scale_buf.data());
 
     // Draw legend.
     const auto &latest_bar = m_bars[m_bars.size() - 1];
