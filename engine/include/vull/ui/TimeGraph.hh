@@ -1,7 +1,10 @@
 #pragma once
 
 #include <vull/maths/Vec.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/RingBuffer.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 
 #include <stdint.h>
@@ -13,9 +16,8 @@ class Renderer;
 
 class TimeGraph {
 public:
-    // NOLINTNEXTLINE
     struct Section {
-        const char *name;
+        String name;
         float duration{0.0f};
     };
     struct Bar {
@@ -36,8 +38,7 @@ public:
     TimeGraph(const Vec2f &size, const Vec3f &base_colour, float bar_width = 3.0f, float bar_spacing = 1.0f);
 
     void add_bar(Bar &&bar);
-    // TODO: Take in Optional<GpuFont &> and make font (legend rendering) and title rendering optional parameters.
-    void draw(Renderer &renderer, const Vec2f &position, GpuFont &font, const char *title);
+    void draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font = {}, StringView title = {});
 };
 
 } // namespace vull::ui

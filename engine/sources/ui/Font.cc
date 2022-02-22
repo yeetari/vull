@@ -3,6 +3,7 @@
 #include <vull/maths/Common.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
@@ -63,9 +64,9 @@ void Font::rasterise(Span<float> buffer, uint32_t glyph_index) const {
     }
 }
 
-ShapingView Font::shape(const char *text) const {
+ShapingView Font::shape(StringView text) const {
     hb_buffer_t *buffer = hb_buffer_create();
-    hb_buffer_add_utf8(buffer, text, -1, 0, -1);
+    hb_buffer_add_utf8(buffer, text.data(), static_cast<int>(text.size()), 0, -1);
     hb_buffer_guess_segment_properties(buffer);
     hb_shape(m_hb_font, buffer, nullptr, 0);
 

@@ -4,6 +4,8 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Format.hh>
+#include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/terrain/Chunk.hh>
@@ -781,16 +783,13 @@ int main() {
                                                1000000000.0f});
         gpu_time_graph.add_bar(move(gpu_frame_bar));
 
-        Array<char, 256> position_buf{};
-        // NOLINTNEXTLINE
-        sprintf(position_buf.data(), "Camera position: (%f, %f, %f)", ubo.camera_position.x(), ubo.camera_position.y(),
-                ubo.camera_position.z());
-
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
         cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
         gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
-        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95.0f, 140.0f}, position_buf.data());
+        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95.0f, 140.0f},
+                     vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
+                                  ubo.camera_position.z()));
 
         yaw += window.delta_x() * 0.005f;
         pitch -= window.delta_y() * 0.005f;

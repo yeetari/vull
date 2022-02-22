@@ -3,13 +3,15 @@
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Algorithm.hh>
-#include <vull/support/Array.hh>
+#include <vull/support/Format.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/RingBuffer.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/ui/Renderer.hh>
 
-#include <stdio.h>
 #include <stdlib.h>
 
 namespace vull::ui {
@@ -39,7 +41,7 @@ void TimeGraph::add_bar(Bar &&bar) {
     m_bars.enqueue(move(bar));
 }
 
-void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font, const char *title) {
+void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font, StringView title) {
     // Draw outline.
     renderer.draw_rect(Vec4f(1.0f), position, m_size + Vec2f(1.0f, 0.0f), false);
 
@@ -66,22 +68,24 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font, c
         }
     }
 
-    Array<char, 256> scale_buf{};
-    // NOLINTNEXTLINE
-    sprintf(scale_buf.data(), "%s: %f ms", title, max_total_time * 1000.0f);
-    renderer.draw_text(font, Vec3f(1.0f), position - Vec2f(0.0f, 20.0f), scale_buf.data());
+    // Skip drawing title and legend if no font supplied.
+    if (!font) {
+        return;
+    }
+
+    if (!title.empty()) {
+        auto title_string = format("{}: {} ms", title, max_total_time * 1000.0f);
+        renderer.draw_text(*font, Vec3f(1.0f), position - Vec2f(0.0f, 20.0f), title_string);
+    }
 
     // Draw legend.
     const auto &latest_bar = m_bars[m_bars.size() - 1];
     uint32_t section_index = latest_bar.sections.size();
     for (float y_offset = position.y() + 10.0f; const auto &section : reverse_view(latest_bar.sections)) {
-        Array<char, 256> buf{};
-        // NOLINTNEXTLINE
-        sprintf(buf.data(), "%s: %f ms", section.name, section.duration * 1000.0f);
-
         const auto &colour = colour_for_section(--section_index);
-        renderer.draw_text(font, Vec3f(colour.x(), colour.y(), colour.z()),
-                           Vec2f(position.x() + m_size.x() + 10.0f, y_offset), buf.data());
+        const auto text = format("{}: {} ms", section.name, section.duration * 1000.0f);
+        renderer.draw_text(*font, Vec3f(colour.x(), colour.y(), colour.z()),
+                           Vec2f(position.x() + m_size.x() + 10.0f, y_offset), text);
         y_offset += 30.0f;
     }
 }

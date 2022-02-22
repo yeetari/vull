@@ -2,6 +2,7 @@
 
 #include <vull/support/Optional.hh> // IWYU pragma: keep
 #include <vull/support/Span.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
@@ -82,7 +83,7 @@ public:
     Font &operator=(Font &&) = delete;
 
     void rasterise(Span<float> buffer, uint32_t glyph_index) const;
-    ShapingView shape(const char *text) const;
+    ShapingView shape(StringView text) const;
     const Optional<CachedGlyph> &cached_glyph(uint32_t glyph_index) const;
     uint32_t glyph_count() const { return m_glyph_cache.size(); }
 };

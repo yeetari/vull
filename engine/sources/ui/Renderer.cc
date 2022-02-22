@@ -4,6 +4,7 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/StringView.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/GpuFont.hh>
 #include <vull/vulkan/Context.hh>
@@ -230,9 +231,9 @@ Renderer::~Renderer() {
     FT_Done_FreeType(m_ft_library);
 }
 
-GpuFont Renderer::load_font(const char *path, ssize_t size) {
+GpuFont Renderer::load_font(StringView path, ssize_t size) {
     FT_Face face;
-    VULL_ENSURE(FT_New_Face(m_ft_library, path, 0, &face) == FT_Err_Ok);
+    VULL_ENSURE(FT_New_Face(m_ft_library, path.data(), 0, &face) == FT_Err_Ok);
     VULL_ENSURE(FT_Set_Char_Size(face, size * 64l, 0, 0, 0) == FT_Err_Ok);
     return {m_context, Font(face)};
 }
@@ -246,7 +247,7 @@ void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f
     };
 }
 
-void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, const char *text) {
+void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text) {
     float cursor_x = position.x();
     float cursor_y = position.y();
     for (auto [glyph_index, x_advance, y_advance, x_offset, y_offset] : font.shape(text)) {

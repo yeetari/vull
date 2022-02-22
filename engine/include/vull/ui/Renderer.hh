@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/maths/Vec.hh>
+#include <vull/support/StringView.hh>
 #include <vull/ui/GpuFont.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -58,10 +59,10 @@ public:
     Renderer &operator=(const Renderer &) = delete;
     Renderer &operator=(Renderer &&) = delete;
 
-    GpuFont load_font(const char *path, ssize_t size);
+    GpuFont load_font(StringView path, ssize_t size);
 
     void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill = true);
-    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, const char *text);
+    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
     void render(vk::CommandBuffer command_buffer, uint32_t image_index);
 };
 
