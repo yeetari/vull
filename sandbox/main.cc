@@ -790,7 +790,7 @@ int main() {
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
         cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
         gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
-        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95u, 140u}, position_buf.data());
+        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95.0f, 140.0f}, position_buf.data());
 
         yaw += window.delta_x() * 0.005f;
         pitch -= window.delta_y() * 0.005f;

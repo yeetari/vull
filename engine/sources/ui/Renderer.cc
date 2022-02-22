@@ -246,16 +246,16 @@ void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f
     };
 }
 
-void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2u &position, const char *text) {
-    auto cursor_x = static_cast<int32_t>(position.x());
-    auto cursor_y = static_cast<int32_t>(position.y());
+void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, const char *text) {
+    float cursor_x = position.x();
+    float cursor_y = position.y();
     for (auto [glyph_index, x_advance, y_advance, x_offset, y_offset] : font.shape(text)) {
         const auto &glyph = font.cached_glyph(glyph_index);
         if (!glyph) {
             font.rasterise(glyph_index, m_descriptor_set, m_font_sampler);
         }
-        Vec2f glyph_position(static_cast<float>(cursor_x + x_offset / 64),  // NOLINT
-                             static_cast<float>(cursor_y + y_offset / 64)); // NOLINT
+        Vec2f glyph_position(cursor_x + static_cast<float>(x_offset) / 64.0f,
+                             cursor_y + static_cast<float>(y_offset) / 64.0f);
         glyph_position += {glyph->disp_x, glyph->disp_y};
         m_objects[m_object_index++] = {
             .colour = {colour.x(), colour.y(), colour.z(), 1.0f},
@@ -264,8 +264,8 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2u &positi
             .glyph_index = glyph_index,
             .type = ObjectType::TextGlyph,
         };
-        cursor_x += x_advance / 64;
-        cursor_y += y_advance / 64;
+        cursor_x += static_cast<float>(x_advance) / 64.0f;
+        cursor_y += static_cast<float>(y_advance) / 64.0f;
     }
 }
 

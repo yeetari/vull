@@ -69,9 +69,7 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font, c
     Array<char, 256> scale_buf{};
     // NOLINTNEXTLINE
     sprintf(scale_buf.data(), "%s: %f ms", title, max_total_time * 1000.0f);
-    renderer.draw_text(font, Vec3f(1.0f),
-                       Vec2u(static_cast<uint32_t>(position.x()), static_cast<uint32_t>(position.y() - 20.0f)),
-                       scale_buf.data());
+    renderer.draw_text(font, Vec3f(1.0f), position - Vec2f(0.0f, 20.0f), scale_buf.data());
 
     // Draw legend.
     const auto &latest_bar = m_bars[m_bars.size() - 1];
@@ -82,10 +80,8 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, GpuFont &font, c
         sprintf(buf.data(), "%s: %f ms", section.name, section.duration * 1000.0f);
 
         const auto &colour = colour_for_section(--section_index);
-        renderer.draw_text(
-            font, Vec3f(colour.x(), colour.y(), colour.z()),
-            Vec2u(static_cast<uint32_t>(position.x() + m_size.x() + 10.0f), static_cast<uint32_t>(y_offset)),
-            buf.data());
+        renderer.draw_text(font, Vec3f(colour.x(), colour.y(), colour.z()),
+                           Vec2f(position.x() + m_size.x() + 10.0f, y_offset), buf.data());
         y_offset += 30.0f;
     }
 }

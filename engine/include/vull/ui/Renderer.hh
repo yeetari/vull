@@ -61,7 +61,7 @@ public:
     GpuFont load_font(const char *path, ssize_t size);
 
     void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill = true);
-    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2u &position, const char *text);
+    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, const char *text);
     void render(vk::CommandBuffer command_buffer, uint32_t image_index);
 };
 
