@@ -4,6 +4,14 @@
 
 namespace vull {
 
+// TODO: Does vull want to go down the route of an "iterator" or a "container" based algorithm and data structure API?
+//       For example, the Vector::extend(const Container &) API was added instead of one taking in begin and end
+//       iterators (since calculating the extension size of the vector would be tricky), with the thought that
+//       slices/ranges could be passed in via creating a Span. However, this design makes it impossible to do something
+//       like
+//           vector.extend(vull::reverse_view(other_vector));
+//       as a ViewAdapter<ReverseIterator> doesn't have the normal container functions like .data() and .size()
+
 template <typename It>
 class ReverseIterator {
     It m_it;

@@ -42,7 +42,7 @@ public:
     Optional(T &ref) : m_ptr(&ref) {}
     Optional(const Optional &) = delete;
     Optional(Optional &&) = delete;
-    ~Optional()  = default;
+    ~Optional() = default;
 
     Optional &operator=(const Optional &) = delete;
     Optional &operator=(Optional &&) = delete;

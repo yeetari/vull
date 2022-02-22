@@ -36,12 +36,15 @@ public:
 
     template <typename... Args>
     T &emplace(Args &&...args);
+    template <typename Container>
+    void extend(const Container &container);
     void push(const T &elem);
     void push(T &&elem);
     void pop();
 
-    Span<T> span() { return {m_data, m_size}; }
-    Span<const T> span() const { return {m_data, m_size}; }
+    Span<T, SizeType> span() { return {m_data, m_size}; }
+    Span<const T, SizeType> span() const { return {m_data, m_size}; }
+    Span<T, SizeType> take_all();
 
     T *begin() { return m_data; }
     T *end() { return m_data + m_size; }
@@ -158,6 +161,23 @@ T &Vector<T, SizeType>::emplace(Args &&...args) {
 }
 
 template <typename T, typename SizeType>
+template <typename Container>
+void Vector<T, SizeType>::extend(const Container &container) {
+    if (container.empty()) {
+        return;
+    }
+    ensure_capacity(m_size + container.size());
+    if constexpr (IsTriviallyCopyable<T>) {
+        memcpy(end(), container.data(), container.size_bytes());
+        m_size += container.size();
+    } else {
+        for (const auto &elem : container) {
+            push(elem);
+        }
+    }
+}
+
+template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(const T &elem) {
     ensure_capacity(m_size + 1);
     if constexpr (IsTriviallyCopyable<T>) {
@@ -180,6 +200,12 @@ void Vector<T, SizeType>::pop() {
     VULL_ASSERT(!empty());
     m_size--;
     end()->~T();
+}
+
+template <typename T, typename SizeType>
+Span<T, SizeType> Vector<T, SizeType>::take_all() {
+    m_capacity = 0u;
+    return {exchange(m_data, nullptr), exchange(m_size, 0u)};
 }
 
 template <typename T, typename SizeType>
