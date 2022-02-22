@@ -34,6 +34,29 @@ public:
 };
 
 template <typename T>
+class Optional<T &> {
+    T *m_ptr{nullptr};
+
+public:
+    constexpr Optional() = default;
+    Optional(T &ref) : m_ptr(&ref) {}
+    Optional(const Optional &) = delete;
+    Optional(Optional &&) = delete;
+    ~Optional()  = default;
+
+    Optional &operator=(const Optional &) = delete;
+    Optional &operator=(Optional &&) = delete;
+
+    explicit operator bool() const { return m_ptr != nullptr; }
+    bool has_value() const { return m_ptr != nullptr; }
+
+    T &operator*();
+    T *operator->();
+    const T &operator*() const;
+    const T *operator->() const;
+};
+
+template <typename T>
 Optional<T>::Optional(Optional &&other) : m_present(other.m_present) {
     if (other) {
         new (m_data.data()) T(move(*other));
@@ -82,6 +105,30 @@ template <typename T>
 const T *Optional<T>::operator->() const {
     VULL_ASSERT(m_present);
     return reinterpret_cast<const T *>(m_data.data());
+}
+
+template <typename T>
+T &Optional<T &>::operator*() {
+    VULL_ASSERT(m_ptr != nullptr);
+    return *m_ptr;
+}
+
+template <typename T>
+T *Optional<T &>::operator->() {
+    VULL_ASSERT(m_ptr != nullptr);
+    return m_ptr;
+}
+
+template <typename T>
+const T &Optional<T &>::operator*() const {
+    VULL_ASSERT(m_ptr != nullptr);
+    return *m_ptr;
+}
+
+template <typename T>
+const T *Optional<T &>::operator->() const {
+    VULL_ASSERT(m_ptr != nullptr);
+    return m_ptr;
 }
 
 } // namespace vull
