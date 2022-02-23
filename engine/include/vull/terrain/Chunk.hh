@@ -19,13 +19,16 @@ class Chunk {
     const float m_size;
 
 public:
+    static void build_flat_mesh(Vector<ChunkVertex> &vertices, Vector<uint32_t> &indices, uint32_t tessellation_level);
+
     Chunk(const Vec2f &center, float size) : m_center(center), m_size(size) {}
 
-    void build_geometry(Vector<ChunkVertex> &vertices, Vector<uint32_t> &indices);
     void subdivide(const Vec2f &point);
     void traverse(Vector<Chunk *> &chunks);
 
     bool is_leaf() const { return !m_children[0]; }
+    const Vec2f &center() const { return m_center; }
+    float size() const { return m_size; }
 };
 
 } // namespace vull

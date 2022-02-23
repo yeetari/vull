@@ -203,13 +203,33 @@ int main() {
     vk::DescriptorSetLayout set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
 
-    vk::PipelineLayoutCreateInfo pipeline_layout_ci{
+    vk::PipelineLayoutCreateInfo light_cull_pipeline_layout_ci{
         .sType = vk::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &set_layout,
     };
-    vk::PipelineLayout pipeline_layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vk::Result::Success);
+    vk::PipelineLayout light_cull_pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&light_cull_pipeline_layout_ci, &light_cull_pipeline_layout) ==
+                vk::Result::Success);
+
+    struct TerrainPushConstantBlock {
+        Vec3f position;
+        float size{0.0f};
+    };
+    vk::PushConstantRange terrain_push_constant_range{
+        .stageFlags = vk::ShaderStage::Vertex,
+        .size = sizeof(TerrainPushConstantBlock),
+    };
+    vk::PipelineLayoutCreateInfo terrain_pipeline_layout_ci{
+        .sType = vk::StructureType::PipelineLayoutCreateInfo,
+        .setLayoutCount = 1,
+        .pSetLayouts = &set_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &terrain_push_constant_range,
+    };
+    vk::PipelineLayout terrain_pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&terrain_pipeline_layout_ci, &terrain_pipeline_layout) ==
+                vk::Result::Success);
 
     Array vertex_attribute_descriptions{
         vk::VertexInputAttributeDescription{
@@ -303,7 +323,7 @@ int main() {
         .pRasterizationState = &rasterisation_state,
         .pMultisampleState = &multisample_state,
         .pDepthStencilState = &depth_pass_depth_stencil_state,
-        .layout = pipeline_layout,
+        .layout = terrain_pipeline_layout,
     };
     vk::Pipeline depth_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &depth_pass_pipeline_ci, &depth_pass_pipeline) ==
@@ -312,7 +332,7 @@ int main() {
     vk::ComputePipelineCreateInfo light_cull_pipeline_ci{
         .sType = vk::StructureType::ComputePipelineCreateInfo,
         .stage = light_cull_shader_stage_ci,
-        .layout = pipeline_layout,
+        .layout = light_cull_pipeline_layout,
     };
     vk::Pipeline light_cull_pipeline;
     VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
@@ -339,7 +359,7 @@ int main() {
         .pMultisampleState = &multisample_state,
         .pDepthStencilState = &terrain_pass_depth_stencil_state,
         .pColorBlendState = &terrain_pass_blend_state,
-        .layout = pipeline_layout,
+        .layout = terrain_pipeline_layout,
     };
     vk::Pipeline terrain_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &terrain_pass_pipeline_ci, &terrain_pass_pipeline) ==
@@ -678,11 +698,6 @@ int main() {
                1000000000;
     };
 
-    vk::Buffer vertex_buffer = nullptr;
-    vk::DeviceMemory vertex_buffer_memory = nullptr;
-    vk::Buffer index_buffer = nullptr;
-    vk::DeviceMemory index_buffer_memory = nullptr;
-
     float *height_data;
     context.vkMapMemory(height_image_memory, 0, vk::VK_WHOLE_SIZE, 0, reinterpret_cast<void **>(&height_data));
     for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
@@ -692,6 +707,48 @@ int main() {
         }
     }
     context.vkUnmapMemory(height_image_memory);
+
+    Vector<ChunkVertex> terrain_vertices;
+    Vector<uint32_t> terrain_indices;
+    Chunk::build_flat_mesh(terrain_vertices, terrain_indices, 32);
+
+    vk::BufferCreateInfo vertex_buffer_ci{
+        .sType = vk::StructureType::BufferCreateInfo,
+        .size = terrain_vertices.size_bytes(),
+        .usage = vk::BufferUsage::VertexBuffer,
+        .sharingMode = vk::SharingMode::Exclusive,
+    };
+    vk::Buffer vertex_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&vertex_buffer_ci, &vertex_buffer) == vk::Result::Success);
+
+    vk::MemoryRequirements vertex_buffer_requirements{};
+    context.vkGetBufferMemoryRequirements(vertex_buffer, &vertex_buffer_requirements);
+    auto *vertex_buffer_memory = context.allocate_memory(vertex_buffer_requirements, MemoryType::HostVisible);
+    VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == vk::Result::Success);
+
+    void *vertex_data;
+    context.vkMapMemory(vertex_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &vertex_data);
+    memcpy(vertex_data, terrain_vertices.data(), terrain_vertices.size_bytes());
+    context.vkUnmapMemory(vertex_buffer_memory);
+
+    vk::BufferCreateInfo index_buffer_ci{
+        .sType = vk::StructureType::BufferCreateInfo,
+        .size = terrain_indices.size_bytes(),
+        .usage = vk::BufferUsage::IndexBuffer,
+        .sharingMode = vk::SharingMode::Exclusive,
+    };
+    vk::Buffer index_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&index_buffer_ci, &index_buffer) == vk::Result::Success);
+
+    vk::MemoryRequirements index_buffer_requirements{};
+    context.vkGetBufferMemoryRequirements(index_buffer, &index_buffer_requirements);
+    auto *index_buffer_memory = context.allocate_memory(index_buffer_requirements, MemoryType::HostVisible);
+    VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == vk::Result::Success);
+
+    void *index_data;
+    context.vkMapMemory(index_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &index_data);
+    memcpy(index_data, terrain_indices.data(), terrain_indices.size_bytes());
+    context.vkUnmapMemory(index_buffer_memory);
 
     context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
     vk::CommandBufferBeginInfo transition_cmd_buf_bi{
@@ -825,59 +882,21 @@ int main() {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
-        context.vkFreeMemory(index_buffer_memory);
-        context.vkDestroyBuffer(index_buffer);
-        context.vkFreeMemory(vertex_buffer_memory);
-        context.vkDestroyBuffer(vertex_buffer);
-
         start_time = get_time();
         Vector<Chunk *> chunks;
         terrain.update(ubo.camera_position, chunks);
-
-        Vector<ChunkVertex> vertices;
-        Vector<uint32_t> indices;
-        for (auto *chunk : chunks) {
-            chunk->build_geometry(vertices, indices);
-        }
         cpu_frame_bar.sections.push({"Terrain", static_cast<float>(get_time() - start_time)});
-
-        start_time = get_time();
-        vk::BufferCreateInfo vertex_buffer_ci{
-            .sType = vk::StructureType::BufferCreateInfo,
-            .size = vertices.size_bytes(),
-            .usage = vk::BufferUsage::VertexBuffer,
-            .sharingMode = vk::SharingMode::Exclusive,
+        auto render_terrain = [&] {
+            for (auto *chunk : chunks) {
+                TerrainPushConstantBlock terrain_push_constants{
+                    .position = Vec3f(chunk->center().x(), 0.0f, chunk->center().y()),
+                    .size = chunk->size(),
+                };
+                context.vkCmdPushConstants(command_buffer, terrain_pipeline_layout, vk::ShaderStage::Vertex, 0,
+                                           sizeof(TerrainPushConstantBlock), &terrain_push_constants);
+                context.vkCmdDrawIndexed(command_buffer, terrain_indices.size(), 1, 0, 0, 0);
+            }
         };
-        VULL_ENSURE(context.vkCreateBuffer(&vertex_buffer_ci, &vertex_buffer) == vk::Result::Success);
-
-        vk::MemoryRequirements vertex_buffer_requirements{};
-        context.vkGetBufferMemoryRequirements(vertex_buffer, &vertex_buffer_requirements);
-        vertex_buffer_memory = context.allocate_memory(vertex_buffer_requirements, MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == vk::Result::Success);
-
-        void *vertex_data;
-        context.vkMapMemory(vertex_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &vertex_data);
-        memcpy(vertex_data, vertices.data(), vertices.size_bytes());
-        context.vkUnmapMemory(vertex_buffer_memory);
-
-        vk::BufferCreateInfo index_buffer_ci{
-            .sType = vk::StructureType::BufferCreateInfo,
-            .size = indices.size_bytes(),
-            .usage = vk::BufferUsage::IndexBuffer,
-            .sharingMode = vk::SharingMode::Exclusive,
-        };
-        VULL_ENSURE(context.vkCreateBuffer(&index_buffer_ci, &index_buffer) == vk::Result::Success);
-
-        vk::MemoryRequirements index_buffer_requirements{};
-        context.vkGetBufferMemoryRequirements(index_buffer, &index_buffer_requirements);
-        index_buffer_memory = context.allocate_memory(index_buffer_requirements, MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == vk::Result::Success);
-
-        void *index_data;
-        context.vkMapMemory(index_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &index_data);
-        memcpy(index_data, indices.data(), indices.size_bytes());
-        context.vkUnmapMemory(index_buffer_memory);
-        cpu_frame_bar.sections.push({"Terrain buffers", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
         context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
@@ -887,9 +906,9 @@ int main() {
         };
         context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
         context.vkCmdResetQueryPool(command_buffer, query_pool, 0, query_pool_ci.queryCount);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, pipeline_layout, 0, 1,
-                                        &descriptor_set, 0, nullptr);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
+        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, light_cull_pipeline_layout, 0,
+                                        1, &descriptor_set, 0, nullptr);
+        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
 
         Array vertex_offsets{vk::DeviceSize{0}};
@@ -934,7 +953,7 @@ int main() {
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
         context.vkCmdBeginRenderingKHR(command_buffer, &depth_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
+        render_terrain();
         context.vkCmdEndRenderingKHR(command_buffer);
 
         vk::ImageMemoryBarrier depth_sample_barrier{
@@ -1044,7 +1063,7 @@ int main() {
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
         context.vkCmdBeginRenderingKHR(command_buffer, &terrain_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pass_pipeline);
-        context.vkCmdDrawIndexed(command_buffer, indices.size(), 1, 0, 0, 0);
+        render_terrain();
         context.vkCmdEndRenderingKHR(command_buffer);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
 
@@ -1131,7 +1150,8 @@ int main() {
     context.vkDestroyPipeline(terrain_pass_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
     context.vkDestroyPipeline(depth_pass_pipeline);
-    context.vkDestroyPipelineLayout(pipeline_layout);
+    context.vkDestroyPipelineLayout(terrain_pipeline_layout);
+    context.vkDestroyPipelineLayout(light_cull_pipeline_layout);
     context.vkDestroyDescriptorSetLayout(set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
