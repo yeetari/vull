@@ -37,19 +37,23 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vk::Result::Success);
 
     // TODO: Dynamic resizing.
-    vk::BufferCreateInfo object_buffer_ci{
+    vk::BufferCreateInfo ui_data_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
-        .size = sizeof(Object) * 2000,
+        .size = sizeof(Vec2f) + sizeof(Object) * 2000,
         .usage = vk::BufferUsage::StorageBuffer,
         .sharingMode = vk::SharingMode::Exclusive,
     };
-    VULL_ENSURE(context.vkCreateBuffer(&object_buffer_ci, &m_object_buffer) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateBuffer(&ui_data_buffer_ci, &m_ui_data_buffer) == vk::Result::Success);
 
-    vk::MemoryRequirements object_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(m_object_buffer, &object_buffer_requirements);
-    m_object_buffer_memory = context.allocate_memory(object_buffer_requirements, MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(m_object_buffer, m_object_buffer_memory, 0) == vk::Result::Success);
-    context.vkMapMemory(m_object_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, reinterpret_cast<void **>(&m_objects));
+    vk::MemoryRequirements ui_data_buffer_requirements{};
+    context.vkGetBufferMemoryRequirements(m_ui_data_buffer, &ui_data_buffer_requirements);
+    m_ui_data_buffer_memory = context.allocate_memory(ui_data_buffer_requirements, MemoryType::HostVisible);
+    VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vk::Result::Success);
+
+    void *ui_data = nullptr;
+    context.vkMapMemory(m_ui_data_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &ui_data);
+    m_scaling_ratio = reinterpret_cast<Vec2f *>(ui_data);
+    m_objects = reinterpret_cast<Object *>(m_scaling_ratio + 1);
 
     Array descriptor_pool_sizes{
         vk::DescriptorPoolSize{
@@ -205,19 +209,19 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     };
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &m_pipeline) == vk::Result::Success);
 
-    vk::DescriptorBufferInfo object_buffer_info{
-        .buffer = m_object_buffer,
+    vk::DescriptorBufferInfo ui_data_buffer_info{
+        .buffer = m_ui_data_buffer,
         .range = vk::VK_WHOLE_SIZE,
     };
-    vk::WriteDescriptorSet object_buffer_descriptor_write{
+    vk::WriteDescriptorSet ui_data_buffer_descriptor_write{
         .sType = vk::StructureType::WriteDescriptorSet,
         .dstSet = m_descriptor_set,
         .dstBinding = 0,
         .descriptorCount = 1,
         .descriptorType = vk::DescriptorType::StorageBuffer,
-        .pBufferInfo = &object_buffer_info,
+        .pBufferInfo = &ui_data_buffer_info,
     };
-    context.vkUpdateDescriptorSets(1, &object_buffer_descriptor_write, 0, nullptr);
+    context.vkUpdateDescriptorSets(1, &ui_data_buffer_descriptor_write, 0, nullptr);
 }
 
 Renderer::~Renderer() {
@@ -225,8 +229,8 @@ Renderer::~Renderer() {
     m_context.vkDestroyPipelineLayout(m_pipeline_layout);
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
     m_context.vkDestroyDescriptorPool(m_descriptor_pool);
-    m_context.vkFreeMemory(m_object_buffer_memory);
-    m_context.vkDestroyBuffer(m_object_buffer);
+    m_context.vkFreeMemory(m_ui_data_buffer_memory);
+    m_context.vkDestroyBuffer(m_ui_data_buffer);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);
 }
@@ -241,8 +245,8 @@ GpuFont Renderer::load_font(StringView path, ssize_t size) {
 void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill) {
     m_objects[m_object_index++] = {
         .colour = colour,
-        .position = position / m_swapchain.dimensions(),
-        .scale = scale / m_swapchain.dimensions(),
+        .position = position,
+        .scale = scale,
         .type = fill ? ObjectType::Rect : ObjectType::RectOutline,
     };
 }
@@ -260,8 +264,8 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
         glyph_position += {glyph->disp_x, glyph->disp_y};
         m_objects[m_object_index++] = {
             .colour = {colour.x(), colour.y(), colour.z(), 1.0f},
-            .position = glyph_position / m_swapchain.dimensions(),
-            .scale = Vec2f(64.0f) / m_swapchain.dimensions(),
+            .position = glyph_position,
+            .scale = Vec2f(64.0f),
             .glyph_index = glyph_index,
             .type = ObjectType::TextGlyph,
         };
@@ -271,6 +275,7 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
 }
 
 void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
+    *m_scaling_ratio = Vec2f(1.0f) / m_swapchain.dimensions();
     m_context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline_layout, 0, 1,
                                       &m_descriptor_set, 0, nullptr);
     vk::RenderingAttachmentInfoKHR colour_write_attachment{

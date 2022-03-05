@@ -38,14 +38,15 @@ class Renderer {
     const Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
     vk::Sampler m_font_sampler{nullptr};
-    vk::Buffer m_object_buffer{nullptr};
-    vk::DeviceMemory m_object_buffer_memory{nullptr};
+    vk::Buffer m_ui_data_buffer{nullptr};
+    vk::DeviceMemory m_ui_data_buffer_memory{nullptr};
     vk::DescriptorPool m_descriptor_pool{nullptr};
     vk::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vk::DescriptorSet m_descriptor_set{nullptr};
     vk::PipelineLayout m_pipeline_layout{nullptr};
     vk::Pipeline m_pipeline{nullptr};
 
+    Vec2f *m_scaling_ratio{nullptr};
     Object *m_objects{nullptr};
     uint32_t m_object_index{0};
 

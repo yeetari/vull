@@ -10,6 +10,7 @@ layout (location = 0) in FragmentData {
 } g_fragment;
 
 layout (binding = 0, scalar) readonly buffer UiData {
+    vec2 g_scaling_ratio;
     UiObject g_objects[];
 };
 layout (binding = 1) uniform sampler2D g_font_samplers[];
