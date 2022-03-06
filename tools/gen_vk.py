@@ -379,9 +379,14 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
             value = enumerant.get('value')
 
             # Convert enumerant name, from e.g. VK_FRONT_FACE_COUNTER_CLOCKWISE to CounterClockwise.
-            name = enumerant.get('name').title()
-            name = name.replace('_', '')
-            name = name.replace(type_name.replace('FlagBits', ''), '')
+            name = enumerant.get('name').title().replace('_', '')
+            replacing_type_name = type_name.replace('FlagBits', '')
+            for tag in registry.findall('tags/tag'):
+                tag_name = tag.get('name')
+                if replacing_type_name.endswith(tag_name):
+                    replacing_type_name = replacing_type_name[:-len(tag_name)]
+                    break
+            name = name.replace(replacing_type_name, '')
             name = name.replace('Vk', '')
             name = name.replace('Bit', '')
             for vendor in registry.findall('tags/tag'):

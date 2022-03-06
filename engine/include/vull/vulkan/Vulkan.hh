@@ -251,7 +251,7 @@ inline constexpr ColorComponent operator|(ColorComponent a, ColorComponent b) {
 }
 
 enum class ColorSpaceKHR {
-    ColorSpaceSrgbNonlinearKHR = 0,
+    SrgbNonlinearKHR = 0,
 };
 
 enum class CommandBufferLevel {
@@ -328,10 +328,10 @@ enum class ComponentSwizzle {
 };
 
 enum class CompositeAlphaFlagBitsKHR {
-    CompositeAlphaOpaqueKHR = 1u << 0u,
-    CompositeAlphaPreMultipliedKHR = 1u << 1u,
-    CompositeAlphaPostMultipliedKHR = 1u << 2u,
-    CompositeAlphaInheritKHR = 1u << 3u,
+    OpaqueKHR = 1u << 0u,
+    PreMultipliedKHR = 1u << 1u,
+    PostMultipliedKHR = 1u << 2u,
+    InheritKHR = 1u << 3u,
 };
 inline constexpr CompositeAlphaFlagBitsKHR operator&(CompositeAlphaFlagBitsKHR a, CompositeAlphaFlagBitsKHR b) {
     return static_cast<CompositeAlphaFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -422,10 +422,10 @@ enum class DescriptorUpdateTemplateType {
 };
 
 enum class DeviceGroupPresentModeFlagBitsKHR {
-    DeviceGroupPresentModeLocalKHR = 1u << 0u,
-    DeviceGroupPresentModeRemoteKHR = 1u << 1u,
-    DeviceGroupPresentModeSumKHR = 1u << 2u,
-    DeviceGroupPresentModeLocalMultiDeviceKHR = 1u << 3u,
+    LocalKHR = 1u << 0u,
+    RemoteKHR = 1u << 1u,
+    SumKHR = 1u << 2u,
+    LocalMultiDeviceKHR = 1u << 3u,
 };
 inline constexpr DeviceGroupPresentModeFlagBitsKHR operator&(DeviceGroupPresentModeFlagBitsKHR a, DeviceGroupPresentModeFlagBitsKHR b) {
     return static_cast<DeviceGroupPresentModeFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -1139,10 +1139,10 @@ enum class PolygonMode {
 };
 
 enum class PresentModeKHR {
-    PresentModeImmediateKHR = 0,
-    PresentModeMailboxKHR = 1,
-    PresentModeFifoKHR = 2,
-    PresentModeFifoRelaxedKHR = 3,
+    ImmediateKHR = 0,
+    MailboxKHR = 1,
+    FifoKHR = 2,
+    FifoRelaxedKHR = 3,
 };
 
 enum class PrimitiveTopology {
@@ -1227,9 +1227,9 @@ inline constexpr QueueFlags operator|(QueueFlags a, QueueFlags b) {
 }
 
 enum class RenderingFlagBitsKHR {
-    RenderingContentsSecondaryCommandBuffersKHR = 1u << 0u,
-    RenderingSuspendingKHR = 1u << 1u,
-    RenderingResumingKHR = 1u << 2u,
+    ContentsSecondaryCommandBuffersKHR = 1u << 0u,
+    SuspendingKHR = 1u << 1u,
+    ResumingKHR = 1u << 2u,
 };
 inline constexpr RenderingFlagBitsKHR operator&(RenderingFlagBitsKHR a, RenderingFlagBitsKHR b) {
     return static_cast<RenderingFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -1639,15 +1639,15 @@ enum class SubpassContents {
 };
 
 enum class SurfaceTransformFlagBitsKHR {
-    SurfaceTransformIdentityKHR = 1u << 0u,
-    SurfaceTransformRotate90KHR = 1u << 1u,
-    SurfaceTransformRotate180KHR = 1u << 2u,
-    SurfaceTransformRotate270KHR = 1u << 3u,
-    SurfaceTransformHorizontalMirrorKHR = 1u << 4u,
-    SurfaceTransformHorizontalMirrorRotate90KHR = 1u << 5u,
-    SurfaceTransformHorizontalMirrorRotate180KHR = 1u << 6u,
-    SurfaceTransformHorizontalMirrorRotate270KHR = 1u << 7u,
-    SurfaceTransformInheritKHR = 1u << 8u,
+    IdentityKHR = 1u << 0u,
+    Rotate90KHR = 1u << 1u,
+    Rotate180KHR = 1u << 2u,
+    Rotate270KHR = 1u << 3u,
+    HorizontalMirrorKHR = 1u << 4u,
+    HorizontalMirrorRotate90KHR = 1u << 5u,
+    HorizontalMirrorRotate180KHR = 1u << 6u,
+    HorizontalMirrorRotate270KHR = 1u << 7u,
+    InheritKHR = 1u << 8u,
 };
 inline constexpr SurfaceTransformFlagBitsKHR operator&(SurfaceTransformFlagBitsKHR a, SurfaceTransformFlagBitsKHR b) {
     return static_cast<SurfaceTransformFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -1657,8 +1657,8 @@ inline constexpr SurfaceTransformFlagBitsKHR operator|(SurfaceTransformFlagBitsK
 }
 
 enum class SwapchainCreateFlagBitsKHR {
-    SwapchainCreateSplitInstanceBindRegionsKHR = 1u << 0u,
-    SwapchainCreateProtectedKHR = 1u << 1u,
+    SplitInstanceBindRegionsKHR = 1u << 0u,
+    ProtectedKHR = 1u << 1u,
 };
 inline constexpr SwapchainCreateFlagBitsKHR operator&(SwapchainCreateFlagBitsKHR a, SwapchainCreateFlagBitsKHR b) {
     return static_cast<SwapchainCreateFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));

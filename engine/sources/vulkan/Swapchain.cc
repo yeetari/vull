@@ -14,7 +14,7 @@ Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR
     : m_context(context), m_extent(extent), m_surface(surface) {
     vk::SurfaceFormatKHR surface_format{
         .format = vk::Format::B8G8R8A8Srgb,
-        .colorSpace = vk::ColorSpaceKHR::ColorSpaceSrgbNonlinearKHR,
+        .colorSpace = vk::ColorSpaceKHR::SrgbNonlinearKHR,
     };
     VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
                 vk::Result::Success);
@@ -31,8 +31,8 @@ Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR
         .imageUsage = vk::ImageUsage::ColorAttachment,
         .imageSharingMode = vk::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
-        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::CompositeAlphaOpaqueKHR,
-        .presentMode = vk::PresentModeKHR::PresentModeFifoKHR,
+        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::OpaqueKHR,
+        .presentMode = vk::PresentModeKHR::FifoKHR,
         .clipped = vk::VK_TRUE,
     };
     VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == vk::Result::Success);
