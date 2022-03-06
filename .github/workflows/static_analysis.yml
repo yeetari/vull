@@ -28,6 +28,7 @@ jobs:
           libfreetype-dev
           libharfbuzz-dev
           libx11-dev
+          libxcb-randr0-dev
           libxcb-util-dev
           libxcb-xkb-dev
           parallel
