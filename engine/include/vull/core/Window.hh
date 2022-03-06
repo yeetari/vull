@@ -26,6 +26,7 @@ class Window {
     xcb_connection_t *m_connection;
     xcb_intern_atom_reply_t *m_delete_window_atom{nullptr};
     uint32_t m_id{0};
+    float m_ppcm{0.0f};
 
     int16_t m_delta_x{0};
     int16_t m_delta_y{0};
@@ -54,6 +55,7 @@ public:
     float delta_y() const { return static_cast<float>(m_delta_y); }
 
     float aspect_ratio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
+    float ppcm() const { return m_ppcm; }
     uint32_t width() const { return m_width; }
     uint32_t height() const { return m_height; }
     bool should_close() const { return m_should_close; }

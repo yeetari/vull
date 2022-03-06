@@ -1,5 +1,6 @@
 #include <vull/core/Window.hh>
 
+#include <vull/maths/Common.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/vulkan/Context.hh>
@@ -8,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <xcb/randr.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xproto.h>
 
@@ -69,8 +71,27 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
     // Make the window visible and wait for the server to process the requests.
     xcb_map_window(m_connection, m_id);
     xcb_aux_sync(m_connection);
+
+    // Center the mouse pointer.
     xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height, static_cast<int16_t>(m_width / 2),
                      static_cast<int16_t>(m_height / 2));
+
+    // Use the RandR extension to calculate the display pixels per centimetre.
+    auto primary_output_request = xcb_randr_get_output_primary(m_connection, m_id);
+    auto *primary_output = xcb_randr_get_output_primary_reply(m_connection, primary_output_request, nullptr);
+
+    auto output_info_request = xcb_randr_get_output_info(m_connection, primary_output->output, 0);
+    auto *output_info = xcb_randr_get_output_info_reply(m_connection, output_info_request, nullptr);
+
+    auto width_mm = static_cast<float>(output_info->mm_width);
+    auto height_mm = static_cast<float>(output_info->mm_height);
+    auto diag_cm = sqrt(width_mm * width_mm + height_mm * height_mm) / 10.0f;
+    auto diag_px = sqrt(static_cast<float>(width) * static_cast<float>(width) +
+                        static_cast<float>(height) * static_cast<float>(height));
+    m_ppcm = diag_px / diag_cm;
+
+    free(primary_output);
+    free(output_info);
 }
 
 Window::~Window() {
