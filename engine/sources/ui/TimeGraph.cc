@@ -57,8 +57,8 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont
 
     // Draw bars.
     for (uint32_t bar_index = 0; bar_index < m_bars.size(); bar_index++) {
-        float x_offset = (m_bar_width + m_bar_spacing) * static_cast<float>(bar_index) + 1.0f;
-        Vec2f bar_base = position + Vec2f(x_offset, m_size.y() - 1.0f);
+        float x_offset = (m_bar_width + m_bar_spacing) * static_cast<float>(bar_index);
+        Vec2f bar_base = position + Vec2f(x_offset + 1.0f, m_size.y() - 1.0f);
         uint32_t section_index = 0;
         for (float y_offset = 0.0f; const auto &section : m_bars[bar_index].sections) {
             float height = section.duration / max_total_time * (m_size.y() - 2.0f);

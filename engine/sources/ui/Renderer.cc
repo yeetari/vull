@@ -242,6 +242,10 @@ GpuFont Renderer::load_font(StringView path, ssize_t size) {
     return {m_context, Font(face)};
 }
 
+void Renderer::set_global_scale(float global_scale) {
+    m_global_scale = global_scale;
+}
+
 void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill) {
     m_objects[m_object_index++] = {
         .colour = colour,
@@ -275,7 +279,7 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
 }
 
 void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
-    *m_scaling_ratio = Vec2f(1.0f) / m_swapchain.dimensions();
+    *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
     m_context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline_layout, 0, 1,
                                       &m_descriptor_set, 0, nullptr);
     vk::RenderingAttachmentInfoKHR colour_write_attachment{

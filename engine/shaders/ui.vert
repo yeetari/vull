@@ -30,7 +30,8 @@ void main() {
     vec2 position = (k_vertices[gl_VertexIndex] + 1.0f) * 0.5f;
     g_fragment.uv = position;
 
-    position *= object.scale * g_scaling_ratio;
-    position += object.position * g_scaling_ratio;
+    position *= object.scale;
+    position += object.position;
+    position *= g_scaling_ratio;
     gl_Position = vec4(position * 2.0f - 1.0f, 0.0f, 1.0f);
 }

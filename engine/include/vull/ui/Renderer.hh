@@ -45,6 +45,7 @@ class Renderer {
     vk::DescriptorSet m_descriptor_set{nullptr};
     vk::PipelineLayout m_pipeline_layout{nullptr};
     vk::Pipeline m_pipeline{nullptr};
+    float m_global_scale{1.0f};
 
     Vec2f *m_scaling_ratio{nullptr};
     Object *m_objects{nullptr};
@@ -61,6 +62,7 @@ public:
     Renderer &operator=(Renderer &&) = delete;
 
     GpuFont load_font(StringView path, ssize_t size);
+    void set_global_scale(float global_scale);
 
     void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill = true);
     void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
