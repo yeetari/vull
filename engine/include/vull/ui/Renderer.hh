@@ -21,8 +21,7 @@ namespace vull::ui {
 
 enum class ObjectType {
     Rect = 0,
-    RectOutline = 1,
-    TextGlyph = 2,
+    TextGlyph = 1,
 };
 
 struct Object {
@@ -64,7 +63,7 @@ public:
     GpuFont load_font(StringView path, ssize_t size);
     void set_global_scale(float global_scale);
 
-    void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill = true);
+    void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale);
     void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
     void render(vk::CommandBuffer command_buffer, uint32_t image_index);
 };

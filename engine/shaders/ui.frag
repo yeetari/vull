@@ -24,12 +24,6 @@ void main() {
         g_out_colour = object.colour;
         break;
     case 1:
-        g_out_colour = vec4(0.0f);
-        if (g_fragment.uv.x <= 0.001f || g_fragment.uv.x >= 0.999f || g_fragment.uv.y <= 0.002f || g_fragment.uv.y >= 0.998f) {
-            g_out_colour = object.colour;
-        }
-        break;
-    case 2:
         float distance = 1.0f - textureLod(g_font_samplers[nonuniformEXT(object.glyph_index)], g_fragment.uv, 0).r;
         float alpha = 1.0f - smoothstep(0.5f, 0.6f, distance);
         float outline_alpha = 1.0f - smoothstep(0.6f, 0.7f, distance);

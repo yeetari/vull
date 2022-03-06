@@ -246,12 +246,12 @@ void Renderer::set_global_scale(float global_scale) {
     m_global_scale = global_scale;
 }
 
-void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale, bool fill) {
+void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale) {
     m_objects[m_object_index++] = {
         .colour = colour,
         .position = position,
         .scale = scale,
-        .type = fill ? ObjectType::Rect : ObjectType::RectOutline,
+        .type = ObjectType::Rect,
     };
 }
 
