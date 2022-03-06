@@ -11,7 +11,8 @@ target_compile_definitions(vull PUBLIC VK_NO_PROTOTYPES)
 target_compile_features(vull PRIVATE cxx_std_20)
 target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
 target_include_directories(vull PUBLIC include PRIVATE sources)
-target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz X11::xcb X11::xcb_util X11::xcb_xkb)
+# TODO: Use X11::xcb_randr target when available in cmake.
+target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz X11::xcb X11::xcb_util X11::xcb_xkb xcb-randr)
 
 if(VULL_BUILD_WARNINGS)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
