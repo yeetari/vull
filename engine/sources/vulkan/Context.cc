@@ -110,25 +110,25 @@ Context::Context() : ContextTable{} {
     }
 
     vk::PhysicalDeviceFeatures device_features{
-        .tessellationShader = vk::VK_TRUE,
-        .fillModeNonSolid = vk::VK_TRUE,
+        .tessellationShader = vk::k_true,
+        .fillModeNonSolid = vk::k_true,
     };
     vk::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan12Features,
-        .shaderSampledImageArrayNonUniformIndexing = vk::VK_TRUE,
-        .descriptorBindingPartiallyBound = vk::VK_TRUE,
-        .runtimeDescriptorArray = vk::VK_TRUE,
-        .scalarBlockLayout = vk::VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = vk::k_true,
+        .descriptorBindingPartiallyBound = vk::k_true,
+        .runtimeDescriptorArray = vk::k_true,
+        .scalarBlockLayout = vk::k_true,
     };
     vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{
         .sType = vk::StructureType::PhysicalDeviceDynamicRenderingFeaturesKHR,
         .pNext = &device_12_features,
-        .dynamicRendering = vk::VK_TRUE,
+        .dynamicRendering = vk::k_true,
     };
     vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
         .sType = vk::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
         .pNext = &dynamic_rendering_features,
-        .shaderSharedFloat32AtomicMinMax = vk::VK_TRUE,
+        .shaderSharedFloat32AtomicMinMax = vk::k_true,
     };
 
     Array enabled_device_extensions{

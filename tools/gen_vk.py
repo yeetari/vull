@@ -322,11 +322,13 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     file.write('#endif\n\n')
 
     # Emit hardcoded constants.
-    # TODO: Rename these too.
+    constant_name_dict = {}
     hardcoded_constants = registry.find('.//enums[@name="API Constants"]')
     for constant in filter(lambda c: not c.get('alias'), hardcoded_constants.findall('enum')):
-        file.write(
-            'constexpr {} {} = {};\n'.format(constant.get('type'), constant.get('name'), constant.get('value').lower()))
+        constant_name = constant.get('name').lower()
+        constant_name = 'k_' + constant_name[3:]
+        constant_name_dict[constant.get('name')] = constant_name
+        file.write('constexpr {} {} = {};\n'.format(constant.get('type'), constant_name, constant.get('value').lower()))
     file.write('\n')
 
     # Emit base types.
@@ -430,7 +432,10 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
             member_text = ''
             for part in member.iter():
                 if part.tag != 'comment' and part.text:
-                    member_text += (convert_type(part.text).strip())
+                    if part.text in constant_name_dict:
+                        member_text += constant_name_dict[part.text]
+                    else:
+                        member_text += (convert_type(part.text).strip())
                     member_text += ' '
                 if part.tag != 'member':
                     if tail := part.tail:

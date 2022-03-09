@@ -286,13 +286,13 @@ int main() {
 
     vk::PipelineDepthStencilStateCreateInfo depth_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
-        .depthTestEnable = vk::VK_TRUE,
-        .depthWriteEnable = vk::VK_TRUE,
+        .depthTestEnable = vk::k_true,
+        .depthWriteEnable = vk::k_true,
         .depthCompareOp = vk::CompareOp::GreaterOrEqual,
     };
     vk::PipelineDepthStencilStateCreateInfo terrain_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
-        .depthTestEnable = vk::VK_TRUE,
+        .depthTestEnable = vk::k_true,
         .depthCompareOp = vk::CompareOp::Equal,
     };
 
@@ -559,15 +559,15 @@ int main() {
 
     vk::DescriptorBufferInfo uniform_buffer_info{
         .buffer = uniform_buffer,
-        .range = vk::VK_WHOLE_SIZE,
+        .range = vk::k_whole_size,
     };
     vk::DescriptorBufferInfo lights_buffer_info{
         .buffer = lights_buffer,
-        .range = vk::VK_WHOLE_SIZE,
+        .range = vk::k_whole_size,
     };
     vk::DescriptorBufferInfo light_visibilities_buffer_info{
         .buffer = light_visibilities_buffer,
-        .range = vk::VK_WHOLE_SIZE,
+        .range = vk::k_whole_size,
     };
     vk::DescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
@@ -688,8 +688,8 @@ int main() {
 
     void *lights_data;
     void *ubo_data;
-    context.vkMapMemory(lights_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &lights_data);
-    context.vkMapMemory(uniform_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &ubo_data);
+    context.vkMapMemory(lights_buffer_memory, 0, vk::k_whole_size, 0, &lights_data);
+    context.vkMapMemory(uniform_buffer_memory, 0, vk::k_whole_size, 0, &ubo_data);
 
     auto get_time = [] {
         struct timespec ts {};
@@ -699,7 +699,7 @@ int main() {
     };
 
     float *height_data;
-    context.vkMapMemory(height_image_memory, 0, vk::VK_WHOLE_SIZE, 0, reinterpret_cast<void **>(&height_data));
+    context.vkMapMemory(height_image_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&height_data));
     for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
         for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
             height_data[x + z * height_image_ci.extent.width] =
@@ -727,7 +727,7 @@ int main() {
     VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == vk::Result::Success);
 
     void *vertex_data;
-    context.vkMapMemory(vertex_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &vertex_data);
+    context.vkMapMemory(vertex_buffer_memory, 0, vk::k_whole_size, 0, &vertex_data);
     memcpy(vertex_data, terrain_vertices.data(), terrain_vertices.size_bytes());
     context.vkUnmapMemory(vertex_buffer_memory);
 
@@ -746,7 +746,7 @@ int main() {
     VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == vk::Result::Success);
 
     void *index_data;
-    context.vkMapMemory(index_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &index_data);
+    context.vkMapMemory(index_buffer_memory, 0, vk::k_whole_size, 0, &index_data);
     memcpy(index_data, terrain_indices.data(), terrain_indices.size_bytes());
     context.vkUnmapMemory(index_buffer_memory);
 
@@ -817,7 +817,7 @@ int main() {
         cpu_frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
-        context.vkWaitForFences(1, &fence, vk::VK_TRUE, ~0ul);
+        context.vkWaitForFences(1, &fence, vk::k_true, ~0ul);
         context.vkResetFences(1, &fence);
         cpu_frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
 

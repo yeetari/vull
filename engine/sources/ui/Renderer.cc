@@ -51,7 +51,7 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vk::Result::Success);
 
     void *ui_data = nullptr;
-    context.vkMapMemory(m_ui_data_buffer_memory, 0, vk::VK_WHOLE_SIZE, 0, &ui_data);
+    context.vkMapMemory(m_ui_data_buffer_memory, 0, vk::k_whole_size, 0, &ui_data);
     m_scaling_ratio = reinterpret_cast<Vec2f *>(ui_data);
     m_objects = reinterpret_cast<Object *>(m_scaling_ratio + 1);
 
@@ -159,7 +159,7 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     };
 
     vk::PipelineColorBlendAttachmentState blend_attachment{
-        .blendEnable = vk::VK_TRUE,
+        .blendEnable = vk::k_true,
         .srcColorBlendFactor = vk::BlendFactor::SrcAlpha,
         .dstColorBlendFactor = vk::BlendFactor::OneMinusSrcAlpha,
         .colorBlendOp = vk::BlendOp::Add,
@@ -211,7 +211,7 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
 
     vk::DescriptorBufferInfo ui_data_buffer_info{
         .buffer = m_ui_data_buffer,
-        .range = vk::VK_WHOLE_SIZE,
+        .range = vk::k_whole_size,
     };
     vk::WriteDescriptorSet ui_data_buffer_descriptor_write{
         .sType = vk::StructureType::WriteDescriptorSet,

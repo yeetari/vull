@@ -12,29 +12,29 @@ namespace vull::vk {
 #define VKAPI_PTR
 #endif
 
-constexpr uint32_t VK_MAX_PHYSICAL_DEVICE_NAME_SIZE = 256;
-constexpr uint32_t VK_UUID_SIZE = 16;
-constexpr uint32_t VK_LUID_SIZE = 8;
-constexpr uint32_t VK_MAX_EXTENSION_NAME_SIZE = 256;
-constexpr uint32_t VK_MAX_DESCRIPTION_SIZE = 256;
-constexpr uint32_t VK_MAX_MEMORY_TYPES = 32;
-constexpr uint32_t VK_MAX_MEMORY_HEAPS = 16;
-constexpr float VK_LOD_CLAMP_NONE = 1000.0f;
-constexpr uint32_t VK_REMAINING_MIP_LEVELS = (~0u);
-constexpr uint32_t VK_REMAINING_ARRAY_LAYERS = (~0u);
-constexpr uint64_t VK_WHOLE_SIZE = (~0ull);
-constexpr uint32_t VK_ATTACHMENT_UNUSED = (~0u);
-constexpr uint32_t VK_TRUE = 1;
-constexpr uint32_t VK_FALSE = 0;
-constexpr uint32_t VK_QUEUE_FAMILY_IGNORED = (~0u);
-constexpr uint32_t VK_QUEUE_FAMILY_EXTERNAL = (~1u);
-constexpr uint32_t VK_QUEUE_FAMILY_FOREIGN_EXT = (~2u);
-constexpr uint32_t VK_SUBPASS_EXTERNAL = (~0u);
-constexpr uint32_t VK_MAX_DEVICE_GROUP_SIZE = 32;
-constexpr uint32_t VK_MAX_DRIVER_NAME_SIZE = 256;
-constexpr uint32_t VK_MAX_DRIVER_INFO_SIZE = 256;
-constexpr uint32_t VK_SHADER_UNUSED_KHR = (~0u);
-constexpr uint32_t VK_MAX_GLOBAL_PRIORITY_SIZE_EXT = 16;
+constexpr uint32_t k_max_physical_device_name_size = 256;
+constexpr uint32_t k_uuid_size = 16;
+constexpr uint32_t k_luid_size = 8;
+constexpr uint32_t k_max_extension_name_size = 256;
+constexpr uint32_t k_max_description_size = 256;
+constexpr uint32_t k_max_memory_types = 32;
+constexpr uint32_t k_max_memory_heaps = 16;
+constexpr float k_lod_clamp_none = 1000.0f;
+constexpr uint32_t k_remaining_mip_levels = (~0u);
+constexpr uint32_t k_remaining_array_layers = (~0u);
+constexpr uint64_t k_whole_size = (~0ull);
+constexpr uint32_t k_attachment_unused = (~0u);
+constexpr uint32_t k_true = 1;
+constexpr uint32_t k_false = 0;
+constexpr uint32_t k_queue_family_ignored = (~0u);
+constexpr uint32_t k_queue_family_external = (~1u);
+constexpr uint32_t k_queue_family_foreign_ext = (~2u);
+constexpr uint32_t k_subpass_external = (~0u);
+constexpr uint32_t k_max_device_group_size = 32;
+constexpr uint32_t k_max_driver_name_size = 256;
+constexpr uint32_t k_max_driver_info_size = 256;
+constexpr uint32_t k_shader_unused_khr = (~0u);
+constexpr uint32_t k_max_global_priority_size_ext = 16;
 
 // Base types.
 using Bool32 = uint32_t;
@@ -1832,7 +1832,7 @@ struct PipelineCacheHeaderVersionOne {
     uint32_t vendorID;
     uint32_t deviceID;
     // NOLINTNEXTLINE
-    uint8_t pipelineCacheUUID [VK_UUID_SIZE ];
+    uint8_t pipelineCacheUUID [k_uuid_size ];
 };
 
 struct AllocationCallbacks {
@@ -2065,10 +2065,10 @@ struct PhysicalDeviceLimits {
 struct PhysicalDeviceMemoryProperties {
     uint32_t memoryTypeCount;
     // NOLINTNEXTLINE
-    MemoryType memoryTypes [VK_MAX_MEMORY_TYPES ];
+    MemoryType memoryTypes [k_max_memory_types ];
     uint32_t memoryHeapCount;
     // NOLINTNEXTLINE
-    MemoryHeap memoryHeaps [VK_MAX_MEMORY_HEAPS ];
+    MemoryHeap memoryHeaps [k_max_memory_heaps ];
 };
 
 struct PhysicalDeviceSparseProperties {
@@ -2086,9 +2086,9 @@ struct PhysicalDeviceProperties {
     uint32_t deviceID;
     PhysicalDeviceType deviceType;
     // NOLINTNEXTLINE
-    char deviceName [VK_MAX_PHYSICAL_DEVICE_NAME_SIZE ];
+    char deviceName [k_max_physical_device_name_size ];
     // NOLINTNEXTLINE
-    uint8_t pipelineCacheUUID [VK_UUID_SIZE ];
+    uint8_t pipelineCacheUUID [k_uuid_size ];
     PhysicalDeviceLimits limits;
     PhysicalDeviceSparseProperties sparseProperties;
 };
@@ -2124,17 +2124,17 @@ struct DeviceCreateInfo {
 
 struct ExtensionProperties {
     // NOLINTNEXTLINE
-    char extensionName [VK_MAX_EXTENSION_NAME_SIZE ];
+    char extensionName [k_max_extension_name_size ];
     uint32_t specVersion;
 };
 
 struct LayerProperties {
     // NOLINTNEXTLINE
-    char layerName [VK_MAX_EXTENSION_NAME_SIZE ];
+    char layerName [k_max_extension_name_size ];
     uint32_t specVersion;
     uint32_t implementationVersion;
     // NOLINTNEXTLINE
-    char description [VK_MAX_DESCRIPTION_SIZE ];
+    char description [k_max_description_size ];
 };
 
 struct SubmitInfo {
@@ -2949,7 +2949,7 @@ struct PhysicalDeviceGroupProperties {
     void *pNext;
     uint32_t physicalDeviceCount;
     // NOLINTNEXTLINE
-    PhysicalDevice physicalDevices [VK_MAX_DEVICE_GROUP_SIZE ];
+    PhysicalDevice physicalDevices [k_max_device_group_size ];
     Bool32 subsetAllocation;
 };
 
@@ -3246,11 +3246,11 @@ struct PhysicalDeviceIDProperties {
     StructureType sType;
     void *pNext;
     // NOLINTNEXTLINE
-    uint8_t deviceUUID [VK_UUID_SIZE ];
+    uint8_t deviceUUID [k_uuid_size ];
     // NOLINTNEXTLINE
-    uint8_t driverUUID [VK_UUID_SIZE ];
+    uint8_t driverUUID [k_uuid_size ];
     // NOLINTNEXTLINE
-    uint8_t deviceLUID [VK_LUID_SIZE ];
+    uint8_t deviceLUID [k_luid_size ];
     uint32_t deviceNodeMask;
     Bool32 deviceLUIDValid;
 };
@@ -3356,11 +3356,11 @@ struct PhysicalDeviceVulkan11Properties {
     StructureType sType;
     void *pNext;
     // NOLINTNEXTLINE
-    uint8_t deviceUUID [VK_UUID_SIZE ];
+    uint8_t deviceUUID [k_uuid_size ];
     // NOLINTNEXTLINE
-    uint8_t driverUUID [VK_UUID_SIZE ];
+    uint8_t driverUUID [k_uuid_size ];
     // NOLINTNEXTLINE
-    uint8_t deviceLUID [VK_LUID_SIZE ];
+    uint8_t deviceLUID [k_luid_size ];
     uint32_t deviceNodeMask;
     Bool32 deviceLUIDValid;
     uint32_t subgroupSize;
@@ -3439,9 +3439,9 @@ struct PhysicalDeviceVulkan12Properties {
     void *pNext;
     DriverId driverID;
     // NOLINTNEXTLINE
-    char driverName [VK_MAX_DRIVER_NAME_SIZE ];
+    char driverName [k_max_driver_name_size ];
     // NOLINTNEXTLINE
-    char driverInfo [VK_MAX_DRIVER_INFO_SIZE ];
+    char driverInfo [k_max_driver_info_size ];
     ConformanceVersion conformanceVersion;
     ShaderFloatControlsIndependence denormBehaviorIndependence;
     ShaderFloatControlsIndependence roundingModeIndependence;
@@ -3589,9 +3589,9 @@ struct PhysicalDeviceDriverProperties {
     void *pNext;
     DriverId driverID;
     // NOLINTNEXTLINE
-    char driverName [VK_MAX_DRIVER_NAME_SIZE ];
+    char driverName [k_max_driver_name_size ];
     // NOLINTNEXTLINE
-    char driverInfo [VK_MAX_DRIVER_INFO_SIZE ];
+    char driverInfo [k_max_driver_info_size ];
     ConformanceVersion conformanceVersion;
 };
 
@@ -4047,7 +4047,7 @@ struct DeviceGroupPresentCapabilitiesKHR {
     StructureType sType;
     void *pNext;
     // NOLINTNEXTLINE
-    uint32_t presentMask [VK_MAX_DEVICE_GROUP_SIZE ];
+    uint32_t presentMask [k_max_device_group_size ];
     DeviceGroupPresentModeFlagsKHR modes;
 };
 
