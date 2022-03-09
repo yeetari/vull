@@ -91,8 +91,10 @@ void ContextTable::load_device() {
     m_vkCmdNextSubpass = reinterpret_cast<PFN_vkCmdNextSubpass>(vkGetDeviceProcAddr("vkCmdNextSubpass"));
     m_vkCmdNextSubpass2 = reinterpret_cast<PFN_vkCmdNextSubpass2>(vkGetDeviceProcAddr("vkCmdNextSubpass2"));
     m_vkCmdPipelineBarrier = reinterpret_cast<PFN_vkCmdPipelineBarrier>(vkGetDeviceProcAddr("vkCmdPipelineBarrier"));
+    m_vkCmdPipelineBarrier2KHR = reinterpret_cast<PFN_vkCmdPipelineBarrier2KHR>(vkGetDeviceProcAddr("vkCmdPipelineBarrier2KHR"));
     m_vkCmdPushConstants = reinterpret_cast<PFN_vkCmdPushConstants>(vkGetDeviceProcAddr("vkCmdPushConstants"));
     m_vkCmdResetEvent = reinterpret_cast<PFN_vkCmdResetEvent>(vkGetDeviceProcAddr("vkCmdResetEvent"));
+    m_vkCmdResetEvent2KHR = reinterpret_cast<PFN_vkCmdResetEvent2KHR>(vkGetDeviceProcAddr("vkCmdResetEvent2KHR"));
     m_vkCmdResetQueryPool = reinterpret_cast<PFN_vkCmdResetQueryPool>(vkGetDeviceProcAddr("vkCmdResetQueryPool"));
     m_vkCmdResolveImage = reinterpret_cast<PFN_vkCmdResolveImage>(vkGetDeviceProcAddr("vkCmdResolveImage"));
     m_vkCmdSetBlendConstants = reinterpret_cast<PFN_vkCmdSetBlendConstants>(vkGetDeviceProcAddr("vkCmdSetBlendConstants"));
@@ -100,6 +102,7 @@ void ContextTable::load_device() {
     m_vkCmdSetDepthBounds = reinterpret_cast<PFN_vkCmdSetDepthBounds>(vkGetDeviceProcAddr("vkCmdSetDepthBounds"));
     m_vkCmdSetDeviceMask = reinterpret_cast<PFN_vkCmdSetDeviceMask>(vkGetDeviceProcAddr("vkCmdSetDeviceMask"));
     m_vkCmdSetEvent = reinterpret_cast<PFN_vkCmdSetEvent>(vkGetDeviceProcAddr("vkCmdSetEvent"));
+    m_vkCmdSetEvent2KHR = reinterpret_cast<PFN_vkCmdSetEvent2KHR>(vkGetDeviceProcAddr("vkCmdSetEvent2KHR"));
     m_vkCmdSetLineWidth = reinterpret_cast<PFN_vkCmdSetLineWidth>(vkGetDeviceProcAddr("vkCmdSetLineWidth"));
     m_vkCmdSetScissor = reinterpret_cast<PFN_vkCmdSetScissor>(vkGetDeviceProcAddr("vkCmdSetScissor"));
     m_vkCmdSetStencilCompareMask = reinterpret_cast<PFN_vkCmdSetStencilCompareMask>(vkGetDeviceProcAddr("vkCmdSetStencilCompareMask"));
@@ -108,7 +111,9 @@ void ContextTable::load_device() {
     m_vkCmdSetViewport = reinterpret_cast<PFN_vkCmdSetViewport>(vkGetDeviceProcAddr("vkCmdSetViewport"));
     m_vkCmdUpdateBuffer = reinterpret_cast<PFN_vkCmdUpdateBuffer>(vkGetDeviceProcAddr("vkCmdUpdateBuffer"));
     m_vkCmdWaitEvents = reinterpret_cast<PFN_vkCmdWaitEvents>(vkGetDeviceProcAddr("vkCmdWaitEvents"));
+    m_vkCmdWaitEvents2KHR = reinterpret_cast<PFN_vkCmdWaitEvents2KHR>(vkGetDeviceProcAddr("vkCmdWaitEvents2KHR"));
     m_vkCmdWriteTimestamp = reinterpret_cast<PFN_vkCmdWriteTimestamp>(vkGetDeviceProcAddr("vkCmdWriteTimestamp"));
+    m_vkCmdWriteTimestamp2KHR = reinterpret_cast<PFN_vkCmdWriteTimestamp2KHR>(vkGetDeviceProcAddr("vkCmdWriteTimestamp2KHR"));
     m_vkCreateBuffer = reinterpret_cast<PFN_vkCreateBuffer>(vkGetDeviceProcAddr("vkCreateBuffer"));
     m_vkCreateBufferView = reinterpret_cast<PFN_vkCreateBufferView>(vkGetDeviceProcAddr("vkCreateBufferView"));
     m_vkCreateCommandPool = reinterpret_cast<PFN_vkCreateCommandPool>(vkGetDeviceProcAddr("vkCreateCommandPool"));
@@ -190,6 +195,7 @@ void ContextTable::load_device() {
     m_vkQueueBindSparse = reinterpret_cast<PFN_vkQueueBindSparse>(vkGetDeviceProcAddr("vkQueueBindSparse"));
     m_vkQueuePresentKHR = reinterpret_cast<PFN_vkQueuePresentKHR>(vkGetDeviceProcAddr("vkQueuePresentKHR"));
     m_vkQueueSubmit = reinterpret_cast<PFN_vkQueueSubmit>(vkGetDeviceProcAddr("vkQueueSubmit"));
+    m_vkQueueSubmit2KHR = reinterpret_cast<PFN_vkQueueSubmit2KHR>(vkGetDeviceProcAddr("vkQueueSubmit2KHR"));
     m_vkQueueWaitIdle = reinterpret_cast<PFN_vkQueueWaitIdle>(vkGetDeviceProcAddr("vkQueueWaitIdle"));
     m_vkResetCommandBuffer = reinterpret_cast<PFN_vkResetCommandBuffer>(vkGetDeviceProcAddr("vkResetCommandBuffer"));
     m_vkResetCommandPool = reinterpret_cast<PFN_vkResetCommandPool>(vkGetDeviceProcAddr("vkResetCommandPool"));
@@ -387,12 +393,20 @@ void ContextTable::vkCmdPipelineBarrier(CommandBuffer commandBuffer, PipelineSta
     return m_vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
+void ContextTable::vkCmdPipelineBarrier2KHR(CommandBuffer commandBuffer, const DependencyInfoKHR *pDependencyInfo) const {
+    return m_vkCmdPipelineBarrier2KHR(commandBuffer, pDependencyInfo);
+}
+
 void ContextTable::vkCmdPushConstants(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues) const {
     return m_vkCmdPushConstants(commandBuffer, layout, stageFlags, offset, size, pValues);
 }
 
 void ContextTable::vkCmdResetEvent(CommandBuffer commandBuffer, Event event, PipelineStage stageMask) const {
     return m_vkCmdResetEvent(commandBuffer, event, stageMask);
+}
+
+void ContextTable::vkCmdResetEvent2KHR(CommandBuffer commandBuffer, Event event, PipelineStageFlags2KHR stageMask) const {
+    return m_vkCmdResetEvent2KHR(commandBuffer, event, stageMask);
 }
 
 void ContextTable::vkCmdResetQueryPool(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount) const {
@@ -421,6 +435,10 @@ void ContextTable::vkCmdSetDeviceMask(CommandBuffer commandBuffer, uint32_t devi
 
 void ContextTable::vkCmdSetEvent(CommandBuffer commandBuffer, Event event, PipelineStage stageMask) const {
     return m_vkCmdSetEvent(commandBuffer, event, stageMask);
+}
+
+void ContextTable::vkCmdSetEvent2KHR(CommandBuffer commandBuffer, Event event, const DependencyInfoKHR *pDependencyInfo) const {
+    return m_vkCmdSetEvent2KHR(commandBuffer, event, pDependencyInfo);
 }
 
 void ContextTable::vkCmdSetLineWidth(CommandBuffer commandBuffer, float lineWidth) const {
@@ -455,8 +473,16 @@ void ContextTable::vkCmdWaitEvents(CommandBuffer commandBuffer, uint32_t eventCo
     return m_vkCmdWaitEvents(commandBuffer, eventCount, pEvents, srcStageMask, dstStageMask, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
+void ContextTable::vkCmdWaitEvents2KHR(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfoKHR *pDependencyInfos) const {
+    return m_vkCmdWaitEvents2KHR(commandBuffer, eventCount, pEvents, pDependencyInfos);
+}
+
 void ContextTable::vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query) const {
     return m_vkCmdWriteTimestamp(commandBuffer, pipelineStage, queryPool, query);
+}
+
+void ContextTable::vkCmdWriteTimestamp2KHR(CommandBuffer commandBuffer, PipelineStageFlags2KHR stage, QueryPool queryPool, uint32_t query) const {
+    return m_vkCmdWriteTimestamp2KHR(commandBuffer, stage, queryPool, query);
 }
 
 Result ContextTable::vkCreateBuffer(const BufferCreateInfo *pCreateInfo, Buffer *pBuffer) const {
@@ -925,6 +951,10 @@ Result ContextTable::vkQueuePresentKHR(Queue queue, const PresentInfoKHR *pPrese
 
 Result ContextTable::vkQueueSubmit(Queue queue, uint32_t submitCount, const SubmitInfo *pSubmits, Fence fence) const {
     return m_vkQueueSubmit(queue, submitCount, pSubmits, fence);
+}
+
+Result ContextTable::vkQueueSubmit2KHR(Queue queue, uint32_t submitCount, const SubmitInfo2KHR *pSubmits, Fence fence) const {
+    return m_vkQueueSubmit2KHR(queue, submitCount, pSubmits, fence);
 }
 
 Result ContextTable::vkQueueWaitIdle(Queue queue) const {

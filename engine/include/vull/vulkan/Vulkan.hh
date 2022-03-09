@@ -38,6 +38,7 @@ constexpr uint32_t k_max_global_priority_size_ext = 16;
 using DeviceAddress = uint64_t;
 using DeviceSize = uint64_t;
 using Flags = uint32_t;
+using Flags64 = uint64_t;
 using SampleMask = uint32_t;
 
 class Bool {
@@ -50,6 +51,7 @@ public:
 };
 
 // Bitmasks.
+using AccessFlags2KHR = Flags64;
 using BufferViewCreateFlags = Flags;
 using CommandPoolTrimFlags = Flags;
 using CompositeAlphaFlagsKHR = Flags;
@@ -57,7 +59,6 @@ using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
 using DeviceGroupPresentModeFlagsKHR = Flags;
-using EventCreateFlags = Flags;
 using ImageViewCreateFlags = Flags;
 using InstanceCreateFlags = Flags;
 using MemoryMapFlags = Flags;
@@ -70,6 +71,7 @@ using PipelineLayoutCreateFlags = Flags;
 using PipelineMultisampleStateCreateFlags = Flags;
 using PipelineRasterizationStateCreateFlags = Flags;
 using PipelineShaderStageCreateFlags = Flags;
+using PipelineStageFlags2KHR = Flags64;
 using PipelineTessellationStateCreateFlags = Flags;
 using PipelineVertexInputStateCreateFlags = Flags;
 using PipelineViewportStateCreateFlags = Flags;
@@ -79,6 +81,7 @@ using RenderingFlagsKHR = Flags;
 using SamplerCreateFlags = Flags;
 using SemaphoreCreateFlags = Flags;
 using ShaderModuleCreateFlags = Flags;
+using SubmitFlagsKHR = Flags;
 using SubpassDescriptionFlags = Flags;
 using SurfaceTransformFlagsKHR = Flags;
 using SwapchainCreateFlagsKHR = Flags;
@@ -134,12 +137,43 @@ enum class Access {
     HostWrite = 1u << 14u,
     MemoryRead = 1u << 15u,
     MemoryWrite = 1u << 16u,
+    NoneKHR = 0,
 };
 inline constexpr Access operator&(Access a, Access b) {
     return static_cast<Access>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 inline constexpr Access operator|(Access a, Access b) {
     return static_cast<Access>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+enum class AccessFlagBits2KHR : uint64_t {
+    NoneKHR = 0,
+    IndirectCommandReadKHR = 1ull << 0ull,
+    IndexReadKHR = 1ull << 1ull,
+    VertexAttributeReadKHR = 1ull << 2ull,
+    UniformReadKHR = 1ull << 3ull,
+    InputAttachmentReadKHR = 1ull << 4ull,
+    ShaderReadKHR = 1ull << 5ull,
+    ShaderWriteKHR = 1ull << 6ull,
+    ColorAttachmentReadKHR = 1ull << 7ull,
+    ColorAttachmentWriteKHR = 1ull << 8ull,
+    DepthStencilAttachmentReadKHR = 1ull << 9ull,
+    DepthStencilAttachmentWriteKHR = 1ull << 10ull,
+    TransferReadKHR = 1ull << 11ull,
+    TransferWriteKHR = 1ull << 12ull,
+    HostReadKHR = 1ull << 13ull,
+    HostWriteKHR = 1ull << 14ull,
+    MemoryReadKHR = 1ull << 15ull,
+    MemoryWriteKHR = 1ull << 16ull,
+    ShaderSampledReadKHR = 1ull << 32ull,
+    ShaderStorageReadKHR = 1ull << 33ull,
+    ShaderStorageWriteKHR = 1ull << 34ull,
+};
+inline constexpr AccessFlagBits2KHR operator&(AccessFlagBits2KHR a, AccessFlagBits2KHR b) {
+    return static_cast<AccessFlagBits2KHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr AccessFlagBits2KHR operator|(AccessFlagBits2KHR a, AccessFlagBits2KHR b) {
+    return static_cast<AccessFlagBits2KHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class AttachmentDescriptionFlags {
@@ -487,6 +521,17 @@ enum class DynamicState {
     StencilWriteMask = 7,
     StencilReference = 8,
 };
+
+enum class EventCreateFlags {
+    None = 0,
+    DeviceOnlyKHR = 1u << 0u,
+};
+inline constexpr EventCreateFlags operator&(EventCreateFlags a, EventCreateFlags b) {
+    return static_cast<EventCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr EventCreateFlags operator|(EventCreateFlags a, EventCreateFlags b) {
+    return static_cast<EventCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
 
 enum class ExternalFenceFeature {
     Exportable = 1u << 0u,
@@ -920,6 +965,8 @@ enum class ImageLayout {
     StencilAttachmentOptimal = 1000241002,
     StencilReadOnlyOptimal = 1000241003,
     PresentSrcKHR = 1000001002,
+    ReadOnlyOptimalKHR = 1000314000,
+    AttachmentOptimalKHR = 1000314001,
 };
 
 enum class ImageTiling {
@@ -1125,12 +1172,47 @@ enum class PipelineStage {
     Host = 1u << 14u,
     AllGraphics = 1u << 15u,
     AllCommands = 1u << 16u,
+    NoneKHR = 0,
 };
 inline constexpr PipelineStage operator&(PipelineStage a, PipelineStage b) {
     return static_cast<PipelineStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 inline constexpr PipelineStage operator|(PipelineStage a, PipelineStage b) {
     return static_cast<PipelineStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+enum class PipelineStageFlagBits2KHR : uint64_t {
+    NoneKHR = 0,
+    TopOfPipeKHR = 1ull << 0ull,
+    DrawIndirectKHR = 1ull << 1ull,
+    VertexInputKHR = 1ull << 2ull,
+    VertexShaderKHR = 1ull << 3ull,
+    TessellationControlShaderKHR = 1ull << 4ull,
+    TessellationEvaluationShaderKHR = 1ull << 5ull,
+    GeometryShaderKHR = 1ull << 6ull,
+    FragmentShaderKHR = 1ull << 7ull,
+    EarlyFragmentTestsKHR = 1ull << 8ull,
+    LateFragmentTestsKHR = 1ull << 9ull,
+    ColorAttachmentOutputKHR = 1ull << 10ull,
+    ComputeShaderKHR = 1ull << 11ull,
+    AllTransferKHR = 1ull << 12ull,
+    BottomOfPipeKHR = 1ull << 13ull,
+    HostKHR = 1ull << 14ull,
+    AllGraphicsKHR = 1ull << 15ull,
+    AllCommandsKHR = 1ull << 16ull,
+    CopyKHR = 1ull << 32ull,
+    ResolveKHR = 1ull << 33ull,
+    BlitKHR = 1ull << 34ull,
+    ClearKHR = 1ull << 35ull,
+    IndexInputKHR = 1ull << 36ull,
+    VertexAttributeInputKHR = 1ull << 37ull,
+    PreRasterizationShadersKHR = 1ull << 38ull,
+};
+inline constexpr PipelineStageFlagBits2KHR operator&(PipelineStageFlagBits2KHR a, PipelineStageFlagBits2KHR b) {
+    return static_cast<PipelineStageFlagBits2KHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr PipelineStageFlagBits2KHR operator|(PipelineStageFlagBits2KHR a, PipelineStageFlagBits2KHR b) {
+    return static_cast<PipelineStageFlagBits2KHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class PointClippingBehavior {
@@ -1618,6 +1700,14 @@ enum class StructureType {
     AcquireNextImageInfoKHR = 1000060010,
     DeviceGroupPresentInfoKHR = 1000060011,
     DeviceGroupSwapchainCreateInfoKHR = 1000060012,
+    MemoryBarrier2KHR = 1000314000,
+    BufferMemoryBarrier2KHR = 1000314001,
+    ImageMemoryBarrier2KHR = 1000314002,
+    DependencyInfoKHR = 1000314003,
+    SubmitInfo2KHR = 1000314004,
+    SemaphoreSubmitInfoKHR = 1000314005,
+    CommandBufferSubmitInfoKHR = 1000314006,
+    PhysicalDeviceSynchronization2FeaturesKHR = 1000314007,
     XcbSurfaceCreateInfoKHR = 1000005000,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
 };
@@ -1637,6 +1727,16 @@ inline constexpr SubgroupFeature operator&(SubgroupFeature a, SubgroupFeature b)
 }
 inline constexpr SubgroupFeature operator|(SubgroupFeature a, SubgroupFeature b) {
     return static_cast<SubgroupFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+enum class SubmitFlagBitsKHR {
+    ProtectedKHR = 1u << 0u,
+};
+inline constexpr SubmitFlagBitsKHR operator&(SubmitFlagBitsKHR a, SubmitFlagBitsKHR b) {
+    return static_cast<SubmitFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr SubmitFlagBitsKHR operator|(SubmitFlagBitsKHR a, SubmitFlagBitsKHR b) {
+    return static_cast<SubmitFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class SubpassContents {
@@ -4071,6 +4171,90 @@ struct DeviceGroupSwapchainCreateInfoKHR {
     DeviceGroupPresentModeFlagsKHR modes;
 };
 
+struct MemoryBarrier2KHR {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2KHR srcStageMask;
+    AccessFlags2KHR srcAccessMask;
+    PipelineStageFlags2KHR dstStageMask;
+    AccessFlags2KHR dstAccessMask;
+};
+
+struct BufferMemoryBarrier2KHR {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2KHR srcStageMask;
+    AccessFlags2KHR srcAccessMask;
+    PipelineStageFlags2KHR dstStageMask;
+    AccessFlags2KHR dstAccessMask;
+    uint32_t srcQueueFamilyIndex;
+    uint32_t dstQueueFamilyIndex;
+    Buffer buffer;
+    DeviceSize offset;
+    DeviceSize size;
+};
+
+struct ImageMemoryBarrier2KHR {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2KHR srcStageMask;
+    AccessFlags2KHR srcAccessMask;
+    PipelineStageFlags2KHR dstStageMask;
+    AccessFlags2KHR dstAccessMask;
+    ImageLayout oldLayout;
+    ImageLayout newLayout;
+    uint32_t srcQueueFamilyIndex;
+    uint32_t dstQueueFamilyIndex;
+    Image image;
+    ImageSubresourceRange subresourceRange;
+};
+
+struct DependencyInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    DependencyFlags dependencyFlags;
+    uint32_t memoryBarrierCount;
+    const MemoryBarrier2KHR *pMemoryBarriers;
+    uint32_t bufferMemoryBarrierCount;
+    const BufferMemoryBarrier2KHR *pBufferMemoryBarriers;
+    uint32_t imageMemoryBarrierCount;
+    const ImageMemoryBarrier2KHR *pImageMemoryBarriers;
+};
+
+struct SemaphoreSubmitInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    Semaphore semaphore;
+    uint64_t value;
+    PipelineStageFlags2KHR stageMask;
+    uint32_t deviceIndex;
+};
+
+struct CommandBufferSubmitInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    CommandBuffer commandBuffer;
+    uint32_t deviceMask;
+};
+
+struct SubmitInfo2KHR {
+    StructureType sType;
+    const void *pNext;
+    SubmitFlagsKHR flags;
+    uint32_t waitSemaphoreInfoCount;
+    const SemaphoreSubmitInfoKHR *pWaitSemaphoreInfos;
+    uint32_t commandBufferInfoCount;
+    const CommandBufferSubmitInfoKHR *pCommandBufferInfos;
+    uint32_t signalSemaphoreInfoCount;
+    const SemaphoreSubmitInfoKHR *pSignalSemaphoreInfos;
+};
+
+struct PhysicalDeviceSynchronization2FeaturesKHR {
+    StructureType sType;
+    void *pNext;
+    Bool synchronization2;
+};
+
 struct XcbSurfaceCreateInfoKHR {
     StructureType sType;
     const void *pNext;
@@ -4169,8 +4353,10 @@ using PFN_vkCmdFillBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuff
 using PFN_vkCmdNextSubpass = void (*)(CommandBuffer commandBuffer, SubpassContents contents); // NOLINT
 using PFN_vkCmdNextSubpass2 = void (*)(CommandBuffer commandBuffer, const SubpassBeginInfo *pSubpassBeginInfo, const SubpassEndInfo *pSubpassEndInfo); // NOLINT
 using PFN_vkCmdPipelineBarrier = void (*)(CommandBuffer commandBuffer, PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers); // NOLINT
+using PFN_vkCmdPipelineBarrier2KHR = void (*)(CommandBuffer commandBuffer, const DependencyInfoKHR *pDependencyInfo); // NOLINT
 using PFN_vkCmdPushConstants = void (*)(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues); // NOLINT
 using PFN_vkCmdResetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask); // NOLINT
+using PFN_vkCmdResetEvent2KHR = void (*)(CommandBuffer commandBuffer, Event event, PipelineStageFlags2KHR stageMask); // NOLINT
 using PFN_vkCmdResetQueryPool = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount); // NOLINT
 using PFN_vkCmdResolveImage = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageResolve *pRegions); // NOLINT
 using PFN_vkCmdSetBlendConstants = void (*)(CommandBuffer commandBuffer, const float blendConstants [4]); // NOLINT
@@ -4178,6 +4364,7 @@ using PFN_vkCmdSetDepthBias = void (*)(CommandBuffer commandBuffer, float depthB
 using PFN_vkCmdSetDepthBounds = void (*)(CommandBuffer commandBuffer, float minDepthBounds, float maxDepthBounds); // NOLINT
 using PFN_vkCmdSetDeviceMask = void (*)(CommandBuffer commandBuffer, uint32_t deviceMask); // NOLINT
 using PFN_vkCmdSetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask); // NOLINT
+using PFN_vkCmdSetEvent2KHR = void (*)(CommandBuffer commandBuffer, Event event, const DependencyInfoKHR *pDependencyInfo); // NOLINT
 using PFN_vkCmdSetLineWidth = void (*)(CommandBuffer commandBuffer, float lineWidth); // NOLINT
 using PFN_vkCmdSetScissor = void (*)(CommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount, const Rect2D *pScissors); // NOLINT
 using PFN_vkCmdSetStencilCompareMask = void (*)(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t compareMask); // NOLINT
@@ -4186,7 +4373,9 @@ using PFN_vkCmdSetStencilWriteMask = void (*)(CommandBuffer commandBuffer, Stenc
 using PFN_vkCmdSetViewport = void (*)(CommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const Viewport *pViewports); // NOLINT
 using PFN_vkCmdUpdateBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize dataSize, const void *pData); // NOLINT
 using PFN_vkCmdWaitEvents = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers); // NOLINT
+using PFN_vkCmdWaitEvents2KHR = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfoKHR *pDependencyInfos); // NOLINT
 using PFN_vkCmdWriteTimestamp = void (*)(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query); // NOLINT
+using PFN_vkCmdWriteTimestamp2KHR = void (*)(CommandBuffer commandBuffer, PipelineStageFlags2KHR stage, QueryPool queryPool, uint32_t query); // NOLINT
 using PFN_vkCreateBuffer = Result (*)(Device device, const BufferCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Buffer *pBuffer); // NOLINT
 using PFN_vkCreateBufferView = Result (*)(Device device, const BufferViewCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, BufferView *pView); // NOLINT
 using PFN_vkCreateCommandPool = Result (*)(Device device, const CommandPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, CommandPool *pCommandPool); // NOLINT
@@ -4305,6 +4494,7 @@ using PFN_vkMergePipelineCaches = Result (*)(Device device, PipelineCache dstCac
 using PFN_vkQueueBindSparse = Result (*)(Queue queue, uint32_t bindInfoCount, const BindSparseInfo *pBindInfo, Fence fence); // NOLINT
 using PFN_vkQueuePresentKHR = Result (*)(Queue queue, const PresentInfoKHR *pPresentInfo); // NOLINT
 using PFN_vkQueueSubmit = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo *pSubmits, Fence fence); // NOLINT
+using PFN_vkQueueSubmit2KHR = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo2KHR *pSubmits, Fence fence); // NOLINT
 using PFN_vkQueueWaitIdle = Result (*)(Queue queue); // NOLINT
 using PFN_vkResetCommandBuffer = Result (*)(CommandBuffer commandBuffer, CommandBufferResetFlags flags); // NOLINT
 using PFN_vkResetCommandPool = Result (*)(Device device, CommandPool commandPool, CommandPoolResetFlags flags); // NOLINT

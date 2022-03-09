@@ -57,6 +57,7 @@ desired_extensions = OrderedSet([
     'VK_KHR_dynamic_rendering',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
+    'VK_KHR_synchronization2',
     'VK_KHR_xcb_surface',
 ])
 
@@ -379,13 +380,13 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
             # Don't generate empty enums, a bitmask will already have been generated.
             continue
         converted_type_name = convert_type(type_name)
-        file.write('enum class {} {{\n'.format(converted_type_name))
+        bitwidth = definition.get('bitwidth') or '32'
+        file.write('enum class {} {}{{\n'.format(converted_type_name, ': uint64_t ' if bitwidth == '64' else ''))
 
         # Emit None enumerant if needed.
         if converted_type_name.endswith('Flags'):
             file.write('    None = 0,\n')
 
-        assert definition.get('bitwidth') or '32' == '32'
         for enumerant in definition.findall('enum'):
             if enumerant.get('alias'):
                 # Ignore alias enumerants, we want to force upgrade to the core version.
@@ -415,7 +416,8 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
             # into 1D), which isn't a valid identifier so we prefix with an underscore.
             if name[0].isdigit():
                 name = '_' + name
-            file.write('    {} = {},\n'.format(name, value or '1u << {}u'.format(bitpos)))
+            file.write('    {} = {},\n'.format(name, value or '1{1} << {0}{1}'.format(bitpos,
+                                                                                      'ull' if bitwidth == '64' else 'u')))
         file.write('};\n')
 
         # Emit operators for flags.
