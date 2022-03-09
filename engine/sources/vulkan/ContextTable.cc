@@ -875,11 +875,11 @@ Result ContextTable::vkGetPhysicalDeviceSurfacePresentModesKHR(SurfaceKHR surfac
     return m_vkGetPhysicalDeviceSurfacePresentModesKHR(m_physical_device, surface, pPresentModeCount, pPresentModes);
 }
 
-Result ContextTable::vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIndex, SurfaceKHR surface, Bool32 *pSupported) const {
+Result ContextTable::vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported) const {
     return m_vkGetPhysicalDeviceSurfaceSupportKHR(m_physical_device, queueFamilyIndex, surface, pSupported);
 }
 
-Bool32 ContextTable::vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const {
+Bool ContextTable::vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const {
     return m_vkGetPhysicalDeviceXcbPresentationSupportKHR(m_physical_device, queueFamilyIndex, connection, visual_id);
 }
 
@@ -979,7 +979,7 @@ void ContextTable::vkUpdateDescriptorSets(uint32_t descriptorWriteCount, const W
     return m_vkUpdateDescriptorSets(m_device, descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 }
 
-Result ContextTable::vkWaitForFences(uint32_t fenceCount, const Fence *pFences, Bool32 waitAll, uint64_t timeout) const {
+Result ContextTable::vkWaitForFences(uint32_t fenceCount, const Fence *pFences, Bool waitAll, uint64_t timeout) const {
     return m_vkWaitForFences(m_device, fenceCount, pFences, waitAll, timeout);
 }
 

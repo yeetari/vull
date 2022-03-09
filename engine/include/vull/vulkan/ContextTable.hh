@@ -380,8 +380,8 @@ public:
     Result vkGetPhysicalDeviceSurfaceCapabilitiesKHR(SurfaceKHR surface, SurfaceCapabilitiesKHR *pSurfaceCapabilities) const; // NOLINT
     Result vkGetPhysicalDeviceSurfaceFormatsKHR(SurfaceKHR surface, uint32_t *pSurfaceFormatCount, SurfaceFormatKHR *pSurfaceFormats) const; // NOLINT
     Result vkGetPhysicalDeviceSurfacePresentModesKHR(SurfaceKHR surface, uint32_t *pPresentModeCount, PresentModeKHR *pPresentModes) const; // NOLINT
-    Result vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIndex, SurfaceKHR surface, Bool32 *pSupported) const; // NOLINT
-    Bool32 vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const; // NOLINT
+    Result vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported) const; // NOLINT
+    Bool vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const; // NOLINT
     Result vkGetPipelineCacheData(PipelineCache pipelineCache, size_t *pDataSize, void *pData) const; // NOLINT
     Result vkGetQueryPoolResults(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags) const; // NOLINT
     void vkGetRenderAreaGranularity(RenderPass renderPass, Extent2D *pGranularity) const; // NOLINT
@@ -406,7 +406,7 @@ public:
     void vkUnmapMemory(DeviceMemory memory) const; // NOLINT
     void vkUpdateDescriptorSetWithTemplate(DescriptorSet descriptorSet, DescriptorUpdateTemplate descriptorUpdateTemplate, const void *pData) const; // NOLINT
     void vkUpdateDescriptorSets(uint32_t descriptorWriteCount, const WriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount, const CopyDescriptorSet *pDescriptorCopies) const; // NOLINT
-    Result vkWaitForFences(uint32_t fenceCount, const Fence *pFences, Bool32 waitAll, uint64_t timeout) const; // NOLINT
+    Result vkWaitForFences(uint32_t fenceCount, const Fence *pFences, Bool waitAll, uint64_t timeout) const; // NOLINT
     Result vkWaitSemaphores(const SemaphoreWaitInfo *pWaitInfo, uint64_t timeout) const; // NOLINT
 };
 

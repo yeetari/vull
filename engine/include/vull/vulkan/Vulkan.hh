@@ -24,8 +24,6 @@ constexpr uint32_t k_remaining_mip_levels = (~0u);
 constexpr uint32_t k_remaining_array_layers = (~0u);
 constexpr uint64_t k_whole_size = (~0ull);
 constexpr uint32_t k_attachment_unused = (~0u);
-constexpr uint32_t k_true = 1;
-constexpr uint32_t k_false = 0;
 constexpr uint32_t k_queue_family_ignored = (~0u);
 constexpr uint32_t k_queue_family_external = (~1u);
 constexpr uint32_t k_queue_family_foreign_ext = (~2u);
@@ -37,11 +35,19 @@ constexpr uint32_t k_shader_unused_khr = (~0u);
 constexpr uint32_t k_max_global_priority_size_ext = 16;
 
 // Base types.
-using Bool32 = uint32_t;
 using DeviceAddress = uint64_t;
 using DeviceSize = uint64_t;
 using Flags = uint32_t;
 using SampleMask = uint32_t;
+
+class Bool {
+    uint32_t m_value;
+
+public:
+    Bool() = default;
+    Bool(bool value) : m_value(value ? 1 : 0) {}
+    operator bool() const { return m_value == 1; }
+};
 
 // Bitmasks.
 using BufferViewCreateFlags = Flags;
@@ -1890,61 +1896,61 @@ struct MemoryType {
 };
 
 struct PhysicalDeviceFeatures {
-    Bool32 robustBufferAccess;
-    Bool32 fullDrawIndexUint32;
-    Bool32 imageCubeArray;
-    Bool32 independentBlend;
-    Bool32 geometryShader;
-    Bool32 tessellationShader;
-    Bool32 sampleRateShading;
-    Bool32 dualSrcBlend;
-    Bool32 logicOp;
-    Bool32 multiDrawIndirect;
-    Bool32 drawIndirectFirstInstance;
-    Bool32 depthClamp;
-    Bool32 depthBiasClamp;
-    Bool32 fillModeNonSolid;
-    Bool32 depthBounds;
-    Bool32 wideLines;
-    Bool32 largePoints;
-    Bool32 alphaToOne;
-    Bool32 multiViewport;
-    Bool32 samplerAnisotropy;
-    Bool32 textureCompressionETC2;
-    Bool32 textureCompressionASTC_LDR;
-    Bool32 textureCompressionBC;
-    Bool32 occlusionQueryPrecise;
-    Bool32 pipelineStatisticsQuery;
-    Bool32 vertexPipelineStoresAndAtomics;
-    Bool32 fragmentStoresAndAtomics;
-    Bool32 shaderTessellationAndGeometryPointSize;
-    Bool32 shaderImageGatherExtended;
-    Bool32 shaderStorageImageExtendedFormats;
-    Bool32 shaderStorageImageMultisample;
-    Bool32 shaderStorageImageReadWithoutFormat;
-    Bool32 shaderStorageImageWriteWithoutFormat;
-    Bool32 shaderUniformBufferArrayDynamicIndexing;
-    Bool32 shaderSampledImageArrayDynamicIndexing;
-    Bool32 shaderStorageBufferArrayDynamicIndexing;
-    Bool32 shaderStorageImageArrayDynamicIndexing;
-    Bool32 shaderClipDistance;
-    Bool32 shaderCullDistance;
-    Bool32 shaderFloat64;
-    Bool32 shaderInt64;
-    Bool32 shaderInt16;
-    Bool32 shaderResourceResidency;
-    Bool32 shaderResourceMinLod;
-    Bool32 sparseBinding;
-    Bool32 sparseResidencyBuffer;
-    Bool32 sparseResidencyImage2D;
-    Bool32 sparseResidencyImage3D;
-    Bool32 sparseResidency2Samples;
-    Bool32 sparseResidency4Samples;
-    Bool32 sparseResidency8Samples;
-    Bool32 sparseResidency16Samples;
-    Bool32 sparseResidencyAliased;
-    Bool32 variableMultisampleRate;
-    Bool32 inheritedQueries;
+    Bool robustBufferAccess;
+    Bool fullDrawIndexUint32;
+    Bool imageCubeArray;
+    Bool independentBlend;
+    Bool geometryShader;
+    Bool tessellationShader;
+    Bool sampleRateShading;
+    Bool dualSrcBlend;
+    Bool logicOp;
+    Bool multiDrawIndirect;
+    Bool drawIndirectFirstInstance;
+    Bool depthClamp;
+    Bool depthBiasClamp;
+    Bool fillModeNonSolid;
+    Bool depthBounds;
+    Bool wideLines;
+    Bool largePoints;
+    Bool alphaToOne;
+    Bool multiViewport;
+    Bool samplerAnisotropy;
+    Bool textureCompressionETC2;
+    Bool textureCompressionASTC_LDR;
+    Bool textureCompressionBC;
+    Bool occlusionQueryPrecise;
+    Bool pipelineStatisticsQuery;
+    Bool vertexPipelineStoresAndAtomics;
+    Bool fragmentStoresAndAtomics;
+    Bool shaderTessellationAndGeometryPointSize;
+    Bool shaderImageGatherExtended;
+    Bool shaderStorageImageExtendedFormats;
+    Bool shaderStorageImageMultisample;
+    Bool shaderStorageImageReadWithoutFormat;
+    Bool shaderStorageImageWriteWithoutFormat;
+    Bool shaderUniformBufferArrayDynamicIndexing;
+    Bool shaderSampledImageArrayDynamicIndexing;
+    Bool shaderStorageBufferArrayDynamicIndexing;
+    Bool shaderStorageImageArrayDynamicIndexing;
+    Bool shaderClipDistance;
+    Bool shaderCullDistance;
+    Bool shaderFloat64;
+    Bool shaderInt64;
+    Bool shaderInt16;
+    Bool shaderResourceResidency;
+    Bool shaderResourceMinLod;
+    Bool sparseBinding;
+    Bool sparseResidencyBuffer;
+    Bool sparseResidencyImage2D;
+    Bool sparseResidencyImage3D;
+    Bool sparseResidency2Samples;
+    Bool sparseResidency4Samples;
+    Bool sparseResidency8Samples;
+    Bool sparseResidency16Samples;
+    Bool sparseResidencyAliased;
+    Bool variableMultisampleRate;
+    Bool inheritedQueries;
 };
 
 struct PhysicalDeviceLimits {
@@ -2043,7 +2049,7 @@ struct PhysicalDeviceLimits {
     SampleCount sampledImageStencilSampleCounts;
     SampleCount storageImageSampleCounts;
     uint32_t maxSampleMaskWords;
-    Bool32 timestampComputeAndGraphics;
+    Bool timestampComputeAndGraphics;
     float timestampPeriod;
     uint32_t maxClipDistances;
     uint32_t maxCullDistances;
@@ -2055,8 +2061,8 @@ struct PhysicalDeviceLimits {
     float lineWidthRange [2];
     float pointSizeGranularity;
     float lineWidthGranularity;
-    Bool32 strictLines;
-    Bool32 standardSampleLocations;
+    Bool strictLines;
+    Bool standardSampleLocations;
     DeviceSize optimalBufferCopyOffsetAlignment;
     DeviceSize optimalBufferCopyRowPitchAlignment;
     DeviceSize nonCoherentAtomSize;
@@ -2072,11 +2078,11 @@ struct PhysicalDeviceMemoryProperties {
 };
 
 struct PhysicalDeviceSparseProperties {
-    Bool32 residencyStandard2DBlockShape;
-    Bool32 residencyStandard2DMultisampleBlockShape;
-    Bool32 residencyStandard3DBlockShape;
-    Bool32 residencyAlignedMipSize;
-    Bool32 residencyNonResidentStrict;
+    Bool residencyStandard2DBlockShape;
+    Bool residencyStandard2DMultisampleBlockShape;
+    Bool residencyStandard3DBlockShape;
+    Bool residencyAlignedMipSize;
+    Bool residencyNonResidentStrict;
 };
 
 struct PhysicalDeviceProperties {
@@ -2409,7 +2415,7 @@ struct PipelineInputAssemblyStateCreateInfo {
     const void *pNext;
     PipelineInputAssemblyStateCreateFlags flags;
     PrimitiveTopology topology;
-    Bool32 primitiveRestartEnable;
+    Bool primitiveRestartEnable;
 };
 
 struct PipelineTessellationStateCreateInfo {
@@ -2442,12 +2448,12 @@ struct PipelineRasterizationStateCreateInfo {
     StructureType sType;
     const void *pNext;
     PipelineRasterizationStateCreateFlags flags;
-    Bool32 depthClampEnable;
-    Bool32 rasterizerDiscardEnable;
+    Bool depthClampEnable;
+    Bool rasterizerDiscardEnable;
     PolygonMode polygonMode;
     CullMode cullMode;
     FrontFace frontFace;
-    Bool32 depthBiasEnable;
+    Bool depthBiasEnable;
     float depthBiasConstantFactor;
     float depthBiasClamp;
     float depthBiasSlopeFactor;
@@ -2459,11 +2465,11 @@ struct PipelineMultisampleStateCreateInfo {
     const void *pNext;
     PipelineMultisampleStateCreateFlags flags;
     SampleCount rasterizationSamples;
-    Bool32 sampleShadingEnable;
+    Bool sampleShadingEnable;
     float minSampleShading;
     const SampleMask *pSampleMask;
-    Bool32 alphaToCoverageEnable;
-    Bool32 alphaToOneEnable;
+    Bool alphaToCoverageEnable;
+    Bool alphaToOneEnable;
 };
 
 struct StencilOpState {
@@ -2480,11 +2486,11 @@ struct PipelineDepthStencilStateCreateInfo {
     StructureType sType;
     const void *pNext;
     PipelineDepthStencilStateCreateFlags flags;
-    Bool32 depthTestEnable;
-    Bool32 depthWriteEnable;
+    Bool depthTestEnable;
+    Bool depthWriteEnable;
     CompareOp depthCompareOp;
-    Bool32 depthBoundsTestEnable;
-    Bool32 stencilTestEnable;
+    Bool depthBoundsTestEnable;
+    Bool stencilTestEnable;
     StencilOpState front;
     StencilOpState back;
     float minDepthBounds;
@@ -2492,7 +2498,7 @@ struct PipelineDepthStencilStateCreateInfo {
 };
 
 struct PipelineColorBlendAttachmentState {
-    Bool32 blendEnable;
+    Bool blendEnable;
     BlendFactor srcColorBlendFactor;
     BlendFactor dstColorBlendFactor;
     BlendOp colorBlendOp;
@@ -2506,7 +2512,7 @@ struct PipelineColorBlendStateCreateInfo {
     StructureType sType;
     const void *pNext;
     PipelineColorBlendStateCreateFlags flags;
-    Bool32 logicOpEnable;
+    Bool logicOpEnable;
     LogicOp logicOp;
     uint32_t attachmentCount;
     const PipelineColorBlendAttachmentState *pAttachments;
@@ -2571,14 +2577,14 @@ struct SamplerCreateInfo {
     SamplerAddressMode addressModeV;
     SamplerAddressMode addressModeW;
     float mipLodBias;
-    Bool32 anisotropyEnable;
+    Bool anisotropyEnable;
     float maxAnisotropy;
-    Bool32 compareEnable;
+    Bool compareEnable;
     CompareOp compareOp;
     float minLod;
     float maxLod;
     BorderColor borderColor;
-    Bool32 unnormalizedCoordinates;
+    Bool unnormalizedCoordinates;
 };
 
 struct CopyDescriptorSet {
@@ -2741,7 +2747,7 @@ struct CommandBufferInheritanceInfo {
     RenderPass renderPass;
     uint32_t subpass;
     Framebuffer framebuffer;
-    Bool32 occlusionQueryEnable;
+    Bool occlusionQueryEnable;
     QueryControlFlags queryFlags;
     QueryPipelineStatisticFlags pipelineStatistics;
 };
@@ -2847,7 +2853,7 @@ struct PhysicalDeviceSubgroupProperties {
     uint32_t subgroupSize;
     ShaderStage supportedStages;
     SubgroupFeature supportedOperations;
-    Bool32 quadOperationsInAllStages;
+    Bool quadOperationsInAllStages;
 };
 
 struct BindBufferMemoryInfo {
@@ -2869,17 +2875,17 @@ struct BindImageMemoryInfo {
 struct PhysicalDevice16BitStorageFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 storageBuffer16BitAccess;
-    Bool32 uniformAndStorageBuffer16BitAccess;
-    Bool32 storagePushConstant16;
-    Bool32 storageInputOutput16;
+    Bool storageBuffer16BitAccess;
+    Bool uniformAndStorageBuffer16BitAccess;
+    Bool storagePushConstant16;
+    Bool storageInputOutput16;
 };
 
 struct MemoryDedicatedRequirements {
     StructureType sType;
     void *pNext;
-    Bool32 prefersDedicatedAllocation;
-    Bool32 requiresDedicatedAllocation;
+    Bool prefersDedicatedAllocation;
+    Bool requiresDedicatedAllocation;
 };
 
 struct MemoryDedicatedAllocateInfo {
@@ -2950,7 +2956,7 @@ struct PhysicalDeviceGroupProperties {
     uint32_t physicalDeviceCount;
     // NOLINTNEXTLINE
     PhysicalDevice physicalDevices [k_max_device_group_size ];
-    Bool32 subsetAllocation;
+    Bool subsetAllocation;
 };
 
 struct DeviceGroupDeviceCreateInfo {
@@ -3097,9 +3103,9 @@ struct RenderPassMultiviewCreateInfo {
 struct PhysicalDeviceMultiviewFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 multiview;
-    Bool32 multiviewGeometryShader;
-    Bool32 multiviewTessellationShader;
+    Bool multiview;
+    Bool multiviewGeometryShader;
+    Bool multiviewTessellationShader;
 };
 
 struct PhysicalDeviceMultiviewProperties {
@@ -3115,20 +3121,20 @@ struct PhysicalDeviceVariablePointerFeatures {
 struct PhysicalDeviceVariablePointersFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 variablePointersStorageBuffer;
-    Bool32 variablePointers;
+    Bool variablePointersStorageBuffer;
+    Bool variablePointers;
 };
 
 struct PhysicalDeviceProtectedMemoryFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 protectedMemory;
+    Bool protectedMemory;
 };
 
 struct PhysicalDeviceProtectedMemoryProperties {
     StructureType sType;
     void *pNext;
-    Bool32 protectedNoFault;
+    Bool protectedNoFault;
 };
 
 struct DeviceQueueInfo2 {
@@ -3142,7 +3148,7 @@ struct DeviceQueueInfo2 {
 struct ProtectedSubmitInfo {
     StructureType sType;
     const void *pNext;
-    Bool32 protectedSubmit;
+    Bool protectedSubmit;
 };
 
 struct SamplerYcbcrConversionCreateInfo {
@@ -3155,7 +3161,7 @@ struct SamplerYcbcrConversionCreateInfo {
     ChromaLocation xChromaOffset;
     ChromaLocation yChromaOffset;
     Filter chromaFilter;
-    Bool32 forceExplicitReconstruction;
+    Bool forceExplicitReconstruction;
 };
 
 struct SamplerYcbcrConversionInfo {
@@ -3179,7 +3185,7 @@ struct ImagePlaneMemoryRequirementsInfo {
 struct PhysicalDeviceSamplerYcbcrConversionFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 samplerYcbcrConversion;
+    Bool samplerYcbcrConversion;
 };
 
 struct SamplerYcbcrConversionImageFormatProperties {
@@ -3252,7 +3258,7 @@ struct PhysicalDeviceIDProperties {
     // NOLINTNEXTLINE
     uint8_t deviceLUID [k_luid_size ];
     uint32_t deviceNodeMask;
-    Bool32 deviceLUIDValid;
+    Bool deviceLUIDValid;
 };
 
 struct ExternalMemoryImageCreateInfo {
@@ -3323,7 +3329,7 @@ struct PhysicalDeviceMaintenance3Properties {
 struct DescriptorSetLayoutSupport {
     StructureType sType;
     void *pNext;
-    Bool32 supported;
+    Bool supported;
 };
 
 struct PhysicalDeviceShaderDrawParameterFeatures {
@@ -3332,24 +3338,24 @@ struct PhysicalDeviceShaderDrawParameterFeatures {
 struct PhysicalDeviceShaderDrawParametersFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 shaderDrawParameters;
+    Bool shaderDrawParameters;
 };
 
 struct PhysicalDeviceVulkan11Features {
     StructureType sType;
     void *pNext;
-    Bool32 storageBuffer16BitAccess;
-    Bool32 uniformAndStorageBuffer16BitAccess;
-    Bool32 storagePushConstant16;
-    Bool32 storageInputOutput16;
-    Bool32 multiview;
-    Bool32 multiviewGeometryShader;
-    Bool32 multiviewTessellationShader;
-    Bool32 variablePointersStorageBuffer;
-    Bool32 variablePointers;
-    Bool32 protectedMemory;
-    Bool32 samplerYcbcrConversion;
-    Bool32 shaderDrawParameters;
+    Bool storageBuffer16BitAccess;
+    Bool uniformAndStorageBuffer16BitAccess;
+    Bool storagePushConstant16;
+    Bool storageInputOutput16;
+    Bool multiview;
+    Bool multiviewGeometryShader;
+    Bool multiviewTessellationShader;
+    Bool variablePointersStorageBuffer;
+    Bool variablePointers;
+    Bool protectedMemory;
+    Bool samplerYcbcrConversion;
+    Bool shaderDrawParameters;
 };
 
 struct PhysicalDeviceVulkan11Properties {
@@ -3362,15 +3368,15 @@ struct PhysicalDeviceVulkan11Properties {
     // NOLINTNEXTLINE
     uint8_t deviceLUID [k_luid_size ];
     uint32_t deviceNodeMask;
-    Bool32 deviceLUIDValid;
+    Bool deviceLUIDValid;
     uint32_t subgroupSize;
     ShaderStage subgroupSupportedStages;
     SubgroupFeature subgroupSupportedOperations;
-    Bool32 subgroupQuadOperationsInAllStages;
+    Bool subgroupQuadOperationsInAllStages;
     PointClippingBehavior pointClippingBehavior;
     uint32_t maxMultiviewViewCount;
     uint32_t maxMultiviewInstanceIndex;
-    Bool32 protectedNoFault;
+    Bool protectedNoFault;
     uint32_t maxPerSetDescriptors;
     DeviceSize maxMemoryAllocationSize;
 };
@@ -3378,53 +3384,53 @@ struct PhysicalDeviceVulkan11Properties {
 struct PhysicalDeviceVulkan12Features {
     StructureType sType;
     void *pNext;
-    Bool32 samplerMirrorClampToEdge;
-    Bool32 drawIndirectCount;
-    Bool32 storageBuffer8BitAccess;
-    Bool32 uniformAndStorageBuffer8BitAccess;
-    Bool32 storagePushConstant8;
-    Bool32 shaderBufferInt64Atomics;
-    Bool32 shaderSharedInt64Atomics;
-    Bool32 shaderFloat16;
-    Bool32 shaderInt8;
-    Bool32 descriptorIndexing;
-    Bool32 shaderInputAttachmentArrayDynamicIndexing;
-    Bool32 shaderUniformTexelBufferArrayDynamicIndexing;
-    Bool32 shaderStorageTexelBufferArrayDynamicIndexing;
-    Bool32 shaderUniformBufferArrayNonUniformIndexing;
-    Bool32 shaderSampledImageArrayNonUniformIndexing;
-    Bool32 shaderStorageBufferArrayNonUniformIndexing;
-    Bool32 shaderStorageImageArrayNonUniformIndexing;
-    Bool32 shaderInputAttachmentArrayNonUniformIndexing;
-    Bool32 shaderUniformTexelBufferArrayNonUniformIndexing;
-    Bool32 shaderStorageTexelBufferArrayNonUniformIndexing;
-    Bool32 descriptorBindingUniformBufferUpdateAfterBind;
-    Bool32 descriptorBindingSampledImageUpdateAfterBind;
-    Bool32 descriptorBindingStorageImageUpdateAfterBind;
-    Bool32 descriptorBindingStorageBufferUpdateAfterBind;
-    Bool32 descriptorBindingUniformTexelBufferUpdateAfterBind;
-    Bool32 descriptorBindingStorageTexelBufferUpdateAfterBind;
-    Bool32 descriptorBindingUpdateUnusedWhilePending;
-    Bool32 descriptorBindingPartiallyBound;
-    Bool32 descriptorBindingVariableDescriptorCount;
-    Bool32 runtimeDescriptorArray;
-    Bool32 samplerFilterMinmax;
-    Bool32 scalarBlockLayout;
-    Bool32 imagelessFramebuffer;
-    Bool32 uniformBufferStandardLayout;
-    Bool32 shaderSubgroupExtendedTypes;
-    Bool32 separateDepthStencilLayouts;
-    Bool32 hostQueryReset;
-    Bool32 timelineSemaphore;
-    Bool32 bufferDeviceAddress;
-    Bool32 bufferDeviceAddressCaptureReplay;
-    Bool32 bufferDeviceAddressMultiDevice;
-    Bool32 vulkanMemoryModel;
-    Bool32 vulkanMemoryModelDeviceScope;
-    Bool32 vulkanMemoryModelAvailabilityVisibilityChains;
-    Bool32 shaderOutputViewportIndex;
-    Bool32 shaderOutputLayer;
-    Bool32 subgroupBroadcastDynamicId;
+    Bool samplerMirrorClampToEdge;
+    Bool drawIndirectCount;
+    Bool storageBuffer8BitAccess;
+    Bool uniformAndStorageBuffer8BitAccess;
+    Bool storagePushConstant8;
+    Bool shaderBufferInt64Atomics;
+    Bool shaderSharedInt64Atomics;
+    Bool shaderFloat16;
+    Bool shaderInt8;
+    Bool descriptorIndexing;
+    Bool shaderInputAttachmentArrayDynamicIndexing;
+    Bool shaderUniformTexelBufferArrayDynamicIndexing;
+    Bool shaderStorageTexelBufferArrayDynamicIndexing;
+    Bool shaderUniformBufferArrayNonUniformIndexing;
+    Bool shaderSampledImageArrayNonUniformIndexing;
+    Bool shaderStorageBufferArrayNonUniformIndexing;
+    Bool shaderStorageImageArrayNonUniformIndexing;
+    Bool shaderInputAttachmentArrayNonUniformIndexing;
+    Bool shaderUniformTexelBufferArrayNonUniformIndexing;
+    Bool shaderStorageTexelBufferArrayNonUniformIndexing;
+    Bool descriptorBindingUniformBufferUpdateAfterBind;
+    Bool descriptorBindingSampledImageUpdateAfterBind;
+    Bool descriptorBindingStorageImageUpdateAfterBind;
+    Bool descriptorBindingStorageBufferUpdateAfterBind;
+    Bool descriptorBindingUniformTexelBufferUpdateAfterBind;
+    Bool descriptorBindingStorageTexelBufferUpdateAfterBind;
+    Bool descriptorBindingUpdateUnusedWhilePending;
+    Bool descriptorBindingPartiallyBound;
+    Bool descriptorBindingVariableDescriptorCount;
+    Bool runtimeDescriptorArray;
+    Bool samplerFilterMinmax;
+    Bool scalarBlockLayout;
+    Bool imagelessFramebuffer;
+    Bool uniformBufferStandardLayout;
+    Bool shaderSubgroupExtendedTypes;
+    Bool separateDepthStencilLayouts;
+    Bool hostQueryReset;
+    Bool timelineSemaphore;
+    Bool bufferDeviceAddress;
+    Bool bufferDeviceAddressCaptureReplay;
+    Bool bufferDeviceAddressMultiDevice;
+    Bool vulkanMemoryModel;
+    Bool vulkanMemoryModelDeviceScope;
+    Bool vulkanMemoryModelAvailabilityVisibilityChains;
+    Bool shaderOutputViewportIndex;
+    Bool shaderOutputLayer;
+    Bool subgroupBroadcastDynamicId;
 };
 
 struct ConformanceVersion {
@@ -3445,29 +3451,29 @@ struct PhysicalDeviceVulkan12Properties {
     ConformanceVersion conformanceVersion;
     ShaderFloatControlsIndependence denormBehaviorIndependence;
     ShaderFloatControlsIndependence roundingModeIndependence;
-    Bool32 shaderSignedZeroInfNanPreserveFloat16;
-    Bool32 shaderSignedZeroInfNanPreserveFloat32;
-    Bool32 shaderSignedZeroInfNanPreserveFloat64;
-    Bool32 shaderDenormPreserveFloat16;
-    Bool32 shaderDenormPreserveFloat32;
-    Bool32 shaderDenormPreserveFloat64;
-    Bool32 shaderDenormFlushToZeroFloat16;
-    Bool32 shaderDenormFlushToZeroFloat32;
-    Bool32 shaderDenormFlushToZeroFloat64;
-    Bool32 shaderRoundingModeRTEFloat16;
-    Bool32 shaderRoundingModeRTEFloat32;
-    Bool32 shaderRoundingModeRTEFloat64;
-    Bool32 shaderRoundingModeRTZFloat16;
-    Bool32 shaderRoundingModeRTZFloat32;
-    Bool32 shaderRoundingModeRTZFloat64;
+    Bool shaderSignedZeroInfNanPreserveFloat16;
+    Bool shaderSignedZeroInfNanPreserveFloat32;
+    Bool shaderSignedZeroInfNanPreserveFloat64;
+    Bool shaderDenormPreserveFloat16;
+    Bool shaderDenormPreserveFloat32;
+    Bool shaderDenormPreserveFloat64;
+    Bool shaderDenormFlushToZeroFloat16;
+    Bool shaderDenormFlushToZeroFloat32;
+    Bool shaderDenormFlushToZeroFloat64;
+    Bool shaderRoundingModeRTEFloat16;
+    Bool shaderRoundingModeRTEFloat32;
+    Bool shaderRoundingModeRTEFloat64;
+    Bool shaderRoundingModeRTZFloat16;
+    Bool shaderRoundingModeRTZFloat32;
+    Bool shaderRoundingModeRTZFloat64;
     uint32_t maxUpdateAfterBindDescriptorsInAllPools;
-    Bool32 shaderUniformBufferArrayNonUniformIndexingNative;
-    Bool32 shaderSampledImageArrayNonUniformIndexingNative;
-    Bool32 shaderStorageBufferArrayNonUniformIndexingNative;
-    Bool32 shaderStorageImageArrayNonUniformIndexingNative;
-    Bool32 shaderInputAttachmentArrayNonUniformIndexingNative;
-    Bool32 robustBufferAccessUpdateAfterBind;
-    Bool32 quadDivergentImplicitLod;
+    Bool shaderUniformBufferArrayNonUniformIndexingNative;
+    Bool shaderSampledImageArrayNonUniformIndexingNative;
+    Bool shaderStorageBufferArrayNonUniformIndexingNative;
+    Bool shaderStorageImageArrayNonUniformIndexingNative;
+    Bool shaderInputAttachmentArrayNonUniformIndexingNative;
+    Bool robustBufferAccessUpdateAfterBind;
+    Bool quadDivergentImplicitLod;
     uint32_t maxPerStageDescriptorUpdateAfterBindSamplers;
     uint32_t maxPerStageDescriptorUpdateAfterBindUniformBuffers;
     uint32_t maxPerStageDescriptorUpdateAfterBindStorageBuffers;
@@ -3485,10 +3491,10 @@ struct PhysicalDeviceVulkan12Properties {
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments;
     ResolveMode supportedDepthResolveModes;
     ResolveMode supportedStencilResolveModes;
-    Bool32 independentResolveNone;
-    Bool32 independentResolve;
-    Bool32 filterMinmaxSingleComponentFormats;
-    Bool32 filterMinmaxImageComponentMapping;
+    Bool independentResolveNone;
+    Bool independentResolve;
+    Bool filterMinmaxSingleComponentFormats;
+    Bool filterMinmaxImageComponentMapping;
     uint64_t maxTimelineSemaphoreValueDifference;
     SampleCount framebufferIntegerColorSampleCounts;
 };
@@ -3579,9 +3585,9 @@ struct SubpassEndInfo {
 struct PhysicalDevice8BitStorageFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 storageBuffer8BitAccess;
-    Bool32 uniformAndStorageBuffer8BitAccess;
-    Bool32 storagePushConstant8;
+    Bool storageBuffer8BitAccess;
+    Bool uniformAndStorageBuffer8BitAccess;
+    Bool storagePushConstant8;
 };
 
 struct PhysicalDeviceDriverProperties {
@@ -3598,15 +3604,15 @@ struct PhysicalDeviceDriverProperties {
 struct PhysicalDeviceShaderAtomicInt64Features {
     StructureType sType;
     void *pNext;
-    Bool32 shaderBufferInt64Atomics;
-    Bool32 shaderSharedInt64Atomics;
+    Bool shaderBufferInt64Atomics;
+    Bool shaderSharedInt64Atomics;
 };
 
 struct PhysicalDeviceShaderFloat16Int8Features {
     StructureType sType;
     void *pNext;
-    Bool32 shaderFloat16;
-    Bool32 shaderInt8;
+    Bool shaderFloat16;
+    Bool shaderInt8;
 };
 
 struct PhysicalDeviceFloatControlsProperties {
@@ -3614,21 +3620,21 @@ struct PhysicalDeviceFloatControlsProperties {
     void *pNext;
     ShaderFloatControlsIndependence denormBehaviorIndependence;
     ShaderFloatControlsIndependence roundingModeIndependence;
-    Bool32 shaderSignedZeroInfNanPreserveFloat16;
-    Bool32 shaderSignedZeroInfNanPreserveFloat32;
-    Bool32 shaderSignedZeroInfNanPreserveFloat64;
-    Bool32 shaderDenormPreserveFloat16;
-    Bool32 shaderDenormPreserveFloat32;
-    Bool32 shaderDenormPreserveFloat64;
-    Bool32 shaderDenormFlushToZeroFloat16;
-    Bool32 shaderDenormFlushToZeroFloat32;
-    Bool32 shaderDenormFlushToZeroFloat64;
-    Bool32 shaderRoundingModeRTEFloat16;
-    Bool32 shaderRoundingModeRTEFloat32;
-    Bool32 shaderRoundingModeRTEFloat64;
-    Bool32 shaderRoundingModeRTZFloat16;
-    Bool32 shaderRoundingModeRTZFloat32;
-    Bool32 shaderRoundingModeRTZFloat64;
+    Bool shaderSignedZeroInfNanPreserveFloat16;
+    Bool shaderSignedZeroInfNanPreserveFloat32;
+    Bool shaderSignedZeroInfNanPreserveFloat64;
+    Bool shaderDenormPreserveFloat16;
+    Bool shaderDenormPreserveFloat32;
+    Bool shaderDenormPreserveFloat64;
+    Bool shaderDenormFlushToZeroFloat16;
+    Bool shaderDenormFlushToZeroFloat32;
+    Bool shaderDenormFlushToZeroFloat64;
+    Bool shaderRoundingModeRTEFloat16;
+    Bool shaderRoundingModeRTEFloat32;
+    Bool shaderRoundingModeRTEFloat64;
+    Bool shaderRoundingModeRTZFloat16;
+    Bool shaderRoundingModeRTZFloat32;
+    Bool shaderRoundingModeRTZFloat64;
 };
 
 struct DescriptorSetLayoutBindingFlagsCreateInfo {
@@ -3641,39 +3647,39 @@ struct DescriptorSetLayoutBindingFlagsCreateInfo {
 struct PhysicalDeviceDescriptorIndexingFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 shaderInputAttachmentArrayDynamicIndexing;
-    Bool32 shaderUniformTexelBufferArrayDynamicIndexing;
-    Bool32 shaderStorageTexelBufferArrayDynamicIndexing;
-    Bool32 shaderUniformBufferArrayNonUniformIndexing;
-    Bool32 shaderSampledImageArrayNonUniformIndexing;
-    Bool32 shaderStorageBufferArrayNonUniformIndexing;
-    Bool32 shaderStorageImageArrayNonUniformIndexing;
-    Bool32 shaderInputAttachmentArrayNonUniformIndexing;
-    Bool32 shaderUniformTexelBufferArrayNonUniformIndexing;
-    Bool32 shaderStorageTexelBufferArrayNonUniformIndexing;
-    Bool32 descriptorBindingUniformBufferUpdateAfterBind;
-    Bool32 descriptorBindingSampledImageUpdateAfterBind;
-    Bool32 descriptorBindingStorageImageUpdateAfterBind;
-    Bool32 descriptorBindingStorageBufferUpdateAfterBind;
-    Bool32 descriptorBindingUniformTexelBufferUpdateAfterBind;
-    Bool32 descriptorBindingStorageTexelBufferUpdateAfterBind;
-    Bool32 descriptorBindingUpdateUnusedWhilePending;
-    Bool32 descriptorBindingPartiallyBound;
-    Bool32 descriptorBindingVariableDescriptorCount;
-    Bool32 runtimeDescriptorArray;
+    Bool shaderInputAttachmentArrayDynamicIndexing;
+    Bool shaderUniformTexelBufferArrayDynamicIndexing;
+    Bool shaderStorageTexelBufferArrayDynamicIndexing;
+    Bool shaderUniformBufferArrayNonUniformIndexing;
+    Bool shaderSampledImageArrayNonUniformIndexing;
+    Bool shaderStorageBufferArrayNonUniformIndexing;
+    Bool shaderStorageImageArrayNonUniformIndexing;
+    Bool shaderInputAttachmentArrayNonUniformIndexing;
+    Bool shaderUniformTexelBufferArrayNonUniformIndexing;
+    Bool shaderStorageTexelBufferArrayNonUniformIndexing;
+    Bool descriptorBindingUniformBufferUpdateAfterBind;
+    Bool descriptorBindingSampledImageUpdateAfterBind;
+    Bool descriptorBindingStorageImageUpdateAfterBind;
+    Bool descriptorBindingStorageBufferUpdateAfterBind;
+    Bool descriptorBindingUniformTexelBufferUpdateAfterBind;
+    Bool descriptorBindingStorageTexelBufferUpdateAfterBind;
+    Bool descriptorBindingUpdateUnusedWhilePending;
+    Bool descriptorBindingPartiallyBound;
+    Bool descriptorBindingVariableDescriptorCount;
+    Bool runtimeDescriptorArray;
 };
 
 struct PhysicalDeviceDescriptorIndexingProperties {
     StructureType sType;
     void *pNext;
     uint32_t maxUpdateAfterBindDescriptorsInAllPools;
-    Bool32 shaderUniformBufferArrayNonUniformIndexingNative;
-    Bool32 shaderSampledImageArrayNonUniformIndexingNative;
-    Bool32 shaderStorageBufferArrayNonUniformIndexingNative;
-    Bool32 shaderStorageImageArrayNonUniformIndexingNative;
-    Bool32 shaderInputAttachmentArrayNonUniformIndexingNative;
-    Bool32 robustBufferAccessUpdateAfterBind;
-    Bool32 quadDivergentImplicitLod;
+    Bool shaderUniformBufferArrayNonUniformIndexingNative;
+    Bool shaderSampledImageArrayNonUniformIndexingNative;
+    Bool shaderStorageBufferArrayNonUniformIndexingNative;
+    Bool shaderStorageImageArrayNonUniformIndexingNative;
+    Bool shaderInputAttachmentArrayNonUniformIndexingNative;
+    Bool robustBufferAccessUpdateAfterBind;
+    Bool quadDivergentImplicitLod;
     uint32_t maxPerStageDescriptorUpdateAfterBindSamplers;
     uint32_t maxPerStageDescriptorUpdateAfterBindUniformBuffers;
     uint32_t maxPerStageDescriptorUpdateAfterBindStorageBuffers;
@@ -3717,14 +3723,14 @@ struct PhysicalDeviceDepthStencilResolveProperties {
     void *pNext;
     ResolveMode supportedDepthResolveModes;
     ResolveMode supportedStencilResolveModes;
-    Bool32 independentResolveNone;
-    Bool32 independentResolve;
+    Bool independentResolveNone;
+    Bool independentResolve;
 };
 
 struct PhysicalDeviceScalarBlockLayoutFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 scalarBlockLayout;
+    Bool scalarBlockLayout;
 };
 
 struct ImageStencilUsageCreateInfo {
@@ -3742,22 +3748,22 @@ struct SamplerReductionModeCreateInfo {
 struct PhysicalDeviceSamplerFilterMinmaxProperties {
     StructureType sType;
     void *pNext;
-    Bool32 filterMinmaxSingleComponentFormats;
-    Bool32 filterMinmaxImageComponentMapping;
+    Bool filterMinmaxSingleComponentFormats;
+    Bool filterMinmaxImageComponentMapping;
 };
 
 struct PhysicalDeviceVulkanMemoryModelFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 vulkanMemoryModel;
-    Bool32 vulkanMemoryModelDeviceScope;
-    Bool32 vulkanMemoryModelAvailabilityVisibilityChains;
+    Bool vulkanMemoryModel;
+    Bool vulkanMemoryModelDeviceScope;
+    Bool vulkanMemoryModelAvailabilityVisibilityChains;
 };
 
 struct PhysicalDeviceImagelessFramebufferFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 imagelessFramebuffer;
+    Bool imagelessFramebuffer;
 };
 
 struct FramebufferAttachmentImageInfo {
@@ -3789,19 +3795,19 @@ struct RenderPassAttachmentBeginInfo {
 struct PhysicalDeviceUniformBufferStandardLayoutFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 uniformBufferStandardLayout;
+    Bool uniformBufferStandardLayout;
 };
 
 struct PhysicalDeviceShaderSubgroupExtendedTypesFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 shaderSubgroupExtendedTypes;
+    Bool shaderSubgroupExtendedTypes;
 };
 
 struct PhysicalDeviceSeparateDepthStencilLayoutsFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 separateDepthStencilLayouts;
+    Bool separateDepthStencilLayouts;
 };
 
 struct AttachmentReferenceStencilLayout {
@@ -3820,13 +3826,13 @@ struct AttachmentDescriptionStencilLayout {
 struct PhysicalDeviceHostQueryResetFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 hostQueryReset;
+    Bool hostQueryReset;
 };
 
 struct PhysicalDeviceTimelineSemaphoreFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 timelineSemaphore;
+    Bool timelineSemaphore;
 };
 
 struct PhysicalDeviceTimelineSemaphoreProperties {
@@ -3870,9 +3876,9 @@ struct SemaphoreSignalInfo {
 struct PhysicalDeviceBufferDeviceAddressFeatures {
     StructureType sType;
     void *pNext;
-    Bool32 bufferDeviceAddress;
-    Bool32 bufferDeviceAddressCaptureReplay;
-    Bool32 bufferDeviceAddressMultiDevice;
+    Bool bufferDeviceAddress;
+    Bool bufferDeviceAddressCaptureReplay;
+    Bool bufferDeviceAddressMultiDevice;
 };
 
 struct BufferDeviceAddressInfo {
@@ -3902,18 +3908,18 @@ struct DeviceMemoryOpaqueCaptureAddressInfo {
 struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
     StructureType sType;
     void *pNext;
-    Bool32 shaderBufferFloat16Atomics;
-    Bool32 shaderBufferFloat16AtomicAdd;
-    Bool32 shaderBufferFloat16AtomicMinMax;
-    Bool32 shaderBufferFloat32AtomicMinMax;
-    Bool32 shaderBufferFloat64AtomicMinMax;
-    Bool32 shaderSharedFloat16Atomics;
-    Bool32 shaderSharedFloat16AtomicAdd;
-    Bool32 shaderSharedFloat16AtomicMinMax;
-    Bool32 shaderSharedFloat32AtomicMinMax;
-    Bool32 shaderSharedFloat64AtomicMinMax;
-    Bool32 shaderImageFloat32AtomicMinMax;
-    Bool32 sparseImageFloat32AtomicMinMax;
+    Bool shaderBufferFloat16Atomics;
+    Bool shaderBufferFloat16AtomicAdd;
+    Bool shaderBufferFloat16AtomicMinMax;
+    Bool shaderBufferFloat32AtomicMinMax;
+    Bool shaderBufferFloat64AtomicMinMax;
+    Bool shaderSharedFloat16Atomics;
+    Bool shaderSharedFloat16AtomicAdd;
+    Bool shaderSharedFloat16AtomicMinMax;
+    Bool shaderSharedFloat32AtomicMinMax;
+    Bool shaderSharedFloat64AtomicMinMax;
+    Bool shaderImageFloat32AtomicMinMax;
+    Bool sparseImageFloat32AtomicMinMax;
 };
 
 struct RenderingAttachmentInfoKHR {
@@ -3955,7 +3961,7 @@ struct PipelineRenderingCreateInfoKHR {
 struct PhysicalDeviceDynamicRenderingFeaturesKHR {
     StructureType sType;
     void *pNext;
-    Bool32 dynamicRendering;
+    Bool dynamicRendering;
 };
 
 struct CommandBufferInheritanceRenderingInfoKHR {
@@ -4005,7 +4011,7 @@ struct SwapchainCreateInfoKHR {
     SurfaceTransformFlagBitsKHR preTransform;
     CompositeAlphaFlagBitsKHR compositeAlpha;
     PresentModeKHR presentMode;
-    Bool32 clipped;
+    Bool clipped;
     SwapchainKHR oldSwapchain;
 };
 
@@ -4076,18 +4082,18 @@ struct XcbSurfaceCreateInfoKHR {
 struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
     StructureType sType;
     void *pNext;
-    Bool32 shaderBufferFloat32Atomics;
-    Bool32 shaderBufferFloat32AtomicAdd;
-    Bool32 shaderBufferFloat64Atomics;
-    Bool32 shaderBufferFloat64AtomicAdd;
-    Bool32 shaderSharedFloat32Atomics;
-    Bool32 shaderSharedFloat32AtomicAdd;
-    Bool32 shaderSharedFloat64Atomics;
-    Bool32 shaderSharedFloat64AtomicAdd;
-    Bool32 shaderImageFloat32Atomics;
-    Bool32 shaderImageFloat32AtomicAdd;
-    Bool32 sparseImageFloat32Atomics;
-    Bool32 sparseImageFloat32AtomicAdd;
+    Bool shaderBufferFloat32Atomics;
+    Bool shaderBufferFloat32AtomicAdd;
+    Bool shaderBufferFloat64Atomics;
+    Bool shaderBufferFloat64AtomicAdd;
+    Bool shaderSharedFloat32Atomics;
+    Bool shaderSharedFloat32AtomicAdd;
+    Bool shaderSharedFloat64Atomics;
+    Bool shaderSharedFloat64AtomicAdd;
+    Bool shaderImageFloat32Atomics;
+    Bool shaderImageFloat32AtomicAdd;
+    Bool sparseImageFloat32Atomics;
+    Bool sparseImageFloat32AtomicAdd;
 };
 
 struct PhysicalDeviceFeatures2KHR {
@@ -4286,8 +4292,8 @@ using PFN_vkGetPhysicalDeviceSparseImageFormatProperties2 = void (*)(PhysicalDev
 using PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, SurfaceCapabilitiesKHR *pSurfaceCapabilities); // NOLINT
 using PFN_vkGetPhysicalDeviceSurfaceFormatsKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, uint32_t *pSurfaceFormatCount, SurfaceFormatKHR *pSurfaceFormats); // NOLINT
 using PFN_vkGetPhysicalDeviceSurfacePresentModesKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, uint32_t *pPresentModeCount, PresentModeKHR *pPresentModes); // NOLINT
-using PFN_vkGetPhysicalDeviceSurfaceSupportKHR = Result (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, SurfaceKHR surface, Bool32 *pSupported); // NOLINT
-using PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR = Bool32 (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id); // NOLINT
+using PFN_vkGetPhysicalDeviceSurfaceSupportKHR = Result (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported); // NOLINT
+using PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR = Bool (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id); // NOLINT
 using PFN_vkGetPipelineCacheData = Result (*)(Device device, PipelineCache pipelineCache, size_t *pDataSize, void *pData); // NOLINT
 using PFN_vkGetQueryPoolResults = Result (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags); // NOLINT
 using PFN_vkGetRenderAreaGranularity = void (*)(Device device, RenderPass renderPass, Extent2D *pGranularity); // NOLINT
@@ -4312,7 +4318,7 @@ using PFN_vkTrimCommandPool = void (*)(Device device, CommandPool commandPool, C
 using PFN_vkUnmapMemory = void (*)(Device device, DeviceMemory memory); // NOLINT
 using PFN_vkUpdateDescriptorSetWithTemplate = void (*)(Device device, DescriptorSet descriptorSet, DescriptorUpdateTemplate descriptorUpdateTemplate, const void *pData); // NOLINT
 using PFN_vkUpdateDescriptorSets = void (*)(Device device, uint32_t descriptorWriteCount, const WriteDescriptorSet *pDescriptorWrites, uint32_t descriptorCopyCount, const CopyDescriptorSet *pDescriptorCopies); // NOLINT
-using PFN_vkWaitForFences = Result (*)(Device device, uint32_t fenceCount, const Fence *pFences, Bool32 waitAll, uint64_t timeout); // NOLINT
+using PFN_vkWaitForFences = Result (*)(Device device, uint32_t fenceCount, const Fence *pFences, Bool waitAll, uint64_t timeout); // NOLINT
 using PFN_vkWaitSemaphores = Result (*)(Device device, const SemaphoreWaitInfo *pWaitInfo, uint64_t timeout); // NOLINT
 
 } // namespace vull::vk

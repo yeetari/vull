@@ -286,13 +286,13 @@ int main() {
 
     vk::PipelineDepthStencilStateCreateInfo depth_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
-        .depthTestEnable = vk::k_true,
-        .depthWriteEnable = vk::k_true,
+        .depthTestEnable = true,
+        .depthWriteEnable = true,
         .depthCompareOp = vk::CompareOp::GreaterOrEqual,
     };
     vk::PipelineDepthStencilStateCreateInfo terrain_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
-        .depthTestEnable = vk::k_true,
+        .depthTestEnable = true,
         .depthCompareOp = vk::CompareOp::Equal,
     };
 
@@ -817,7 +817,7 @@ int main() {
         cpu_frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
 
         start_time = get_time();
-        context.vkWaitForFences(1, &fence, vk::k_true, ~0ul);
+        context.vkWaitForFences(1, &fence, true, ~0ul);
         context.vkResetFences(1, &fence);
         cpu_frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
 

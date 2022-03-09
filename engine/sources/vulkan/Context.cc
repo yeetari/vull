@@ -110,25 +110,25 @@ Context::Context() : ContextTable{} {
     }
 
     vk::PhysicalDeviceFeatures device_features{
-        .tessellationShader = vk::k_true,
-        .fillModeNonSolid = vk::k_true,
+        .tessellationShader = true,
+        .fillModeNonSolid = true,
     };
     vk::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan12Features,
-        .shaderSampledImageArrayNonUniformIndexing = vk::k_true,
-        .descriptorBindingPartiallyBound = vk::k_true,
-        .runtimeDescriptorArray = vk::k_true,
-        .scalarBlockLayout = vk::k_true,
+        .shaderSampledImageArrayNonUniformIndexing = true,
+        .descriptorBindingPartiallyBound = true,
+        .runtimeDescriptorArray = true,
+        .scalarBlockLayout = true,
     };
     vk::PhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features{
         .sType = vk::StructureType::PhysicalDeviceDynamicRenderingFeaturesKHR,
         .pNext = &device_12_features,
-        .dynamicRendering = vk::k_true,
+        .dynamicRendering = true,
     };
     vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
         .sType = vk::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
         .pNext = &dynamic_rendering_features,
-        .shaderSharedFloat32AtomicMinMax = vk::k_true,
+        .shaderSharedFloat32AtomicMinMax = true,
     };
 
     Array enabled_device_extensions{

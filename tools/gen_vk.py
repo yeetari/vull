@@ -12,6 +12,8 @@ from ordered_set import OrderedSet
 
 # Removes the Vk prefix from a type name.
 def convert_type(orig):
+    if orig == 'VkBool32':
+        return 'Bool'
     if orig.endswith('Flags') or orig.endswith('FlagBits'):
         orig = orig.replace('Flags', '')
         orig = orig.replace('FlagBits', '')
@@ -327,6 +329,8 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     for constant in filter(lambda c: not c.get('alias'), hardcoded_constants.findall('enum')):
         constant_name = constant.get('name').lower()
         constant_name = 'k_' + constant_name[3:]
+        if constant_name == 'k_false' or constant_name == 'k_true':
+            continue
         constant_name_dict[constant.get('name')] = constant_name
         file.write('constexpr {} {} = {};\n'.format(constant.get('type'), constant_name, constant.get('value').lower()))
     file.write('\n')
@@ -335,9 +339,20 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     file.write('// Base types.\n')
     for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'basetype', desired_types),
                                      key=itemgetter(0)):
+        if type_name == 'VkBool32':
+            continue
         c_type = vk_type.findtext('type')
         file.write('using {} = {};\n'.format(convert_type(type_name), convert_type(c_type)))
     file.write('\n')
+
+    # Emit custom bool wrapper type that allows implicit conversion from bool -> VkBool32 and vice versa.
+    file.write('class Bool {\n')
+    file.write('    uint32_t m_value;\n\n')
+    file.write('public:\n')
+    file.write('    Bool() = default;\n')
+    file.write('    Bool(bool value) : m_value(value ? 1 : 0) {}\n')
+    file.write('    operator bool() const { return m_value == 1; }\n')
+    file.write('};\n\n')
 
     # Emit bitmasks if an enum doesn't exist.
     file.write('// Bitmasks.\n')

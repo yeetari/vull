@@ -159,7 +159,7 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
     };
 
     vk::PipelineColorBlendAttachmentState blend_attachment{
-        .blendEnable = vk::k_true,
+        .blendEnable = true,
         .srcColorBlendFactor = vk::BlendFactor::SrcAlpha,
         .dstColorBlendFactor = vk::BlendFactor::OneMinusSrcAlpha,
         .colorBlendOp = vk::BlendOp::Add,

@@ -33,7 +33,7 @@ Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR
         .preTransform = m_surface_capabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::OpaqueKHR,
         .presentMode = vk::PresentModeKHR::FifoKHR,
-        .clipped = vk::k_true,
+        .clipped = true,
     };
     VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == vk::Result::Success);
 
@@ -65,9 +65,9 @@ Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR
 
     // Find a present queue.
     for (uint32_t i = 0; i < context.queue_families().size(); i++) {
-        vk::Bool32 present_supported = vk::k_false;
+        vk::Bool present_supported = false;
         context.vkGetPhysicalDeviceSurfaceSupportKHR(i, m_surface, &present_supported);
-        if (present_supported == vk::k_true) {
+        if (present_supported) {
             context.vkGetDeviceQueue(i, 0, &m_present_queue);
             return;
         }
