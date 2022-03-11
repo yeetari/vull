@@ -42,6 +42,7 @@ void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr
     m_vkGetPhysicalDeviceSurfaceFormatsKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceFormatsKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfaceFormatsKHR"));
     m_vkGetPhysicalDeviceSurfacePresentModesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfacePresentModesKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"));
     m_vkGetPhysicalDeviceSurfaceSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
+    m_vkGetPhysicalDeviceToolProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceToolProperties>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceToolProperties"));
     m_vkGetPhysicalDeviceXcbPresentationSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR"));
 }
 
@@ -59,19 +60,25 @@ void ContextTable::load_device() {
     m_vkCmdBeginQuery = reinterpret_cast<PFN_vkCmdBeginQuery>(vkGetDeviceProcAddr("vkCmdBeginQuery"));
     m_vkCmdBeginRenderPass = reinterpret_cast<PFN_vkCmdBeginRenderPass>(vkGetDeviceProcAddr("vkCmdBeginRenderPass"));
     m_vkCmdBeginRenderPass2 = reinterpret_cast<PFN_vkCmdBeginRenderPass2>(vkGetDeviceProcAddr("vkCmdBeginRenderPass2"));
-    m_vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(vkGetDeviceProcAddr("vkCmdBeginRenderingKHR"));
+    m_vkCmdBeginRendering = reinterpret_cast<PFN_vkCmdBeginRendering>(vkGetDeviceProcAddr("vkCmdBeginRendering"));
     m_vkCmdBindDescriptorSets = reinterpret_cast<PFN_vkCmdBindDescriptorSets>(vkGetDeviceProcAddr("vkCmdBindDescriptorSets"));
     m_vkCmdBindIndexBuffer = reinterpret_cast<PFN_vkCmdBindIndexBuffer>(vkGetDeviceProcAddr("vkCmdBindIndexBuffer"));
     m_vkCmdBindPipeline = reinterpret_cast<PFN_vkCmdBindPipeline>(vkGetDeviceProcAddr("vkCmdBindPipeline"));
     m_vkCmdBindVertexBuffers = reinterpret_cast<PFN_vkCmdBindVertexBuffers>(vkGetDeviceProcAddr("vkCmdBindVertexBuffers"));
+    m_vkCmdBindVertexBuffers2 = reinterpret_cast<PFN_vkCmdBindVertexBuffers2>(vkGetDeviceProcAddr("vkCmdBindVertexBuffers2"));
     m_vkCmdBlitImage = reinterpret_cast<PFN_vkCmdBlitImage>(vkGetDeviceProcAddr("vkCmdBlitImage"));
+    m_vkCmdBlitImage2 = reinterpret_cast<PFN_vkCmdBlitImage2>(vkGetDeviceProcAddr("vkCmdBlitImage2"));
     m_vkCmdClearAttachments = reinterpret_cast<PFN_vkCmdClearAttachments>(vkGetDeviceProcAddr("vkCmdClearAttachments"));
     m_vkCmdClearColorImage = reinterpret_cast<PFN_vkCmdClearColorImage>(vkGetDeviceProcAddr("vkCmdClearColorImage"));
     m_vkCmdClearDepthStencilImage = reinterpret_cast<PFN_vkCmdClearDepthStencilImage>(vkGetDeviceProcAddr("vkCmdClearDepthStencilImage"));
     m_vkCmdCopyBuffer = reinterpret_cast<PFN_vkCmdCopyBuffer>(vkGetDeviceProcAddr("vkCmdCopyBuffer"));
+    m_vkCmdCopyBuffer2 = reinterpret_cast<PFN_vkCmdCopyBuffer2>(vkGetDeviceProcAddr("vkCmdCopyBuffer2"));
     m_vkCmdCopyBufferToImage = reinterpret_cast<PFN_vkCmdCopyBufferToImage>(vkGetDeviceProcAddr("vkCmdCopyBufferToImage"));
+    m_vkCmdCopyBufferToImage2 = reinterpret_cast<PFN_vkCmdCopyBufferToImage2>(vkGetDeviceProcAddr("vkCmdCopyBufferToImage2"));
     m_vkCmdCopyImage = reinterpret_cast<PFN_vkCmdCopyImage>(vkGetDeviceProcAddr("vkCmdCopyImage"));
+    m_vkCmdCopyImage2 = reinterpret_cast<PFN_vkCmdCopyImage2>(vkGetDeviceProcAddr("vkCmdCopyImage2"));
     m_vkCmdCopyImageToBuffer = reinterpret_cast<PFN_vkCmdCopyImageToBuffer>(vkGetDeviceProcAddr("vkCmdCopyImageToBuffer"));
+    m_vkCmdCopyImageToBuffer2 = reinterpret_cast<PFN_vkCmdCopyImageToBuffer2>(vkGetDeviceProcAddr("vkCmdCopyImageToBuffer2"));
     m_vkCmdCopyQueryPoolResults = reinterpret_cast<PFN_vkCmdCopyQueryPoolResults>(vkGetDeviceProcAddr("vkCmdCopyQueryPoolResults"));
     m_vkCmdDispatch = reinterpret_cast<PFN_vkCmdDispatch>(vkGetDeviceProcAddr("vkCmdDispatch"));
     m_vkCmdDispatchBase = reinterpret_cast<PFN_vkCmdDispatchBase>(vkGetDeviceProcAddr("vkCmdDispatchBase"));
@@ -85,35 +92,50 @@ void ContextTable::load_device() {
     m_vkCmdEndQuery = reinterpret_cast<PFN_vkCmdEndQuery>(vkGetDeviceProcAddr("vkCmdEndQuery"));
     m_vkCmdEndRenderPass = reinterpret_cast<PFN_vkCmdEndRenderPass>(vkGetDeviceProcAddr("vkCmdEndRenderPass"));
     m_vkCmdEndRenderPass2 = reinterpret_cast<PFN_vkCmdEndRenderPass2>(vkGetDeviceProcAddr("vkCmdEndRenderPass2"));
-    m_vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(vkGetDeviceProcAddr("vkCmdEndRenderingKHR"));
+    m_vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRendering>(vkGetDeviceProcAddr("vkCmdEndRendering"));
     m_vkCmdExecuteCommands = reinterpret_cast<PFN_vkCmdExecuteCommands>(vkGetDeviceProcAddr("vkCmdExecuteCommands"));
     m_vkCmdFillBuffer = reinterpret_cast<PFN_vkCmdFillBuffer>(vkGetDeviceProcAddr("vkCmdFillBuffer"));
     m_vkCmdNextSubpass = reinterpret_cast<PFN_vkCmdNextSubpass>(vkGetDeviceProcAddr("vkCmdNextSubpass"));
     m_vkCmdNextSubpass2 = reinterpret_cast<PFN_vkCmdNextSubpass2>(vkGetDeviceProcAddr("vkCmdNextSubpass2"));
     m_vkCmdPipelineBarrier = reinterpret_cast<PFN_vkCmdPipelineBarrier>(vkGetDeviceProcAddr("vkCmdPipelineBarrier"));
-    m_vkCmdPipelineBarrier2KHR = reinterpret_cast<PFN_vkCmdPipelineBarrier2KHR>(vkGetDeviceProcAddr("vkCmdPipelineBarrier2KHR"));
+    m_vkCmdPipelineBarrier2 = reinterpret_cast<PFN_vkCmdPipelineBarrier2>(vkGetDeviceProcAddr("vkCmdPipelineBarrier2"));
     m_vkCmdPushConstants = reinterpret_cast<PFN_vkCmdPushConstants>(vkGetDeviceProcAddr("vkCmdPushConstants"));
     m_vkCmdResetEvent = reinterpret_cast<PFN_vkCmdResetEvent>(vkGetDeviceProcAddr("vkCmdResetEvent"));
-    m_vkCmdResetEvent2KHR = reinterpret_cast<PFN_vkCmdResetEvent2KHR>(vkGetDeviceProcAddr("vkCmdResetEvent2KHR"));
+    m_vkCmdResetEvent2 = reinterpret_cast<PFN_vkCmdResetEvent2>(vkGetDeviceProcAddr("vkCmdResetEvent2"));
     m_vkCmdResetQueryPool = reinterpret_cast<PFN_vkCmdResetQueryPool>(vkGetDeviceProcAddr("vkCmdResetQueryPool"));
     m_vkCmdResolveImage = reinterpret_cast<PFN_vkCmdResolveImage>(vkGetDeviceProcAddr("vkCmdResolveImage"));
+    m_vkCmdResolveImage2 = reinterpret_cast<PFN_vkCmdResolveImage2>(vkGetDeviceProcAddr("vkCmdResolveImage2"));
     m_vkCmdSetBlendConstants = reinterpret_cast<PFN_vkCmdSetBlendConstants>(vkGetDeviceProcAddr("vkCmdSetBlendConstants"));
+    m_vkCmdSetCullMode = reinterpret_cast<PFN_vkCmdSetCullMode>(vkGetDeviceProcAddr("vkCmdSetCullMode"));
     m_vkCmdSetDepthBias = reinterpret_cast<PFN_vkCmdSetDepthBias>(vkGetDeviceProcAddr("vkCmdSetDepthBias"));
+    m_vkCmdSetDepthBiasEnable = reinterpret_cast<PFN_vkCmdSetDepthBiasEnable>(vkGetDeviceProcAddr("vkCmdSetDepthBiasEnable"));
     m_vkCmdSetDepthBounds = reinterpret_cast<PFN_vkCmdSetDepthBounds>(vkGetDeviceProcAddr("vkCmdSetDepthBounds"));
+    m_vkCmdSetDepthBoundsTestEnable = reinterpret_cast<PFN_vkCmdSetDepthBoundsTestEnable>(vkGetDeviceProcAddr("vkCmdSetDepthBoundsTestEnable"));
+    m_vkCmdSetDepthCompareOp = reinterpret_cast<PFN_vkCmdSetDepthCompareOp>(vkGetDeviceProcAddr("vkCmdSetDepthCompareOp"));
+    m_vkCmdSetDepthTestEnable = reinterpret_cast<PFN_vkCmdSetDepthTestEnable>(vkGetDeviceProcAddr("vkCmdSetDepthTestEnable"));
+    m_vkCmdSetDepthWriteEnable = reinterpret_cast<PFN_vkCmdSetDepthWriteEnable>(vkGetDeviceProcAddr("vkCmdSetDepthWriteEnable"));
     m_vkCmdSetDeviceMask = reinterpret_cast<PFN_vkCmdSetDeviceMask>(vkGetDeviceProcAddr("vkCmdSetDeviceMask"));
     m_vkCmdSetEvent = reinterpret_cast<PFN_vkCmdSetEvent>(vkGetDeviceProcAddr("vkCmdSetEvent"));
-    m_vkCmdSetEvent2KHR = reinterpret_cast<PFN_vkCmdSetEvent2KHR>(vkGetDeviceProcAddr("vkCmdSetEvent2KHR"));
+    m_vkCmdSetEvent2 = reinterpret_cast<PFN_vkCmdSetEvent2>(vkGetDeviceProcAddr("vkCmdSetEvent2"));
+    m_vkCmdSetFrontFace = reinterpret_cast<PFN_vkCmdSetFrontFace>(vkGetDeviceProcAddr("vkCmdSetFrontFace"));
     m_vkCmdSetLineWidth = reinterpret_cast<PFN_vkCmdSetLineWidth>(vkGetDeviceProcAddr("vkCmdSetLineWidth"));
+    m_vkCmdSetPrimitiveRestartEnable = reinterpret_cast<PFN_vkCmdSetPrimitiveRestartEnable>(vkGetDeviceProcAddr("vkCmdSetPrimitiveRestartEnable"));
+    m_vkCmdSetPrimitiveTopology = reinterpret_cast<PFN_vkCmdSetPrimitiveTopology>(vkGetDeviceProcAddr("vkCmdSetPrimitiveTopology"));
+    m_vkCmdSetRasterizerDiscardEnable = reinterpret_cast<PFN_vkCmdSetRasterizerDiscardEnable>(vkGetDeviceProcAddr("vkCmdSetRasterizerDiscardEnable"));
     m_vkCmdSetScissor = reinterpret_cast<PFN_vkCmdSetScissor>(vkGetDeviceProcAddr("vkCmdSetScissor"));
+    m_vkCmdSetScissorWithCount = reinterpret_cast<PFN_vkCmdSetScissorWithCount>(vkGetDeviceProcAddr("vkCmdSetScissorWithCount"));
     m_vkCmdSetStencilCompareMask = reinterpret_cast<PFN_vkCmdSetStencilCompareMask>(vkGetDeviceProcAddr("vkCmdSetStencilCompareMask"));
+    m_vkCmdSetStencilOp = reinterpret_cast<PFN_vkCmdSetStencilOp>(vkGetDeviceProcAddr("vkCmdSetStencilOp"));
     m_vkCmdSetStencilReference = reinterpret_cast<PFN_vkCmdSetStencilReference>(vkGetDeviceProcAddr("vkCmdSetStencilReference"));
+    m_vkCmdSetStencilTestEnable = reinterpret_cast<PFN_vkCmdSetStencilTestEnable>(vkGetDeviceProcAddr("vkCmdSetStencilTestEnable"));
     m_vkCmdSetStencilWriteMask = reinterpret_cast<PFN_vkCmdSetStencilWriteMask>(vkGetDeviceProcAddr("vkCmdSetStencilWriteMask"));
     m_vkCmdSetViewport = reinterpret_cast<PFN_vkCmdSetViewport>(vkGetDeviceProcAddr("vkCmdSetViewport"));
+    m_vkCmdSetViewportWithCount = reinterpret_cast<PFN_vkCmdSetViewportWithCount>(vkGetDeviceProcAddr("vkCmdSetViewportWithCount"));
     m_vkCmdUpdateBuffer = reinterpret_cast<PFN_vkCmdUpdateBuffer>(vkGetDeviceProcAddr("vkCmdUpdateBuffer"));
     m_vkCmdWaitEvents = reinterpret_cast<PFN_vkCmdWaitEvents>(vkGetDeviceProcAddr("vkCmdWaitEvents"));
-    m_vkCmdWaitEvents2KHR = reinterpret_cast<PFN_vkCmdWaitEvents2KHR>(vkGetDeviceProcAddr("vkCmdWaitEvents2KHR"));
+    m_vkCmdWaitEvents2 = reinterpret_cast<PFN_vkCmdWaitEvents2>(vkGetDeviceProcAddr("vkCmdWaitEvents2"));
     m_vkCmdWriteTimestamp = reinterpret_cast<PFN_vkCmdWriteTimestamp>(vkGetDeviceProcAddr("vkCmdWriteTimestamp"));
-    m_vkCmdWriteTimestamp2KHR = reinterpret_cast<PFN_vkCmdWriteTimestamp2KHR>(vkGetDeviceProcAddr("vkCmdWriteTimestamp2KHR"));
+    m_vkCmdWriteTimestamp2 = reinterpret_cast<PFN_vkCmdWriteTimestamp2>(vkGetDeviceProcAddr("vkCmdWriteTimestamp2"));
     m_vkCreateBuffer = reinterpret_cast<PFN_vkCreateBuffer>(vkGetDeviceProcAddr("vkCreateBuffer"));
     m_vkCreateBufferView = reinterpret_cast<PFN_vkCreateBufferView>(vkGetDeviceProcAddr("vkCreateBufferView"));
     m_vkCreateCommandPool = reinterpret_cast<PFN_vkCreateCommandPool>(vkGetDeviceProcAddr("vkCreateCommandPool"));
@@ -129,6 +151,7 @@ void ContextTable::load_device() {
     m_vkCreateImageView = reinterpret_cast<PFN_vkCreateImageView>(vkGetDeviceProcAddr("vkCreateImageView"));
     m_vkCreatePipelineCache = reinterpret_cast<PFN_vkCreatePipelineCache>(vkGetDeviceProcAddr("vkCreatePipelineCache"));
     m_vkCreatePipelineLayout = reinterpret_cast<PFN_vkCreatePipelineLayout>(vkGetDeviceProcAddr("vkCreatePipelineLayout"));
+    m_vkCreatePrivateDataSlot = reinterpret_cast<PFN_vkCreatePrivateDataSlot>(vkGetDeviceProcAddr("vkCreatePrivateDataSlot"));
     m_vkCreateQueryPool = reinterpret_cast<PFN_vkCreateQueryPool>(vkGetDeviceProcAddr("vkCreateQueryPool"));
     m_vkCreateRenderPass = reinterpret_cast<PFN_vkCreateRenderPass>(vkGetDeviceProcAddr("vkCreateRenderPass"));
     m_vkCreateRenderPass2 = reinterpret_cast<PFN_vkCreateRenderPass2>(vkGetDeviceProcAddr("vkCreateRenderPass2"));
@@ -152,6 +175,7 @@ void ContextTable::load_device() {
     m_vkDestroyPipeline = reinterpret_cast<PFN_vkDestroyPipeline>(vkGetDeviceProcAddr("vkDestroyPipeline"));
     m_vkDestroyPipelineCache = reinterpret_cast<PFN_vkDestroyPipelineCache>(vkGetDeviceProcAddr("vkDestroyPipelineCache"));
     m_vkDestroyPipelineLayout = reinterpret_cast<PFN_vkDestroyPipelineLayout>(vkGetDeviceProcAddr("vkDestroyPipelineLayout"));
+    m_vkDestroyPrivateDataSlot = reinterpret_cast<PFN_vkDestroyPrivateDataSlot>(vkGetDeviceProcAddr("vkDestroyPrivateDataSlot"));
     m_vkDestroyQueryPool = reinterpret_cast<PFN_vkDestroyQueryPool>(vkGetDeviceProcAddr("vkDestroyQueryPool"));
     m_vkDestroyRenderPass = reinterpret_cast<PFN_vkDestroyRenderPass>(vkGetDeviceProcAddr("vkDestroyRenderPass"));
     m_vkDestroySampler = reinterpret_cast<PFN_vkDestroySampler>(vkGetDeviceProcAddr("vkDestroySampler"));
@@ -170,9 +194,12 @@ void ContextTable::load_device() {
     m_vkGetBufferMemoryRequirements2 = reinterpret_cast<PFN_vkGetBufferMemoryRequirements2>(vkGetDeviceProcAddr("vkGetBufferMemoryRequirements2"));
     m_vkGetBufferOpaqueCaptureAddress = reinterpret_cast<PFN_vkGetBufferOpaqueCaptureAddress>(vkGetDeviceProcAddr("vkGetBufferOpaqueCaptureAddress"));
     m_vkGetDescriptorSetLayoutSupport = reinterpret_cast<PFN_vkGetDescriptorSetLayoutSupport>(vkGetDeviceProcAddr("vkGetDescriptorSetLayoutSupport"));
+    m_vkGetDeviceBufferMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceBufferMemoryRequirements>(vkGetDeviceProcAddr("vkGetDeviceBufferMemoryRequirements"));
     m_vkGetDeviceGroupPeerMemoryFeatures = reinterpret_cast<PFN_vkGetDeviceGroupPeerMemoryFeatures>(vkGetDeviceProcAddr("vkGetDeviceGroupPeerMemoryFeatures"));
     m_vkGetDeviceGroupPresentCapabilitiesKHR = reinterpret_cast<PFN_vkGetDeviceGroupPresentCapabilitiesKHR>(vkGetDeviceProcAddr("vkGetDeviceGroupPresentCapabilitiesKHR"));
     m_vkGetDeviceGroupSurfacePresentModesKHR = reinterpret_cast<PFN_vkGetDeviceGroupSurfacePresentModesKHR>(vkGetDeviceProcAddr("vkGetDeviceGroupSurfacePresentModesKHR"));
+    m_vkGetDeviceImageMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceImageMemoryRequirements>(vkGetDeviceProcAddr("vkGetDeviceImageMemoryRequirements"));
+    m_vkGetDeviceImageSparseMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceImageSparseMemoryRequirements>(vkGetDeviceProcAddr("vkGetDeviceImageSparseMemoryRequirements"));
     m_vkGetDeviceMemoryCommitment = reinterpret_cast<PFN_vkGetDeviceMemoryCommitment>(vkGetDeviceProcAddr("vkGetDeviceMemoryCommitment"));
     m_vkGetDeviceMemoryOpaqueCaptureAddress = reinterpret_cast<PFN_vkGetDeviceMemoryOpaqueCaptureAddress>(vkGetDeviceProcAddr("vkGetDeviceMemoryOpaqueCaptureAddress"));
     m_vkGetDeviceQueue = reinterpret_cast<PFN_vkGetDeviceQueue>(vkGetDeviceProcAddr("vkGetDeviceQueue"));
@@ -185,6 +212,7 @@ void ContextTable::load_device() {
     m_vkGetImageSparseMemoryRequirements2 = reinterpret_cast<PFN_vkGetImageSparseMemoryRequirements2>(vkGetDeviceProcAddr("vkGetImageSparseMemoryRequirements2"));
     m_vkGetImageSubresourceLayout = reinterpret_cast<PFN_vkGetImageSubresourceLayout>(vkGetDeviceProcAddr("vkGetImageSubresourceLayout"));
     m_vkGetPipelineCacheData = reinterpret_cast<PFN_vkGetPipelineCacheData>(vkGetDeviceProcAddr("vkGetPipelineCacheData"));
+    m_vkGetPrivateData = reinterpret_cast<PFN_vkGetPrivateData>(vkGetDeviceProcAddr("vkGetPrivateData"));
     m_vkGetQueryPoolResults = reinterpret_cast<PFN_vkGetQueryPoolResults>(vkGetDeviceProcAddr("vkGetQueryPoolResults"));
     m_vkGetRenderAreaGranularity = reinterpret_cast<PFN_vkGetRenderAreaGranularity>(vkGetDeviceProcAddr("vkGetRenderAreaGranularity"));
     m_vkGetSemaphoreCounterValue = reinterpret_cast<PFN_vkGetSemaphoreCounterValue>(vkGetDeviceProcAddr("vkGetSemaphoreCounterValue"));
@@ -195,7 +223,7 @@ void ContextTable::load_device() {
     m_vkQueueBindSparse = reinterpret_cast<PFN_vkQueueBindSparse>(vkGetDeviceProcAddr("vkQueueBindSparse"));
     m_vkQueuePresentKHR = reinterpret_cast<PFN_vkQueuePresentKHR>(vkGetDeviceProcAddr("vkQueuePresentKHR"));
     m_vkQueueSubmit = reinterpret_cast<PFN_vkQueueSubmit>(vkGetDeviceProcAddr("vkQueueSubmit"));
-    m_vkQueueSubmit2KHR = reinterpret_cast<PFN_vkQueueSubmit2KHR>(vkGetDeviceProcAddr("vkQueueSubmit2KHR"));
+    m_vkQueueSubmit2 = reinterpret_cast<PFN_vkQueueSubmit2>(vkGetDeviceProcAddr("vkQueueSubmit2"));
     m_vkQueueWaitIdle = reinterpret_cast<PFN_vkQueueWaitIdle>(vkGetDeviceProcAddr("vkQueueWaitIdle"));
     m_vkResetCommandBuffer = reinterpret_cast<PFN_vkResetCommandBuffer>(vkGetDeviceProcAddr("vkResetCommandBuffer"));
     m_vkResetCommandPool = reinterpret_cast<PFN_vkResetCommandPool>(vkGetDeviceProcAddr("vkResetCommandPool"));
@@ -204,6 +232,7 @@ void ContextTable::load_device() {
     m_vkResetFences = reinterpret_cast<PFN_vkResetFences>(vkGetDeviceProcAddr("vkResetFences"));
     m_vkResetQueryPool = reinterpret_cast<PFN_vkResetQueryPool>(vkGetDeviceProcAddr("vkResetQueryPool"));
     m_vkSetEvent = reinterpret_cast<PFN_vkSetEvent>(vkGetDeviceProcAddr("vkSetEvent"));
+    m_vkSetPrivateData = reinterpret_cast<PFN_vkSetPrivateData>(vkGetDeviceProcAddr("vkSetPrivateData"));
     m_vkSignalSemaphore = reinterpret_cast<PFN_vkSignalSemaphore>(vkGetDeviceProcAddr("vkSignalSemaphore"));
     m_vkTrimCommandPool = reinterpret_cast<PFN_vkTrimCommandPool>(vkGetDeviceProcAddr("vkTrimCommandPool"));
     m_vkUnmapMemory = reinterpret_cast<PFN_vkUnmapMemory>(vkGetDeviceProcAddr("vkUnmapMemory"));
@@ -265,8 +294,8 @@ void ContextTable::vkCmdBeginRenderPass2(CommandBuffer commandBuffer, const Rend
     return m_vkCmdBeginRenderPass2(commandBuffer, pRenderPassBegin, pSubpassBeginInfo);
 }
 
-void ContextTable::vkCmdBeginRenderingKHR(CommandBuffer commandBuffer, const RenderingInfoKHR *pRenderingInfo) const {
-    return m_vkCmdBeginRenderingKHR(commandBuffer, pRenderingInfo);
+void ContextTable::vkCmdBeginRendering(CommandBuffer commandBuffer, const RenderingInfo *pRenderingInfo) const {
+    return m_vkCmdBeginRendering(commandBuffer, pRenderingInfo);
 }
 
 void ContextTable::vkCmdBindDescriptorSets(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets) const {
@@ -285,8 +314,16 @@ void ContextTable::vkCmdBindVertexBuffers(CommandBuffer commandBuffer, uint32_t 
     return m_vkCmdBindVertexBuffers(commandBuffer, firstBinding, bindingCount, pBuffers, pOffsets);
 }
 
+void ContextTable::vkCmdBindVertexBuffers2(CommandBuffer commandBuffer, uint32_t firstBinding, uint32_t bindingCount, const Buffer *pBuffers, const DeviceSize *pOffsets, const DeviceSize *pSizes, const DeviceSize *pStrides) const {
+    return m_vkCmdBindVertexBuffers2(commandBuffer, firstBinding, bindingCount, pBuffers, pOffsets, pSizes, pStrides);
+}
+
 void ContextTable::vkCmdBlitImage(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageBlit *pRegions, Filter filter) const {
     return m_vkCmdBlitImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+}
+
+void ContextTable::vkCmdBlitImage2(CommandBuffer commandBuffer, const BlitImageInfo2 *pBlitImageInfo) const {
+    return m_vkCmdBlitImage2(commandBuffer, pBlitImageInfo);
 }
 
 void ContextTable::vkCmdClearAttachments(CommandBuffer commandBuffer, uint32_t attachmentCount, const ClearAttachment *pAttachments, uint32_t rectCount, const ClearRect *pRects) const {
@@ -305,16 +342,32 @@ void ContextTable::vkCmdCopyBuffer(CommandBuffer commandBuffer, Buffer srcBuffer
     return m_vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
+void ContextTable::vkCmdCopyBuffer2(CommandBuffer commandBuffer, const CopyBufferInfo2 *pCopyBufferInfo) const {
+    return m_vkCmdCopyBuffer2(commandBuffer, pCopyBufferInfo);
+}
+
 void ContextTable::vkCmdCopyBufferToImage(CommandBuffer commandBuffer, Buffer srcBuffer, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const BufferImageCopy *pRegions) const {
     return m_vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
+void ContextTable::vkCmdCopyBufferToImage2(CommandBuffer commandBuffer, const CopyBufferToImageInfo2 *pCopyBufferToImageInfo) const {
+    return m_vkCmdCopyBufferToImage2(commandBuffer, pCopyBufferToImageInfo);
 }
 
 void ContextTable::vkCmdCopyImage(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageCopy *pRegions) const {
     return m_vkCmdCopyImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+void ContextTable::vkCmdCopyImage2(CommandBuffer commandBuffer, const CopyImageInfo2 *pCopyImageInfo) const {
+    return m_vkCmdCopyImage2(commandBuffer, pCopyImageInfo);
+}
+
 void ContextTable::vkCmdCopyImageToBuffer(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Buffer dstBuffer, uint32_t regionCount, const BufferImageCopy *pRegions) const {
     return m_vkCmdCopyImageToBuffer(commandBuffer, srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
+}
+
+void ContextTable::vkCmdCopyImageToBuffer2(CommandBuffer commandBuffer, const CopyImageToBufferInfo2 *pCopyImageToBufferInfo) const {
+    return m_vkCmdCopyImageToBuffer2(commandBuffer, pCopyImageToBufferInfo);
 }
 
 void ContextTable::vkCmdCopyQueryPoolResults(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize stride, QueryResultFlags flags) const {
@@ -369,8 +422,8 @@ void ContextTable::vkCmdEndRenderPass2(CommandBuffer commandBuffer, const Subpas
     return m_vkCmdEndRenderPass2(commandBuffer, pSubpassEndInfo);
 }
 
-void ContextTable::vkCmdEndRenderingKHR(CommandBuffer commandBuffer) const {
-    return m_vkCmdEndRenderingKHR(commandBuffer);
+void ContextTable::vkCmdEndRendering(CommandBuffer commandBuffer) const {
+    return m_vkCmdEndRendering(commandBuffer);
 }
 
 void ContextTable::vkCmdExecuteCommands(CommandBuffer commandBuffer, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers) const {
@@ -393,8 +446,8 @@ void ContextTable::vkCmdPipelineBarrier(CommandBuffer commandBuffer, PipelineSta
     return m_vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
-void ContextTable::vkCmdPipelineBarrier2KHR(CommandBuffer commandBuffer, const DependencyInfoKHR *pDependencyInfo) const {
-    return m_vkCmdPipelineBarrier2KHR(commandBuffer, pDependencyInfo);
+void ContextTable::vkCmdPipelineBarrier2(CommandBuffer commandBuffer, const DependencyInfo *pDependencyInfo) const {
+    return m_vkCmdPipelineBarrier2(commandBuffer, pDependencyInfo);
 }
 
 void ContextTable::vkCmdPushConstants(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues) const {
@@ -405,8 +458,8 @@ void ContextTable::vkCmdResetEvent(CommandBuffer commandBuffer, Event event, Pip
     return m_vkCmdResetEvent(commandBuffer, event, stageMask);
 }
 
-void ContextTable::vkCmdResetEvent2KHR(CommandBuffer commandBuffer, Event event, PipelineStageFlags2KHR stageMask) const {
-    return m_vkCmdResetEvent2KHR(commandBuffer, event, stageMask);
+void ContextTable::vkCmdResetEvent2(CommandBuffer commandBuffer, Event event, PipelineStageFlags2 stageMask) const {
+    return m_vkCmdResetEvent2(commandBuffer, event, stageMask);
 }
 
 void ContextTable::vkCmdResetQueryPool(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount) const {
@@ -417,16 +470,44 @@ void ContextTable::vkCmdResolveImage(CommandBuffer commandBuffer, Image srcImage
     return m_vkCmdResolveImage(commandBuffer, srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+void ContextTable::vkCmdResolveImage2(CommandBuffer commandBuffer, const ResolveImageInfo2 *pResolveImageInfo) const {
+    return m_vkCmdResolveImage2(commandBuffer, pResolveImageInfo);
+}
+
 void ContextTable::vkCmdSetBlendConstants(CommandBuffer commandBuffer, const float blendConstants [4]) const {
     return m_vkCmdSetBlendConstants(commandBuffer, blendConstants);
+}
+
+void ContextTable::vkCmdSetCullMode(CommandBuffer commandBuffer, CullMode cullMode) const {
+    return m_vkCmdSetCullMode(commandBuffer, cullMode);
 }
 
 void ContextTable::vkCmdSetDepthBias(CommandBuffer commandBuffer, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) const {
     return m_vkCmdSetDepthBias(commandBuffer, depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
 }
 
+void ContextTable::vkCmdSetDepthBiasEnable(CommandBuffer commandBuffer, Bool depthBiasEnable) const {
+    return m_vkCmdSetDepthBiasEnable(commandBuffer, depthBiasEnable);
+}
+
 void ContextTable::vkCmdSetDepthBounds(CommandBuffer commandBuffer, float minDepthBounds, float maxDepthBounds) const {
     return m_vkCmdSetDepthBounds(commandBuffer, minDepthBounds, maxDepthBounds);
+}
+
+void ContextTable::vkCmdSetDepthBoundsTestEnable(CommandBuffer commandBuffer, Bool depthBoundsTestEnable) const {
+    return m_vkCmdSetDepthBoundsTestEnable(commandBuffer, depthBoundsTestEnable);
+}
+
+void ContextTable::vkCmdSetDepthCompareOp(CommandBuffer commandBuffer, CompareOp depthCompareOp) const {
+    return m_vkCmdSetDepthCompareOp(commandBuffer, depthCompareOp);
+}
+
+void ContextTable::vkCmdSetDepthTestEnable(CommandBuffer commandBuffer, Bool depthTestEnable) const {
+    return m_vkCmdSetDepthTestEnable(commandBuffer, depthTestEnable);
+}
+
+void ContextTable::vkCmdSetDepthWriteEnable(CommandBuffer commandBuffer, Bool depthWriteEnable) const {
+    return m_vkCmdSetDepthWriteEnable(commandBuffer, depthWriteEnable);
 }
 
 void ContextTable::vkCmdSetDeviceMask(CommandBuffer commandBuffer, uint32_t deviceMask) const {
@@ -437,24 +518,52 @@ void ContextTable::vkCmdSetEvent(CommandBuffer commandBuffer, Event event, Pipel
     return m_vkCmdSetEvent(commandBuffer, event, stageMask);
 }
 
-void ContextTable::vkCmdSetEvent2KHR(CommandBuffer commandBuffer, Event event, const DependencyInfoKHR *pDependencyInfo) const {
-    return m_vkCmdSetEvent2KHR(commandBuffer, event, pDependencyInfo);
+void ContextTable::vkCmdSetEvent2(CommandBuffer commandBuffer, Event event, const DependencyInfo *pDependencyInfo) const {
+    return m_vkCmdSetEvent2(commandBuffer, event, pDependencyInfo);
+}
+
+void ContextTable::vkCmdSetFrontFace(CommandBuffer commandBuffer, FrontFace frontFace) const {
+    return m_vkCmdSetFrontFace(commandBuffer, frontFace);
 }
 
 void ContextTable::vkCmdSetLineWidth(CommandBuffer commandBuffer, float lineWidth) const {
     return m_vkCmdSetLineWidth(commandBuffer, lineWidth);
 }
 
+void ContextTable::vkCmdSetPrimitiveRestartEnable(CommandBuffer commandBuffer, Bool primitiveRestartEnable) const {
+    return m_vkCmdSetPrimitiveRestartEnable(commandBuffer, primitiveRestartEnable);
+}
+
+void ContextTable::vkCmdSetPrimitiveTopology(CommandBuffer commandBuffer, PrimitiveTopology primitiveTopology) const {
+    return m_vkCmdSetPrimitiveTopology(commandBuffer, primitiveTopology);
+}
+
+void ContextTable::vkCmdSetRasterizerDiscardEnable(CommandBuffer commandBuffer, Bool rasterizerDiscardEnable) const {
+    return m_vkCmdSetRasterizerDiscardEnable(commandBuffer, rasterizerDiscardEnable);
+}
+
 void ContextTable::vkCmdSetScissor(CommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount, const Rect2D *pScissors) const {
     return m_vkCmdSetScissor(commandBuffer, firstScissor, scissorCount, pScissors);
+}
+
+void ContextTable::vkCmdSetScissorWithCount(CommandBuffer commandBuffer, uint32_t scissorCount, const Rect2D *pScissors) const {
+    return m_vkCmdSetScissorWithCount(commandBuffer, scissorCount, pScissors);
 }
 
 void ContextTable::vkCmdSetStencilCompareMask(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t compareMask) const {
     return m_vkCmdSetStencilCompareMask(commandBuffer, faceMask, compareMask);
 }
 
+void ContextTable::vkCmdSetStencilOp(CommandBuffer commandBuffer, StencilFaceFlags faceMask, StencilOp failOp, StencilOp passOp, StencilOp depthFailOp, CompareOp compareOp) const {
+    return m_vkCmdSetStencilOp(commandBuffer, faceMask, failOp, passOp, depthFailOp, compareOp);
+}
+
 void ContextTable::vkCmdSetStencilReference(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t reference) const {
     return m_vkCmdSetStencilReference(commandBuffer, faceMask, reference);
+}
+
+void ContextTable::vkCmdSetStencilTestEnable(CommandBuffer commandBuffer, Bool stencilTestEnable) const {
+    return m_vkCmdSetStencilTestEnable(commandBuffer, stencilTestEnable);
 }
 
 void ContextTable::vkCmdSetStencilWriteMask(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t writeMask) const {
@@ -465,6 +574,10 @@ void ContextTable::vkCmdSetViewport(CommandBuffer commandBuffer, uint32_t firstV
     return m_vkCmdSetViewport(commandBuffer, firstViewport, viewportCount, pViewports);
 }
 
+void ContextTable::vkCmdSetViewportWithCount(CommandBuffer commandBuffer, uint32_t viewportCount, const Viewport *pViewports) const {
+    return m_vkCmdSetViewportWithCount(commandBuffer, viewportCount, pViewports);
+}
+
 void ContextTable::vkCmdUpdateBuffer(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize dataSize, const void *pData) const {
     return m_vkCmdUpdateBuffer(commandBuffer, dstBuffer, dstOffset, dataSize, pData);
 }
@@ -473,16 +586,16 @@ void ContextTable::vkCmdWaitEvents(CommandBuffer commandBuffer, uint32_t eventCo
     return m_vkCmdWaitEvents(commandBuffer, eventCount, pEvents, srcStageMask, dstStageMask, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
-void ContextTable::vkCmdWaitEvents2KHR(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfoKHR *pDependencyInfos) const {
-    return m_vkCmdWaitEvents2KHR(commandBuffer, eventCount, pEvents, pDependencyInfos);
+void ContextTable::vkCmdWaitEvents2(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos) const {
+    return m_vkCmdWaitEvents2(commandBuffer, eventCount, pEvents, pDependencyInfos);
 }
 
 void ContextTable::vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query) const {
     return m_vkCmdWriteTimestamp(commandBuffer, pipelineStage, queryPool, query);
 }
 
-void ContextTable::vkCmdWriteTimestamp2KHR(CommandBuffer commandBuffer, PipelineStageFlags2KHR stage, QueryPool queryPool, uint32_t query) const {
-    return m_vkCmdWriteTimestamp2KHR(commandBuffer, stage, queryPool, query);
+void ContextTable::vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStageFlags2 stage, QueryPool queryPool, uint32_t query) const {
+    return m_vkCmdWriteTimestamp2(commandBuffer, stage, queryPool, query);
 }
 
 Result ContextTable::vkCreateBuffer(const BufferCreateInfo *pCreateInfo, Buffer *pBuffer) const {
@@ -551,6 +664,10 @@ Result ContextTable::vkCreatePipelineCache(const PipelineCacheCreateInfo *pCreat
 
 Result ContextTable::vkCreatePipelineLayout(const PipelineLayoutCreateInfo *pCreateInfo, PipelineLayout *pPipelineLayout) const {
     return m_vkCreatePipelineLayout(m_device, pCreateInfo, nullptr, pPipelineLayout);
+}
+
+Result ContextTable::vkCreatePrivateDataSlot(const PrivateDataSlotCreateInfo *pCreateInfo, PrivateDataSlot *pPrivateDataSlot) const {
+    return m_vkCreatePrivateDataSlot(m_device, pCreateInfo, nullptr, pPrivateDataSlot);
 }
 
 Result ContextTable::vkCreateQueryPool(const QueryPoolCreateInfo *pCreateInfo, QueryPool *pQueryPool) const {
@@ -651,6 +768,10 @@ void ContextTable::vkDestroyPipelineCache(PipelineCache pipelineCache) const {
 
 void ContextTable::vkDestroyPipelineLayout(PipelineLayout pipelineLayout) const {
     return m_vkDestroyPipelineLayout(m_device, pipelineLayout, nullptr);
+}
+
+void ContextTable::vkDestroyPrivateDataSlot(PrivateDataSlot privateDataSlot) const {
+    return m_vkDestroyPrivateDataSlot(m_device, privateDataSlot, nullptr);
 }
 
 void ContextTable::vkDestroyQueryPool(QueryPool queryPool) const {
@@ -757,6 +878,10 @@ void ContextTable::vkGetDescriptorSetLayoutSupport(const DescriptorSetLayoutCrea
     return m_vkGetDescriptorSetLayoutSupport(m_device, pCreateInfo, pSupport);
 }
 
+void ContextTable::vkGetDeviceBufferMemoryRequirements(const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements) const {
+    return m_vkGetDeviceBufferMemoryRequirements(m_device, pInfo, pMemoryRequirements);
+}
+
 void ContextTable::vkGetDeviceGroupPeerMemoryFeatures(uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures) const {
     return m_vkGetDeviceGroupPeerMemoryFeatures(m_device, heapIndex, localDeviceIndex, remoteDeviceIndex, pPeerMemoryFeatures);
 }
@@ -767,6 +892,14 @@ Result ContextTable::vkGetDeviceGroupPresentCapabilitiesKHR(DeviceGroupPresentCa
 
 Result ContextTable::vkGetDeviceGroupSurfacePresentModesKHR(SurfaceKHR surface, DeviceGroupPresentModeFlagsKHR *pModes) const {
     return m_vkGetDeviceGroupSurfacePresentModesKHR(m_device, surface, pModes);
+}
+
+void ContextTable::vkGetDeviceImageMemoryRequirements(const DeviceImageMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements) const {
+    return m_vkGetDeviceImageMemoryRequirements(m_device, pInfo, pMemoryRequirements);
+}
+
+void ContextTable::vkGetDeviceImageSparseMemoryRequirements(const DeviceImageMemoryRequirements *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements) const {
+    return m_vkGetDeviceImageSparseMemoryRequirements(m_device, pInfo, pSparseMemoryRequirementCount, pSparseMemoryRequirements);
 }
 
 void ContextTable::vkGetDeviceMemoryCommitment(DeviceMemory memory, DeviceSize *pCommittedMemoryInBytes) const {
@@ -905,12 +1038,20 @@ Result ContextTable::vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIn
     return m_vkGetPhysicalDeviceSurfaceSupportKHR(m_physical_device, queueFamilyIndex, surface, pSupported);
 }
 
+Result ContextTable::vkGetPhysicalDeviceToolProperties(uint32_t *pToolCount, PhysicalDeviceToolProperties *pToolProperties) const {
+    return m_vkGetPhysicalDeviceToolProperties(m_physical_device, pToolCount, pToolProperties);
+}
+
 Bool ContextTable::vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const {
     return m_vkGetPhysicalDeviceXcbPresentationSupportKHR(m_physical_device, queueFamilyIndex, connection, visual_id);
 }
 
 Result ContextTable::vkGetPipelineCacheData(PipelineCache pipelineCache, size_t *pDataSize, void *pData) const {
     return m_vkGetPipelineCacheData(m_device, pipelineCache, pDataSize, pData);
+}
+
+void ContextTable::vkGetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData) const {
+    return m_vkGetPrivateData(m_device, objectType, objectHandle, privateDataSlot, pData);
 }
 
 Result ContextTable::vkGetQueryPoolResults(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags) const {
@@ -953,8 +1094,8 @@ Result ContextTable::vkQueueSubmit(Queue queue, uint32_t submitCount, const Subm
     return m_vkQueueSubmit(queue, submitCount, pSubmits, fence);
 }
 
-Result ContextTable::vkQueueSubmit2KHR(Queue queue, uint32_t submitCount, const SubmitInfo2KHR *pSubmits, Fence fence) const {
-    return m_vkQueueSubmit2KHR(queue, submitCount, pSubmits, fence);
+Result ContextTable::vkQueueSubmit2(Queue queue, uint32_t submitCount, const SubmitInfo2 *pSubmits, Fence fence) const {
+    return m_vkQueueSubmit2(queue, submitCount, pSubmits, fence);
 }
 
 Result ContextTable::vkQueueWaitIdle(Queue queue) const {
@@ -987,6 +1128,10 @@ void ContextTable::vkResetQueryPool(QueryPool queryPool, uint32_t firstQuery, ui
 
 Result ContextTable::vkSetEvent(Event event) const {
     return m_vkSetEvent(m_device, event);
+}
+
+Result ContextTable::vkSetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t data) const {
+    return m_vkSetPrivateData(m_device, objectType, objectHandle, privateDataSlot, data);
 }
 
 Result ContextTable::vkSignalSemaphore(const SemaphoreSignalInfo *pSignalInfo) const {

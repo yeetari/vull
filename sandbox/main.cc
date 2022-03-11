@@ -306,8 +306,8 @@ int main() {
     };
 
     const auto depth_format = vk::Format::D32Sfloat;
-    vk::PipelineRenderingCreateInfoKHR depth_pass_rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfoKHR,
+    vk::PipelineRenderingCreateInfo depth_pass_rendering_create_info{
+        .sType = vk::StructureType::PipelineRenderingCreateInfo,
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
@@ -339,8 +339,8 @@ int main() {
                 vk::Result::Success);
 
     const auto colour_format = vk::Format::B8G8R8A8Srgb;
-    vk::PipelineRenderingCreateInfoKHR terrain_pass_rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfoKHR,
+    vk::PipelineRenderingCreateInfo terrain_pass_rendering_create_info{
+        .sType = vk::StructureType::PipelineRenderingCreateInfo,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colour_format,
         .depthAttachmentFormat = depth_format,
@@ -932,8 +932,8 @@ int main() {
                                      vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                      vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_write_barrier);
 
-        vk::RenderingAttachmentInfoKHR depth_write_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfoKHR,
+        vk::RenderingAttachmentInfo depth_write_attachment{
+            .sType = vk::StructureType::RenderingAttachmentInfo,
             .imageView = depth_image_view,
             .imageLayout = vk::ImageLayout::DepthAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::Clear,
@@ -942,8 +942,8 @@ int main() {
                 .depthStencil{0.0f, 0},
             },
         };
-        vk::RenderingInfoKHR depth_pass_rendering_info{
-            .sType = vk::StructureType::RenderingInfoKHR,
+        vk::RenderingInfo depth_pass_rendering_info{
+            .sType = vk::StructureType::RenderingInfo,
             .renderArea{
                 .extent = swapchain.extent_2D(),
             },
@@ -952,10 +952,10 @@ int main() {
             .pStencilAttachment = &depth_write_attachment,
         };
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
-        context.vkCmdBeginRenderingKHR(command_buffer, &depth_pass_rendering_info);
+        context.vkCmdBeginRendering(command_buffer, &depth_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
         render_terrain();
-        context.vkCmdEndRenderingKHR(command_buffer);
+        context.vkCmdEndRendering(command_buffer);
 
         vk::ImageMemoryBarrier depth_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1033,8 +1033,8 @@ int main() {
                                      vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                      vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_read_barrier);
 
-        vk::RenderingAttachmentInfoKHR colour_write_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfoKHR,
+        vk::RenderingAttachmentInfo colour_write_attachment{
+            .sType = vk::StructureType::RenderingAttachmentInfo,
             .imageView = swapchain.image_view(image_index),
             .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
             .loadOp = vk::AttachmentLoadOp::Clear,
@@ -1043,15 +1043,15 @@ int main() {
                 .color{{0.47f, 0.5f, 0.67f, 1.0f}},
             },
         };
-        vk::RenderingAttachmentInfoKHR depth_read_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfoKHR,
+        vk::RenderingAttachmentInfo depth_read_attachment{
+            .sType = vk::StructureType::RenderingAttachmentInfo,
             .imageView = depth_image_view,
             .imageLayout = vk::ImageLayout::DepthReadOnlyOptimal,
             .loadOp = vk::AttachmentLoadOp::Load,
-            .storeOp = vk::AttachmentStoreOp::NoneKHR,
+            .storeOp = vk::AttachmentStoreOp::None,
         };
-        vk::RenderingInfoKHR terrain_pass_rendering_info{
-            .sType = vk::StructureType::RenderingInfoKHR,
+        vk::RenderingInfo terrain_pass_rendering_info{
+            .sType = vk::StructureType::RenderingInfo,
             .renderArea{
                 .extent = swapchain.extent_2D(),
             },
@@ -1062,10 +1062,10 @@ int main() {
             .pStencilAttachment = &depth_read_attachment,
         };
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
-        context.vkCmdBeginRenderingKHR(command_buffer, &terrain_pass_rendering_info);
+        context.vkCmdBeginRendering(command_buffer, &terrain_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pass_pipeline);
         render_terrain();
-        context.vkCmdEndRenderingKHR(command_buffer);
+        context.vkCmdEndRendering(command_buffer);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
 
         vk::ImageMemoryBarrier ui_colour_write_barrier{

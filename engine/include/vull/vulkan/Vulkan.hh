@@ -32,7 +32,7 @@ constexpr uint32_t k_max_device_group_size = 32;
 constexpr uint32_t k_max_driver_name_size = 256;
 constexpr uint32_t k_max_driver_info_size = 256;
 constexpr uint32_t k_shader_unused_khr = (~0u);
-constexpr uint32_t k_max_global_priority_size_ext = 16;
+constexpr uint32_t k_max_global_priority_size_khr = 16;
 
 // Base types.
 using DeviceAddress = uint64_t;
@@ -51,7 +51,7 @@ public:
 };
 
 // Bitmasks.
-using AccessFlags2KHR = Flags64;
+using AccessFlags2 = Flags64;
 using BufferViewCreateFlags = Flags;
 using CommandPoolTrimFlags = Flags;
 using CompositeAlphaFlagsKHR = Flags;
@@ -59,6 +59,7 @@ using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
 using DeviceGroupPresentModeFlagsKHR = Flags;
+using FormatFeatureFlags2 = Flags64;
 using ImageViewCreateFlags = Flags;
 using InstanceCreateFlags = Flags;
 using MemoryMapFlags = Flags;
@@ -70,18 +71,16 @@ using PipelineInputAssemblyStateCreateFlags = Flags;
 using PipelineLayoutCreateFlags = Flags;
 using PipelineMultisampleStateCreateFlags = Flags;
 using PipelineRasterizationStateCreateFlags = Flags;
-using PipelineShaderStageCreateFlags = Flags;
-using PipelineStageFlags2KHR = Flags64;
+using PipelineStageFlags2 = Flags64;
 using PipelineTessellationStateCreateFlags = Flags;
 using PipelineVertexInputStateCreateFlags = Flags;
 using PipelineViewportStateCreateFlags = Flags;
+using PrivateDataSlotCreateFlags = Flags;
 using QueryPoolCreateFlags = Flags;
 using RenderPassCreateFlags = Flags;
-using RenderingFlagsKHR = Flags;
 using SamplerCreateFlags = Flags;
 using SemaphoreCreateFlags = Flags;
 using ShaderModuleCreateFlags = Flags;
-using SubmitFlagsKHR = Flags;
 using SubpassDescriptionFlags = Flags;
 using SurfaceTransformFlagsKHR = Flags;
 using SwapchainCreateFlagsKHR = Flags;
@@ -108,6 +107,7 @@ using PhysicalDevice = struct PhysicalDevice_T *;
 using Pipeline = struct Pipeline_T *;
 using PipelineCache = struct PipelineCache_T *;
 using PipelineLayout = struct PipelineLayout_T *;
+using PrivateDataSlot = struct PrivateDataSlot_T *;
 using QueryPool = struct QueryPool_T *;
 using Queue = struct Queue_T *;
 using RenderPass = struct RenderPass_T *;
@@ -137,7 +137,7 @@ enum class Access {
     HostWrite = 1u << 14u,
     MemoryRead = 1u << 15u,
     MemoryWrite = 1u << 16u,
-    NoneKHR = 0,
+    None = 0,
 };
 inline constexpr Access operator&(Access a, Access b) {
     return static_cast<Access>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -146,34 +146,34 @@ inline constexpr Access operator|(Access a, Access b) {
     return static_cast<Access>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-enum class AccessFlagBits2KHR : uint64_t {
-    NoneKHR = 0,
-    IndirectCommandReadKHR = 1ull << 0ull,
-    IndexReadKHR = 1ull << 1ull,
-    VertexAttributeReadKHR = 1ull << 2ull,
-    UniformReadKHR = 1ull << 3ull,
-    InputAttachmentReadKHR = 1ull << 4ull,
-    ShaderReadKHR = 1ull << 5ull,
-    ShaderWriteKHR = 1ull << 6ull,
-    ColorAttachmentReadKHR = 1ull << 7ull,
-    ColorAttachmentWriteKHR = 1ull << 8ull,
-    DepthStencilAttachmentReadKHR = 1ull << 9ull,
-    DepthStencilAttachmentWriteKHR = 1ull << 10ull,
-    TransferReadKHR = 1ull << 11ull,
-    TransferWriteKHR = 1ull << 12ull,
-    HostReadKHR = 1ull << 13ull,
-    HostWriteKHR = 1ull << 14ull,
-    MemoryReadKHR = 1ull << 15ull,
-    MemoryWriteKHR = 1ull << 16ull,
-    ShaderSampledReadKHR = 1ull << 32ull,
-    ShaderStorageReadKHR = 1ull << 33ull,
-    ShaderStorageWriteKHR = 1ull << 34ull,
+enum class AccessFlagBits2 : uint64_t {
+    None = 0,
+    IndirectCommandRead = 1ull << 0ull,
+    IndexRead = 1ull << 1ull,
+    VertexAttributeRead = 1ull << 2ull,
+    UniformRead = 1ull << 3ull,
+    InputAttachmentRead = 1ull << 4ull,
+    ShaderRead = 1ull << 5ull,
+    ShaderWrite = 1ull << 6ull,
+    ColorAttachmentRead = 1ull << 7ull,
+    ColorAttachmentWrite = 1ull << 8ull,
+    DepthStencilAttachmentRead = 1ull << 9ull,
+    DepthStencilAttachmentWrite = 1ull << 10ull,
+    TransferRead = 1ull << 11ull,
+    TransferWrite = 1ull << 12ull,
+    HostRead = 1ull << 13ull,
+    HostWrite = 1ull << 14ull,
+    MemoryRead = 1ull << 15ull,
+    MemoryWrite = 1ull << 16ull,
+    ShaderSampledRead = 1ull << 32ull,
+    ShaderStorageRead = 1ull << 33ull,
+    ShaderStorageWrite = 1ull << 34ull,
 };
-inline constexpr AccessFlagBits2KHR operator&(AccessFlagBits2KHR a, AccessFlagBits2KHR b) {
-    return static_cast<AccessFlagBits2KHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr AccessFlagBits2 operator&(AccessFlagBits2 a, AccessFlagBits2 b) {
+    return static_cast<AccessFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
-inline constexpr AccessFlagBits2KHR operator|(AccessFlagBits2KHR a, AccessFlagBits2KHR b) {
-    return static_cast<AccessFlagBits2KHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr AccessFlagBits2 operator|(AccessFlagBits2 a, AccessFlagBits2 b) {
+    return static_cast<AccessFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class AttachmentDescriptionFlags {
@@ -196,7 +196,7 @@ enum class AttachmentLoadOp {
 enum class AttachmentStoreOp {
     Store = 0,
     DontCare = 1,
-    NoneKHR = 1000301000,
+    None = 1000301000,
 };
 
 enum class BlendFactor {
@@ -455,6 +455,7 @@ enum class DescriptorType {
     UniformBufferDynamic = 8,
     StorageBufferDynamic = 9,
     InputAttachment = 10,
+    InlineUniformBlock = 1000138000,
 };
 
 enum class DescriptorUpdateTemplateType {
@@ -520,11 +521,26 @@ enum class DynamicState {
     StencilCompareMask = 6,
     StencilWriteMask = 7,
     StencilReference = 8,
+    CullMode = 1000267000,
+    FrontFace = 1000267001,
+    PrimitiveTopology = 1000267002,
+    ViewportWithCount = 1000267003,
+    ScissorWithCount = 1000267004,
+    VertexInputBindingStride = 1000267005,
+    DepthTestEnable = 1000267006,
+    DepthWriteEnable = 1000267007,
+    DepthCompareOp = 1000267008,
+    DepthBoundsTestEnable = 1000267009,
+    StencilTestEnable = 1000267010,
+    StencilOp = 1000267011,
+    RasterizerDiscardEnable = 1000377001,
+    DepthBiasEnable = 1000377002,
+    PrimitiveRestartEnable = 1000377004,
 };
 
 enum class EventCreateFlags {
     None = 0,
-    DeviceOnlyKHR = 1u << 0u,
+    DeviceOnly = 1u << 0u,
 };
 inline constexpr EventCreateFlags operator&(EventCreateFlags a, EventCreateFlags b) {
     return static_cast<EventCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -860,6 +876,26 @@ enum class Format {
     G16B16R163Plane422Unorm = 1000156031,
     G16B16R162Plane422Unorm = 1000156032,
     G16B16R163Plane444Unorm = 1000156033,
+    G8B8R82Plane444Unorm = 1000330000,
+    G10X6B10X6R10X62Plane444Unorm3Pack16 = 1000330001,
+    G12X4B12X4R12X42Plane444Unorm3Pack16 = 1000330002,
+    G16B16R162Plane444Unorm = 1000330003,
+    A4R4G4B4UnormPack16 = 1000340000,
+    A4B4G4R4UnormPack16 = 1000340001,
+    Astc4X4SfloatBlock = 1000066000,
+    Astc5X4SfloatBlock = 1000066001,
+    Astc5X5SfloatBlock = 1000066002,
+    Astc6X5SfloatBlock = 1000066003,
+    Astc6X6SfloatBlock = 1000066004,
+    Astc8X5SfloatBlock = 1000066005,
+    Astc8X6SfloatBlock = 1000066006,
+    Astc8X8SfloatBlock = 1000066007,
+    Astc10X5SfloatBlock = 1000066008,
+    Astc10X6SfloatBlock = 1000066009,
+    Astc10X8SfloatBlock = 1000066010,
+    Astc10X10SfloatBlock = 1000066011,
+    Astc12X10SfloatBlock = 1000066012,
+    Astc12X12SfloatBlock = 1000066013,
 };
 
 enum class FormatFeature {
@@ -894,6 +930,42 @@ inline constexpr FormatFeature operator|(FormatFeature a, FormatFeature b) {
     return static_cast<FormatFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
+enum class FormatFeatureFlagBits2 : uint64_t {
+    SampledImage = 1ull << 0ull,
+    StorageImage = 1ull << 1ull,
+    StorageImageAtomic = 1ull << 2ull,
+    UniformTexelBuffer = 1ull << 3ull,
+    StorageTexelBuffer = 1ull << 4ull,
+    StorageTexelBufferAtomic = 1ull << 5ull,
+    VertexBuffer = 1ull << 6ull,
+    ColorAttachment = 1ull << 7ull,
+    ColorAttachmentBlend = 1ull << 8ull,
+    DepthStencilAttachment = 1ull << 9ull,
+    BlitSrc = 1ull << 10ull,
+    BlitDst = 1ull << 11ull,
+    SampledImageFilterLinear = 1ull << 12ull,
+    SampledImageFilterCubic = 1ull << 13ull,
+    TransferSrc = 1ull << 14ull,
+    TransferDst = 1ull << 15ull,
+    SampledImageFilterMinmax = 1ull << 16ull,
+    MidpointChromaSamples = 1ull << 17ull,
+    SampledImageYcbcrConversionLinearFilter = 1ull << 18ull,
+    SampledImageYcbcrConversionSeparateReconstructionFilter = 1ull << 19ull,
+    SampledImageYcbcrConversionChromaReconstructionExplicit = 1ull << 20ull,
+    SampledImageYcbcrConversionChromaReconstructionExplicitForceable = 1ull << 21ull,
+    Disjoint = 1ull << 22ull,
+    CositedChromaSamples = 1ull << 23ull,
+    StorageReadWithoutFormat = 1ull << 31ull,
+    StorageWriteWithoutFormat = 1ull << 32ull,
+    SampledImageDepthComparison = 1ull << 33ull,
+};
+inline constexpr FormatFeatureFlagBits2 operator&(FormatFeatureFlagBits2 a, FormatFeatureFlagBits2 b) {
+    return static_cast<FormatFeatureFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr FormatFeatureFlagBits2 operator|(FormatFeatureFlagBits2 a, FormatFeatureFlagBits2 b) {
+    return static_cast<FormatFeatureFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
 enum class FramebufferCreateFlags {
     None = 0,
     Imageless = 1u << 0u,
@@ -918,6 +990,7 @@ enum class ImageAspect {
     Plane0 = 1u << 4u,
     Plane1 = 1u << 5u,
     Plane2 = 1u << 6u,
+    None = 0,
 };
 inline constexpr ImageAspect operator&(ImageAspect a, ImageAspect b) {
     return static_cast<ImageAspect>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -964,9 +1037,9 @@ enum class ImageLayout {
     DepthReadOnlyOptimal = 1000241001,
     StencilAttachmentOptimal = 1000241002,
     StencilReadOnlyOptimal = 1000241003,
+    ReadOnlyOptimal = 1000314000,
+    AttachmentOptimal = 1000314001,
     PresentSrcKHR = 1000001002,
-    ReadOnlyOptimalKHR = 1000314000,
-    AttachmentOptimalKHR = 1000314001,
 };
 
 enum class ImageTiling {
@@ -1105,6 +1178,7 @@ enum class ObjectType {
     CommandPool = 25,
     SamplerYcbcrConversion = 1000156000,
     DescriptorUpdateTemplate = 1000085000,
+    PrivateDataSlot = 1000295000,
     SurfaceKHR = 1000000000,
     SwapchainKHR = 1000001000,
 };
@@ -1146,12 +1220,39 @@ enum class PipelineCreateFlags {
     Derivative = 1u << 2u,
     ViewIndexFromDeviceIndex = 1u << 3u,
     DispatchBase = 1u << 4u,
+    FailOnPipelineCompileRequired = 1u << 8u,
+    EarlyReturnOnFailure = 1u << 9u,
 };
 inline constexpr PipelineCreateFlags operator&(PipelineCreateFlags a, PipelineCreateFlags b) {
     return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
 inline constexpr PipelineCreateFlags operator|(PipelineCreateFlags a, PipelineCreateFlags b) {
     return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+enum class PipelineCreationFeedbackFlags {
+    None = 0,
+    Valid = 1u << 0u,
+    ApplicationPipelineCacheHit = 1u << 1u,
+    BasePipelineAcceleration = 1u << 2u,
+};
+inline constexpr PipelineCreationFeedbackFlags operator&(PipelineCreationFeedbackFlags a, PipelineCreationFeedbackFlags b) {
+    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr PipelineCreationFeedbackFlags operator|(PipelineCreationFeedbackFlags a, PipelineCreationFeedbackFlags b) {
+    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+enum class PipelineShaderStageCreateFlags {
+    None = 0,
+    AllowVaryingSubgroupSize = 1u << 0u,
+    RequireFullSubgroups = 1u << 1u,
+};
+inline constexpr PipelineShaderStageCreateFlags operator&(PipelineShaderStageCreateFlags a, PipelineShaderStageCreateFlags b) {
+    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr PipelineShaderStageCreateFlags operator|(PipelineShaderStageCreateFlags a, PipelineShaderStageCreateFlags b) {
+    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class PipelineStage {
@@ -1172,7 +1273,7 @@ enum class PipelineStage {
     Host = 1u << 14u,
     AllGraphics = 1u << 15u,
     AllCommands = 1u << 16u,
-    NoneKHR = 0,
+    None = 0,
 };
 inline constexpr PipelineStage operator&(PipelineStage a, PipelineStage b) {
     return static_cast<PipelineStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
@@ -1181,38 +1282,38 @@ inline constexpr PipelineStage operator|(PipelineStage a, PipelineStage b) {
     return static_cast<PipelineStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-enum class PipelineStageFlagBits2KHR : uint64_t {
-    NoneKHR = 0,
-    TopOfPipeKHR = 1ull << 0ull,
-    DrawIndirectKHR = 1ull << 1ull,
-    VertexInputKHR = 1ull << 2ull,
-    VertexShaderKHR = 1ull << 3ull,
-    TessellationControlShaderKHR = 1ull << 4ull,
-    TessellationEvaluationShaderKHR = 1ull << 5ull,
-    GeometryShaderKHR = 1ull << 6ull,
-    FragmentShaderKHR = 1ull << 7ull,
-    EarlyFragmentTestsKHR = 1ull << 8ull,
-    LateFragmentTestsKHR = 1ull << 9ull,
-    ColorAttachmentOutputKHR = 1ull << 10ull,
-    ComputeShaderKHR = 1ull << 11ull,
-    AllTransferKHR = 1ull << 12ull,
-    BottomOfPipeKHR = 1ull << 13ull,
-    HostKHR = 1ull << 14ull,
-    AllGraphicsKHR = 1ull << 15ull,
-    AllCommandsKHR = 1ull << 16ull,
-    CopyKHR = 1ull << 32ull,
-    ResolveKHR = 1ull << 33ull,
-    BlitKHR = 1ull << 34ull,
-    ClearKHR = 1ull << 35ull,
-    IndexInputKHR = 1ull << 36ull,
-    VertexAttributeInputKHR = 1ull << 37ull,
-    PreRasterizationShadersKHR = 1ull << 38ull,
+enum class PipelineStageFlagBits2 : uint64_t {
+    None = 0,
+    TopOfPipe = 1ull << 0ull,
+    DrawIndirect = 1ull << 1ull,
+    VertexInput = 1ull << 2ull,
+    VertexShader = 1ull << 3ull,
+    TessellationControlShader = 1ull << 4ull,
+    TessellationEvaluationShader = 1ull << 5ull,
+    GeometryShader = 1ull << 6ull,
+    FragmentShader = 1ull << 7ull,
+    EarlyFragmentTests = 1ull << 8ull,
+    LateFragmentTests = 1ull << 9ull,
+    ColorAttachmentOutput = 1ull << 10ull,
+    ComputeShader = 1ull << 11ull,
+    AllTransfer = 1ull << 12ull,
+    BottomOfPipe = 1ull << 13ull,
+    Host = 1ull << 14ull,
+    AllGraphics = 1ull << 15ull,
+    AllCommands = 1ull << 16ull,
+    Copy = 1ull << 32ull,
+    Resolve = 1ull << 33ull,
+    Blit = 1ull << 34ull,
+    Clear = 1ull << 35ull,
+    IndexInput = 1ull << 36ull,
+    VertexAttributeInput = 1ull << 37ull,
+    PreRasterizationShaders = 1ull << 38ull,
 };
-inline constexpr PipelineStageFlagBits2KHR operator&(PipelineStageFlagBits2KHR a, PipelineStageFlagBits2KHR b) {
-    return static_cast<PipelineStageFlagBits2KHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineStageFlagBits2 operator&(PipelineStageFlagBits2 a, PipelineStageFlagBits2 b) {
+    return static_cast<PipelineStageFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
-inline constexpr PipelineStageFlagBits2KHR operator|(PipelineStageFlagBits2KHR a, PipelineStageFlagBits2KHR b) {
-    return static_cast<PipelineStageFlagBits2KHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineStageFlagBits2 operator|(PipelineStageFlagBits2 a, PipelineStageFlagBits2 b) {
+    return static_cast<PipelineStageFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class PointClippingBehavior {
@@ -1314,16 +1415,17 @@ inline constexpr QueueFlags operator|(QueueFlags a, QueueFlags b) {
     return static_cast<QueueFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-enum class RenderingFlagBitsKHR {
-    ContentsSecondaryCommandBuffersKHR = 1u << 0u,
-    SuspendingKHR = 1u << 1u,
-    ResumingKHR = 1u << 2u,
+enum class RenderingFlags {
+    None = 0,
+    ContentsSecondaryCommandBuffers = 1u << 0u,
+    Suspending = 1u << 1u,
+    Resuming = 1u << 2u,
 };
-inline constexpr RenderingFlagBitsKHR operator&(RenderingFlagBitsKHR a, RenderingFlagBitsKHR b) {
-    return static_cast<RenderingFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr RenderingFlags operator&(RenderingFlags a, RenderingFlags b) {
+    return static_cast<RenderingFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
-inline constexpr RenderingFlagBitsKHR operator|(RenderingFlagBitsKHR a, RenderingFlagBitsKHR b) {
-    return static_cast<RenderingFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr RenderingFlags operator|(RenderingFlags a, RenderingFlags b) {
+    return static_cast<RenderingFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class ResolveMode {
@@ -1364,6 +1466,7 @@ enum class Result {
     ErrorInvalidExternalHandle = -1000072003,
     ErrorFragmentation = -1000161000,
     ErrorInvalidOpaqueCaptureAddress = -1000257000,
+    PipelineCompileRequired = 1000297000,
     ErrorSurfaceLostKHR = -1000000000,
     ErrorNativeWindowInUseKHR = -1000000001,
     SuboptimalKHR = 1000001003,
@@ -1686,12 +1789,59 @@ enum class StructureType {
     BufferOpaqueCaptureAddressCreateInfo = 1000257002,
     MemoryOpaqueCaptureAddressAllocateInfo = 1000257003,
     DeviceMemoryOpaqueCaptureAddressInfo = 1000257004,
+    PhysicalDeviceVulkan13Features = 53,
+    PhysicalDeviceVulkan13Properties = 54,
+    PipelineCreationFeedbackCreateInfo = 1000192000,
+    PhysicalDeviceShaderTerminateInvocationFeatures = 1000215000,
+    PhysicalDeviceToolProperties = 1000245000,
+    PhysicalDeviceShaderDemoteToHelperInvocationFeatures = 1000276000,
+    PhysicalDevicePrivateDataFeatures = 1000295000,
+    DevicePrivateDataCreateInfo = 1000295001,
+    PrivateDataSlotCreateInfo = 1000295002,
+    PhysicalDevicePipelineCreationCacheControlFeatures = 1000297000,
+    MemoryBarrier2 = 1000314000,
+    BufferMemoryBarrier2 = 1000314001,
+    ImageMemoryBarrier2 = 1000314002,
+    DependencyInfo = 1000314003,
+    SubmitInfo2 = 1000314004,
+    SemaphoreSubmitInfo = 1000314005,
+    CommandBufferSubmitInfo = 1000314006,
+    PhysicalDeviceSynchronization2Features = 1000314007,
+    PhysicalDeviceZeroInitializeWorkgroupMemoryFeatures = 1000325000,
+    PhysicalDeviceImageRobustnessFeatures = 1000335000,
+    CopyBufferInfo2 = 1000337000,
+    CopyImageInfo2 = 1000337001,
+    CopyBufferToImageInfo2 = 1000337002,
+    CopyImageToBufferInfo2 = 1000337003,
+    BlitImageInfo2 = 1000337004,
+    ResolveImageInfo2 = 1000337005,
+    BufferCopy2 = 1000337006,
+    ImageCopy2 = 1000337007,
+    ImageBlit2 = 1000337008,
+    BufferImageCopy2 = 1000337009,
+    ImageResolve2 = 1000337010,
+    PhysicalDeviceSubgroupSizeControlProperties = 1000225000,
+    PipelineShaderStageRequiredSubgroupSizeCreateInfo = 1000225001,
+    PhysicalDeviceSubgroupSizeControlFeatures = 1000225002,
+    PhysicalDeviceInlineUniformBlockFeatures = 1000138000,
+    PhysicalDeviceInlineUniformBlockProperties = 1000138001,
+    WriteDescriptorSetInlineUniformBlock = 1000138002,
+    DescriptorPoolInlineUniformBlockCreateInfo = 1000138003,
+    PhysicalDeviceTextureCompressionAstcHdrFeatures = 1000066000,
+    RenderingInfo = 1000044000,
+    RenderingAttachmentInfo = 1000044001,
+    PipelineRenderingCreateInfo = 1000044002,
+    PhysicalDeviceDynamicRenderingFeatures = 1000044003,
+    CommandBufferInheritanceRenderingInfo = 1000044004,
+    PhysicalDeviceShaderIntegerDotProductFeatures = 1000280000,
+    PhysicalDeviceShaderIntegerDotProductProperties = 1000280001,
+    PhysicalDeviceTexelBufferAlignmentProperties = 1000281001,
+    FormatProperties3 = 1000360000,
+    PhysicalDeviceMaintenance4Features = 1000413000,
+    PhysicalDeviceMaintenance4Properties = 1000413001,
+    DeviceBufferMemoryRequirements = 1000413002,
+    DeviceImageMemoryRequirements = 1000413003,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
-    RenderingInfoKHR = 1000044000,
-    RenderingAttachmentInfoKHR = 1000044001,
-    PipelineRenderingCreateInfoKHR = 1000044002,
-    PhysicalDeviceDynamicRenderingFeaturesKHR = 1000044003,
-    CommandBufferInheritanceRenderingInfoKHR = 1000044004,
     SwapchainCreateInfoKHR = 1000001000,
     PresentInfoKHR = 1000001001,
     DeviceGroupPresentCapabilitiesKHR = 1000060007,
@@ -1700,14 +1850,6 @@ enum class StructureType {
     AcquireNextImageInfoKHR = 1000060010,
     DeviceGroupPresentInfoKHR = 1000060011,
     DeviceGroupSwapchainCreateInfoKHR = 1000060012,
-    MemoryBarrier2KHR = 1000314000,
-    BufferMemoryBarrier2KHR = 1000314001,
-    ImageMemoryBarrier2KHR = 1000314002,
-    DependencyInfoKHR = 1000314003,
-    SubmitInfo2KHR = 1000314004,
-    SemaphoreSubmitInfoKHR = 1000314005,
-    CommandBufferSubmitInfoKHR = 1000314006,
-    PhysicalDeviceSynchronization2FeaturesKHR = 1000314007,
     XcbSurfaceCreateInfoKHR = 1000005000,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
 };
@@ -1729,14 +1871,15 @@ inline constexpr SubgroupFeature operator|(SubgroupFeature a, SubgroupFeature b)
     return static_cast<SubgroupFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
-enum class SubmitFlagBitsKHR {
-    ProtectedKHR = 1u << 0u,
+enum class SubmitFlags {
+    None = 0,
+    Protected = 1u << 0u,
 };
-inline constexpr SubmitFlagBitsKHR operator&(SubmitFlagBitsKHR a, SubmitFlagBitsKHR b) {
-    return static_cast<SubmitFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SubmitFlags operator&(SubmitFlags a, SubmitFlags b) {
+    return static_cast<SubmitFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
 }
-inline constexpr SubmitFlagBitsKHR operator|(SubmitFlagBitsKHR a, SubmitFlagBitsKHR b) {
-    return static_cast<SubmitFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SubmitFlags operator|(SubmitFlags a, SubmitFlags b) {
+    return static_cast<SubmitFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
 enum class SubpassContents {
@@ -1785,6 +1928,21 @@ enum class TessellationDomainOrigin {
     UpperLeft = 0,
     LowerLeft = 1,
 };
+
+enum class ToolPurposeFlags {
+    None = 0,
+    Validation = 1u << 0u,
+    Profiling = 1u << 1u,
+    Tracing = 1u << 2u,
+    AdditionalFeatures = 1u << 3u,
+    ModifyingFeatures = 1u << 4u,
+};
+inline constexpr ToolPurposeFlags operator&(ToolPurposeFlags a, ToolPurposeFlags b) {
+    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+inline constexpr ToolPurposeFlags operator|(ToolPurposeFlags a, ToolPurposeFlags b) {
+    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
 
 enum class VendorId {
     VIV = 0x10001,
@@ -3215,9 +3373,6 @@ struct PhysicalDeviceMultiviewProperties {
     uint32_t maxMultiviewInstanceIndex;
 };
 
-struct PhysicalDeviceVariablePointerFeatures {
-};
-
 struct PhysicalDeviceVariablePointersFeatures {
     StructureType sType;
     void *pNext;
@@ -3430,9 +3585,6 @@ struct DescriptorSetLayoutSupport {
     StructureType sType;
     void *pNext;
     Bool supported;
-};
-
-struct PhysicalDeviceShaderDrawParameterFeatures {
 };
 
 struct PhysicalDeviceShaderDrawParametersFeatures {
@@ -4005,6 +4157,543 @@ struct DeviceMemoryOpaqueCaptureAddressInfo {
     DeviceMemory memory;
 };
 
+struct PhysicalDeviceVulkan13Features {
+    StructureType sType;
+    void *pNext;
+    Bool robustImageAccess;
+    Bool inlineUniformBlock;
+    Bool descriptorBindingInlineUniformBlockUpdateAfterBind;
+    Bool pipelineCreationCacheControl;
+    Bool privateData;
+    Bool shaderDemoteToHelperInvocation;
+    Bool shaderTerminateInvocation;
+    Bool subgroupSizeControl;
+    Bool computeFullSubgroups;
+    Bool synchronization2;
+    Bool textureCompressionASTC_HDR;
+    Bool shaderZeroInitializeWorkgroupMemory;
+    Bool dynamicRendering;
+    Bool shaderIntegerDotProduct;
+    Bool maintenance4;
+};
+
+struct PhysicalDeviceVulkan13Properties {
+    StructureType sType;
+    void *pNext;
+    uint32_t minSubgroupSize;
+    uint32_t maxSubgroupSize;
+    uint32_t maxComputeWorkgroupSubgroups;
+    ShaderStage requiredSubgroupSizeStages;
+    uint32_t maxInlineUniformBlockSize;
+    uint32_t maxPerStageDescriptorInlineUniformBlocks;
+    uint32_t maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
+    uint32_t maxDescriptorSetInlineUniformBlocks;
+    uint32_t maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
+    uint32_t maxInlineUniformTotalSize;
+    Bool integerDotProduct8BitUnsignedAccelerated;
+    Bool integerDotProduct8BitSignedAccelerated;
+    Bool integerDotProduct8BitMixedSignednessAccelerated;
+    Bool integerDotProduct4x8BitPackedUnsignedAccelerated;
+    Bool integerDotProduct4x8BitPackedSignedAccelerated;
+    Bool integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+    Bool integerDotProduct16BitUnsignedAccelerated;
+    Bool integerDotProduct16BitSignedAccelerated;
+    Bool integerDotProduct16BitMixedSignednessAccelerated;
+    Bool integerDotProduct32BitUnsignedAccelerated;
+    Bool integerDotProduct32BitSignedAccelerated;
+    Bool integerDotProduct32BitMixedSignednessAccelerated;
+    Bool integerDotProduct64BitUnsignedAccelerated;
+    Bool integerDotProduct64BitSignedAccelerated;
+    Bool integerDotProduct64BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+    DeviceSize storageTexelBufferOffsetAlignmentBytes;
+    Bool storageTexelBufferOffsetSingleTexelAlignment;
+    DeviceSize uniformTexelBufferOffsetAlignmentBytes;
+    Bool uniformTexelBufferOffsetSingleTexelAlignment;
+    DeviceSize maxBufferSize;
+};
+
+struct PipelineCreationFeedback {
+    PipelineCreationFeedbackFlags flags;
+    uint64_t duration;
+};
+
+struct PipelineCreationFeedbackCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    PipelineCreationFeedback *pPipelineCreationFeedback;
+    uint32_t pipelineStageCreationFeedbackCount;
+    PipelineCreationFeedback *pPipelineStageCreationFeedbacks;
+};
+
+struct PhysicalDeviceShaderTerminateInvocationFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool shaderTerminateInvocation;
+};
+
+struct PhysicalDeviceToolProperties {
+    StructureType sType;
+    void *pNext;
+    // NOLINTNEXTLINE
+    char name [k_max_extension_name_size ];
+    // NOLINTNEXTLINE
+    char version [k_max_extension_name_size ];
+    ToolPurposeFlags purposes;
+    // NOLINTNEXTLINE
+    char description [k_max_description_size ];
+    // NOLINTNEXTLINE
+    char layer [k_max_extension_name_size ];
+};
+
+struct PhysicalDeviceShaderDemoteToHelperInvocationFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool shaderDemoteToHelperInvocation;
+};
+
+struct PhysicalDevicePrivateDataFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool privateData;
+};
+
+struct DevicePrivateDataCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    uint32_t privateDataSlotRequestCount;
+};
+
+struct PrivateDataSlotCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    PrivateDataSlotCreateFlags flags;
+};
+
+struct PhysicalDevicePipelineCreationCacheControlFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool pipelineCreationCacheControl;
+};
+
+struct MemoryBarrier2 {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2 srcStageMask;
+    AccessFlags2 srcAccessMask;
+    PipelineStageFlags2 dstStageMask;
+    AccessFlags2 dstAccessMask;
+};
+
+struct BufferMemoryBarrier2 {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2 srcStageMask;
+    AccessFlags2 srcAccessMask;
+    PipelineStageFlags2 dstStageMask;
+    AccessFlags2 dstAccessMask;
+    uint32_t srcQueueFamilyIndex;
+    uint32_t dstQueueFamilyIndex;
+    Buffer buffer;
+    DeviceSize offset;
+    DeviceSize size;
+};
+
+struct ImageMemoryBarrier2 {
+    StructureType sType;
+    const void *pNext;
+    PipelineStageFlags2 srcStageMask;
+    AccessFlags2 srcAccessMask;
+    PipelineStageFlags2 dstStageMask;
+    AccessFlags2 dstAccessMask;
+    ImageLayout oldLayout;
+    ImageLayout newLayout;
+    uint32_t srcQueueFamilyIndex;
+    uint32_t dstQueueFamilyIndex;
+    Image image;
+    ImageSubresourceRange subresourceRange;
+};
+
+struct DependencyInfo {
+    StructureType sType;
+    const void *pNext;
+    DependencyFlags dependencyFlags;
+    uint32_t memoryBarrierCount;
+    const MemoryBarrier2 *pMemoryBarriers;
+    uint32_t bufferMemoryBarrierCount;
+    const BufferMemoryBarrier2 *pBufferMemoryBarriers;
+    uint32_t imageMemoryBarrierCount;
+    const ImageMemoryBarrier2 *pImageMemoryBarriers;
+};
+
+struct SemaphoreSubmitInfo {
+    StructureType sType;
+    const void *pNext;
+    Semaphore semaphore;
+    uint64_t value;
+    PipelineStageFlags2 stageMask;
+    uint32_t deviceIndex;
+};
+
+struct CommandBufferSubmitInfo {
+    StructureType sType;
+    const void *pNext;
+    CommandBuffer commandBuffer;
+    uint32_t deviceMask;
+};
+
+struct SubmitInfo2 {
+    StructureType sType;
+    const void *pNext;
+    SubmitFlags flags;
+    uint32_t waitSemaphoreInfoCount;
+    const SemaphoreSubmitInfo *pWaitSemaphoreInfos;
+    uint32_t commandBufferInfoCount;
+    const CommandBufferSubmitInfo *pCommandBufferInfos;
+    uint32_t signalSemaphoreInfoCount;
+    const SemaphoreSubmitInfo *pSignalSemaphoreInfos;
+};
+
+struct PhysicalDeviceSynchronization2Features {
+    StructureType sType;
+    void *pNext;
+    Bool synchronization2;
+};
+
+struct PhysicalDeviceZeroInitializeWorkgroupMemoryFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool shaderZeroInitializeWorkgroupMemory;
+};
+
+struct PhysicalDeviceImageRobustnessFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool robustImageAccess;
+};
+
+struct BufferCopy2 {
+    StructureType sType;
+    const void *pNext;
+    DeviceSize srcOffset;
+    DeviceSize dstOffset;
+    DeviceSize size;
+};
+
+struct CopyBufferInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Buffer srcBuffer;
+    Buffer dstBuffer;
+    uint32_t regionCount;
+    const BufferCopy2 *pRegions;
+};
+
+struct ImageCopy2 {
+    StructureType sType;
+    const void *pNext;
+    ImageSubresourceLayers srcSubresource;
+    Offset3D srcOffset;
+    ImageSubresourceLayers dstSubresource;
+    Offset3D dstOffset;
+    Extent3D extent;
+};
+
+struct CopyImageInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Image srcImage;
+    ImageLayout srcImageLayout;
+    Image dstImage;
+    ImageLayout dstImageLayout;
+    uint32_t regionCount;
+    const ImageCopy2 *pRegions;
+};
+
+struct BufferImageCopy2 {
+    StructureType sType;
+    const void *pNext;
+    DeviceSize bufferOffset;
+    uint32_t bufferRowLength;
+    uint32_t bufferImageHeight;
+    ImageSubresourceLayers imageSubresource;
+    Offset3D imageOffset;
+    Extent3D imageExtent;
+};
+
+struct CopyBufferToImageInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Buffer srcBuffer;
+    Image dstImage;
+    ImageLayout dstImageLayout;
+    uint32_t regionCount;
+    const BufferImageCopy2 *pRegions;
+};
+
+struct CopyImageToBufferInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Image srcImage;
+    ImageLayout srcImageLayout;
+    Buffer dstBuffer;
+    uint32_t regionCount;
+    const BufferImageCopy2 *pRegions;
+};
+
+struct ImageBlit2 {
+    StructureType sType;
+    const void *pNext;
+    ImageSubresourceLayers srcSubresource;
+    // NOLINTNEXTLINE
+    Offset3D srcOffsets [2];
+    ImageSubresourceLayers dstSubresource;
+    // NOLINTNEXTLINE
+    Offset3D dstOffsets [2];
+};
+
+struct BlitImageInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Image srcImage;
+    ImageLayout srcImageLayout;
+    Image dstImage;
+    ImageLayout dstImageLayout;
+    uint32_t regionCount;
+    const ImageBlit2 *pRegions;
+    Filter filter;
+};
+
+struct ImageResolve2 {
+    StructureType sType;
+    const void *pNext;
+    ImageSubresourceLayers srcSubresource;
+    Offset3D srcOffset;
+    ImageSubresourceLayers dstSubresource;
+    Offset3D dstOffset;
+    Extent3D extent;
+};
+
+struct ResolveImageInfo2 {
+    StructureType sType;
+    const void *pNext;
+    Image srcImage;
+    ImageLayout srcImageLayout;
+    Image dstImage;
+    ImageLayout dstImageLayout;
+    uint32_t regionCount;
+    const ImageResolve2 *pRegions;
+};
+
+struct PhysicalDeviceSubgroupSizeControlFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool subgroupSizeControl;
+    Bool computeFullSubgroups;
+};
+
+struct PhysicalDeviceSubgroupSizeControlProperties {
+    StructureType sType;
+    void *pNext;
+    uint32_t minSubgroupSize;
+    uint32_t maxSubgroupSize;
+    uint32_t maxComputeWorkgroupSubgroups;
+    ShaderStage requiredSubgroupSizeStages;
+};
+
+struct PipelineShaderStageRequiredSubgroupSizeCreateInfo {
+    StructureType sType;
+    void *pNext;
+    uint32_t requiredSubgroupSize;
+};
+
+struct PhysicalDeviceInlineUniformBlockFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool inlineUniformBlock;
+    Bool descriptorBindingInlineUniformBlockUpdateAfterBind;
+};
+
+struct PhysicalDeviceInlineUniformBlockProperties {
+    StructureType sType;
+    void *pNext;
+    uint32_t maxInlineUniformBlockSize;
+    uint32_t maxPerStageDescriptorInlineUniformBlocks;
+    uint32_t maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
+    uint32_t maxDescriptorSetInlineUniformBlocks;
+    uint32_t maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
+};
+
+struct WriteDescriptorSetInlineUniformBlock {
+    StructureType sType;
+    const void *pNext;
+    uint32_t dataSize;
+    const void *pData;
+};
+
+struct DescriptorPoolInlineUniformBlockCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    uint32_t maxInlineUniformBlockBindings;
+};
+
+struct PhysicalDeviceTextureCompressionASTCHDRFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool textureCompressionASTC_HDR;
+};
+
+struct RenderingAttachmentInfo {
+    StructureType sType;
+    const void *pNext;
+    ImageView imageView;
+    ImageLayout imageLayout;
+    ResolveMode resolveMode;
+    ImageView resolveImageView;
+    ImageLayout resolveImageLayout;
+    AttachmentLoadOp loadOp;
+    AttachmentStoreOp storeOp;
+    ClearValue clearValue;
+};
+
+struct RenderingInfo {
+    StructureType sType;
+    const void *pNext;
+    RenderingFlags flags;
+    Rect2D renderArea;
+    uint32_t layerCount;
+    uint32_t viewMask;
+    uint32_t colorAttachmentCount;
+    const RenderingAttachmentInfo *pColorAttachments;
+    const RenderingAttachmentInfo *pDepthAttachment;
+    const RenderingAttachmentInfo *pStencilAttachment;
+};
+
+struct PipelineRenderingCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    uint32_t viewMask;
+    uint32_t colorAttachmentCount;
+    const Format *pColorAttachmentFormats;
+    Format depthAttachmentFormat;
+    Format stencilAttachmentFormat;
+};
+
+struct PhysicalDeviceDynamicRenderingFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool dynamicRendering;
+};
+
+struct CommandBufferInheritanceRenderingInfo {
+    StructureType sType;
+    const void *pNext;
+    RenderingFlags flags;
+    uint32_t viewMask;
+    uint32_t colorAttachmentCount;
+    const Format *pColorAttachmentFormats;
+    Format depthAttachmentFormat;
+    Format stencilAttachmentFormat;
+    SampleCount rasterizationSamples;
+};
+
+struct PhysicalDeviceShaderIntegerDotProductFeatures {
+    StructureType sType;
+    void *pNext;
+    Bool shaderIntegerDotProduct;
+};
+
+struct PhysicalDeviceShaderIntegerDotProductProperties {
+    StructureType sType;
+    void *pNext;
+    Bool integerDotProduct8BitUnsignedAccelerated;
+    Bool integerDotProduct8BitSignedAccelerated;
+    Bool integerDotProduct8BitMixedSignednessAccelerated;
+    Bool integerDotProduct4x8BitPackedUnsignedAccelerated;
+    Bool integerDotProduct4x8BitPackedSignedAccelerated;
+    Bool integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+    Bool integerDotProduct16BitUnsignedAccelerated;
+    Bool integerDotProduct16BitSignedAccelerated;
+    Bool integerDotProduct16BitMixedSignednessAccelerated;
+    Bool integerDotProduct32BitUnsignedAccelerated;
+    Bool integerDotProduct32BitSignedAccelerated;
+    Bool integerDotProduct32BitMixedSignednessAccelerated;
+    Bool integerDotProduct64BitUnsignedAccelerated;
+    Bool integerDotProduct64BitSignedAccelerated;
+    Bool integerDotProduct64BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+    Bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+};
+
+struct PhysicalDeviceTexelBufferAlignmentProperties {
+    StructureType sType;
+    void *pNext;
+    DeviceSize storageTexelBufferOffsetAlignmentBytes;
+    Bool storageTexelBufferOffsetSingleTexelAlignment;
+    DeviceSize uniformTexelBufferOffsetAlignmentBytes;
+    Bool uniformTexelBufferOffsetSingleTexelAlignment;
+};
+
+struct FormatProperties3 {
+    StructureType sType;
+    void *pNext;
+    FormatFeatureFlags2 linearTilingFeatures;
+    FormatFeatureFlags2 optimalTilingFeatures;
+    FormatFeatureFlags2 bufferFeatures;
+};
+
+struct PhysicalDeviceMaintenance4Features {
+    StructureType sType;
+    void *pNext;
+    Bool maintenance4;
+};
+
+struct PhysicalDeviceMaintenance4Properties {
+    StructureType sType;
+    void *pNext;
+    DeviceSize maxBufferSize;
+};
+
+struct DeviceBufferMemoryRequirements {
+    StructureType sType;
+    const void *pNext;
+    const BufferCreateInfo *pCreateInfo;
+};
+
+struct DeviceImageMemoryRequirements {
+    StructureType sType;
+    const void *pNext;
+    const ImageCreateInfo *pCreateInfo;
+    ImageAspect planeAspect;
+};
+
 struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
     StructureType sType;
     void *pNext;
@@ -4020,60 +4709,6 @@ struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
     Bool shaderSharedFloat64AtomicMinMax;
     Bool shaderImageFloat32AtomicMinMax;
     Bool sparseImageFloat32AtomicMinMax;
-};
-
-struct RenderingAttachmentInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    ImageView imageView;
-    ImageLayout imageLayout;
-    ResolveMode resolveMode;
-    ImageView resolveImageView;
-    ImageLayout resolveImageLayout;
-    AttachmentLoadOp loadOp;
-    AttachmentStoreOp storeOp;
-    ClearValue clearValue;
-};
-
-struct RenderingInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    RenderingFlagsKHR flags;
-    Rect2D renderArea;
-    uint32_t layerCount;
-    uint32_t viewMask;
-    uint32_t colorAttachmentCount;
-    const RenderingAttachmentInfoKHR *pColorAttachments;
-    const RenderingAttachmentInfoKHR *pDepthAttachment;
-    const RenderingAttachmentInfoKHR *pStencilAttachment;
-};
-
-struct PipelineRenderingCreateInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    uint32_t viewMask;
-    uint32_t colorAttachmentCount;
-    const Format *pColorAttachmentFormats;
-    Format depthAttachmentFormat;
-    Format stencilAttachmentFormat;
-};
-
-struct PhysicalDeviceDynamicRenderingFeaturesKHR {
-    StructureType sType;
-    void *pNext;
-    Bool dynamicRendering;
-};
-
-struct CommandBufferInheritanceRenderingInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    RenderingFlagsKHR flags;
-    uint32_t viewMask;
-    uint32_t colorAttachmentCount;
-    const Format *pColorAttachmentFormats;
-    Format depthAttachmentFormat;
-    Format stencilAttachmentFormat;
-    SampleCount rasterizationSamples;
 };
 
 struct SurfaceCapabilitiesKHR {
@@ -4171,90 +4806,6 @@ struct DeviceGroupSwapchainCreateInfoKHR {
     DeviceGroupPresentModeFlagsKHR modes;
 };
 
-struct MemoryBarrier2KHR {
-    StructureType sType;
-    const void *pNext;
-    PipelineStageFlags2KHR srcStageMask;
-    AccessFlags2KHR srcAccessMask;
-    PipelineStageFlags2KHR dstStageMask;
-    AccessFlags2KHR dstAccessMask;
-};
-
-struct BufferMemoryBarrier2KHR {
-    StructureType sType;
-    const void *pNext;
-    PipelineStageFlags2KHR srcStageMask;
-    AccessFlags2KHR srcAccessMask;
-    PipelineStageFlags2KHR dstStageMask;
-    AccessFlags2KHR dstAccessMask;
-    uint32_t srcQueueFamilyIndex;
-    uint32_t dstQueueFamilyIndex;
-    Buffer buffer;
-    DeviceSize offset;
-    DeviceSize size;
-};
-
-struct ImageMemoryBarrier2KHR {
-    StructureType sType;
-    const void *pNext;
-    PipelineStageFlags2KHR srcStageMask;
-    AccessFlags2KHR srcAccessMask;
-    PipelineStageFlags2KHR dstStageMask;
-    AccessFlags2KHR dstAccessMask;
-    ImageLayout oldLayout;
-    ImageLayout newLayout;
-    uint32_t srcQueueFamilyIndex;
-    uint32_t dstQueueFamilyIndex;
-    Image image;
-    ImageSubresourceRange subresourceRange;
-};
-
-struct DependencyInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    DependencyFlags dependencyFlags;
-    uint32_t memoryBarrierCount;
-    const MemoryBarrier2KHR *pMemoryBarriers;
-    uint32_t bufferMemoryBarrierCount;
-    const BufferMemoryBarrier2KHR *pBufferMemoryBarriers;
-    uint32_t imageMemoryBarrierCount;
-    const ImageMemoryBarrier2KHR *pImageMemoryBarriers;
-};
-
-struct SemaphoreSubmitInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    Semaphore semaphore;
-    uint64_t value;
-    PipelineStageFlags2KHR stageMask;
-    uint32_t deviceIndex;
-};
-
-struct CommandBufferSubmitInfoKHR {
-    StructureType sType;
-    const void *pNext;
-    CommandBuffer commandBuffer;
-    uint32_t deviceMask;
-};
-
-struct SubmitInfo2KHR {
-    StructureType sType;
-    const void *pNext;
-    SubmitFlagsKHR flags;
-    uint32_t waitSemaphoreInfoCount;
-    const SemaphoreSubmitInfoKHR *pWaitSemaphoreInfos;
-    uint32_t commandBufferInfoCount;
-    const CommandBufferSubmitInfoKHR *pCommandBufferInfos;
-    uint32_t signalSemaphoreInfoCount;
-    const SemaphoreSubmitInfoKHR *pSignalSemaphoreInfos;
-};
-
-struct PhysicalDeviceSynchronization2FeaturesKHR {
-    StructureType sType;
-    void *pNext;
-    Bool synchronization2;
-};
-
 struct XcbSurfaceCreateInfoKHR {
     StructureType sType;
     const void *pNext;
@@ -4280,33 +4831,6 @@ struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
     Bool sparseImageFloat32AtomicAdd;
 };
 
-struct PhysicalDeviceFeatures2KHR {
-};
-
-struct PhysicalDeviceProperties2KHR {
-};
-
-struct FormatProperties2KHR {
-};
-
-struct ImageFormatProperties2KHR {
-};
-
-struct PhysicalDeviceImageFormatInfo2KHR {
-};
-
-struct QueueFamilyProperties2KHR {
-};
-
-struct PhysicalDeviceMemoryProperties2KHR {
-};
-
-struct SparseImageFormatProperties2KHR {
-};
-
-struct PhysicalDeviceSparseImageFormatInfo2KHR {
-};
-
 // Command function pointers.
 using PFN_vkAcquireNextImage2KHR = Result (*)(Device device, const AcquireNextImageInfoKHR *pAcquireInfo, uint32_t *pImageIndex); // NOLINT
 using PFN_vkAcquireNextImageKHR = Result (*)(Device device, SwapchainKHR swapchain, uint64_t timeout, Semaphore semaphore, Fence fence, uint32_t *pImageIndex); // NOLINT
@@ -4321,19 +4845,25 @@ using PFN_vkBindImageMemory2 = Result (*)(Device device, uint32_t bindInfoCount,
 using PFN_vkCmdBeginQuery = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query, QueryControlFlags flags); // NOLINT
 using PFN_vkCmdBeginRenderPass = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, SubpassContents contents); // NOLINT
 using PFN_vkCmdBeginRenderPass2 = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, const SubpassBeginInfo *pSubpassBeginInfo); // NOLINT
-using PFN_vkCmdBeginRenderingKHR = void (*)(CommandBuffer commandBuffer, const RenderingInfoKHR *pRenderingInfo); // NOLINT
+using PFN_vkCmdBeginRendering = void (*)(CommandBuffer commandBuffer, const RenderingInfo *pRenderingInfo); // NOLINT
 using PFN_vkCmdBindDescriptorSets = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets); // NOLINT
 using PFN_vkCmdBindIndexBuffer = void (*)(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, IndexType indexType); // NOLINT
 using PFN_vkCmdBindPipeline = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, Pipeline pipeline); // NOLINT
 using PFN_vkCmdBindVertexBuffers = void (*)(CommandBuffer commandBuffer, uint32_t firstBinding, uint32_t bindingCount, const Buffer *pBuffers, const DeviceSize *pOffsets); // NOLINT
+using PFN_vkCmdBindVertexBuffers2 = void (*)(CommandBuffer commandBuffer, uint32_t firstBinding, uint32_t bindingCount, const Buffer *pBuffers, const DeviceSize *pOffsets, const DeviceSize *pSizes, const DeviceSize *pStrides); // NOLINT
 using PFN_vkCmdBlitImage = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageBlit *pRegions, Filter filter); // NOLINT
+using PFN_vkCmdBlitImage2 = void (*)(CommandBuffer commandBuffer, const BlitImageInfo2 *pBlitImageInfo); // NOLINT
 using PFN_vkCmdClearAttachments = void (*)(CommandBuffer commandBuffer, uint32_t attachmentCount, const ClearAttachment *pAttachments, uint32_t rectCount, const ClearRect *pRects); // NOLINT
 using PFN_vkCmdClearColorImage = void (*)(CommandBuffer commandBuffer, Image image, ImageLayout imageLayout, const ClearColorValue *pColor, uint32_t rangeCount, const ImageSubresourceRange *pRanges); // NOLINT
 using PFN_vkCmdClearDepthStencilImage = void (*)(CommandBuffer commandBuffer, Image image, ImageLayout imageLayout, const ClearDepthStencilValue *pDepthStencil, uint32_t rangeCount, const ImageSubresourceRange *pRanges); // NOLINT
 using PFN_vkCmdCopyBuffer = void (*)(CommandBuffer commandBuffer, Buffer srcBuffer, Buffer dstBuffer, uint32_t regionCount, const BufferCopy *pRegions); // NOLINT
+using PFN_vkCmdCopyBuffer2 = void (*)(CommandBuffer commandBuffer, const CopyBufferInfo2 *pCopyBufferInfo); // NOLINT
 using PFN_vkCmdCopyBufferToImage = void (*)(CommandBuffer commandBuffer, Buffer srcBuffer, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const BufferImageCopy *pRegions); // NOLINT
+using PFN_vkCmdCopyBufferToImage2 = void (*)(CommandBuffer commandBuffer, const CopyBufferToImageInfo2 *pCopyBufferToImageInfo); // NOLINT
 using PFN_vkCmdCopyImage = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageCopy *pRegions); // NOLINT
+using PFN_vkCmdCopyImage2 = void (*)(CommandBuffer commandBuffer, const CopyImageInfo2 *pCopyImageInfo); // NOLINT
 using PFN_vkCmdCopyImageToBuffer = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Buffer dstBuffer, uint32_t regionCount, const BufferImageCopy *pRegions); // NOLINT
+using PFN_vkCmdCopyImageToBuffer2 = void (*)(CommandBuffer commandBuffer, const CopyImageToBufferInfo2 *pCopyImageToBufferInfo); // NOLINT
 using PFN_vkCmdCopyQueryPoolResults = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize stride, QueryResultFlags flags); // NOLINT
 using PFN_vkCmdDispatch = void (*)(CommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ); // NOLINT
 using PFN_vkCmdDispatchBase = void (*)(CommandBuffer commandBuffer, uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ); // NOLINT
@@ -4347,35 +4877,50 @@ using PFN_vkCmdDrawIndirectCount = void (*)(CommandBuffer commandBuffer, Buffer 
 using PFN_vkCmdEndQuery = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query); // NOLINT
 using PFN_vkCmdEndRenderPass = void (*)(CommandBuffer commandBuffer); // NOLINT
 using PFN_vkCmdEndRenderPass2 = void (*)(CommandBuffer commandBuffer, const SubpassEndInfo *pSubpassEndInfo); // NOLINT
-using PFN_vkCmdEndRenderingKHR = void (*)(CommandBuffer commandBuffer); // NOLINT
+using PFN_vkCmdEndRendering = void (*)(CommandBuffer commandBuffer); // NOLINT
 using PFN_vkCmdExecuteCommands = void (*)(CommandBuffer commandBuffer, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers); // NOLINT
 using PFN_vkCmdFillBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize size, uint32_t data); // NOLINT
 using PFN_vkCmdNextSubpass = void (*)(CommandBuffer commandBuffer, SubpassContents contents); // NOLINT
 using PFN_vkCmdNextSubpass2 = void (*)(CommandBuffer commandBuffer, const SubpassBeginInfo *pSubpassBeginInfo, const SubpassEndInfo *pSubpassEndInfo); // NOLINT
 using PFN_vkCmdPipelineBarrier = void (*)(CommandBuffer commandBuffer, PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers); // NOLINT
-using PFN_vkCmdPipelineBarrier2KHR = void (*)(CommandBuffer commandBuffer, const DependencyInfoKHR *pDependencyInfo); // NOLINT
+using PFN_vkCmdPipelineBarrier2 = void (*)(CommandBuffer commandBuffer, const DependencyInfo *pDependencyInfo); // NOLINT
 using PFN_vkCmdPushConstants = void (*)(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues); // NOLINT
 using PFN_vkCmdResetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask); // NOLINT
-using PFN_vkCmdResetEvent2KHR = void (*)(CommandBuffer commandBuffer, Event event, PipelineStageFlags2KHR stageMask); // NOLINT
+using PFN_vkCmdResetEvent2 = void (*)(CommandBuffer commandBuffer, Event event, PipelineStageFlags2 stageMask); // NOLINT
 using PFN_vkCmdResetQueryPool = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount); // NOLINT
 using PFN_vkCmdResolveImage = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageResolve *pRegions); // NOLINT
+using PFN_vkCmdResolveImage2 = void (*)(CommandBuffer commandBuffer, const ResolveImageInfo2 *pResolveImageInfo); // NOLINT
 using PFN_vkCmdSetBlendConstants = void (*)(CommandBuffer commandBuffer, const float blendConstants [4]); // NOLINT
+using PFN_vkCmdSetCullMode = void (*)(CommandBuffer commandBuffer, CullMode cullMode); // NOLINT
 using PFN_vkCmdSetDepthBias = void (*)(CommandBuffer commandBuffer, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor); // NOLINT
+using PFN_vkCmdSetDepthBiasEnable = void (*)(CommandBuffer commandBuffer, Bool depthBiasEnable); // NOLINT
 using PFN_vkCmdSetDepthBounds = void (*)(CommandBuffer commandBuffer, float minDepthBounds, float maxDepthBounds); // NOLINT
+using PFN_vkCmdSetDepthBoundsTestEnable = void (*)(CommandBuffer commandBuffer, Bool depthBoundsTestEnable); // NOLINT
+using PFN_vkCmdSetDepthCompareOp = void (*)(CommandBuffer commandBuffer, CompareOp depthCompareOp); // NOLINT
+using PFN_vkCmdSetDepthTestEnable = void (*)(CommandBuffer commandBuffer, Bool depthTestEnable); // NOLINT
+using PFN_vkCmdSetDepthWriteEnable = void (*)(CommandBuffer commandBuffer, Bool depthWriteEnable); // NOLINT
 using PFN_vkCmdSetDeviceMask = void (*)(CommandBuffer commandBuffer, uint32_t deviceMask); // NOLINT
 using PFN_vkCmdSetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask); // NOLINT
-using PFN_vkCmdSetEvent2KHR = void (*)(CommandBuffer commandBuffer, Event event, const DependencyInfoKHR *pDependencyInfo); // NOLINT
+using PFN_vkCmdSetEvent2 = void (*)(CommandBuffer commandBuffer, Event event, const DependencyInfo *pDependencyInfo); // NOLINT
+using PFN_vkCmdSetFrontFace = void (*)(CommandBuffer commandBuffer, FrontFace frontFace); // NOLINT
 using PFN_vkCmdSetLineWidth = void (*)(CommandBuffer commandBuffer, float lineWidth); // NOLINT
+using PFN_vkCmdSetPrimitiveRestartEnable = void (*)(CommandBuffer commandBuffer, Bool primitiveRestartEnable); // NOLINT
+using PFN_vkCmdSetPrimitiveTopology = void (*)(CommandBuffer commandBuffer, PrimitiveTopology primitiveTopology); // NOLINT
+using PFN_vkCmdSetRasterizerDiscardEnable = void (*)(CommandBuffer commandBuffer, Bool rasterizerDiscardEnable); // NOLINT
 using PFN_vkCmdSetScissor = void (*)(CommandBuffer commandBuffer, uint32_t firstScissor, uint32_t scissorCount, const Rect2D *pScissors); // NOLINT
+using PFN_vkCmdSetScissorWithCount = void (*)(CommandBuffer commandBuffer, uint32_t scissorCount, const Rect2D *pScissors); // NOLINT
 using PFN_vkCmdSetStencilCompareMask = void (*)(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t compareMask); // NOLINT
+using PFN_vkCmdSetStencilOp = void (*)(CommandBuffer commandBuffer, StencilFaceFlags faceMask, StencilOp failOp, StencilOp passOp, StencilOp depthFailOp, CompareOp compareOp); // NOLINT
 using PFN_vkCmdSetStencilReference = void (*)(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t reference); // NOLINT
+using PFN_vkCmdSetStencilTestEnable = void (*)(CommandBuffer commandBuffer, Bool stencilTestEnable); // NOLINT
 using PFN_vkCmdSetStencilWriteMask = void (*)(CommandBuffer commandBuffer, StencilFaceFlags faceMask, uint32_t writeMask); // NOLINT
 using PFN_vkCmdSetViewport = void (*)(CommandBuffer commandBuffer, uint32_t firstViewport, uint32_t viewportCount, const Viewport *pViewports); // NOLINT
+using PFN_vkCmdSetViewportWithCount = void (*)(CommandBuffer commandBuffer, uint32_t viewportCount, const Viewport *pViewports); // NOLINT
 using PFN_vkCmdUpdateBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize dataSize, const void *pData); // NOLINT
 using PFN_vkCmdWaitEvents = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers); // NOLINT
-using PFN_vkCmdWaitEvents2KHR = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfoKHR *pDependencyInfos); // NOLINT
+using PFN_vkCmdWaitEvents2 = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos); // NOLINT
 using PFN_vkCmdWriteTimestamp = void (*)(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query); // NOLINT
-using PFN_vkCmdWriteTimestamp2KHR = void (*)(CommandBuffer commandBuffer, PipelineStageFlags2KHR stage, QueryPool queryPool, uint32_t query); // NOLINT
+using PFN_vkCmdWriteTimestamp2 = void (*)(CommandBuffer commandBuffer, PipelineStageFlags2 stage, QueryPool queryPool, uint32_t query); // NOLINT
 using PFN_vkCreateBuffer = Result (*)(Device device, const BufferCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Buffer *pBuffer); // NOLINT
 using PFN_vkCreateBufferView = Result (*)(Device device, const BufferViewCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, BufferView *pView); // NOLINT
 using PFN_vkCreateCommandPool = Result (*)(Device device, const CommandPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, CommandPool *pCommandPool); // NOLINT
@@ -4393,6 +4938,7 @@ using PFN_vkCreateImageView = Result (*)(Device device, const ImageViewCreateInf
 using PFN_vkCreateInstance = Result (*)(const InstanceCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Instance *pInstance); // NOLINT
 using PFN_vkCreatePipelineCache = Result (*)(Device device, const PipelineCacheCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, PipelineCache *pPipelineCache); // NOLINT
 using PFN_vkCreatePipelineLayout = Result (*)(Device device, const PipelineLayoutCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, PipelineLayout *pPipelineLayout); // NOLINT
+using PFN_vkCreatePrivateDataSlot = Result (*)(Device device, const PrivateDataSlotCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, PrivateDataSlot *pPrivateDataSlot); // NOLINT
 using PFN_vkCreateQueryPool = Result (*)(Device device, const QueryPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, QueryPool *pQueryPool); // NOLINT
 using PFN_vkCreateRenderPass = Result (*)(Device device, const RenderPassCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, RenderPass *pRenderPass); // NOLINT
 using PFN_vkCreateRenderPass2 = Result (*)(Device device, const RenderPassCreateInfo2 *pCreateInfo, const AllocationCallbacks *pAllocator, RenderPass *pRenderPass); // NOLINT
@@ -4418,6 +4964,7 @@ using PFN_vkDestroyInstance = void (*)(Instance instance, const AllocationCallba
 using PFN_vkDestroyPipeline = void (*)(Device device, Pipeline pipeline, const AllocationCallbacks *pAllocator); // NOLINT
 using PFN_vkDestroyPipelineCache = void (*)(Device device, PipelineCache pipelineCache, const AllocationCallbacks *pAllocator); // NOLINT
 using PFN_vkDestroyPipelineLayout = void (*)(Device device, PipelineLayout pipelineLayout, const AllocationCallbacks *pAllocator); // NOLINT
+using PFN_vkDestroyPrivateDataSlot = void (*)(Device device, PrivateDataSlot privateDataSlot, const AllocationCallbacks *pAllocator); // NOLINT
 using PFN_vkDestroyQueryPool = void (*)(Device device, QueryPool queryPool, const AllocationCallbacks *pAllocator); // NOLINT
 using PFN_vkDestroyRenderPass = void (*)(Device device, RenderPass renderPass, const AllocationCallbacks *pAllocator); // NOLINT
 using PFN_vkDestroySampler = void (*)(Device device, Sampler sampler, const AllocationCallbacks *pAllocator); // NOLINT
@@ -4444,9 +4991,12 @@ using PFN_vkGetBufferMemoryRequirements = void (*)(Device device, Buffer buffer,
 using PFN_vkGetBufferMemoryRequirements2 = void (*)(Device device, const BufferMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements); // NOLINT
 using PFN_vkGetBufferOpaqueCaptureAddress = uint64_t (*)(Device device, const BufferDeviceAddressInfo *pInfo); // NOLINT
 using PFN_vkGetDescriptorSetLayoutSupport = void (*)(Device device, const DescriptorSetLayoutCreateInfo *pCreateInfo, DescriptorSetLayoutSupport *pSupport); // NOLINT
+using PFN_vkGetDeviceBufferMemoryRequirements = void (*)(Device device, const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements); // NOLINT
 using PFN_vkGetDeviceGroupPeerMemoryFeatures = void (*)(Device device, uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures); // NOLINT
 using PFN_vkGetDeviceGroupPresentCapabilitiesKHR = Result (*)(Device device, DeviceGroupPresentCapabilitiesKHR *pDeviceGroupPresentCapabilities); // NOLINT
 using PFN_vkGetDeviceGroupSurfacePresentModesKHR = Result (*)(Device device, SurfaceKHR surface, DeviceGroupPresentModeFlagsKHR *pModes); // NOLINT
+using PFN_vkGetDeviceImageMemoryRequirements = void (*)(Device device, const DeviceImageMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements); // NOLINT
+using PFN_vkGetDeviceImageSparseMemoryRequirements = void (*)(Device device, const DeviceImageMemoryRequirements *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements); // NOLINT
 using PFN_vkGetDeviceMemoryCommitment = void (*)(Device device, DeviceMemory memory, DeviceSize *pCommittedMemoryInBytes); // NOLINT
 using PFN_vkGetDeviceMemoryOpaqueCaptureAddress = uint64_t (*)(Device device, const DeviceMemoryOpaqueCaptureAddressInfo *pInfo); // NOLINT
 using PFN_vkGetDeviceProcAddr = PFN_vkVoidFunction (*)(Device device, const char *pName); // NOLINT
@@ -4482,8 +5032,10 @@ using PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR = Result (*)(PhysicalDevice 
 using PFN_vkGetPhysicalDeviceSurfaceFormatsKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, uint32_t *pSurfaceFormatCount, SurfaceFormatKHR *pSurfaceFormats); // NOLINT
 using PFN_vkGetPhysicalDeviceSurfacePresentModesKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, uint32_t *pPresentModeCount, PresentModeKHR *pPresentModes); // NOLINT
 using PFN_vkGetPhysicalDeviceSurfaceSupportKHR = Result (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported); // NOLINT
+using PFN_vkGetPhysicalDeviceToolProperties = Result (*)(PhysicalDevice physicalDevice, uint32_t *pToolCount, PhysicalDeviceToolProperties *pToolProperties); // NOLINT
 using PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR = Bool (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id); // NOLINT
 using PFN_vkGetPipelineCacheData = Result (*)(Device device, PipelineCache pipelineCache, size_t *pDataSize, void *pData); // NOLINT
+using PFN_vkGetPrivateData = void (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData); // NOLINT
 using PFN_vkGetQueryPoolResults = Result (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags); // NOLINT
 using PFN_vkGetRenderAreaGranularity = void (*)(Device device, RenderPass renderPass, Extent2D *pGranularity); // NOLINT
 using PFN_vkGetSemaphoreCounterValue = Result (*)(Device device, Semaphore semaphore, uint64_t *pValue); // NOLINT
@@ -4494,7 +5046,7 @@ using PFN_vkMergePipelineCaches = Result (*)(Device device, PipelineCache dstCac
 using PFN_vkQueueBindSparse = Result (*)(Queue queue, uint32_t bindInfoCount, const BindSparseInfo *pBindInfo, Fence fence); // NOLINT
 using PFN_vkQueuePresentKHR = Result (*)(Queue queue, const PresentInfoKHR *pPresentInfo); // NOLINT
 using PFN_vkQueueSubmit = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo *pSubmits, Fence fence); // NOLINT
-using PFN_vkQueueSubmit2KHR = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo2KHR *pSubmits, Fence fence); // NOLINT
+using PFN_vkQueueSubmit2 = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo2 *pSubmits, Fence fence); // NOLINT
 using PFN_vkQueueWaitIdle = Result (*)(Queue queue); // NOLINT
 using PFN_vkResetCommandBuffer = Result (*)(CommandBuffer commandBuffer, CommandBufferResetFlags flags); // NOLINT
 using PFN_vkResetCommandPool = Result (*)(Device device, CommandPool commandPool, CommandPoolResetFlags flags); // NOLINT
@@ -4503,6 +5055,7 @@ using PFN_vkResetEvent = Result (*)(Device device, Event event); // NOLINT
 using PFN_vkResetFences = Result (*)(Device device, uint32_t fenceCount, const Fence *pFences); // NOLINT
 using PFN_vkResetQueryPool = void (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount); // NOLINT
 using PFN_vkSetEvent = Result (*)(Device device, Event event); // NOLINT
+using PFN_vkSetPrivateData = Result (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t data); // NOLINT
 using PFN_vkSignalSemaphore = Result (*)(Device device, const SemaphoreSignalInfo *pSignalInfo); // NOLINT
 using PFN_vkTrimCommandPool = void (*)(Device device, CommandPool commandPool, CommandPoolTrimFlags flags); // NOLINT
 using PFN_vkUnmapMemory = void (*)(Device device, DeviceMemory memory); // NOLINT

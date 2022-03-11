@@ -189,8 +189,8 @@ Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::Shade
         },
     };
     const auto colour_format = vk::Format::B8G8R8A8Srgb;
-    vk::PipelineRenderingCreateInfoKHR rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfoKHR,
+    vk::PipelineRenderingCreateInfo rendering_create_info{
+        .sType = vk::StructureType::PipelineRenderingCreateInfo,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colour_format,
     };
@@ -282,15 +282,15 @@ void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
     *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
     m_context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline_layout, 0, 1,
                                       &m_descriptor_set, 0, nullptr);
-    vk::RenderingAttachmentInfoKHR colour_write_attachment{
-        .sType = vk::StructureType::RenderingAttachmentInfoKHR,
+    vk::RenderingAttachmentInfo colour_write_attachment{
+        .sType = vk::StructureType::RenderingAttachmentInfo,
         .imageView = m_swapchain.image_view(image_index),
         .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::Load,
         .storeOp = vk::AttachmentStoreOp::Store,
     };
-    vk::RenderingInfoKHR rendering_info{
-        .sType = vk::StructureType::RenderingInfoKHR,
+    vk::RenderingInfo rendering_info{
+        .sType = vk::StructureType::RenderingInfo,
         .renderArea{
             .extent = m_swapchain.extent_2D(),
         },
@@ -298,10 +298,10 @@ void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
         .colorAttachmentCount = 1,
         .pColorAttachments = &colour_write_attachment,
     };
-    m_context.vkCmdBeginRenderingKHR(command_buffer, &rendering_info);
+    m_context.vkCmdBeginRendering(command_buffer, &rendering_info);
     m_context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline);
     m_context.vkCmdDraw(command_buffer, 6, m_object_index, 0, 0);
-    m_context.vkCmdEndRenderingKHR(command_buffer);
+    m_context.vkCmdEndRendering(command_buffer);
     m_object_index = 0;
 }
 

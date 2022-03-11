@@ -12,6 +12,8 @@ from ordered_set import OrderedSet
 
 # Removes the Vk prefix from a type name.
 def convert_type(orig):
+    if orig is None:
+        return 'BAD'
     if orig == 'VkBool32':
         return 'Bool'
     if orig.endswith('Flags') or orig.endswith('FlagBits'):
@@ -359,8 +361,10 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     file.write('// Bitmasks.\n')
     for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'bitmask', desired_types),
                                      key=itemgetter(0)):
+        if vk_type.get('alias'):
+            continue
         c_type = vk_type.findtext('type')
-        if not registry.find('.//enums[@name="{}"]'.format(type_name[:-1] + 'Bits')):
+        if not registry.find('.//enums[@name="{}"]'.format(type_name[:-1] + 'Bits')) or type_name == 'VkPipelineCacheCreateFlags':
             file.write('using {} = {};\n'.format(convert_type(type_name), convert_type(c_type)))
     file.write('\n')
 
@@ -376,6 +380,8 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'enum', desired_types),
                                      key=itemgetter(0)):
         definition = registry.find('.//enums[@name="{}"]'.format(type_name))
+        if definition is None:
+            continue
         if len(definition.findall('enum')) == 0:
             # Don't generate empty enums, a bitmask will already have been generated.
             continue
@@ -444,6 +450,8 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     file.write('// Structs and unions.\n')
     for type_name, vk_type in filter(lambda ty: ty[1].get('category') == 'struct' or ty[1].get('category') == 'union',
                                      desired_types):
+        if vk_type.get('alias'):
+            continue
         file.write('{} {} {{\n'.format(vk_type.get('category'), convert_type(type_name)))
         for member in vk_type.findall('member'):
             member_text = ''
