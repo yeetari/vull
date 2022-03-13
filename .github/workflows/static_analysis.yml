@@ -22,7 +22,7 @@ jobs:
         run: >-
           apt install -y
           clang
-          clang-tidy
+          clang-tidy-13
           cmake
           git
           libfreetype-dev
@@ -44,6 +44,6 @@ jobs:
             -and -not -name 'ContextTable.cc' \
             -print0 |
           parallel -0 \
-            clang-tidy -p build --header-filter=vull/ --quiet {} 2>/dev/null |
+            clang-tidy-13 -p build --header-filter=vull/ --quiet {} 2>/dev/null |
           tee output
           if [ -s output ]; then exit 1; fi

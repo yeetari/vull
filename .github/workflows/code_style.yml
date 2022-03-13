@@ -13,14 +13,14 @@ jobs:
       - name: Install tools
         run: >-
           apt install -y
-          clang-format
+          clang-format-13
           git
       - name: Checkout
         uses: actions/checkout@v2
       - name: Run clang-format
         shell: bash
         run: |
-          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format -i
+          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-13 -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 
@@ -59,9 +59,8 @@ jobs:
           shaderc
       - name: Build IWYU
         run: |
-          mkdir /opt/include-what-you-use
-          wget -qO /opt/include-what-you-use.tar.gz https://include-what-you-use.org/downloads/include-what-you-use-0.17.src.tar.gz
-          tar xfz /opt/include-what-you-use.tar.gz -C /opt
+          cd /opt
+          git clone https://github.com/include-what-you-use/include-what-you-use.git
           cmake -B/opt/include-what-you-use/build /opt/include-what-you-use
           cmake --build /opt/include-what-you-use/build --target install
       - name: Checkout
