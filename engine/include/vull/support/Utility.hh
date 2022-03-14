@@ -19,6 +19,9 @@ struct RemoveRefImpl<T &&> {
 } // namespace detail
 
 template <typename T>
+inline constexpr bool IsTriviallyConstructible = __is_trivially_constructible(T);
+
+template <typename T>
 inline constexpr bool IsTriviallyCopyable = __is_trivially_copyable(T);
 
 template <typename T>

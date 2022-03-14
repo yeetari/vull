@@ -123,7 +123,7 @@ void Vector<T, SizeType>::ensure_size(SizeType size, Args &&...args) {
         return;
     }
     ensure_capacity(size);
-    if constexpr (!IsTriviallyCopyable<T> || sizeof...(Args) != 0) {
+    if constexpr (!IsTriviallyConstructible<T> || sizeof...(Args) != 0) {
         for (SizeType i = m_size; i < size; i++) {
             new (begin() + i) T(forward<Args>(args)...);
         }
