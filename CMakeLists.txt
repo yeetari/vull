@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 project(vull CXX)
 
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
+option(VULL_BUILD_TESTS "Build tests" OFF)
 option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 
 find_package(Freetype REQUIRED)
