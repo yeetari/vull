@@ -31,10 +31,13 @@ template <typename T, unsigned SlotCountShift>
 [[nodiscard]] bool WorkStealingQueue<T, SlotCountShift>::enqueue(T &&elem) {
     int64_t head = m_head.load(MemoryOrder::Relaxed);
     int64_t tail = m_tail.load(MemoryOrder::Acquire);
+
+    // Queue is already full.
     if (head - tail >= k_slot_count) {
         return false;
     }
 
+    // Store element in slot and bump the head index.
     atomic_store(m_slots[static_cast<uint32_t>(head % k_slot_count)], forward<T>(elem));
     m_head.store(head + 1, MemoryOrder::Relaxed);
     return true;
@@ -44,18 +47,26 @@ template <typename T, unsigned SlotCountShift>
 Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
     int64_t index = m_head.fetch_sub(1, MemoryOrder::Relaxed) - 1;
     int64_t tail = m_tail.load(MemoryOrder::Relaxed);
-    if (tail <= index) {
-        if (tail == index) {
-            m_head.store(index + 1, MemoryOrder::Relaxed);
-            if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::SeqCst, MemoryOrder::Relaxed)) {
-                // Element was just stolen.
-                return {};
-            }
-        }
-        return atomic_load(m_slots[static_cast<uint32_t>(index % k_slot_count)]);
+
+    // If the queue is empty, restore the head index and return nothing.
+    if (tail > index) {
+        m_head.store(index + 1, MemoryOrder::Relaxed);
+        return {};
     }
+
+    // If this isn't the last element, we can safely return it.
+    auto &slot = m_slots[static_cast<uint32_t>(index % k_slot_count)];
+    if (tail != index) {
+        return atomic_load(slot);
+    }
+
+    // Else, there is only one element left and potential for it to be stolen.
     m_head.store(index + 1, MemoryOrder::Relaxed);
-    return {};
+    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::AcqRel, MemoryOrder::Relaxed)) {
+        // Failed race - last element was just stolen.
+        return {};
+    }
+    return atomic_load(slot);
 }
 
 template <typename T, unsigned SlotCountShift>
@@ -63,14 +74,16 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::steal() {
     int64_t tail = m_tail.load(MemoryOrder::Acquire);
     int64_t head = m_head.load(MemoryOrder::Acquire);
 
-    if (tail < head) {
-        if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::SeqCst, MemoryOrder::Relaxed)) {
-            // Item was dequeued by owner.
-            return {};
-        }
-        return atomic_load(m_slots[static_cast<uint32_t>(tail % k_slot_count)]);
+    // No available element to take.
+    if (tail >= head) {
+        return {};
     }
-    return {};
+
+    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::AcqRel, MemoryOrder::Relaxed)) {
+        // Failed race - item was either dequeued by the queue owner or stolen by another thread.
+        return {};
+    }
+    return atomic_load(m_slots[static_cast<uint32_t>(tail % k_slot_count)]);
 }
 
 template <typename T, unsigned SlotCountShift>
