@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vull/support/Array.hh>
+#include <vull/support/Utility.hh>
+
 namespace vull {
 
 enum class MemoryOrder {
@@ -12,6 +15,25 @@ enum class MemoryOrder {
 };
 
 template <typename T>
+T atomic_load(T &ptr, MemoryOrder order = MemoryOrder::Relaxed) {
+    // NOLINTNEXTLINE: buffer doesn't need to be initialised.
+    alignas(T) Array<char, sizeof(T)> buffer;
+    auto *buf_ptr = reinterpret_cast<T *>(buffer.data());
+    __atomic_load(&ptr, buf_ptr, static_cast<int>(order));
+    return move(*buf_ptr);
+}
+
+template <typename T>
+void atomic_store(T &ptr, T &&val, MemoryOrder order = MemoryOrder::Relaxed) {
+    __atomic_store(&ptr, &val, static_cast<int>(order));
+}
+
+template <typename T>
+concept SimpleAtomic = requires(T t) {
+    __atomic_load_n(&t, __ATOMIC_RELAXED);
+};
+
+template <SimpleAtomic T>
 class Atomic {
     T m_value{};
 
@@ -33,34 +55,34 @@ public:
     void store(T value, MemoryOrder order) volatile;
 };
 
-template <typename T>
+template <SimpleAtomic T>
 bool Atomic<T>::compare_exchange(T &expected, T desired, MemoryOrder success_order,
                                  MemoryOrder failure_order) volatile {
     return __atomic_compare_exchange_n(&m_value, &expected, desired, false, static_cast<int>(success_order),
                                        static_cast<int>(failure_order));
 }
 
-template <typename T>
+template <SimpleAtomic T>
 T Atomic<T>::exchange(T desired, MemoryOrder order) volatile {
     return __atomic_exchange_n(&m_value, desired, static_cast<int>(order));
 }
 
-template <typename T>
+template <SimpleAtomic T>
 T Atomic<T>::fetch_add(T value, MemoryOrder order) volatile {
     return __atomic_fetch_add(&m_value, value, static_cast<int>(order));
 }
 
-template <typename T>
+template <SimpleAtomic T>
 T Atomic<T>::fetch_sub(T value, MemoryOrder order) volatile {
     return __atomic_fetch_sub(&m_value, value, static_cast<int>(order));
 }
 
-template <typename T>
+template <SimpleAtomic T>
 T Atomic<T>::load(MemoryOrder order) const volatile {
     return __atomic_load_n(&m_value, static_cast<int>(order));
 }
 
-template <typename T>
+template <SimpleAtomic T>
 void Atomic<T>::store(T value, MemoryOrder order) volatile {
     __atomic_store_n(&m_value, value, static_cast<int>(order));
 }
