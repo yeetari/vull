@@ -13,6 +13,8 @@ class Optional {
 
 public:
     constexpr Optional() = default;
+    Optional(const T &value) : m_present(true) { new (m_data.data()) T(value); }
+    Optional(T &&value) : m_present(true) { new (m_data.data()) T(move(value)); }
     Optional(const Optional &) = delete;
     Optional(Optional &&);
     ~Optional() { clear(); }
