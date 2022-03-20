@@ -1,4 +1,3 @@
-# TODO: Run tests and at least build benchmarks.
 name: Build
 on: [push, pull_request]
 jobs:
@@ -51,7 +50,10 @@ jobs:
           -DCMAKE_C_COMPILER=${{ matrix.config.cc }}
           -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
           -DVULL_BUILD_SANDBOX=ON
+          -DVULL_BUILD_TESTS=ON
           -DVULL_BUILD_WARNINGS=ON
           -GNinja
       - name: Build
         run: cmake --build build
+      - name: Run tests
+        run: ./build/engine/vull-tests
