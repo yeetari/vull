@@ -16,7 +16,19 @@ struct RemoveRefImpl<T &&> {
     using type = T;
 };
 
+template <typename, typename>
+struct IsSameCheck {
+    static constexpr bool value = false;
+};
+template <typename T>
+struct IsSameCheck<T, T> {
+    static constexpr bool value = true;
+};
+
 } // namespace detail
+
+template <typename T, typename U>
+inline constexpr bool IsSame = detail::IsSameCheck<T, U>::value;
 
 template <typename T>
 inline constexpr bool IsTriviallyConstructible = __is_trivially_constructible(T);
