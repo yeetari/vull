@@ -28,9 +28,11 @@ if(VULL_BUILD_WARNINGS)
             -Wno-c++98-compat
             -Wno-c++98-compat-pedantic
             -Wno-double-promotion
+            -Wno-error=deprecated-declarations
             # Disabling this should be fine as it's now allowed in C++ 20.
             -Wno-gnu-zero-variadic-macro-arguments
-            -Wno-padded)
+            -Wno-padded
+            -Wno-shadow-uncaptured-local)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(vull PUBLIC
             -Werror

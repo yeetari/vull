@@ -3,6 +3,7 @@ target_sources(vull PRIVATE
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc
+    tasklet/Scheduler.cc
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc
