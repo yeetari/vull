@@ -8,6 +8,8 @@
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/tasklet/Scheduler.hh>
+#include <vull/tasklet/Tasklet.hh>
 #include <vull/terrain/Chunk.hh>
 #include <vull/terrain/Terrain.hh>
 #include <vull/ui/Renderer.hh>
@@ -44,9 +46,7 @@ vk::ShaderModule load_shader(const Context &context, const char *path) {
     return module;
 }
 
-} // namespace
-
-int main() {
+void main_task(Scheduler &scheduler) {
     Window window(2560, 1440, true);
     Context context;
     auto swapchain = window.create_swapchain(context);
@@ -698,15 +698,17 @@ int main() {
                1000000000;
     };
 
-    float *height_data;
-    context.vkMapMemory(height_image_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&height_data));
-    for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
-        for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
-            height_data[x + z * height_image_ci.extent.width] =
-                terrain.height(static_cast<float>(z), static_cast<float>(x));
+    schedule([&] {
+        float *height_data;
+        context.vkMapMemory(height_image_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&height_data));
+        for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
+            for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
+                height_data[x + z * height_image_ci.extent.width] =
+                    terrain.height(static_cast<float>(z), static_cast<float>(x));
+            }
         }
-    }
-    context.vkUnmapMemory(height_image_memory);
+        context.vkUnmapMemory(height_image_memory);
+    });
 
     Vector<ChunkVertex> terrain_vertices;
     Vector<uint32_t> terrain_indices;
@@ -1124,6 +1126,7 @@ int main() {
         window.poll_events();
         cpu_time_graph.add_bar(move(cpu_frame_bar));
     }
+    scheduler.stop();
     context.vkDeviceWaitIdle();
     context.vkDestroyQueryPool(query_pool);
     context.vkDestroySemaphore(rendering_finished_semaphore);
@@ -1160,4 +1163,13 @@ int main() {
     context.vkDestroyShaderModule(terrain_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
     context.vkDestroyCommandPool(command_pool);
+}
+
+} // namespace
+
+int main() {
+    Scheduler scheduler;
+    scheduler.start([&] {
+        main_task(scheduler);
+    });
 }
