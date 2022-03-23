@@ -10,6 +10,7 @@
 
 namespace vull {
 
+// TODO: Need proper atomics for slots!
 template <typename T, unsigned SlotCountShift = 10>
 class WorkStealingQueue {
     // Max size of the queue, should be a power of two to allow modulo operations to be transformed into cheaper ands.
@@ -38,7 +39,7 @@ template <typename T, unsigned SlotCountShift>
     }
 
     // Store element in slot and bump the head index.
-    atomic_store(m_slots[static_cast<uint32_t>(head % k_slot_count)], forward<T>(elem));
+    m_slots[static_cast<uint32_t>(head % k_slot_count)] = forward<T>(elem);
     m_head.store(head + 1, MemoryOrder::Relaxed);
     return true;
 }
@@ -57,7 +58,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
     // If this isn't the last element, we can safely return it.
     auto &slot = m_slots[static_cast<uint32_t>(index % k_slot_count)];
     if (tail != index) {
-        return atomic_load(slot);
+        return slot;
     }
 
     // Else, there is only one element left and potential for it to be stolen.
@@ -66,7 +67,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
         // Failed race - last element was just stolen.
         return {};
     }
-    return atomic_load(slot);
+    return slot;
 }
 
 template <typename T, unsigned SlotCountShift>
@@ -83,7 +84,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::steal() {
         // Failed race - item was either dequeued by the queue owner or stolen by another thread.
         return {};
     }
-    return atomic_load(m_slots[static_cast<uint32_t>(tail % k_slot_count)]);
+    return m_slots[static_cast<uint32_t>(tail % k_slot_count)];
 }
 
 template <typename T, unsigned SlotCountShift>
