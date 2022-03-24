@@ -58,7 +58,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
     // If this isn't the last element, we can safely return it.
     auto &slot = m_slots[static_cast<uint32_t>(index % k_slot_count)];
     if (tail != index) {
-        return slot;
+        return move(slot);
     }
 
     // Else, there is only one element left and potential for it to be stolen.
@@ -67,7 +67,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
         // Failed race - last element was just stolen.
         return {};
     }
-    return slot;
+    return move(slot);
 }
 
 template <typename T, unsigned SlotCountShift>
@@ -84,7 +84,7 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::steal() {
         // Failed race - item was either dequeued by the queue owner or stolen by another thread.
         return {};
     }
-    return m_slots[static_cast<uint32_t>(tail % k_slot_count)];
+    return move(m_slots[static_cast<uint32_t>(tail % k_slot_count)]);
 }
 
 template <typename T, unsigned SlotCountShift>
