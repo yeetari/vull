@@ -43,11 +43,11 @@ public:
     constexpr Optional() = default;
     Optional(T &ref) : m_ptr(&ref) {}
     Optional(const Optional &) = delete;
-    Optional(Optional &&) = delete;
+    Optional(Optional &&other) : m_ptr(exchange(other.m_ptr, nullptr)) {}
     ~Optional() = default;
 
     Optional &operator=(const Optional &) = delete;
-    Optional &operator=(Optional &&) = delete;
+    Optional &operator=(Optional &&);
 
     explicit operator bool() const { return m_ptr != nullptr; }
     bool has_value() const { return m_ptr != nullptr; }
@@ -107,6 +107,12 @@ template <typename T>
 const T *Optional<T>::operator->() const {
     VULL_ASSERT(m_present);
     return reinterpret_cast<const T *>(m_data.data());
+}
+
+template <typename T>
+Optional<T &> &Optional<T &>::operator=(Optional &&other) {
+    m_ptr = exchange(other.m_ptr, nullptr);
+    return *this;
 }
 
 template <typename T>
