@@ -15,11 +15,11 @@ class TaskletBase {
     friend Derived;
 
 private:
-    void (*m_invoker)(void *){nullptr};
+    void (*m_invoker)(const uint8_t *){nullptr};
     Optional<Semaphore &> m_semaphore;
 
     TaskletBase() = default;
-    explicit TaskletBase(void (*invoker)(void *)) : m_invoker(invoker) {}
+    explicit TaskletBase(void (*invoker)(const uint8_t *)) : m_invoker(invoker) {}
 
 public:
     void set_semaphore(Semaphore &semaphore) { m_semaphore = semaphore; }
@@ -34,13 +34,13 @@ class alignas(64) Tasklet : public TaskletBase<Tasklet> {
     // of either of the functions if their prototypes differ for whatever reason, and also works around a (seemingly)
     // bug in GCC that prevents compilation.
     template <typename F>
-    static void invoke_helper(void *inline_storage) requires(sizeof(F) <= k_inline_capacity) {
-        (reinterpret_cast<const F &>(*static_cast<const char *>(inline_storage)))();
+    static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) <= k_inline_capacity) {
+        (reinterpret_cast<const F &>(*inline_storage))();
     }
     template <typename F>
     [[deprecated("functor storage demoted to a heap allocation, performance will be pessimised")]] static void
-    invoke_helper(void *inline_storage) requires(sizeof(F) > k_inline_capacity) {
-        (*reinterpret_cast<const F *const &>(*static_cast<const char *>(inline_storage)))();
+    invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) > k_inline_capacity) {
+        (*reinterpret_cast<const F *const &>(*inline_storage))();
     }
 
     // clang-format off
