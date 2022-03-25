@@ -25,6 +25,7 @@ GpuFont::GpuFont(const Context &context, Font &&font) : Font(move(font)), m_cont
         .memoryTypeBits = 0xffffffffu,
     };
     m_memory = context.allocate_memory(memory_requirements, MemoryType::HostVisible);
+    m_context.vkMapMemory(m_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&m_image_data));
 }
 
 GpuFont::~GpuFont() {
@@ -54,8 +55,9 @@ void GpuFont::rasterise(uint32_t glyph_index, vk::DescriptorSet descriptor_set, 
     };
     VULL_ENSURE(m_context.vkCreateImage(&image_ci, &m_images[glyph_index]) == vk::Result::Success);
 
-    const auto memory_offset = static_cast<vk::DeviceSize>(glyph_index) * k_glyph_pixel_count * sizeof(float);
-    VULL_ENSURE(m_context.vkBindImageMemory(m_images[glyph_index], m_memory, memory_offset) == vk::Result::Success);
+    const auto memory_offset = static_cast<vk::DeviceSize>(glyph_index) * k_glyph_pixel_count;
+    VULL_ENSURE(m_context.vkBindImageMemory(m_images[glyph_index], m_memory, memory_offset * sizeof(float)) ==
+                vk::Result::Success);
 
     vk::ImageViewCreateInfo image_view_ci{
         .sType = vk::StructureType::ImageViewCreateInfo,
@@ -70,12 +72,9 @@ void GpuFont::rasterise(uint32_t glyph_index, vk::DescriptorSet descriptor_set, 
     };
     VULL_ENSURE(m_context.vkCreateImageView(&image_view_ci, &m_image_views[glyph_index]) == vk::Result::Success);
 
-    float *image_data;
     const auto memory_size = k_glyph_pixel_count * sizeof(float);
-    m_context.vkMapMemory(m_memory, memory_offset, memory_size, 0, reinterpret_cast<void **>(&image_data));
-    memset(image_data, 0, memory_size);
-    Font::rasterise({image_data, k_glyph_pixel_count}, glyph_index);
-    m_context.vkUnmapMemory(m_memory);
+    memset(&m_image_data[memory_offset], 0, memory_size);
+    Font::rasterise({&m_image_data[memory_offset], k_glyph_pixel_count}, glyph_index);
 
     vk::DescriptorImageInfo image_info{
         .sampler = sampler,

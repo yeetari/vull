@@ -5,6 +5,7 @@
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
+#include <vull/tasklet/Tasklet.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
 // IWYU pragma: no_include "freetype/config/ftheader.h"
@@ -41,27 +42,34 @@ Font::~Font() {
 }
 
 void Font::rasterise(Span<float> buffer, uint32_t glyph_index) const {
-    auto *face = hb_ft_font_get_face(m_hb_font);
-    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
+    if (m_glyph_cache[glyph_index]) {
         return;
     }
-    if (!m_glyph_cache[glyph_index]) {
-        m_glyph_cache[glyph_index].emplace(CachedGlyph{
-            .disp_x = static_cast<float>(face->glyph->bitmap_left),
-            .disp_y = -static_cast<float>(face->glyph->bitmap_top),
-        });
-    }
-    if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF) != FT_Err_Ok) {
-        return;
-    }
-    const auto width = static_cast<uint32_t>(vull::sqrt(static_cast<float>(buffer.size())));
-    const auto &bitmap = face->glyph->bitmap;
-    for (unsigned y = 0; y < bitmap.rows; y++) {
-        for (unsigned x = 0; x < bitmap.width; x++) {
-            const auto pixel = bitmap.buffer[y * static_cast<unsigned>(bitmap.pitch) + x];
-            buffer.begin()[y * width + x] = static_cast<float>(pixel) / 256.0f;
-        }
-    }
+    m_glyph_cache[glyph_index].emplace(CachedGlyph{
+        .disp_x = 0.0f,
+        .disp_y = 0.0f,
+    });
+    schedule(
+        [this, buffer, glyph_index] {
+            auto *face = hb_ft_font_get_face(m_hb_font);
+            if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
+                return;
+            }
+            m_glyph_cache[glyph_index]->disp_x = static_cast<float>(face->glyph->bitmap_left);
+            m_glyph_cache[glyph_index]->disp_y = -static_cast<float>(face->glyph->bitmap_top);
+            if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF) != FT_Err_Ok) {
+                return;
+            }
+            const auto width = static_cast<uint32_t>(vull::sqrt(static_cast<float>(buffer.size())));
+            const auto &bitmap = face->glyph->bitmap;
+            for (unsigned y = 0; y < bitmap.rows; y++) {
+                for (unsigned x = 0; x < bitmap.width; x++) {
+                    const auto pixel = bitmap.buffer[y * static_cast<unsigned>(bitmap.pitch) + x];
+                    buffer.begin()[y * width + x] = static_cast<float>(pixel) / 256.0f;
+                }
+            }
+        },
+        m_semaphore);
 }
 
 ShapingView Font::shape(StringView text) const {
