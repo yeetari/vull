@@ -701,6 +701,7 @@ void main_task(Scheduler &scheduler) {
     schedule([&] {
         float *height_data;
         context.vkMapMemory(height_image_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&height_data));
+        memset(height_data, 0, height_image_requirements.size);
         for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
             for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
                 height_data[x + z * height_image_ci.extent.width] =
