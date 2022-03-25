@@ -15,11 +15,15 @@
 
 namespace vull {
 
+class Semaphore;
 class TaskletQueue : public WorkStealingQueue<Tasklet> {};
 static thread_local TaskletQueue *s_queue = nullptr;
 
-void schedule(Tasklet &&tasklet) {
+void schedule(Tasklet &&tasklet, Optional<Semaphore &> semaphore) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
+    if (semaphore) {
+        tasklet.set_semaphore(*semaphore);
+    }
     while (!s_queue->enqueue(move(tasklet))) {
         auto queued_tasklet = s_queue->dequeue();
         VULL_ASSERT(queued_tasklet);

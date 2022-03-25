@@ -1,18 +1,28 @@
 #pragma once
 
 #include <vull/support/Array.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/Utility.hh>
+
+#include <stdint.h>
 
 namespace vull {
+
+class Semaphore;
 
 template <typename Derived>
 class TaskletBase {
     friend Derived;
 
 private:
-    void (*m_invoker)(void *);
+    void (*m_invoker)(void *){nullptr};
+    Optional<Semaphore &> m_semaphore;
 
     TaskletBase() = default;
     explicit TaskletBase(void (*invoker)(void *)) : m_invoker(invoker) {}
+
+public:
+    void set_semaphore(Semaphore &semaphore) { m_semaphore = semaphore; }
 };
 
 // TODO: Destruction is not properly handled; need a move constructor but firstly need a proper allocator.
@@ -41,11 +51,11 @@ public:
     Tasklet(F &&callable) requires(!IsSame<F, Tasklet>);
     // clang-format on
 
-    void invoke() { m_invoker(m_inline_storage.data()); }
+    void invoke();
 };
 
 template <typename F>
-// NOLINTNEXTLINE: no need to initialise m_inline_storage
+// NOLINTNEXTLINE: this constructor does not shadow the move constructor
 Tasklet::Tasklet(F &&callable) requires(!IsSame<F, Tasklet>) : TaskletBase<Tasklet>(&invoke_helper<F>) {
     if constexpr (sizeof(F) <= k_inline_capacity) {
         new (m_inline_storage.data()) F(forward<F>(callable));
@@ -54,6 +64,6 @@ Tasklet::Tasklet(F &&callable) requires(!IsSame<F, Tasklet>) : TaskletBase<Taskl
     }
 }
 
-void schedule(Tasklet &&tasklet);
+void schedule(Tasklet &&tasklet, Optional<Semaphore &> semaphore = {});
 
 } // namespace vull

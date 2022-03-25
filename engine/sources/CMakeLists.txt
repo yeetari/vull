@@ -4,6 +4,7 @@ target_sources(vull PRIVATE
     support/String.cc
     support/StringBuilder.cc
     tasklet/Scheduler.cc
+    tasklet/Tasklet.cc
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc
