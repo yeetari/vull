@@ -644,37 +644,12 @@ void main_task(Scheduler &scheduler) {
     };
 
     Vector<PointLight> lights(500);
-    Array<Vec3f, 3000> dsts{};
-    Array<Vec3f, 3000> srcs{};
-    for (uint32_t i = 0; auto &light : lights) {
+    for (auto &light : lights) {
         light.colour = {1.0f};
         light.radius = rand_float(150.0f, 300.0f);
         light.position[0] = rand_float(-terrain.size(), terrain.size());
         light.position[1] = rand_float(0.0f, 200.0f);
         light.position[2] = rand_float(-terrain.size(), terrain.size());
-        dsts[i] = light.position;
-        auto rand = rand_float(300.0f, 500.0f);
-        switch (static_cast<int>(rand_float(0, 5))) {
-        case 0:
-            dsts[i][0] += rand;
-            break;
-        case 1:
-            dsts[i][1] += rand;
-            break;
-        case 2:
-            dsts[i][2] += rand;
-            break;
-        case 3:
-            dsts[i][0] -= rand;
-            break;
-        case 4:
-            dsts[i][1] -= rand;
-            break;
-        case 5:
-            dsts[i][2] -= rand;
-            break;
-        }
-        srcs[i++] = light.position;
     }
 
     const float vertical_fov = 59.0f * 0.01745329251994329576923690768489f;
