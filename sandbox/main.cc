@@ -9,9 +9,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
-#include <vull/tasklet/Tasklet.hh>
-#include <vull/terrain/Chunk.hh>
-#include <vull/terrain/Terrain.hh>
+#include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vulkan/Context.hh>
@@ -130,14 +128,14 @@ void main_task(Scheduler &scheduler) {
     };
 
     auto *light_cull_shader = load_shader(context, "engine/shaders/light_cull.comp.spv");
-    auto *terrain_vertex_shader = load_shader(context, "engine/shaders/terrain.vert.spv");
-    auto *terrain_fragment_shader = load_shader(context, "engine/shaders/terrain.frag.spv");
+    auto *main_vertex_shader = load_shader(context, "engine/shaders/main.vert.spv");
+    auto *main_fragment_shader = load_shader(context, "engine/shaders/main.frag.spv");
     auto *ui_vertex_shader = load_shader(context, "engine/shaders/ui.vert.spv");
     auto *ui_fragment_shader = load_shader(context, "engine/shaders/ui.frag.spv");
     vk::PipelineShaderStageCreateInfo depth_pass_shader_stage_ci{
         .sType = vk::StructureType::PipelineShaderStageCreateInfo,
         .stage = vk::ShaderStage::Vertex,
-        .module = terrain_vertex_shader,
+        .module = main_vertex_shader,
         .pName = "main",
     };
     vk::PipelineShaderStageCreateInfo light_cull_shader_stage_ci{
@@ -147,17 +145,17 @@ void main_task(Scheduler &scheduler) {
         .pName = "main",
         .pSpecializationInfo = &specialisation_info,
     };
-    Array terrain_shader_stage_cis{
+    Array main_shader_stage_cis{
         vk::PipelineShaderStageCreateInfo{
             .sType = vk::StructureType::PipelineShaderStageCreateInfo,
             .stage = vk::ShaderStage::Vertex,
-            .module = terrain_vertex_shader,
+            .module = main_vertex_shader,
             .pName = "main",
         },
         vk::PipelineShaderStageCreateInfo{
             .sType = vk::StructureType::PipelineShaderStageCreateInfo,
             .stage = vk::ShaderStage::Fragment,
-            .module = terrain_fragment_shader,
+            .module = main_fragment_shader,
             .pName = "main",
             .pSpecializationInfo = &specialisation_info,
         },
@@ -188,12 +186,6 @@ void main_task(Scheduler &scheduler) {
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStage::Compute,
         },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 4,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
-        },
     };
     vk::DescriptorSetLayoutCreateInfo set_layout_ci{
         .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
@@ -203,43 +195,33 @@ void main_task(Scheduler &scheduler) {
     vk::DescriptorSetLayout set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
 
-    vk::PipelineLayoutCreateInfo light_cull_pipeline_layout_ci{
+    vk::PipelineLayoutCreateInfo pipeline_layout_ci{
         .sType = vk::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &set_layout,
     };
-    vk::PipelineLayout light_cull_pipeline_layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&light_cull_pipeline_layout_ci, &light_cull_pipeline_layout) ==
-                vk::Result::Success);
+    vk::PipelineLayout pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vk::Result::Success);
 
-    struct TerrainPushConstantBlock {
+    struct Vertex {
         Vec3f position;
-        float size{0.0f};
+        Vec3f normal;
     };
-    vk::PushConstantRange terrain_push_constant_range{
-        .stageFlags = vk::ShaderStage::Vertex,
-        .size = sizeof(TerrainPushConstantBlock),
-    };
-    vk::PipelineLayoutCreateInfo terrain_pipeline_layout_ci{
-        .sType = vk::StructureType::PipelineLayoutCreateInfo,
-        .setLayoutCount = 1,
-        .pSetLayouts = &set_layout,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &terrain_push_constant_range,
-    };
-    vk::PipelineLayout terrain_pipeline_layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&terrain_pipeline_layout_ci, &terrain_pipeline_layout) ==
-                vk::Result::Success);
 
     Array vertex_attribute_descriptions{
         vk::VertexInputAttributeDescription{
             .location = 0,
-            .format = vk::Format::R32G32Sfloat,
-            .offset = offsetof(ChunkVertex, position),
+            .format = vk::Format::R32G32B32Sfloat,
+            .offset = offsetof(Vertex, position),
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 1,
+            .format = vk::Format::R32G32B32Sfloat,
+            .offset = offsetof(Vertex, normal),
         },
     };
     vk::VertexInputBindingDescription vertex_binding_description{
-        .stride = sizeof(ChunkVertex),
+        .stride = sizeof(Vertex),
         .inputRate = vk::VertexInputRate::Vertex,
     };
     vk::PipelineVertexInputStateCreateInfo vertex_input_state{
@@ -274,7 +256,7 @@ void main_task(Scheduler &scheduler) {
         .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
         .polygonMode = vk::PolygonMode::Fill,
         .cullMode = vk::CullMode::Back,
-        .frontFace = vk::FrontFace::CounterClockwise,
+        .frontFace = vk::FrontFace::Clockwise,
         .lineWidth = 1.0f,
     };
 
@@ -290,19 +272,19 @@ void main_task(Scheduler &scheduler) {
         .depthWriteEnable = true,
         .depthCompareOp = vk::CompareOp::GreaterOrEqual,
     };
-    vk::PipelineDepthStencilStateCreateInfo terrain_pass_depth_stencil_state{
+    vk::PipelineDepthStencilStateCreateInfo main_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
         .depthTestEnable = true,
         .depthCompareOp = vk::CompareOp::Equal,
     };
 
-    vk::PipelineColorBlendAttachmentState terrain_pass_blend_attachment{
+    vk::PipelineColorBlendAttachmentState main_pass_blend_attachment{
         .colorWriteMask = vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
     };
-    vk::PipelineColorBlendStateCreateInfo terrain_pass_blend_state{
+    vk::PipelineColorBlendStateCreateInfo main_pass_blend_state{
         .sType = vk::StructureType::PipelineColorBlendStateCreateInfo,
         .attachmentCount = 1,
-        .pAttachments = &terrain_pass_blend_attachment,
+        .pAttachments = &main_pass_blend_attachment,
     };
 
     const auto depth_format = vk::Format::D32Sfloat;
@@ -323,7 +305,7 @@ void main_task(Scheduler &scheduler) {
         .pRasterizationState = &rasterisation_state,
         .pMultisampleState = &multisample_state,
         .pDepthStencilState = &depth_pass_depth_stencil_state,
-        .layout = terrain_pipeline_layout,
+        .layout = pipeline_layout,
     };
     vk::Pipeline depth_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &depth_pass_pipeline_ci, &depth_pass_pipeline) ==
@@ -332,14 +314,14 @@ void main_task(Scheduler &scheduler) {
     vk::ComputePipelineCreateInfo light_cull_pipeline_ci{
         .sType = vk::StructureType::ComputePipelineCreateInfo,
         .stage = light_cull_shader_stage_ci,
-        .layout = light_cull_pipeline_layout,
+        .layout = pipeline_layout,
     };
     vk::Pipeline light_cull_pipeline;
     VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
                 vk::Result::Success);
 
     const auto colour_format = vk::Format::B8G8R8A8Srgb;
-    vk::PipelineRenderingCreateInfo terrain_pass_rendering_create_info{
+    vk::PipelineRenderingCreateInfo main_pass_rendering_create_info{
         .sType = vk::StructureType::PipelineRenderingCreateInfo,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colour_format,
@@ -347,22 +329,22 @@ void main_task(Scheduler &scheduler) {
         .stencilAttachmentFormat = depth_format,
     };
 
-    vk::GraphicsPipelineCreateInfo terrain_pass_pipeline_ci{
+    vk::GraphicsPipelineCreateInfo main_pass_pipeline_ci{
         .sType = vk::StructureType::GraphicsPipelineCreateInfo,
-        .pNext = &terrain_pass_rendering_create_info,
-        .stageCount = terrain_shader_stage_cis.size(),
-        .pStages = terrain_shader_stage_cis.data(),
+        .pNext = &main_pass_rendering_create_info,
+        .stageCount = main_shader_stage_cis.size(),
+        .pStages = main_shader_stage_cis.data(),
         .pVertexInputState = &vertex_input_state,
         .pInputAssemblyState = &input_assembly_state,
         .pViewportState = &viewport_state,
         .pRasterizationState = &rasterisation_state,
         .pMultisampleState = &multisample_state,
-        .pDepthStencilState = &terrain_pass_depth_stencil_state,
-        .pColorBlendState = &terrain_pass_blend_state,
-        .layout = terrain_pipeline_layout,
+        .pDepthStencilState = &main_pass_depth_stencil_state,
+        .pColorBlendState = &main_pass_blend_state,
+        .layout = pipeline_layout,
     };
-    vk::Pipeline terrain_pass_pipeline;
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &terrain_pass_pipeline_ci, &terrain_pass_pipeline) ==
+    vk::Pipeline main_pass_pipeline;
+    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &main_pass_pipeline_ci, &main_pass_pipeline) ==
                 vk::Result::Success);
 
     vk::ImageCreateInfo depth_image_ci{
@@ -413,60 +395,10 @@ void main_task(Scheduler &scheduler) {
     vk::Sampler depth_sampler;
     VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vk::Result::Success);
 
-    Terrain terrain(2048.0f, 0);
-    vk::ImageCreateInfo height_image_ci{
-        .sType = vk::StructureType::ImageCreateInfo,
-        .imageType = vk::ImageType::_2D,
-        .format = vk::Format::R32Sfloat,
-        .extent = {static_cast<uint32_t>(terrain.size()), static_cast<uint32_t>(terrain.size()), 1},
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = vk::SampleCount::_1,
-        .tiling = vk::ImageTiling::Linear,
-        .usage = vk::ImageUsage::Sampled,
-        .sharingMode = vk::SharingMode::Exclusive,
-        .initialLayout = vk::ImageLayout::Undefined,
-    };
-    vk::Image height_image;
-    VULL_ENSURE(context.vkCreateImage(&height_image_ci, &height_image) == vk::Result::Success);
-
-    vk::MemoryRequirements height_image_requirements{};
-    context.vkGetImageMemoryRequirements(height_image, &height_image_requirements);
-    vk::DeviceMemory height_image_memory = context.allocate_memory(height_image_requirements, MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindImageMemory(height_image, height_image_memory, 0) == vk::Result::Success);
-
-    vk::ImageViewCreateInfo height_image_view_ci{
-        .sType = vk::StructureType::ImageViewCreateInfo,
-        .image = height_image,
-        .viewType = vk::ImageViewType::_2D,
-        .format = height_image_ci.format,
-        .subresourceRange{
-            .aspectMask = vk::ImageAspect::Color,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    vk::ImageView height_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&height_image_view_ci, &height_image_view) == vk::Result::Success);
-
-    vk::SamplerCreateInfo height_sampler_ci{
-        .sType = vk::StructureType::SamplerCreateInfo,
-        .magFilter = vk::Filter::Linear,
-        .minFilter = vk::Filter::Linear,
-        .mipmapMode = vk::SamplerMipmapMode::Linear,
-        .addressModeU = vk::SamplerAddressMode::MirroredRepeat,
-        .addressModeV = vk::SamplerAddressMode::MirroredRepeat,
-        .addressModeW = vk::SamplerAddressMode::MirroredRepeat,
-        .borderColor = vk::BorderColor::FloatOpaqueWhite,
-    };
-    vk::Sampler height_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&height_sampler_ci, &height_sampler) == vk::Result::Success);
-
     struct UniformBuffer {
         Mat4f proj;
         Mat4f view;
         Vec3f camera_position;
-        float terrain_size{0.0f};
     };
     vk::BufferCreateInfo uniform_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
@@ -536,7 +468,7 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 2,
+            .descriptorCount = 1,
         },
     };
     vk::DescriptorPoolCreateInfo descriptor_pool_ci{
@@ -574,11 +506,6 @@ void main_task(Scheduler &scheduler) {
         .imageView = depth_image_view,
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
-    vk::DescriptorImageInfo height_sampler_image_info{
-        .sampler = height_sampler,
-        .imageView = height_image_view,
-        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
-    };
     Array descriptor_writes{
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
@@ -612,14 +539,6 @@ void main_task(Scheduler &scheduler) {
             .descriptorType = vk::DescriptorType::CombinedImageSampler,
             .pImageInfo = &depth_sampler_image_info,
         },
-        vk::WriteDescriptorSet{
-            .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 4,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &height_sampler_image_info,
-        },
     };
     context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
 
@@ -647,15 +566,15 @@ void main_task(Scheduler &scheduler) {
     for (auto &light : lights) {
         light.colour = {1.0f};
         light.radius = rand_float(150.0f, 300.0f);
-        light.position[0] = rand_float(-terrain.size(), terrain.size());
-        light.position[1] = rand_float(0.0f, 200.0f);
-        light.position[2] = rand_float(-terrain.size(), terrain.size());
+        light.position[0] = rand_float(0.0f, 6000.0f);
+        light.position[1] = rand_float(30.0f, 500.0f);
+        light.position[2] = rand_float(-6000.0f, 6000.0f);
     }
 
     const float vertical_fov = 59.0f * 0.01745329251994329576923690768489f;
     UniformBuffer ubo{
         .proj = projection_matrix(window.aspect_ratio(), 0.1f, vertical_fov),
-        .camera_position = {3539.0f, 4286.0f, -4452.7f},
+        .camera_position = {0.0f, 0.0f, -200.0f},
     };
 
     float yaw = 2.15f;
@@ -673,26 +592,20 @@ void main_task(Scheduler &scheduler) {
                1000000000;
     };
 
-    schedule([&] {
-        float *height_data;
-        context.vkMapMemory(height_image_memory, 0, vk::k_whole_size, 0, reinterpret_cast<void **>(&height_data));
-        memset(height_data, 0, height_image_requirements.size);
-        for (uint32_t z = 0; z < height_image_ci.extent.height; z++) {
-            for (uint32_t x = 0; x < height_image_ci.extent.width; x++) {
-                height_data[x + z * height_image_ci.extent.width] =
-                    terrain.height(static_cast<float>(z), static_cast<float>(x));
-            }
-        }
-        context.vkUnmapMemory(height_image_memory);
-    });
+    auto *vertex_file = fopen("vertices", "rb");
+    fseek(vertex_file, 0, SEEK_END);
+    auto vertex_data_size = static_cast<vk::DeviceSize>(ftell(vertex_file));
+    fseek(vertex_file, 0, SEEK_SET);
 
-    Vector<ChunkVertex> terrain_vertices;
-    Vector<uint32_t> terrain_indices;
-    Chunk::build_flat_mesh(terrain_vertices, terrain_indices, 32);
+    auto *index_file = fopen("indices", "rb");
+    fseek(index_file, 0, SEEK_END);
+    auto index_data_size = static_cast<vk::DeviceSize>(ftell(index_file));
+    auto index_count = static_cast<uint32_t>(index_data_size / sizeof(uint32_t));
+    fseek(index_file, 0, SEEK_SET);
 
     vk::BufferCreateInfo vertex_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
-        .size = terrain_vertices.size_bytes(),
+        .size = vertex_data_size,
         .usage = vk::BufferUsage::VertexBuffer,
         .sharingMode = vk::SharingMode::Exclusive,
     };
@@ -706,12 +619,12 @@ void main_task(Scheduler &scheduler) {
 
     void *vertex_data;
     context.vkMapMemory(vertex_buffer_memory, 0, vk::k_whole_size, 0, &vertex_data);
-    memcpy(vertex_data, terrain_vertices.data(), terrain_vertices.size_bytes());
+    VULL_ENSURE(fread(vertex_data, 1, vertex_data_size, vertex_file) == vertex_data_size);
     context.vkUnmapMemory(vertex_buffer_memory);
 
     vk::BufferCreateInfo index_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
-        .size = terrain_indices.size_bytes(),
+        .size = index_data_size,
         .usage = vk::BufferUsage::IndexBuffer,
         .sharingMode = vk::SharingMode::Exclusive,
     };
@@ -725,36 +638,8 @@ void main_task(Scheduler &scheduler) {
 
     void *index_data;
     context.vkMapMemory(index_buffer_memory, 0, vk::k_whole_size, 0, &index_data);
-    memcpy(index_data, terrain_indices.data(), terrain_indices.size_bytes());
+    VULL_ENSURE(fread(index_data, sizeof(uint32_t), index_count, index_file) == index_count);
     context.vkUnmapMemory(index_buffer_memory);
-
-    context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
-    vk::CommandBufferBeginInfo transition_cmd_buf_bi{
-        .sType = vk::StructureType::CommandBufferBeginInfo,
-        .flags = vk::CommandBufferUsage::OneTimeSubmit,
-    };
-    context.vkBeginCommandBuffer(command_buffer, &transition_cmd_buf_bi);
-    vk::ImageMemoryBarrier transition_barrier{
-        .sType = vk::StructureType::ImageMemoryBarrier,
-        .oldLayout = vk::ImageLayout::Undefined,
-        .newLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
-        .image = height_image,
-        .subresourceRange{
-            .aspectMask = vk::ImageAspect::Color,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::TopOfPipe, vk::PipelineStage::TopOfPipe,
-                                 vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &transition_barrier);
-    context.vkEndCommandBuffer(command_buffer);
-    vk::SubmitInfo transition_submit_info{
-        .sType = vk::StructureType::SubmitInfo,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &command_buffer,
-    };
-    context.vkQueueSubmit(queue, 1, &transition_submit_info, nullptr);
-    context.vkQueueWaitIdle(queue);
 
     vk::QueryPoolCreateInfo query_pool_ci{
         .sType = vk::StructureType::QueryPoolCreateInfo,
@@ -768,7 +653,7 @@ void main_task(Scheduler &scheduler) {
     ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.6f, 0.7f, 0.8f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
-    ui.set_global_scale(window.ppcm() / 37.8f * 0.75f);
+    ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
 
     vk::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
@@ -811,9 +696,9 @@ void main_task(Scheduler &scheduler) {
         gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
                                                     device_properties.limits.timestampPeriod) /
                                                        1000000000.0f});
-        gpu_frame_bar.sections.push({"Terrain pass", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
-                                                      device_properties.limits.timestampPeriod) /
-                                                         1000000000.0f});
+        gpu_frame_bar.sections.push({"Main pass", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
+                                                   device_properties.limits.timestampPeriod) /
+                                                      1000000000.0f});
         gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[7] - timestamp_data[6])) *
                                             device_properties.limits.timestampPeriod) /
                                                1000000000.0f});
@@ -853,7 +738,6 @@ void main_task(Scheduler &scheduler) {
             ubo.camera_position += right * speed;
         }
 
-        ubo.terrain_size = terrain.size();
         ubo.view = look_at(ubo.camera_position, ubo.camera_position + forward, up);
 
         uint32_t light_count = lights.size();
@@ -861,20 +745,8 @@ void main_task(Scheduler &scheduler) {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
-        start_time = get_time();
-        Vector<Chunk *> chunks;
-        terrain.update(ubo.camera_position, chunks);
-        cpu_frame_bar.sections.push({"Terrain", static_cast<float>(get_time() - start_time)});
-        auto render_terrain = [&] {
-            for (auto *chunk : chunks) {
-                TerrainPushConstantBlock terrain_push_constants{
-                    .position = Vec3f(chunk->center().x(), 0.0f, chunk->center().y()),
-                    .size = chunk->size(),
-                };
-                context.vkCmdPushConstants(command_buffer, terrain_pipeline_layout, vk::ShaderStage::Vertex, 0,
-                                           sizeof(TerrainPushConstantBlock), &terrain_push_constants);
-                context.vkCmdDrawIndexed(command_buffer, terrain_indices.size(), 1, 0, 0, 0);
-            }
+        auto render_model = [&] {
+            context.vkCmdDrawIndexed(command_buffer, index_count, 1, 0, 0, 0);
         };
 
         start_time = get_time();
@@ -885,9 +757,9 @@ void main_task(Scheduler &scheduler) {
         };
         context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
         context.vkCmdResetQueryPool(command_buffer, query_pool, 0, query_pool_ci.queryCount);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, light_cull_pipeline_layout, 0,
-                                        1, &descriptor_set, 0, nullptr);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pipeline_layout, 0, 1,
+        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, pipeline_layout, 0, 1,
+                                        &descriptor_set, 0, nullptr);
+        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
 
         Array vertex_offsets{vk::DeviceSize{0}};
@@ -932,7 +804,7 @@ void main_task(Scheduler &scheduler) {
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
         context.vkCmdBeginRendering(command_buffer, &depth_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        render_terrain();
+        render_model();
         context.vkCmdEndRendering(command_buffer);
 
         vk::ImageMemoryBarrier depth_sample_barrier{
@@ -954,11 +826,11 @@ void main_task(Scheduler &scheduler) {
                                      nullptr, 1, &depth_sample_barrier);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 1);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Compute, light_cull_pipeline);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 2);
         context.vkCmdDispatch(command_buffer, row_tile_count, col_tile_count, 1);
+        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 2);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::ComputeShader, query_pool, 3);
 
-        Array terrain_pass_buffer_barriers{
+        Array main_pass_buffer_barriers{
             vk::BufferMemoryBarrier{
                 .sType = vk::StructureType::BufferMemoryBarrier,
                 .srcAccessMask = vk::Access::ShaderWrite,
@@ -976,8 +848,7 @@ void main_task(Scheduler &scheduler) {
         };
         context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ComputeShader,
                                      vk::PipelineStage::FragmentShader, vk::DependencyFlags::None, 0, nullptr,
-                                     terrain_pass_buffer_barriers.size(), terrain_pass_buffer_barriers.data(), 0,
-                                     nullptr);
+                                     main_pass_buffer_barriers.size(), main_pass_buffer_barriers.data(), 0, nullptr);
 
         vk::ImageMemoryBarrier colour_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1028,7 +899,7 @@ void main_task(Scheduler &scheduler) {
             .loadOp = vk::AttachmentLoadOp::Load,
             .storeOp = vk::AttachmentStoreOp::None,
         };
-        vk::RenderingInfo terrain_pass_rendering_info{
+        vk::RenderingInfo main_pass_rendering_info{
             .sType = vk::StructureType::RenderingInfo,
             .renderArea{
                 .extent = swapchain.extent_2D(),
@@ -1040,9 +911,9 @@ void main_task(Scheduler &scheduler) {
             .pStencilAttachment = &depth_read_attachment,
         };
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
-        context.vkCmdBeginRendering(command_buffer, &terrain_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, terrain_pass_pipeline);
-        render_terrain();
+        context.vkCmdBeginRendering(command_buffer, &main_pass_rendering_info);
+        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, main_pass_pipeline);
+        render_model();
         context.vkCmdEndRendering(command_buffer);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
 
@@ -1119,24 +990,19 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(index_buffer);
     context.vkFreeMemory(vertex_buffer_memory);
     context.vkDestroyBuffer(vertex_buffer);
-    context.vkDestroySampler(height_sampler);
-    context.vkDestroyImageView(height_image_view);
-    context.vkFreeMemory(height_image_memory);
-    context.vkDestroyImage(height_image);
     context.vkDestroySampler(depth_sampler);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
     context.vkDestroyImage(depth_image);
-    context.vkDestroyPipeline(terrain_pass_pipeline);
+    context.vkDestroyPipeline(main_pass_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
     context.vkDestroyPipeline(depth_pass_pipeline);
-    context.vkDestroyPipelineLayout(terrain_pipeline_layout);
-    context.vkDestroyPipelineLayout(light_cull_pipeline_layout);
+    context.vkDestroyPipelineLayout(pipeline_layout);
     context.vkDestroyDescriptorSetLayout(set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
-    context.vkDestroyShaderModule(terrain_fragment_shader);
-    context.vkDestroyShaderModule(terrain_vertex_shader);
+    context.vkDestroyShaderModule(main_fragment_shader);
+    context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
     context.vkDestroyCommandPool(command_pool);
 }
