@@ -3,6 +3,8 @@
 add_library(vull OBJECT)
 add_subdirectory(sources)
 target_add_shader(vull shaders/light_cull.comp)
+target_add_shader(vull shaders/main.vert)
+target_add_shader(vull shaders/main.frag)
 target_add_shader(vull shaders/terrain.vert)
 target_add_shader(vull shaders/terrain.frag)
 target_add_shader(vull shaders/ui.vert)

@@ -18,3 +18,8 @@ float linearise_depth(float depth, mat4 proj) {
     // proj[3][2] is the near plane for our inverse reversed projection matrix.
     return proj[3][2] / depth;
 }
+
+float fog_factor(float density, float distance) {
+    float d = density * distance;
+    return 1.0f - clamp(exp2(d * d * -1.442695f), 0.0f, 1.0f);
+}
