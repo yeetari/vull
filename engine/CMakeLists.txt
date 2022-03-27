@@ -8,7 +8,7 @@ target_add_shader(vull shaders/terrain.frag)
 target_add_shader(vull shaders/ui.vert)
 target_add_shader(vull shaders/ui.frag)
 target_compile_features(vull PRIVATE cxx_std_20)
-target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti PUBLIC -nostdinc++)
+target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
 target_include_directories(vull PUBLIC include PRIVATE sources)
 # TODO: Use X11::xcb_randr target when available in cmake.
 target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz X11::xcb X11::xcb_util X11::xcb_xkb xcb-randr)
