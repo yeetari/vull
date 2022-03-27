@@ -87,6 +87,8 @@ constexpr void swap(T &lhs, T &rhs) {
 
 } // namespace vull
 
+#if !__has_include(<vector>)
+
 // NOLINTNEXTLINE
 inline void *operator new(unsigned long, void *ptr) {
     return ptr;
@@ -96,3 +98,5 @@ inline void *operator new(unsigned long, void *ptr) {
 inline void *operator new[](unsigned long, void *ptr) {
     return ptr;
 }
+
+#endif
