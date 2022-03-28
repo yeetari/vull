@@ -712,8 +712,8 @@ void main_task(Scheduler &scheduler) {
                      vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
                                   ubo.camera_position.z()));
 
-        yaw += window.delta_x() * 0.005f;
-        pitch -= window.delta_y() * 0.005f;
+        yaw += window.delta_x() * dt * 0.5f;
+        pitch -= window.delta_y() * dt * 0.5f;
 
         constexpr Vec3f up(0.0f, 1.0f, 0.0f);
         Vec3f forward(cos(yaw) * cos(pitch), sin(pitch), sin(yaw) * cos(pitch));
