@@ -1,5 +1,6 @@
 target_sources(vull PRIVATE
     core/Window.cc
+    ecs/Entity.cc
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc
