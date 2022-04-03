@@ -38,6 +38,7 @@ jobs:
           libxcb-randr0-dev
           libxcb-util-dev
           libxcb-xkb-dev
+          libzstd-dev
           ninja-build
           shaderc
       - name: Checkout

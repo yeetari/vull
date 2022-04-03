@@ -31,6 +31,7 @@ jobs:
           libxcb-randr0-dev
           libxcb-util-dev
           libxcb-xkb-dev
+          libzstd-dev
           parallel
           shaderc
       - name: Checkout
