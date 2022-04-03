@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vull/support/Utility.hh>
+
 #if __has_include(<utility>)
 #include <utility>
 #endif
