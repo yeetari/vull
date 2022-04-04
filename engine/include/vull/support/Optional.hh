@@ -20,7 +20,7 @@ public:
     ~Optional() { clear(); }
 
     Optional &operator=(const Optional &) = delete;
-    Optional &operator=(Optional &&) = delete;
+    Optional &operator=(Optional &&);
 
     void clear();
     template <typename... Args>
@@ -64,6 +64,19 @@ Optional<T>::Optional(Optional &&other) : m_present(other.m_present) {
         new (m_data.data()) T(move(*other));
         other.clear();
     }
+}
+
+template <typename T>
+Optional<T> &Optional<T>::operator=(Optional &&other) {
+    if (this != &other) {
+        clear();
+        m_present = other.m_present;
+        if (other) {
+            new (m_data.data()) T(move(*other));
+            other.clear();
+        }
+    }
+    return *this;
 }
 
 template <typename T>
