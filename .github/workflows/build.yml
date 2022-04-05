@@ -16,12 +16,10 @@ jobs:
     steps:
       - name: Update package lists
         run: apt update -qq
-      - name: Add cmake and vulkan-sdk repositories
+      - name: Add vulkan-sdk repository
         run: |
           apt install -y gnupg2 wget
-          wget -qO - https://apt.kitware.com/keys/kitware-archive-latest.asc | apt-key add -
           wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
-          echo 'deb https://apt.kitware.com/ubuntu focal main' > /etc/apt/sources.list.d/kitware.list
           wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
           apt update -qq
       - name: Install tools and dependencies
