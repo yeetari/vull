@@ -12,6 +12,9 @@ find_package(harfbuzz REQUIRED)
 find_package(X11 REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(zstd REQUIRED IMPORTED_TARGET libzstd)
+
 function(target_add_shader target shader)
     set(source ${CMAKE_CURRENT_SOURCE_DIR}/${shader})
     set(output ${CMAKE_CURRENT_BINARY_DIR}/${shader}.spv)
