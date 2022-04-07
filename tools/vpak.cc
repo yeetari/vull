@@ -7,6 +7,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
 
+#include <assimp/DefaultLogger.hpp>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
@@ -16,6 +17,10 @@
 using namespace vull;
 
 namespace {
+
+struct AssimpLogger : public Assimp::LogStream {
+    void write(const char *message) override { fputs(message, stdout); }
+};
 
 struct Vertex {
     Vec3f position;
@@ -106,8 +111,9 @@ void process_node(const aiScene *scene, EntityManager &world, PackWriter &pack_w
 
 int main(int, char **argv) {
     auto start_time = get_time();
-    printf("Reading %s\n\n", argv[1]);
-
+    Assimp::DefaultLogger::create("vpak", Assimp::Logger::VERBOSE);
+    Assimp::DefaultLogger::get()->attachStream(new AssimpLogger, Assimp::Logger::Debugging | Assimp::Logger::Info |
+                                                                     Assimp::Logger::Warn | Assimp::Logger::Err);
     Assimp::Importer importer;
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS,
                                 aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS | aiComponent_TEXCOORDS |
@@ -118,9 +124,9 @@ int main(int, char **argv) {
                                        aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure);
     if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
         (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
-        fprintf(stderr, "%s broken\n", argv[1]);
         return 1;
     }
+    putchar('\n');
 
     World world;
     world.register_component<Transform>();
@@ -140,4 +146,5 @@ int main(int, char **argv) {
 
     printf("\nWrote %ld bytes in %.2f seconds\n", ftell(pack_file), get_time() - start_time);
     fclose(pack_file);
+    Assimp::DefaultLogger::kill();
 }
