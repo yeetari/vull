@@ -1,6 +1,9 @@
 target_sources(vull PRIVATE
+    core/PackReader.cc
+    core/PackWriter.cc
     core/Window.cc
     ecs/Entity.cc
+    ecs/World.cc
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc

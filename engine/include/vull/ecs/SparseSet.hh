@@ -15,7 +15,7 @@ class SparseSet {
 
     void (*m_destruct)(void *){nullptr};
     void (*m_swap)(void *, void *){nullptr};
-    size_t m_object_size{0};
+    uint32_t m_object_size{0};
     I m_capacity{0};
 
 public:
@@ -37,16 +37,19 @@ public:
     void emplace(I index, Args &&...args);
     void remove(I index);
 
+    void *raw_at(I index);
+    void *raw_push(I index);
+
     auto dense_begin() { return m_dense.begin(); }
     auto dense_end() { return m_dense.end(); }
     template <typename T>
-    T *storage_begin() {
-        return reinterpret_cast<T *>(m_data);
-    }
+    T *storage_begin();
     template <typename T>
-    T *storage_end() {
-        return &reinterpret_cast<T *>(m_data)[m_dense.size()];
-    }
+    T *storage_end();
+
+    bool empty() const { return !m_dense.empty(); }
+    uint32_t size() const { return m_dense.size(); }
+    uint32_t object_size() const { return m_object_size; }
 };
 
 template <typename I>
@@ -75,7 +78,7 @@ void SparseSet<I>::initialise() {
     m_swap = +[](void *lhs, void *rhs) {
         swap(*static_cast<T *>(lhs), *static_cast<T *>(rhs));
     };
-    m_object_size = sizeof(T);
+    m_object_size = static_cast<uint32_t>(sizeof(T));
 }
 
 template <typename I>
@@ -83,7 +86,7 @@ template <typename T>
 T &SparseSet<I>::at(I index) {
     VULL_ASSERT(contains(index));
     VULL_ASSERT_PEDANTIC(m_object_size == sizeof(T));
-    return *reinterpret_cast<T *>(m_data + m_sparse[index] * m_object_size);
+    return *reinterpret_cast<T *>(m_data + m_sparse[index] * sizeof(T));
 }
 
 template <typename I>
@@ -138,6 +141,47 @@ void SparseSet<I>::remove(I index) {
     }
     m_dense.pop();
     m_destruct(m_data + m_dense.size() * m_object_size);
+}
+
+template <typename I>
+void *SparseSet<I>::raw_at(I index) {
+    VULL_ASSERT(contains(index));
+    return m_data + m_sparse[index] * m_object_size;
+}
+
+template <typename I>
+void *SparseSet<I>::raw_push(I index) {
+    // TODO: Somewhat duplicated with emplace, need a common path that can efficiently handle both sizeof(T) and
+    //       m_object_size.
+    VULL_ASSERT(!contains(index));
+    m_sparse.ensure_size(index + 1);
+    m_sparse[index] = m_dense.size();
+
+    // TODO: Doesn't correctly handle non-trivially copyable types.
+    if (auto new_capacity = m_dense.size() + 1; new_capacity > m_capacity) {
+        new_capacity = max(m_capacity * 2 + 1, new_capacity);
+        auto *new_data = new uint8_t[new_capacity * m_object_size];
+        if (!m_dense.empty()) {
+            memcpy(new_data, m_data, m_dense.size() * m_object_size);
+        }
+        delete[] m_data;
+        m_data = new_data;
+        m_capacity = new_capacity;
+    }
+    m_dense.push(index);
+    return m_data + (m_dense.size() - 1) * m_object_size;
+}
+
+template <typename I>
+template <typename T>
+T *SparseSet<I>::storage_begin() {
+    return reinterpret_cast<T *>(m_data);
+}
+
+template <typename I>
+template <typename T>
+T *SparseSet<I>::storage_end() {
+    return &reinterpret_cast<T *>(m_data)[m_dense.size()];
 }
 
 } // namespace vull
