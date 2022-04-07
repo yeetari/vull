@@ -1,11 +1,21 @@
+#include <vull/core/BuiltinComponents.hh>
+#include <vull/core/Mesh.hh>
+#include <vull/core/PackFile.hh>
+#include <vull/core/PackReader.hh>
+#include <vull/core/Transform.hh>
 #include <vull/core/Window.hh>
+#include <vull/ecs/Entity.hh>
+#include <vull/ecs/EntityId.hh>
+#include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
@@ -26,6 +36,23 @@
 using namespace vull;
 
 namespace {
+
+double get_time() {
+    struct timespec ts {};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
+           1000000000;
+}
+
+Mat4f get_transform_matrix(World &world, EntityId id) {
+    const auto &transform = world.get_component<Transform>(id);
+    if (transform.parent() == id) {
+        // Root node.
+        return {1.0f};
+    }
+    const auto parent_matrix = get_transform_matrix(world, transform.parent());
+    return parent_matrix * transform.matrix();
+}
 
 vk::ShaderModule load_shader(const Context &context, const char *path) {
     FILE *file = fopen(path, "rb");
@@ -74,6 +101,110 @@ void main_task(Scheduler &scheduler) {
     };
     vk::CommandBuffer command_buffer;
     VULL_ENSURE(context.vkAllocateCommandBuffers(&command_buffer_ai, &command_buffer) == vk::Result::Success);
+
+    vk::BufferCreateInfo staging_buffer_ci{
+        .sType = vk::StructureType::BufferCreateInfo,
+        .size = 1024ul * 1024ul * 2ul,
+        .usage = vk::BufferUsage::TransferSrc,
+        .sharingMode = vk::SharingMode::Exclusive,
+    };
+    vk::Buffer staging_buffer;
+    VULL_ENSURE(context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vk::Result::Success);
+
+    vk::MemoryRequirements staging_memory_requirements{};
+    context.vkGetBufferMemoryRequirements(staging_buffer, &staging_memory_requirements);
+    auto *staging_memory = context.allocate_memory(staging_memory_requirements, MemoryType::Staging);
+    VULL_ENSURE(context.vkBindBufferMemory(staging_buffer, staging_memory, 0) == vk::Result::Success);
+
+    void *staging_data;
+    context.vkMapMemory(staging_memory, 0, vk::k_whole_size, 0, &staging_data);
+
+    vk::MemoryRequirements mesh_memory_requirements{
+        .size = 216006656,
+        .memoryTypeBits = 0xffffffffu,
+    };
+    auto *mesh_memory = context.allocate_memory(mesh_memory_requirements, MemoryType::DeviceLocal);
+
+    auto *pack_file = fopen("scene.vpak", "rb");
+    PackReader pack_reader(pack_file);
+    pack_reader.read_header();
+
+    World world;
+    world.register_component<Transform>();
+    world.register_component<Mesh>();
+
+    Vector<vk::Buffer> vertex_buffers;
+    Vector<vk::Buffer> index_buffers;
+    Vector<uint32_t> index_counts;
+    size_t offset = 0;
+    for (auto entry = pack_reader.read_entry(); entry; entry = pack_reader.read_entry()) {
+        auto buffer_usage = static_cast<vk::BufferUsage>(0);
+        switch (entry->type) {
+        case PackEntryType::VertexData:
+            buffer_usage = vk::BufferUsage::VertexBuffer;
+            break;
+        case PackEntryType::IndexData:
+            buffer_usage = vk::BufferUsage::IndexBuffer;
+            break;
+        case PackEntryType::WorldData:
+            world.deserialise(pack_reader);
+            continue;
+        default:
+            pack_reader.end_entry();
+            continue;
+        }
+        VULL_ENSURE(entry->size <= staging_buffer_ci.size);
+        pack_reader.read({staging_data, entry->size});
+
+        vk::BufferCreateInfo buffer_ci{
+            .sType = vk::StructureType::BufferCreateInfo,
+            .size = entry->size,
+            .usage = buffer_usage | vk::BufferUsage::TransferDst,
+            .sharingMode = vk::SharingMode::Exclusive,
+        };
+        vk::Buffer buffer;
+        VULL_ENSURE(context.vkCreateBuffer(&buffer_ci, &buffer) == vk::Result::Success);
+
+        vk::MemoryRequirements buffer_requirements{};
+        context.vkGetBufferMemoryRequirements(buffer, &buffer_requirements);
+        VULL_ENSURE(context.vkBindBufferMemory(buffer, mesh_memory, offset) == vk::Result::Success);
+
+        context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
+        vk::CommandBufferBeginInfo cmd_buf_bi{
+            .sType = vk::StructureType::CommandBufferBeginInfo,
+            .flags = vk::CommandBufferUsage::OneTimeSubmit,
+        };
+        context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
+        vk::BufferCopy copy{
+            .size = entry->size,
+        };
+        context.vkCmdCopyBuffer(command_buffer, staging_buffer, buffer, 1, &copy);
+        context.vkEndCommandBuffer(command_buffer);
+
+        vk::SubmitInfo submit_info{
+            .sType = vk::StructureType::SubmitInfo,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &command_buffer,
+        };
+        context.vkQueueSubmit(queue, 1, &submit_info, nullptr);
+        context.vkQueueWaitIdle(queue);
+
+        switch (entry->type) {
+        case PackEntryType::VertexData:
+            vertex_buffers.push(buffer);
+            break;
+        case PackEntryType::IndexData:
+            index_buffers.push(buffer);
+            index_counts.push(static_cast<uint32_t>(entry->size / sizeof(uint32_t)));
+            break;
+        }
+        offset += entry->size;
+        offset = (offset + buffer_requirements.alignment - 1) & ~(buffer_requirements.alignment - 1);
+    }
+    fclose(pack_file);
+
+    context.vkFreeMemory(staging_memory);
+    context.vkDestroyBuffer(staging_buffer);
 
     constexpr uint32_t tile_size = 32;
     uint32_t row_tile_count = (window.width() + (window.width() % tile_size)) / tile_size;
@@ -195,10 +326,16 @@ void main_task(Scheduler &scheduler) {
     vk::DescriptorSetLayout set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
 
+    vk::PushConstantRange push_constant_range{
+        .stageFlags = vk::ShaderStage::Vertex,
+        .size = sizeof(Mat4f),
+    };
     vk::PipelineLayoutCreateInfo pipeline_layout_ci{
         .sType = vk::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &set_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range,
     };
     vk::PipelineLayout pipeline_layout;
     VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vk::Result::Success);
@@ -256,7 +393,7 @@ void main_task(Scheduler &scheduler) {
         .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
         .polygonMode = vk::PolygonMode::Fill,
         .cullMode = vk::CullMode::Back,
-        .frontFace = vk::FrontFace::Clockwise,
+        .frontFace = vk::FrontFace::CounterClockwise,
         .lineWidth = 1.0f,
     };
 
@@ -585,62 +722,6 @@ void main_task(Scheduler &scheduler) {
     context.vkMapMemory(lights_buffer_memory, 0, vk::k_whole_size, 0, &lights_data);
     context.vkMapMemory(uniform_buffer_memory, 0, vk::k_whole_size, 0, &ubo_data);
 
-    auto get_time = [] {
-        struct timespec ts {};
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
-               1000000000;
-    };
-
-    auto *vertex_file = fopen("vertices", "rb");
-    fseek(vertex_file, 0, SEEK_END);
-    auto vertex_data_size = static_cast<vk::DeviceSize>(ftell(vertex_file));
-    fseek(vertex_file, 0, SEEK_SET);
-
-    auto *index_file = fopen("indices", "rb");
-    fseek(index_file, 0, SEEK_END);
-    auto index_data_size = static_cast<vk::DeviceSize>(ftell(index_file));
-    auto index_count = static_cast<uint32_t>(index_data_size / sizeof(uint32_t));
-    fseek(index_file, 0, SEEK_SET);
-
-    vk::BufferCreateInfo vertex_buffer_ci{
-        .sType = vk::StructureType::BufferCreateInfo,
-        .size = vertex_data_size,
-        .usage = vk::BufferUsage::VertexBuffer,
-        .sharingMode = vk::SharingMode::Exclusive,
-    };
-    vk::Buffer vertex_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&vertex_buffer_ci, &vertex_buffer) == vk::Result::Success);
-
-    vk::MemoryRequirements vertex_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(vertex_buffer, &vertex_buffer_requirements);
-    auto *vertex_buffer_memory = context.allocate_memory(vertex_buffer_requirements, MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(vertex_buffer, vertex_buffer_memory, 0) == vk::Result::Success);
-
-    void *vertex_data;
-    context.vkMapMemory(vertex_buffer_memory, 0, vk::k_whole_size, 0, &vertex_data);
-    VULL_ENSURE(fread(vertex_data, 1, vertex_data_size, vertex_file) == vertex_data_size);
-    context.vkUnmapMemory(vertex_buffer_memory);
-
-    vk::BufferCreateInfo index_buffer_ci{
-        .sType = vk::StructureType::BufferCreateInfo,
-        .size = index_data_size,
-        .usage = vk::BufferUsage::IndexBuffer,
-        .sharingMode = vk::SharingMode::Exclusive,
-    };
-    vk::Buffer index_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&index_buffer_ci, &index_buffer) == vk::Result::Success);
-
-    vk::MemoryRequirements index_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(index_buffer, &index_buffer_requirements);
-    auto *index_buffer_memory = context.allocate_memory(index_buffer_requirements, MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(index_buffer, index_buffer_memory, 0) == vk::Result::Success);
-
-    void *index_data;
-    context.vkMapMemory(index_buffer_memory, 0, vk::k_whole_size, 0, &index_data);
-    VULL_ENSURE(fread(index_data, sizeof(uint32_t), index_count, index_file) == index_count);
-    context.vkUnmapMemory(index_buffer_memory);
-
     vk::QueryPoolCreateInfo query_pool_ci{
         .sType = vk::StructureType::QueryPoolCreateInfo,
         .queryType = vk::QueryType::Timestamp,
@@ -745,8 +826,17 @@ void main_task(Scheduler &scheduler) {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
-        auto render_model = [&] {
-            context.vkCmdDrawIndexed(command_buffer, index_count, 1, 0, 0, 0);
+        auto render_meshes = [&] {
+            for (auto [entity, mesh] : world.view<Mesh>()) {
+                const auto matrix = get_transform_matrix(world, entity);
+                Array vertex_offsets{vk::DeviceSize{0}};
+                context.vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffers[mesh.index()],
+                                               vertex_offsets.data());
+                context.vkCmdBindIndexBuffer(command_buffer, index_buffers[mesh.index()], 0, vk::IndexType::Uint32);
+                context.vkCmdPushConstants(command_buffer, pipeline_layout, vk::ShaderStage::Vertex, 0, sizeof(Mat4f),
+                                           &matrix);
+                context.vkCmdDrawIndexed(command_buffer, index_counts[mesh.index()], 1, 0, 0, 0);
+            }
         };
 
         start_time = get_time();
@@ -761,10 +851,6 @@ void main_task(Scheduler &scheduler) {
                                         &descriptor_set, 0, nullptr);
         context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
                                         &descriptor_set, 0, nullptr);
-
-        Array vertex_offsets{vk::DeviceSize{0}};
-        context.vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, vertex_offsets.data());
-        context.vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, vk::IndexType::Uint32);
 
         vk::ImageMemoryBarrier depth_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -804,7 +890,7 @@ void main_task(Scheduler &scheduler) {
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
         context.vkCmdBeginRendering(command_buffer, &depth_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        render_model();
+        render_meshes();
         context.vkCmdEndRendering(command_buffer);
 
         vk::ImageMemoryBarrier depth_sample_barrier{
@@ -913,7 +999,7 @@ void main_task(Scheduler &scheduler) {
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
         context.vkCmdBeginRendering(command_buffer, &main_pass_rendering_info);
         context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, main_pass_pipeline);
-        render_model();
+        render_meshes();
         context.vkCmdEndRendering(command_buffer);
         context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
 
@@ -986,10 +1072,6 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(lights_buffer);
     context.vkFreeMemory(uniform_buffer_memory);
     context.vkDestroyBuffer(uniform_buffer);
-    context.vkFreeMemory(index_buffer_memory);
-    context.vkDestroyBuffer(index_buffer);
-    context.vkFreeMemory(vertex_buffer_memory);
-    context.vkDestroyBuffer(vertex_buffer);
     context.vkDestroySampler(depth_sampler);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
@@ -1004,6 +1086,13 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyShaderModule(main_fragment_shader);
     context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
+    for (auto *buffer : index_buffers) {
+        context.vkDestroyBuffer(buffer);
+    }
+    for (auto *buffer : vertex_buffers) {
+        context.vkDestroyBuffer(buffer);
+    }
+    context.vkFreeMemory(mesh_memory);
     context.vkDestroyCommandPool(command_pool);
 }
 

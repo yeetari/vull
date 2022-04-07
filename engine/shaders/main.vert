@@ -9,13 +9,18 @@ layout (binding = 0) uniform UniformBuffer {
     vec3 camera_position;
 } g_ubo;
 
+layout (push_constant) uniform ObjectData {
+    mat4 g_transform;
+};
+
 layout (location = 0) out FragmentData {
     vec3 normal;
     vec3 world_position;
 } g_fragment;
 
 void main() {
-    g_fragment.normal = g_normal;
-    g_fragment.world_position = g_position;
-    gl_Position = g_ubo.proj * g_ubo.view * vec4(g_position, 1.0f);
+    vec4 world_position = g_transform * vec4(g_position, 1.0f);
+    g_fragment.normal = normalize((transpose(inverse(g_transform)) * vec4(g_normal, 0.0f)).xyz);
+    g_fragment.world_position = world_position.xyz;
+    gl_Position = g_ubo.proj * g_ubo.view * world_position;
 }
