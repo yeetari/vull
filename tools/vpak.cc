@@ -1,3 +1,8 @@
+#include <vull/core/Mesh.hh>
+#include <vull/core/PackFile.hh>
+#include <vull/core/PackWriter.hh>
+#include <vull/core/Transform.hh>
+#include <vull/ecs/World.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Vector.hh>
@@ -6,6 +11,7 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <meshoptimizer.h>
+#include <time.h>
 
 using namespace vull;
 
@@ -16,49 +22,92 @@ struct Vertex {
     Vec3f normal;
 };
 
-FILE *s_vertex_file;
-FILE *s_index_file;
+double get_time() {
+    struct timespec ts {};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
+           1000000000;
+}
 
-void process_mesh(aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indices, uint32_t &vertex_count) {
-    VULL_ENSURE(mesh->mVertices != nullptr);
-    VULL_ENSURE(mesh->mNormals != nullptr);
+void process_mesh(aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indices) {
+    uint32_t initial_vertex_count = vertices.size();
+    vertices.ensure_capacity(vertices.size() + mesh->mNumVertices);
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        Vertex vertex{
+        vertices.push(Vertex{
             .position{
                 mesh->mVertices[i].x,
-                mesh->mVertices[i].z,
                 mesh->mVertices[i].y,
+                mesh->mVertices[i].z,
             },
             .normal = normalise(Vec3f{
                 mesh->mNormals[i].x,
-                mesh->mNormals[i].z,
                 mesh->mNormals[i].y,
+                mesh->mNormals[i].z,
             }),
-        };
-        vertices.push(vertex);
+        });
     }
+    indices.ensure_capacity(indices.size() + mesh->mNumFaces * 3);
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
         const auto &face = mesh->mFaces[i];
-        indices.push(vertex_count + face.mIndices[0]);
-        indices.push(vertex_count + face.mIndices[1]);
-        indices.push(vertex_count + face.mIndices[2]);
+        indices.push(initial_vertex_count + face.mIndices[0]);
+        indices.push(initial_vertex_count + face.mIndices[1]);
+        indices.push(initial_vertex_count + face.mIndices[2]);
     }
-    vertex_count += mesh->mNumVertices;
 }
 
-void process_node(const aiScene *scene, aiNode *node, Vector<Vertex> &vertices, Vector<uint32_t> &indices,
-                  uint32_t &vertex_count) {
+void process_node(const aiScene *scene, EntityManager &world, PackWriter &pack_writer, aiNode *node, EntityId parent_id,
+                  uint32_t &mesh_index, int indentation) {
+    printf("%*s%s\n", indentation, "", node->mName.C_Str());
+
+    Vector<Vertex> vertices;
+    Vector<uint32_t> indices;
     for (unsigned i = 0; i < node->mNumMeshes; i++) {
-        process_mesh(scene->mMeshes[node->mMeshes[i]], vertices, indices, vertex_count);
+        process_mesh(scene->mMeshes[node->mMeshes[i]], vertices, indices);
     }
+
+    auto entity = world.create_entity();
+    entity.add<Transform>(parent_id, Mat4f{Array{
+                                         Vec4f(node->mTransformation.a1, node->mTransformation.b1,
+                                               node->mTransformation.c1, node->mTransformation.d1),
+                                         Vec4f(node->mTransformation.a2, node->mTransformation.b2,
+                                               node->mTransformation.c2, node->mTransformation.d2),
+                                         Vec4f(node->mTransformation.a3, node->mTransformation.b3,
+                                               node->mTransformation.c3, node->mTransformation.d3),
+                                         Vec4f(node->mTransformation.a4, node->mTransformation.b4,
+                                               node->mTransformation.c4, node->mTransformation.d4),
+                                     }});
+
+    if (node->mNumMeshes != 0) {
+        entity.add<Mesh>(mesh_index++);
+        meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
+        meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
+                                    sizeof(Vertex));
+
+        pack_writer.start_entry(PackEntryType::VertexData,
+                                should_compress(PackEntryType::VertexData, vertices.size_bytes()));
+        pack_writer.write(vertices.span());
+        float vertex_ratio = pack_writer.end_entry();
+
+        pack_writer.start_entry(PackEntryType::IndexData,
+                                should_compress(PackEntryType::IndexData, indices.size_bytes()));
+        pack_writer.write(indices.span());
+        float index_ratio = pack_writer.end_entry();
+
+        printf("%*s(mesh): %.1f%% verts, %.1f%% inds\n", indentation + 2, "", vertex_ratio * 100.0f,
+               index_ratio * 100.0f);
+    }
+
     for (unsigned i = 0; i < node->mNumChildren; i++) {
-        process_node(scene, node->mChildren[i], vertices, indices, vertex_count);
+        process_node(scene, world, pack_writer, node->mChildren[i], entity, mesh_index, indentation + 2);
     }
 }
 
 } // namespace
 
 int main(int, char **argv) {
+    auto start_time = get_time();
+    printf("Reading %s\n\n", argv[1]);
+
     Assimp::Importer importer;
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS,
                                 aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS | aiComponent_TEXCOORDS |
@@ -67,20 +116,28 @@ int main(int, char **argv) {
     const auto *scene =
         importer.ReadFile(argv[1], aiProcess_RemoveComponent | aiProcess_Triangulate | aiProcess_SortByPType |
                                        aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure);
-    VULL_ENSURE(scene != nullptr);
+    if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
+        (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
+        fprintf(stderr, "%s broken\n", argv[1]);
+        return 1;
+    }
 
-    Vector<Vertex> vertices;
-    Vector<uint32_t> indices;
-    uint32_t vertex_count = 0;
-    process_node(scene, scene->mRootNode, vertices, indices, vertex_count);
-    meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertex_count);
-    meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
-                                sizeof(Vertex));
+    World world;
+    world.register_component<Transform>();
+    world.register_component<Mesh>();
 
-    s_vertex_file = fopen("vertices", "wb");
-    s_index_file = fopen("indices", "wb");
-    fwrite(vertices.data(), sizeof(Vertex), vertices.size(), s_vertex_file);
-    fwrite(indices.data(), sizeof(uint32_t), indices.size(), s_index_file);
-    fclose(s_index_file);
-    fclose(s_vertex_file);
+    auto *pack_file = fopen("scene.vpak", "wb");
+    PackWriter pack_writer(pack_file);
+    pack_writer.write_header();
+
+    // Walk imported scene hierarchy.
+    uint32_t mesh_index = 0;
+    process_node(scene, world, pack_writer, scene->mRootNode, 0, mesh_index, 0);
+
+    // Serialise ECS state.
+    float world_ratio = world.serialise(pack_writer);
+    printf("(world): %.1f%%\n", world_ratio * 100.0f);
+
+    printf("\nWrote %ld bytes in %.2f seconds\n", ftell(pack_file), get_time() - start_time);
+    fclose(pack_file);
 }
