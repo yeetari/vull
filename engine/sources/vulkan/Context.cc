@@ -25,6 +25,8 @@ vk::MemoryPropertyFlags memory_flags(MemoryType type) {
     case MemoryType::HostVisible:
         return vk::MemoryPropertyFlags::DeviceLocal | vk::MemoryPropertyFlags::HostVisible |
                vk::MemoryPropertyFlags::HostCoherent;
+    case MemoryType::Staging:
+        return vk::MemoryPropertyFlags::HostVisible | vk::MemoryPropertyFlags::HostCoherent;
     }
     VULL_ENSURE_NOT_REACHED();
 }

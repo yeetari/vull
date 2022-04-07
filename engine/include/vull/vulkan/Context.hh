@@ -11,6 +11,7 @@ namespace vull {
 enum class MemoryType {
     DeviceLocal,
     HostVisible,
+    Staging,
 };
 
 class Context : public vk::ContextTable {
