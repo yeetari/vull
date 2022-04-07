@@ -79,6 +79,7 @@ jobs:
               -isystem/usr/include/harfbuzz \
               -Iengine/include -Ibuild/engine/include \
               -fno-exceptions -fno-rtti -nostdinc++ \
+              -w \
               {} 2>&1 |
           grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | tee output
           if [ -s output ]; then exit 1; fi
