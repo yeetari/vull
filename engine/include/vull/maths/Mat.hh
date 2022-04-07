@@ -13,6 +13,7 @@ class Mat {
 public:
     constexpr Mat() : Mat(T(0)) {}
     constexpr Mat(T t);
+    constexpr Mat(const Array<Vec<T, R>, C> &cols) : m_cols(cols) {}
 
     Vec<T, R> &operator[](unsigned col) { return m_cols[col]; }
     const Vec<T, R> &operator[](unsigned col) const { return m_cols[col]; }
@@ -28,6 +29,17 @@ constexpr Mat<T, C, R>::Mat(T t) : m_cols{} {
     for (unsigned i = 0; i < C; i++) {
         m_cols[i][i] = t;
     }
+}
+
+template <typename T, unsigned C, unsigned R, unsigned RhsC>
+Mat<T, RhsC, R> operator*(const Mat<T, C, R> &lhs, const Mat<T, RhsC, C> &rhs) {
+    Mat<T, RhsC, R> ret;
+    for (unsigned col = 0; col < RhsC; col++) {
+        for (unsigned i = 0; i < C; i++) {
+            ret[col] += lhs[i] * rhs[col][i];
+        }
+    }
+    return ret;
 }
 
 template <typename T>
