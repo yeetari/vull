@@ -55,6 +55,7 @@ Checks: >
   bugprone-unused-return-value,
   bugprone-use-after-move,
   bugprone-virtual-near-miss,
+  -clang-diagnostic-*,
   cppcoreguidelines-avoid-goto,
   cppcoreguidelines-interfaces-global-init,
   cppcoreguidelines-narrowing-conversions,
