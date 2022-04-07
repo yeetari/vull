@@ -50,7 +50,7 @@ class EntityView;
 
 template <typename C>
 class EntityIterator<C> {
-    template <typename... Comps>
+    template <typename...>
     friend class EntityView;
 
 protected:
@@ -69,8 +69,15 @@ public:
 
 template <typename C, typename... Comps>
 class EntityIterator<C, Comps...> : public EntityIterator<C> {
+    template <typename...>
+    friend class EntityView;
+
+private:
+    EntityId *const m_end_id;
+
+    EntityIterator(EntityManager *manager, EntityId *current_id, C *current_component);
+
 public:
-    using EntityIterator<C>::EntityIterator;
     EntityIterator &operator++();
     Tuple<Entity, C &, Comps &...> operator*() const;
 };
@@ -92,9 +99,11 @@ public:
 
 class EntityManager {
     template <typename... Comps>
+    friend class EntityIterator;
+    template <typename... Comps>
     friend class EntityView;
 
-private:
+protected:
     Vector<SparseSet<EntityId>> m_component_sets;
     Vector<EntityId, EntityId> m_entities;
     EntityId m_free_head;
@@ -171,10 +180,16 @@ Tuple<Entity, C &> EntityIterator<C>::operator*() const {
 }
 
 template <typename C, typename... Comps>
+// NOLINTNEXTLINE: clang-tidy for some reason thinks that current_id can be const.
+EntityIterator<C, Comps...>::EntityIterator(EntityManager *manager, EntityId *current_id, C *current_component)
+    : EntityIterator<C>(manager, current_id, current_component),
+      m_end_id(manager->m_component_sets[C::k_component_id].dense_end()) {}
+
+template <typename C, typename... Comps>
 EntityIterator<C, Comps...> &EntityIterator<C, Comps...>::operator++() {
     do {
         EntityIterator<C>::operator++();
-    } while (EntityIterator<C>::m_manager->valid(*EntityIterator<C>::m_current_id) &&
+    } while (EntityIterator<C>::m_current_id < m_end_id &&
              !EntityIterator<C>::m_manager->template has_component<Comps...>(*EntityIterator<C>::m_current_id));
     return *this;
 }
