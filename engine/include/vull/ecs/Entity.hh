@@ -1,26 +1,14 @@
 #pragma once
 
+#include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
-#include <stdint.h>
-
 namespace vull {
 
 class EntityManager;
-using EntityId = uint32_t;
-
-constexpr EntityId entity_id(auto index, auto version) {
-    return EntityId(index) | (EntityId(version) << 24u);
-}
-constexpr EntityId entity_index(EntityId id) {
-    return id & 0xffffffu;
-}
-constexpr EntityId entity_version(EntityId id) {
-    return id >> 24u;
-}
 
 class Entity {
     EntityManager *const m_manager;
