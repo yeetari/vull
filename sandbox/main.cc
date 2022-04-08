@@ -746,9 +746,9 @@ void main_task(Scheduler &scheduler) {
         cpu_frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
 
         Array<uint64_t, 8> timestamp_data{};
-        VULL_ENSURE(context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
+        context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
                                                   timestamp_data.data(), sizeof(uint64_t),
-                                                  vk::QueryResultFlags::_64) == vk::Result::Success);
+                                                  vk::QueryResultFlags::_64);
 
         ui::TimeGraph::Bar gpu_frame_bar;
         gpu_frame_bar.sections.push({"Depth pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
