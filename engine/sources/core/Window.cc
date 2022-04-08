@@ -54,15 +54,15 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
                             &wm_fullscreen_atom->atom);
         free(wm_fullscreen_atom);
         free(wm_state_atom);
-
-        xcb_pixmap_t cursor_pixmap = xcb_generate_id(m_connection);
-        xcb_create_pixmap(m_connection, 1, cursor_pixmap, m_id, 1, 1);
-
-        const uint32_t cursor_value = xcb_generate_id(m_connection);
-        xcb_create_cursor(m_connection, cursor_value, cursor_pixmap, cursor_pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
-        xcb_free_pixmap(m_connection, cursor_pixmap);
-        xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &cursor_value);
     }
+
+    // Hide cursor.
+    const uint32_t cursor_value = xcb_generate_id(m_connection);
+    xcb_pixmap_t cursor_pixmap = xcb_generate_id(m_connection);
+    xcb_create_pixmap(m_connection, 1, cursor_pixmap, m_id, 1, 1);
+    xcb_create_cursor(m_connection, cursor_value, cursor_pixmap, cursor_pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
+    xcb_free_pixmap(m_connection, cursor_pixmap);
+    xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &cursor_value);
 
     auto use_xkb_request = xcb_xkb_use_extension(m_connection, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
     free(xcb_xkb_use_extension_reply(m_connection, use_xkb_request, nullptr));
