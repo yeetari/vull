@@ -13,7 +13,7 @@ target_compile_features(vull PRIVATE cxx_std_20)
 target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
 target_include_directories(vull PUBLIC include PRIVATE sources)
 # TODO: Use X11::xcb_randr target when available in cmake.
-target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz PkgConfig::zstd X11::xcb X11::xcb_util X11::xcb_xkb xcb-randr)
+target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz Zstd::Zstd X11::xcb X11::xcb_util X11::xcb_xkb xcb-randr)
 
 if(VULL_BUILD_TESTS)
     add_executable(vull-tests)

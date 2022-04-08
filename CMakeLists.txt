@@ -2,6 +2,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(vull CXX)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_TESTS "Build tests" OFF)
 option(VULL_BUILD_TOOLS "Build tools" OFF)
@@ -10,10 +12,8 @@ option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 find_package(Freetype REQUIRED)
 find_package(harfbuzz REQUIRED)
 find_package(X11 REQUIRED)
+find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(zstd REQUIRED IMPORTED_TARGET libzstd)
 
 function(target_add_shader target shader)
     set(source ${CMAKE_CURRENT_SOURCE_DIR}/${shader})
