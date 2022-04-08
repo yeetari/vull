@@ -12,8 +12,8 @@ using FT_Library = struct FT_LibraryRec_ *;
 
 namespace vull {
 
-class Context;
 class Swapchain;
+class VkContext;
 
 } // namespace vull
 
@@ -33,7 +33,7 @@ struct Object {
 };
 
 class Renderer {
-    const Context &m_context;
+    const VkContext &m_context;
     const Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
     vk::Sampler m_font_sampler{nullptr};
@@ -51,7 +51,7 @@ class Renderer {
     uint32_t m_object_index{0};
 
 public:
-    Renderer(const Context &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
+    Renderer(const VkContext &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
              vk::ShaderModule fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;

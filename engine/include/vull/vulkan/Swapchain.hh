@@ -9,10 +9,10 @@
 
 namespace vull {
 
-class Context;
+class VkContext;
 
 class Swapchain {
-    const Context &m_context;
+    const VkContext &m_context;
     const vk::Extent2D m_extent;
     const vk::SurfaceKHR m_surface;
     vk::SurfaceCapabilitiesKHR m_surface_capabilities{};
@@ -22,7 +22,7 @@ class Swapchain {
     vk::Queue m_present_queue{nullptr};
 
 public:
-    Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR surface);
+    Swapchain(const VkContext &context, vk::Extent2D extent, vk::SurfaceKHR surface);
     Swapchain(const Swapchain &) = delete;
     Swapchain(Swapchain &&) = delete;
     ~Swapchain();

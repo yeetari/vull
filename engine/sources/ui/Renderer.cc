@@ -19,7 +19,7 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(const Context &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
+Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
                    vk::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);

@@ -10,7 +10,7 @@
 
 namespace vull {
 
-Swapchain::Swapchain(const Context &context, vk::Extent2D extent, vk::SurfaceKHR surface)
+Swapchain::Swapchain(const VkContext &context, vk::Extent2D extent, vk::SurfaceKHR surface)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vk::SurfaceFormatKHR surface_format{
         .format = vk::Format::B8G8R8A8Srgb,

@@ -8,21 +8,21 @@
 
 namespace vull {
 
-class Context;
+class VkContext;
 
 } // namespace vull
 
 namespace vull::ui {
 
 class GpuFont : public Font {
-    const Context &m_context;
+    const VkContext &m_context;
     vk::DeviceMemory m_memory{nullptr};
     Vector<vk::Image> m_images;
     Vector<vk::ImageView> m_image_views;
     float *m_image_data{nullptr};
 
 public:
-    GpuFont(const Context &context, Font &&font);
+    GpuFont(const VkContext &context, Font &&font);
     GpuFont(const GpuFont &) = delete;
     GpuFont(GpuFont &&) = delete;
     ~GpuFont();

@@ -17,7 +17,7 @@ constexpr uint32_t k_glyph_size = 64ull;
 
 } // namespace
 
-GpuFont::GpuFont(const Context &context, Font &&font) : Font(move(font)), m_context(context) {
+GpuFont::GpuFont(const VkContext &context, Font &&font) : Font(move(font)), m_context(context) {
     m_images.ensure_size(glyph_count());
     m_image_views.ensure_size(glyph_count());
     vk::MemoryRequirements memory_requirements{

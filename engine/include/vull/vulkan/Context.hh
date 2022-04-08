@@ -14,20 +14,20 @@ enum class MemoryType {
     Staging,
 };
 
-class Context : public vk::ContextTable {
+class VkContext : public vk::ContextTable {
     Vector<vk::MemoryType> m_memory_types;
     Vector<vk::QueueFamilyProperties> m_queue_families;
 
     uint32_t find_memory_type_index(const vk::MemoryRequirements &requirements, MemoryType type) const;
 
 public:
-    Context();
-    Context(const Context &) = delete;
-    Context(Context &&) = delete;
-    ~Context();
+    VkContext();
+    VkContext(const VkContext &) = delete;
+    VkContext(VkContext &&) = delete;
+    ~VkContext();
 
-    Context &operator=(const Context &) = delete;
-    Context &operator=(Context &&) = delete;
+    VkContext &operator=(const VkContext &) = delete;
+    VkContext &operator=(VkContext &&) = delete;
 
     vk::DeviceMemory allocate_memory(const vk::MemoryRequirements &requirements, MemoryType type) const;
     const Vector<vk::QueueFamilyProperties> &queue_families() const { return m_queue_families; }

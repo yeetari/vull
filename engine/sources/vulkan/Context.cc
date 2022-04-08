@@ -33,7 +33,7 @@ vk::MemoryPropertyFlags memory_flags(MemoryType type) {
 
 } // namespace
 
-Context::Context() : ContextTable{} {
+VkContext::VkContext() : ContextTable{} {
     LsanDisabler lsan_disabler;
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
@@ -150,12 +150,12 @@ Context::Context() : ContextTable{} {
     load_device();
 }
 
-Context::~Context() {
+VkContext::~VkContext() {
     vkDestroyDevice();
     vkDestroyInstance();
 }
 
-uint32_t Context::find_memory_type_index(const vk::MemoryRequirements &requirements, MemoryType type) const {
+uint32_t VkContext::find_memory_type_index(const vk::MemoryRequirements &requirements, MemoryType type) const {
     const auto flags = memory_flags(type);
     for (uint32_t i = 0; i < m_memory_types.size(); i++) {
         if ((requirements.memoryTypeBits & (1u << i)) == 0u) {
@@ -169,7 +169,7 @@ uint32_t Context::find_memory_type_index(const vk::MemoryRequirements &requireme
     VULL_ENSURE_NOT_REACHED();
 }
 
-vk::DeviceMemory Context::allocate_memory(const vk::MemoryRequirements &requirements, MemoryType type) const {
+vk::DeviceMemory VkContext::allocate_memory(const vk::MemoryRequirements &requirements, MemoryType type) const {
     vk::MemoryAllocateInfo memory_ai{
         .sType = vk::StructureType::MemoryAllocateInfo,
         .allocationSize = requirements.size,

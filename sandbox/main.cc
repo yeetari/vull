@@ -54,7 +54,7 @@ Mat4f get_transform_matrix(World &world, EntityId id) {
     return parent_matrix * transform.matrix();
 }
 
-vk::ShaderModule load_shader(const Context &context, const char *path) {
+vk::ShaderModule load_shader(const VkContext &context, const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
     LargeVector<uint32_t> binary(static_cast<size_t>(ftell(file)) / sizeof(uint32_t));
@@ -73,7 +73,7 @@ vk::ShaderModule load_shader(const Context &context, const char *path) {
 
 void main_task(Scheduler &scheduler) {
     Window window(2560, 1440, true);
-    Context context;
+    VkContext context;
     auto swapchain = window.create_swapchain(context);
 
     vk::CommandPool command_pool = nullptr;

@@ -9,7 +9,7 @@
 
 namespace vull {
 
-class Context;
+class VkContext;
 
 enum class Key : uint8_t {
     Unknown = 0,
@@ -46,7 +46,7 @@ public:
     Window &operator=(const Window &) = delete;
     Window &operator=(Window &&) = delete;
 
-    Swapchain create_swapchain(const Context &context);
+    Swapchain create_swapchain(const VkContext &context);
     void close();
     void poll_events();
 
