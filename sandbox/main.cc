@@ -85,7 +85,7 @@ vk::ShaderModule load_shader(const VkContext &context, const char *path) {
 }
 
 void main_task(Scheduler &scheduler) {
-    Window window(2560, 1440, true);
+    Window window(2560, 1440, false);
     VkContext context;
     auto swapchain = window.create_swapchain(context);
 
