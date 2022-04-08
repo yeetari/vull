@@ -124,6 +124,7 @@ VkContext::VkContext() : ContextTable{} {
     vk::PhysicalDeviceVulkan13Features device_13_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan13Features,
         .pNext = &device_12_features,
+        .synchronization2 = true,
         .dynamicRendering = true,
     };
     vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{

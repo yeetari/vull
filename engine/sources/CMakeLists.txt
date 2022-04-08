@@ -17,6 +17,9 @@ target_sources(vull PRIVATE
     ui/GpuFont.cc
     ui/Renderer.cc
     ui/TimeGraph.cc
+    vulkan/CommandBuffer.cc
+    vulkan/CommandPool.cc
     vulkan/Context.cc
     vulkan/ContextTable.cc
+    vulkan/Queue.cc
     vulkan/Swapchain.cc)

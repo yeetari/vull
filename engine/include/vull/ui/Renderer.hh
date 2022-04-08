@@ -12,6 +12,7 @@ using FT_Library = struct FT_LibraryRec_ *;
 
 namespace vull {
 
+class CommandBuffer;
 class Swapchain;
 class VkContext;
 
@@ -65,7 +66,7 @@ public:
 
     void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale);
     void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
-    void render(vk::CommandBuffer command_buffer, uint32_t image_index);
+    void render(const CommandBuffer &cmd_buf, uint32_t image_index);
 };
 
 } // namespace vull::ui

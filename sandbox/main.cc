@@ -22,7 +22,10 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
+#include <vull/vulkan/CommandBuffer.hh>
+#include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -36,6 +39,16 @@
 using namespace vull;
 
 namespace {
+
+uint32_t find_graphics_family(const VkContext &context) {
+    for (uint32_t i = 0; i < context.queue_families().size(); i++) {
+        const auto &family = context.queue_families()[i];
+        if ((family.queueFlags & vk::QueueFlags::Graphics) != vk::QueueFlags::None) {
+            return i;
+        }
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
 
 double get_time() {
     struct timespec ts {};
@@ -76,31 +89,9 @@ void main_task(Scheduler &scheduler) {
     VkContext context;
     auto swapchain = window.create_swapchain(context);
 
-    vk::CommandPool command_pool = nullptr;
-    vk::Queue queue = nullptr;
-    for (uint32_t i = 0; i < context.queue_families().size(); i++) {
-        const auto &family = context.queue_families()[i];
-        if ((family.queueFlags & vk::QueueFlags::Graphics) != vk::QueueFlags::None) {
-            vk::CommandPoolCreateInfo command_pool_ci{
-                .sType = vk::StructureType::CommandPoolCreateInfo,
-                .flags = vk::CommandPoolCreateFlags::Transient,
-                .queueFamilyIndex = i,
-            };
-            VULL_ENSURE(context.vkCreateCommandPool(&command_pool_ci, &command_pool) == vk::Result::Success,
-                        "Failed to create command pool");
-            context.vkGetDeviceQueue(i, 0, &queue);
-            break;
-        }
-    }
-
-    vk::CommandBufferAllocateInfo command_buffer_ai{
-        .sType = vk::StructureType::CommandBufferAllocateInfo,
-        .commandPool = command_pool,
-        .level = vk::CommandBufferLevel::Primary,
-        .commandBufferCount = 1,
-    };
-    vk::CommandBuffer command_buffer;
-    VULL_ENSURE(context.vkAllocateCommandBuffers(&command_buffer_ai, &command_buffer) == vk::Result::Success);
+    const auto graphics_family_index = find_graphics_family(context);
+    CommandPool command_pool(context, graphics_family_index);
+    Queue queue(context, graphics_family_index);
 
     vk::BufferCreateInfo staging_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
@@ -169,25 +160,14 @@ void main_task(Scheduler &scheduler) {
         context.vkGetBufferMemoryRequirements(buffer, &buffer_requirements);
         VULL_ENSURE(context.vkBindBufferMemory(buffer, mesh_memory, offset) == vk::Result::Success);
 
-        context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
-        vk::CommandBufferBeginInfo cmd_buf_bi{
-            .sType = vk::StructureType::CommandBufferBeginInfo,
-            .flags = vk::CommandBufferUsage::OneTimeSubmit,
-        };
-        context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
+        command_pool.begin(vk::CommandPoolResetFlags::None);
+        auto cmd_buf = command_pool.request_cmd_buf();
         vk::BufferCopy copy{
             .size = entry->size,
         };
-        context.vkCmdCopyBuffer(command_buffer, staging_buffer, buffer, 1, &copy);
-        context.vkEndCommandBuffer(command_buffer);
-
-        vk::SubmitInfo submit_info{
-            .sType = vk::StructureType::SubmitInfo,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &command_buffer,
-        };
-        context.vkQueueSubmit(queue, 1, &submit_info, nullptr);
-        context.vkQueueWaitIdle(queue);
+        cmd_buf.copy_buffer(staging_buffer, buffer, {&copy, 1});
+        queue.submit(cmd_buf, nullptr, {}, {});
+        queue.wait_idle();
 
         switch (entry->type) {
         case PackEntryType::VertexData:
@@ -826,31 +806,22 @@ void main_task(Scheduler &scheduler) {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
+        start_time = get_time();
+        command_pool.begin(vk::CommandPoolResetFlags::None);
+        auto cmd_buf = command_pool.request_cmd_buf();
+        cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
+        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, pipeline_layout, {&descriptor_set, 1});
+        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});
+
         auto render_meshes = [&] {
             for (auto [entity, mesh] : world.view<Mesh>()) {
                 const auto matrix = get_transform_matrix(world, entity);
-                Array vertex_offsets{vk::DeviceSize{0}};
-                context.vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffers[mesh.index()],
-                                               vertex_offsets.data());
-                context.vkCmdBindIndexBuffer(command_buffer, index_buffers[mesh.index()], 0, vk::IndexType::Uint32);
-                context.vkCmdPushConstants(command_buffer, pipeline_layout, vk::ShaderStage::Vertex, 0, sizeof(Mat4f),
-                                           &matrix);
-                context.vkCmdDrawIndexed(command_buffer, index_counts[mesh.index()], 1, 0, 0, 0);
+                cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
+                cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
+                cmd_buf.push_constants(pipeline_layout, vk::ShaderStage::Vertex, sizeof(Mat4f), &matrix);
+                cmd_buf.draw_indexed(index_counts[mesh.index()], 1);
             }
         };
-
-        start_time = get_time();
-        context.vkResetCommandPool(command_pool, vk::CommandPoolResetFlags::None);
-        vk::CommandBufferBeginInfo cmd_buf_bi{
-            .sType = vk::StructureType::CommandBufferBeginInfo,
-            .flags = vk::CommandBufferUsage::OneTimeSubmit,
-        };
-        context.vkBeginCommandBuffer(command_buffer, &cmd_buf_bi);
-        context.vkCmdResetQueryPool(command_buffer, query_pool, 0, query_pool_ci.queryCount);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Compute, pipeline_layout, 0, 1,
-                                        &descriptor_set, 0, nullptr);
-        context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, pipeline_layout, 0, 1,
-                                        &descriptor_set, 0, nullptr);
 
         vk::ImageMemoryBarrier depth_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -864,9 +835,9 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::TopOfPipe,
-                                     vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                     vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_write_barrier);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe,
+                                 vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
+                                 {&depth_write_barrier, 1});
 
         vk::RenderingAttachmentInfo depth_write_attachment{
             .sType = vk::StructureType::RenderingAttachmentInfo,
@@ -887,11 +858,11 @@ void main_task(Scheduler &scheduler) {
             .pDepthAttachment = &depth_write_attachment,
             .pStencilAttachment = &depth_write_attachment,
         };
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 0);
-        context.vkCmdBeginRendering(command_buffer, &depth_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 0);
+        cmd_buf.begin_rendering(depth_pass_rendering_info);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
         render_meshes();
-        context.vkCmdEndRendering(command_buffer);
+        cmd_buf.end_rendering();
 
         vk::ImageMemoryBarrier depth_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -906,15 +877,13 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer,
-                                     vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                     vk::PipelineStage::ComputeShader, vk::DependencyFlags::None, 0, nullptr, 0,
-                                     nullptr, 1, &depth_sample_barrier);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 1);
-        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Compute, light_cull_pipeline);
-        context.vkCmdDispatch(command_buffer, row_tile_count, col_tile_count, 1);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 2);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::ComputeShader, query_pool, 3);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
+                                 vk::PipelineStage::ComputeShader, {}, {&depth_sample_barrier, 1});
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, light_cull_pipeline);
+        cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 2);
+        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 3);
 
         Array main_pass_buffer_barriers{
             vk::BufferMemoryBarrier{
@@ -932,9 +901,8 @@ void main_task(Scheduler &scheduler) {
                 .size = light_visibilities_buffer_size,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ComputeShader,
-                                     vk::PipelineStage::FragmentShader, vk::DependencyFlags::None, 0, nullptr,
-                                     main_pass_buffer_barriers.size(), main_pass_buffer_barriers.data(), 0, nullptr);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader, vk::PipelineStage::FragmentShader,
+                                 main_pass_buffer_barriers.span(), {});
 
         vk::ImageMemoryBarrier colour_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -961,12 +929,11 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::TopOfPipe,
-                                     vk::PipelineStage::ColorAttachmentOutput, vk::DependencyFlags::None, 0, nullptr, 0,
-                                     nullptr, 1, &colour_write_barrier);
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ComputeShader,
-                                     vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                     vk::DependencyFlags::None, 0, nullptr, 0, nullptr, 1, &depth_read_barrier);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ColorAttachmentOutput, {},
+                                 {&colour_write_barrier, 1});
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader,
+                                 vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
+                                 {&depth_read_barrier, 1});
 
         vk::RenderingAttachmentInfo colour_write_attachment{
             .sType = vk::StructureType::RenderingAttachmentInfo,
@@ -996,12 +963,12 @@ void main_task(Scheduler &scheduler) {
             .pDepthAttachment = &depth_read_attachment,
             .pStencilAttachment = &depth_read_attachment,
         };
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::TopOfPipe, query_pool, 4);
-        context.vkCmdBeginRendering(command_buffer, &main_pass_rendering_info);
-        context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, main_pass_pipeline);
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 4);
+        cmd_buf.begin_rendering(main_pass_rendering_info);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, main_pass_pipeline);
         render_meshes();
-        context.vkCmdEndRendering(command_buffer);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 5);
+        cmd_buf.end_rendering();
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 5);
 
         vk::ImageMemoryBarrier ui_colour_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1016,13 +983,12 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ColorAttachmentOutput,
-                                     vk::PipelineStage::ColorAttachmentOutput, vk::DependencyFlags::None, 0, nullptr, 0,
-                                     nullptr, 1, &ui_colour_write_barrier);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::ColorAttachmentOutput, {},
+                                 {&ui_colour_write_barrier, 1});
 
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::ColorAttachmentOutput, query_pool, 6);
-        ui.render(command_buffer, image_index);
-        context.vkCmdWriteTimestamp(command_buffer, vk::PipelineStage::AllGraphics, query_pool, 7);
+        cmd_buf.write_timestamp(vk::PipelineStage::ColorAttachmentOutput, query_pool, 6);
+        ui.render(cmd_buf, image_index);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
 
         vk::ImageMemoryBarrier colour_present_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1036,26 +1002,27 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        context.vkCmdPipelineBarrier(command_buffer, vk::PipelineStage::ColorAttachmentOutput,
-                                     vk::PipelineStage::BottomOfPipe, vk::DependencyFlags::None, 0, nullptr, 0, nullptr,
-                                     1, &colour_present_barrier);
-        context.vkEndCommandBuffer(command_buffer);
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::BottomOfPipe, {},
+                                 {&colour_present_barrier, 1});
 
-        vk::PipelineStage wait_stage_mask = vk::PipelineStage::ColorAttachmentOutput;
-        vk::SubmitInfo submit_info{
-            .sType = vk::StructureType::SubmitInfo,
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = &image_available_semaphore,
-            .pWaitDstStageMask = &wait_stage_mask,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &command_buffer,
-            .signalSemaphoreCount = 1,
-            .pSignalSemaphores = &rendering_finished_semaphore,
+        Array signal_semaphores{
+            vk::SemaphoreSubmitInfo{
+                .sType = vk::StructureType::SemaphoreSubmitInfo,
+                .semaphore = rendering_finished_semaphore,
+            },
         };
-        context.vkQueueSubmit(queue, 1, &submit_info, fence);
+        Array wait_semaphores{
+            vk::SemaphoreSubmitInfo{
+                .sType = vk::StructureType::SemaphoreSubmitInfo,
+                .semaphore = image_available_semaphore,
+                .stageMask = static_cast<vk::PipelineStageFlags2>(vk::PipelineStage::ColorAttachmentOutput),
+            },
+        };
+        queue.submit(cmd_buf, fence, signal_semaphores.span(), wait_semaphores.span());
         cpu_frame_bar.sections.push({"Record", static_cast<float>(get_time() - start_time)});
-        Array wait_semaphores{rendering_finished_semaphore};
-        swapchain.present(image_index, wait_semaphores.span());
+
+        Array present_wait_semaphores{rendering_finished_semaphore};
+        swapchain.present(image_index, present_wait_semaphores.span());
         window.poll_events();
         cpu_time_graph.add_bar(move(cpu_frame_bar));
     }
@@ -1093,7 +1060,6 @@ void main_task(Scheduler &scheduler) {
         context.vkDestroyBuffer(buffer);
     }
     context.vkFreeMemory(mesh_memory);
-    context.vkDestroyCommandPool(command_pool);
 }
 
 } // namespace

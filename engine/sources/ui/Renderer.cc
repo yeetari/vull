@@ -5,8 +5,10 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/GpuFont.hh>
+#include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -278,10 +280,9 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
     }
 }
 
-void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
+void Renderer::render(const CommandBuffer &cmd_buf, uint32_t image_index) {
     *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
-    m_context.vkCmdBindDescriptorSets(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline_layout, 0, 1,
-                                      &m_descriptor_set, 0, nullptr);
+    cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, m_pipeline_layout, {&m_descriptor_set, 1});
     vk::RenderingAttachmentInfo colour_write_attachment{
         .sType = vk::StructureType::RenderingAttachmentInfo,
         .imageView = m_swapchain.image_view(image_index),
@@ -298,11 +299,10 @@ void Renderer::render(vk::CommandBuffer command_buffer, uint32_t image_index) {
         .colorAttachmentCount = 1,
         .pColorAttachments = &colour_write_attachment,
     };
-    m_context.vkCmdBeginRendering(command_buffer, &rendering_info);
-    m_context.vkCmdBindPipeline(command_buffer, vk::PipelineBindPoint::Graphics, m_pipeline);
-    m_context.vkCmdDraw(command_buffer, 6, m_object_index, 0, 0);
-    m_context.vkCmdEndRendering(command_buffer);
-    m_object_index = 0;
+    cmd_buf.begin_rendering(rendering_info);
+    cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, m_pipeline);
+    cmd_buf.draw(6, exchange(m_object_index, 0u));
+    cmd_buf.end_rendering();
 }
 
 } // namespace vull::ui
