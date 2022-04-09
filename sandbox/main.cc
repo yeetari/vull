@@ -141,7 +141,6 @@ void main_task(Scheduler &scheduler) {
             world.deserialise(pack_reader);
             continue;
         default:
-            pack_reader.end_entry();
             continue;
         }
         VULL_ENSURE(entry->size <= staging_buffer_ci.size);

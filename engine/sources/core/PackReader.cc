@@ -31,10 +31,12 @@ void PackReader::read_header() {
     VULL_ENSURE(read_byte() == 'P');
     VULL_ENSURE(read_byte() == 'A');
     VULL_ENSURE(read_byte() == 'K');
+    m_compressed_size = 0;
 }
 
 Optional<PackEntry> PackReader::read_entry() {
     m_compressed = false;
+    m_head += m_compressed_size;
     if (m_head >= m_size) {
         return {};
     }
@@ -49,10 +51,6 @@ Optional<PackEntry> PackReader::read_entry() {
         VULL_ENSURE(ZSTD_isError(m_compressed_size) == 0);
     }
     return entry;
-}
-
-void PackReader::end_entry() {
-    m_head += m_compressed_size;
 }
 
 void PackReader::read(Span<void> data) {

@@ -38,7 +38,6 @@ public:
 
     void read_header();
     Optional<PackEntry> read_entry();
-    void end_entry();
 
     void read(Span<void> data);
     uint8_t read_byte();
