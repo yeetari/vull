@@ -687,10 +687,9 @@ void main_task(Scheduler &scheduler) {
         light.position[2] = rand_float(-6000.0f, 6000.0f);
     }
 
-    const float vertical_fov = 59.0f * 0.01745329251994329576923690768489f;
     UniformBuffer ubo{
-        .proj = projection_matrix(window.aspect_ratio(), 0.1f, vertical_fov),
-        .camera_position = {0.0f, 0.0f, -200.0f},
+        .proj = projection_matrix(window.aspect_ratio(), 0.1f, 1.03f),
+        .camera_position{0.0f, 0.0f, -200.0f},
     };
 
     float yaw = 2.15f;
@@ -719,19 +718,9 @@ void main_task(Scheduler &scheduler) {
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
     double previous_time = get_time();
-    double fps_previous_time = get_time();
-    uint32_t frame_count = 0;
     while (!window.should_close()) {
         double current_time = get_time();
-        auto dt = static_cast<float>(current_time - previous_time);
-        previous_time = current_time;
-        frame_count++;
-        if (current_time - fps_previous_time >= 1.0f) {
-            // NOLINTNEXTLINE
-            printf("FPS: %u\n", frame_count);
-            frame_count = 0;
-            fps_previous_time = current_time;
-        }
+        auto dt = static_cast<float>(current_time - exchange(previous_time, current_time));
 
         ui::TimeGraph::Bar cpu_frame_bar;
 
@@ -779,11 +768,7 @@ void main_task(Scheduler &scheduler) {
         forward = normalise(forward);
         auto right = normalise(cross(forward, up));
 
-        float speed = dt * 50.0f;
-        if (window.is_key_down(Key::Shift)) {
-            speed *= 40.0f;
-        }
-
+        const float speed = (window.is_key_down(Key::Shift) ? 150.0f : 15.0f) * dt;
         if (window.is_key_down(Key::W)) {
             ubo.camera_position += forward * speed;
         }
@@ -796,7 +781,6 @@ void main_task(Scheduler &scheduler) {
         if (window.is_key_down(Key::D)) {
             ubo.camera_position += right * speed;
         }
-
         ubo.view = look_at(ubo.camera_position, ubo.camera_position + forward, up);
 
         uint32_t light_count = lights.size();
