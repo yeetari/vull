@@ -35,8 +35,7 @@ double get_time() {
 }
 
 void process_mesh(aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indices) {
-    uint32_t initial_vertex_count = vertices.size();
-    vertices.ensure_capacity(vertices.size() + mesh->mNumVertices);
+    vertices.ensure_capacity(mesh->mNumVertices);
     for (unsigned i = 0; i < mesh->mNumVertices; i++) {
         vertices.push(Vertex{
             .position{
@@ -51,12 +50,12 @@ void process_mesh(aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indi
             }),
         });
     }
-    indices.ensure_capacity(indices.size() + mesh->mNumFaces * 3);
+    indices.ensure_capacity(mesh->mNumFaces * 3);
     for (unsigned i = 0; i < mesh->mNumFaces; i++) {
         const auto &face = mesh->mFaces[i];
-        indices.push(initial_vertex_count + face.mIndices[0]);
-        indices.push(initial_vertex_count + face.mIndices[1]);
-        indices.push(initial_vertex_count + face.mIndices[2]);
+        indices.push(face.mIndices[0]);
+        indices.push(face.mIndices[1]);
+        indices.push(face.mIndices[2]);
     }
 }
 
@@ -64,26 +63,29 @@ void process_node(const aiScene *scene, EntityManager &world, PackWriter &pack_w
                   uint32_t &mesh_index, int indentation) {
     printf("%*s%s\n", indentation, "", node->mName.C_Str());
 
-    Vector<Vertex> vertices;
-    Vector<uint32_t> indices;
+    // Create a container entity that acts as a parent for any meshes, and that any child nodes can use as parent.
+    // TODO: A more optimal way to handle multiple meshes on a node?
+    // TODO: At least don't generate a container entity for single-mesh nodes.
+    auto container_entity = world.create_entity();
+    container_entity.add<Transform>(parent_id, Mat4f{Array{
+                                                   Vec4f(node->mTransformation.a1, node->mTransformation.b1,
+                                                         node->mTransformation.c1, node->mTransformation.d1),
+                                                   Vec4f(node->mTransformation.a2, node->mTransformation.b2,
+                                                         node->mTransformation.c2, node->mTransformation.d2),
+                                                   Vec4f(node->mTransformation.a3, node->mTransformation.b3,
+                                                         node->mTransformation.c3, node->mTransformation.d3),
+                                                   Vec4f(node->mTransformation.a4, node->mTransformation.b4,
+                                                         node->mTransformation.c4, node->mTransformation.d4),
+                                               }});
     for (unsigned i = 0; i < node->mNumMeshes; i++) {
-        process_mesh(scene->mMeshes[node->mMeshes[i]], vertices, indices);
-    }
-
-    auto entity = world.create_entity();
-    entity.add<Transform>(parent_id, Mat4f{Array{
-                                         Vec4f(node->mTransformation.a1, node->mTransformation.b1,
-                                               node->mTransformation.c1, node->mTransformation.d1),
-                                         Vec4f(node->mTransformation.a2, node->mTransformation.b2,
-                                               node->mTransformation.c2, node->mTransformation.d2),
-                                         Vec4f(node->mTransformation.a3, node->mTransformation.b3,
-                                               node->mTransformation.c3, node->mTransformation.d3),
-                                         Vec4f(node->mTransformation.a4, node->mTransformation.b4,
-                                               node->mTransformation.c4, node->mTransformation.d4),
-                                     }});
-
-    if (node->mNumMeshes != 0) {
+        auto entity = world.create_entity();
+        entity.add<Transform>(container_entity, Mat4f(1.0f));
         entity.add<Mesh>(mesh_index++);
+
+        Vector<Vertex> vertices;
+        Vector<uint32_t> indices;
+        process_mesh(scene->mMeshes[node->mMeshes[i]], vertices, indices);
+
         meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
         meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
                                     sizeof(Vertex));
@@ -98,12 +100,12 @@ void process_node(const aiScene *scene, EntityManager &world, PackWriter &pack_w
         pack_writer.write(indices.span());
         float index_ratio = pack_writer.end_entry();
 
-        printf("%*s(mesh): %.1f%% verts, %.1f%% inds\n", indentation + 2, "", vertex_ratio * 100.0f,
+        printf("%*s(mesh %u): %.1f%% verts, %.1f%% inds\n", indentation + 2, "", i, vertex_ratio * 100.0f,
                index_ratio * 100.0f);
     }
 
     for (unsigned i = 0; i < node->mNumChildren; i++) {
-        process_node(scene, world, pack_writer, node->mChildren[i], entity, mesh_index, indentation + 2);
+        process_node(scene, world, pack_writer, node->mChildren[i], container_entity, mesh_index, indentation + 2);
     }
 }
 
