@@ -1,6 +1,6 @@
-#include <vull/core/BuiltinComponents.hh>
+#include "SceneLoader.hh"
+
 #include <vull/core/Mesh.hh>
-#include <vull/core/PackFile.hh>
 #include <vull/core/PackReader.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/Window.hh>
@@ -13,7 +13,6 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
@@ -93,23 +92,6 @@ void main_task(Scheduler &scheduler) {
     CommandPool command_pool(context, graphics_family_index);
     Queue queue(context, graphics_family_index);
 
-    vk::BufferCreateInfo staging_buffer_ci{
-        .sType = vk::StructureType::BufferCreateInfo,
-        .size = 1024ul * 1024ul * 2ul,
-        .usage = vk::BufferUsage::TransferSrc,
-        .sharingMode = vk::SharingMode::Exclusive,
-    };
-    vk::Buffer staging_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vk::Result::Success);
-
-    vk::MemoryRequirements staging_memory_requirements{};
-    context.vkGetBufferMemoryRequirements(staging_buffer, &staging_memory_requirements);
-    auto *staging_memory = context.allocate_memory(staging_memory_requirements, MemoryType::Staging);
-    VULL_ENSURE(context.vkBindBufferMemory(staging_buffer, staging_memory, 0) == vk::Result::Success);
-
-    void *staging_data;
-    context.vkMapMemory(staging_memory, 0, vk::k_whole_size, 0, &staging_data);
-
     vk::MemoryRequirements mesh_memory_requirements{
         .size = 216006656,
         .memoryTypeBits = 0xffffffffu,
@@ -118,69 +100,11 @@ void main_task(Scheduler &scheduler) {
 
     auto *pack_file = fopen("scene.vpak", "rb");
     PackReader pack_reader(pack_file);
-    pack_reader.read_header();
-
     World world;
-    world.register_component<Transform>();
-    world.register_component<Mesh>();
-
     Vector<vk::Buffer> vertex_buffers;
     Vector<vk::Buffer> index_buffers;
-    size_t offset = 0;
-    for (auto entry = pack_reader.read_entry(); entry; entry = pack_reader.read_entry()) {
-        auto buffer_usage = static_cast<vk::BufferUsage>(0);
-        switch (entry->type) {
-        case PackEntryType::VertexData:
-            buffer_usage = vk::BufferUsage::VertexBuffer;
-            break;
-        case PackEntryType::IndexData:
-            buffer_usage = vk::BufferUsage::IndexBuffer;
-            break;
-        case PackEntryType::WorldData:
-            world.deserialise(pack_reader);
-            continue;
-        default:
-            continue;
-        }
-        VULL_ENSURE(entry->size <= staging_buffer_ci.size);
-        pack_reader.read({staging_data, entry->size});
-
-        vk::BufferCreateInfo buffer_ci{
-            .sType = vk::StructureType::BufferCreateInfo,
-            .size = entry->size,
-            .usage = buffer_usage | vk::BufferUsage::TransferDst,
-            .sharingMode = vk::SharingMode::Exclusive,
-        };
-        vk::Buffer buffer;
-        VULL_ENSURE(context.vkCreateBuffer(&buffer_ci, &buffer) == vk::Result::Success);
-
-        vk::MemoryRequirements buffer_requirements{};
-        context.vkGetBufferMemoryRequirements(buffer, &buffer_requirements);
-        VULL_ENSURE(context.vkBindBufferMemory(buffer, mesh_memory, offset) == vk::Result::Success);
-
-        command_pool.begin(vk::CommandPoolResetFlags::None);
-        auto cmd_buf = command_pool.request_cmd_buf();
-        vk::BufferCopy copy{
-            .size = entry->size,
-        };
-        cmd_buf.copy_buffer(staging_buffer, buffer, {&copy, 1});
-        queue.submit(cmd_buf, nullptr, {}, {});
-        queue.wait_idle();
-
-        switch (entry->type) {
-        case PackEntryType::VertexData:
-            vertex_buffers.push(buffer);
-            break;
-        case PackEntryType::IndexData:
-            index_buffers.push(buffer);
-            break;
-        }
-        offset += entry->size;
-        offset = (offset + buffer_requirements.alignment - 1) & ~(buffer_requirements.alignment - 1);
-    }
+    load_scene(context, pack_reader, command_pool, queue, world, vertex_buffers, index_buffers, mesh_memory);
     fclose(pack_file);
-    context.vkFreeMemory(staging_memory);
-    context.vkDestroyBuffer(staging_buffer);
 
     constexpr uint32_t tile_size = 32;
     uint32_t row_tile_count = (window.width() + (window.width() % tile_size)) / tile_size;
