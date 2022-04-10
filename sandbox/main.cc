@@ -126,7 +126,6 @@ void main_task(Scheduler &scheduler) {
 
     Vector<vk::Buffer> vertex_buffers;
     Vector<vk::Buffer> index_buffers;
-    Vector<uint32_t> index_counts;
     size_t offset = 0;
     for (auto entry = pack_reader.read_entry(); entry; entry = pack_reader.read_entry()) {
         auto buffer_usage = static_cast<vk::BufferUsage>(0);
@@ -174,14 +173,12 @@ void main_task(Scheduler &scheduler) {
             break;
         case PackEntryType::IndexData:
             index_buffers.push(buffer);
-            index_counts.push(static_cast<uint32_t>(entry->size / sizeof(uint32_t)));
             break;
         }
         offset += entry->size;
         offset = (offset + buffer_requirements.alignment - 1) & ~(buffer_requirements.alignment - 1);
     }
     fclose(pack_file);
-
     context.vkFreeMemory(staging_memory);
     context.vkDestroyBuffer(staging_buffer);
 
@@ -801,7 +798,7 @@ void main_task(Scheduler &scheduler) {
                 cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
                 cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
                 cmd_buf.push_constants(pipeline_layout, vk::ShaderStage::Vertex, sizeof(Mat4f), &matrix);
-                cmd_buf.draw_indexed(index_counts[mesh.index()], 1);
+                cmd_buf.draw_indexed(mesh.index_count(), 1);
             }
         };
 

@@ -12,11 +12,13 @@ class Mesh {
 
 private:
     uint32_t m_index;
+    uint32_t m_index_count;
 
 public:
-    explicit Mesh(uint32_t index) : m_index(index) {}
+    Mesh(uint32_t index, uint32_t index_count) : m_index(index), m_index_count(index_count) {}
 
     uint32_t index() const { return m_index; }
+    uint32_t index_count() const { return m_index_count; }
 };
 
 } // namespace vull

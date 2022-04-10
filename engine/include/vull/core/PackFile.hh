@@ -19,7 +19,7 @@
  * };
  *
  * struct IndexData(type: 1, compressed: size > 24) {
- *     uint32_t indices[size / sizeof(uint32_t)];
+ *     u32 indices[size / sizeof(u32)];
  * };
  *
  * // Handled in World::serialise and World::deserialise

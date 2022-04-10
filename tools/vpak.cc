@@ -80,11 +80,11 @@ void process_node(const aiScene *scene, EntityManager &world, PackWriter &pack_w
     for (unsigned i = 0; i < node->mNumMeshes; i++) {
         auto entity = world.create_entity();
         entity.add<Transform>(container_entity, Mat4f(1.0f));
-        entity.add<Mesh>(mesh_index++);
 
         Vector<Vertex> vertices;
         Vector<uint32_t> indices;
         process_mesh(scene->mMeshes[node->mMeshes[i]], vertices, indices);
+        entity.add<Mesh>(mesh_index++, indices.size());
 
         meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
         meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
