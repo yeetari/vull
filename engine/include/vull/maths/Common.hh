@@ -10,7 +10,6 @@ constexpr T half_pi = T(1.57079632679489661923132169163975144);
 template <typename T>
 constexpr T pi = T(3.14159265358979323846264338327950288);
 
-// TODO: Specialisation for SignedIntegral and UnsignedIntegral worth it?
 template <typename T>
 constexpr T abs(T x) {
     return x >= T(0) ? x : -x;
