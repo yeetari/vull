@@ -113,6 +113,7 @@ VkContext::VkContext() : ContextTable{} {
 
     vk::PhysicalDeviceFeatures device_features{
         .fillModeNonSolid = true,
+        .samplerAnisotropy = true,
     };
     vk::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan12Features,

@@ -1,5 +1,6 @@
 #include "SceneLoader.hh"
 
+#include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/PackReader.hh>
 #include <vull/core/Transform.hh>
@@ -92,18 +93,21 @@ void main_task(Scheduler &scheduler) {
     CommandPool command_pool(context, graphics_family_index);
     Queue queue(context, graphics_family_index);
 
-    vk::MemoryRequirements mesh_memory_requirements{
-        .size = 216006656,
+    vk::MemoryRequirements scene_memory_requirements{
+        .size = 1024ul * 1024ul * 512ul,
         .memoryTypeBits = 0xffffffffu,
     };
-    auto *mesh_memory = context.allocate_memory(mesh_memory_requirements, MemoryType::DeviceLocal);
+    auto *scene_memory = context.allocate_memory(scene_memory_requirements, MemoryType::DeviceLocal);
 
     auto *pack_file = fopen("scene.vpak", "rb");
     PackReader pack_reader(pack_file);
     World world;
     Vector<vk::Buffer> vertex_buffers;
     Vector<vk::Buffer> index_buffers;
-    load_scene(context, pack_reader, command_pool, queue, world, vertex_buffers, index_buffers, mesh_memory);
+    Vector<vk::Image> texture_images;
+    Vector<vk::ImageView> texture_image_views;
+    load_scene(context, pack_reader, command_pool, queue, world, vertex_buffers, index_buffers, texture_images,
+               texture_image_views, scene_memory);
     fclose(pack_file);
 
     constexpr uint32_t tile_size = 32;
@@ -217,6 +221,18 @@ void main_task(Scheduler &scheduler) {
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStage::Compute,
         },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 4,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 5,
+            .descriptorType = vk::DescriptorType::SampledImage,
+            .descriptorCount = texture_image_views.size(),
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
     };
     vk::DescriptorSetLayoutCreateInfo set_layout_ci{
         .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
@@ -226,9 +242,13 @@ void main_task(Scheduler &scheduler) {
     vk::DescriptorSetLayout set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
 
+    struct PushConstantBlock {
+        Mat4f transform;
+        uint32_t albedo_index;
+    };
     vk::PushConstantRange push_constant_range{
-        .stageFlags = vk::ShaderStage::Vertex,
-        .size = sizeof(Mat4f),
+        .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
+        .size = sizeof(PushConstantBlock),
     };
     vk::PipelineLayoutCreateInfo pipeline_layout_ci{
         .sType = vk::StructureType::PipelineLayoutCreateInfo,
@@ -243,6 +263,7 @@ void main_task(Scheduler &scheduler) {
     struct Vertex {
         Vec3f position;
         Vec3f normal;
+        Vec2f uv;
     };
 
     Array vertex_attribute_descriptions{
@@ -255,6 +276,11 @@ void main_task(Scheduler &scheduler) {
             .location = 1,
             .format = vk::Format::R32G32B32Sfloat,
             .offset = offsetof(Vertex, normal),
+        },
+        vk::VertexInputAttributeDescription{
+            .location = 2,
+            .format = vk::Format::R32G32Sfloat,
+            .offset = offsetof(Vertex, uv),
         },
     };
     vk::VertexInputBindingDescription vertex_binding_description{
@@ -432,6 +458,23 @@ void main_task(Scheduler &scheduler) {
     vk::Sampler depth_sampler;
     VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vk::Result::Success);
 
+    vk::SamplerCreateInfo texture_sampler_ci{
+        .sType = vk::StructureType::SamplerCreateInfo,
+        .magFilter = vk::Filter::Linear,
+        .minFilter = vk::Filter::Linear,
+        .mipmapMode = vk::SamplerMipmapMode::Linear,
+        .addressModeU = vk::SamplerAddressMode::Repeat,
+        .addressModeV = vk::SamplerAddressMode::Repeat,
+        .addressModeW = vk::SamplerAddressMode::Repeat,
+        .anisotropyEnable = true,
+        .maxAnisotropy = 16.0f,
+        // TODO: Bistro's mipmap levels smaller than 16x16 seem to be really broken.
+        .maxLod = 7.0f,
+        .borderColor = vk::BorderColor::FloatTransparentBlack,
+    };
+    vk::Sampler texture_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&texture_sampler_ci, &texture_sampler) == vk::Result::Success);
+
     struct UniformBuffer {
         Mat4f proj;
         Mat4f view;
@@ -496,6 +539,14 @@ void main_task(Scheduler &scheduler) {
 
     Array descriptor_pool_sizes{
         vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+        },
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::SampledImage,
+            .descriptorCount = texture_image_views.size(),
+        },
+        vk::DescriptorPoolSize{
             .type = vk::DescriptorType::UniformBuffer,
             .descriptorCount = 1,
         },
@@ -543,6 +594,17 @@ void main_task(Scheduler &scheduler) {
         .imageView = depth_image_view,
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
+    vk::DescriptorImageInfo texture_sampler_info{
+        .sampler = texture_sampler,
+    };
+    Vector<vk::DescriptorImageInfo> texture_image_infos;
+    texture_image_infos.ensure_capacity(texture_image_views.size());
+    for (auto *image_view : texture_image_views) {
+        texture_image_infos.push(vk::DescriptorImageInfo{
+            .imageView = image_view,
+            .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+        });
+    }
     Array descriptor_writes{
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
@@ -576,6 +638,22 @@ void main_task(Scheduler &scheduler) {
             .descriptorType = vk::DescriptorType::CombinedImageSampler,
             .pImageInfo = &depth_sampler_image_info,
         },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = descriptor_set,
+            .dstBinding = 4,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .pImageInfo = &texture_sampler_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = descriptor_set,
+            .dstBinding = 5,
+            .descriptorCount = texture_image_infos.size(),
+            .descriptorType = vk::DescriptorType::SampledImage,
+            .pImageInfo = texture_image_infos.data(),
+        },
     };
     context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
 
@@ -602,10 +680,10 @@ void main_task(Scheduler &scheduler) {
     Vector<PointLight> lights(500);
     for (auto &light : lights) {
         light.colour = {1.0f};
-        light.radius = rand_float(150.0f, 300.0f);
-        light.position[0] = rand_float(0.0f, 6000.0f);
-        light.position[1] = rand_float(30.0f, 500.0f);
-        light.position[2] = rand_float(-6000.0f, 6000.0f);
+        light.radius = rand_float(2.5f, 20.0f);
+        light.position[0] = rand_float(-50.0f, 100.0f);
+        light.position[1] = rand_float(2.0f, 30.0f);
+        light.position[2] = rand_float(-70.0f, 50.0f);
     }
 
     UniformBuffer ubo{
@@ -717,11 +795,15 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});
 
         auto render_meshes = [&] {
-            for (auto [entity, mesh] : world.view<Mesh>()) {
-                const auto matrix = get_transform_matrix(world, entity);
+            for (auto [entity, mesh, material] : world.view<Mesh, Material>()) {
+                PushConstantBlock push_constant_block{
+                    .transform = get_transform_matrix(world, entity),
+                    .albedo_index = material.albedo_index(),
+                };
                 cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
                 cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
-                cmd_buf.push_constants(pipeline_layout, vk::ShaderStage::Vertex, sizeof(Mat4f), &matrix);
+                cmd_buf.push_constants(pipeline_layout, vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
+                                       sizeof(PushConstantBlock), &push_constant_block);
                 cmd_buf.draw_indexed(mesh.index_count(), 1);
             }
         };
@@ -942,6 +1024,7 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(lights_buffer);
     context.vkFreeMemory(uniform_buffer_memory);
     context.vkDestroyBuffer(uniform_buffer);
+    context.vkDestroySampler(texture_sampler);
     context.vkDestroySampler(depth_sampler);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
@@ -956,13 +1039,19 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyShaderModule(main_fragment_shader);
     context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
+    for (auto *image_view : texture_image_views) {
+        context.vkDestroyImageView(image_view);
+    }
+    for (auto *image : texture_images) {
+        context.vkDestroyImage(image);
+    }
     for (auto *buffer : index_buffers) {
         context.vkDestroyBuffer(buffer);
     }
     for (auto *buffer : vertex_buffers) {
         context.vkDestroyBuffer(buffer);
     }
-    context.vkFreeMemory(mesh_memory);
+    context.vkFreeMemory(scene_memory);
 }
 
 } // namespace
