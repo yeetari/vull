@@ -46,6 +46,11 @@ void CommandBuffer::copy_buffer(vk::Buffer src, vk::Buffer dst, Span<vk::BufferC
     m_context.vkCmdCopyBuffer(m_cmd_buf, src, dst, regions.size(), regions.data());
 }
 
+void CommandBuffer::copy_buffer_to_image(vk::Buffer src, vk::Image dst, vk::ImageLayout dst_layout,
+                                         Span<vk::BufferImageCopy> regions) const {
+    m_context.vkCmdCopyBufferToImage(m_cmd_buf, src, dst, dst_layout, regions.size(), regions.data());
+}
+
 void CommandBuffer::push_constants(vk::PipelineLayout layout, vk::ShaderStage stage, uint32_t size,
                                    const void *data) const {
     m_context.vkCmdPushConstants(m_cmd_buf, layout, stage, 0, size, data);

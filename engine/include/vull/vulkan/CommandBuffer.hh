@@ -26,6 +26,8 @@ public:
     void bind_vertex_buffer(vk::Buffer buffer) const;
 
     void copy_buffer(vk::Buffer src, vk::Buffer dst, Span<vk::BufferCopy> regions) const;
+    void copy_buffer_to_image(vk::Buffer src, vk::Image dst, vk::ImageLayout dst_layout,
+                              Span<vk::BufferImageCopy> regions) const;
     void push_constants(vk::PipelineLayout layout, vk::ShaderStage stage, uint32_t size, const void *data) const;
 
     void dispatch(uint32_t x, uint32_t y, uint32_t z) const;
