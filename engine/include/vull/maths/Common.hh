@@ -35,6 +35,21 @@ constexpr T clamp(T val, T min_val, T max_val) {
     return min(max(val, min_val), max_val);
 }
 
+template <typename T>
+constexpr T clz(T value) {
+    constexpr int bit_count = sizeof(T) * 8;
+    if (value == 0) {
+        return bit_count;
+    }
+    if constexpr (sizeof(T) <= sizeof(unsigned)) {
+        return T(__builtin_clz(value)) - (sizeof(unsigned) * 8 - bit_count);
+    } else if constexpr (sizeof(T) <= sizeof(unsigned long)) {
+        return T(__builtin_clzl(value)) - (sizeof(unsigned long) * 8 - bit_count);
+    } else if constexpr (sizeof(T) <= sizeof(unsigned long long)) {
+        return T(__builtin_clzll(value)) - (sizeof(unsigned long long) * 8 - bit_count);
+    }
+}
+
 constexpr float sin(float angle) {
     return ::sinf(angle);
 }

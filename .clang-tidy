@@ -70,7 +70,6 @@ Checks: >
   google-global-names-in-headers,
   google-readability-avoid-underscore-in-googletest-name,
   google-readability-casting,
-  google-runtime-int,
   google-runtime-operator,
   google-upgrade-googletest-case,
   hicpp-multiway-paths-covered,
