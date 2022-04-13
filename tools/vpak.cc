@@ -42,14 +42,38 @@ double get_time() {
            1000000000;
 }
 
+void emit_error_texture(PackWriter &pack_writer) {
+    // TODO: Don't duplicate this.
+    pack_writer.start_entry(PackEntryType::ImageData, true);
+    pack_writer.write_byte(uint8_t(PackImageFormat::RgbaUnorm));
+    pack_writer.write_varint(16);
+    pack_writer.write_varint(16);
+    pack_writer.write_varint(1);
+
+    constexpr Array colours{
+        Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
+        Vec<uint8_t, 4>(0x94, 0x00, 0xd3, 0xff),
+    };
+    for (uint32_t y = 0; y < 16; y++) {
+        for (uint32_t x = 0; x < 16; x++) {
+            uint32_t colour_index = (x + y) % colours.size();
+            pack_writer.write({&colours[colour_index], 4});
+        }
+    }
+    pack_writer.end_entry();
+}
+
 void process_material(PackWriter &pack_writer, const char *root_path, const aiMaterial *material, int indentation) {
-    if (const auto count = material->GetTextureCount(aiTextureType_DIFFUSE); count != 0) {
-        VULL_ENSURE(count == 1);
-    } else {
+    // TODO: Texture caching. Even though materials are deduplicated, two different materials may still point to the
+    //       same texture.
+    const auto diffuse_count = material->GetTextureCount(aiTextureType_DIFFUSE);
+    if (diffuse_count == 0) {
         // TODO: Can this ever != 0?
         VULL_ENSURE(material->GetTextureCount(aiTextureType_BASE_COLOR) == 0);
+        emit_error_texture(pack_writer);
         return;
     }
+    VULL_ENSURE(diffuse_count == 1);
 
     aiString albedo_path;
     material->GetTexture(aiTextureType_DIFFUSE, 0, &albedo_path);
@@ -61,7 +85,10 @@ void process_material(PackWriter &pack_writer, const char *root_path, const aiMa
         *slash_ptr = '/';
     }
 
-    VULL_ENSURE(load_texture(pack_writer, path));
+    if (!load_texture(pack_writer, path)) {
+        emit_error_texture(pack_writer);
+        return;
+    }
     float ratio = pack_writer.end_entry();
     printf("%*s(%s): %.1f%%\n", indentation + 2, "", albedo_path.C_Str(), ratio * 100.0f);
 }
