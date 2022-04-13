@@ -153,9 +153,53 @@ void process_node(const char *root_path, const aiScene *scene, EntityManager &wo
     }
 }
 
+void print_usage(const char *executable) {
+    fprintf(stderr, "Usage: %s [--fast|--ultra] <input> [output]\n", executable);
+}
+
 } // namespace
 
-int main(int, char **argv) {
+int main(int argc, char **argv) {
+    bool fast = false;
+    bool ultra = false;
+    const char *input_path = nullptr;
+    const char *output_path = nullptr;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--fast") == 0) {
+            fast = true;
+        } else if (strcmp(argv[i], "--ultra") == 0) {
+            ultra = true;
+        } else if (input_path == nullptr) {
+            input_path = argv[i];
+        } else if (output_path == nullptr) {
+            output_path = argv[i];
+        } else {
+            fprintf(stderr, "Invalid argument %s\n", argv[i]);
+            print_usage(argv[0]);
+            return 1;
+        }
+    }
+
+    if (fast && ultra) {
+        fputs("Can't have --fast and --ultra\n", stderr);
+        return 1;
+    }
+    if (input_path == nullptr) {
+        print_usage(argv[0]);
+        return 1;
+    }
+    if (output_path == nullptr) {
+        output_path = "scene.vpak";
+    }
+
+    auto compression_level = CompressionLevel::Normal;
+    if (fast) {
+        compression_level = CompressionLevel::None;
+    }
+    if (ultra) {
+        compression_level = CompressionLevel::Ultra;
+    }
+
     auto start_time = get_time();
     Assimp::DefaultLogger::create("vpak", Assimp::Logger::VERBOSE);
     Assimp::DefaultLogger::get()->attachStream(new AssimpLogger, Assimp::Logger::Debugging | Assimp::Logger::Info |
@@ -164,9 +208,9 @@ int main(int, char **argv) {
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS |
                                                             aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS |
                                                             aiComponent_LIGHTS | aiComponent_CAMERAS);
-    const auto *scene = importer.ReadFile(argv[1], aiProcess_RemoveComponent | aiProcess_Triangulate |
-                                                       aiProcess_SortByPType | aiProcess_JoinIdenticalVertices |
-                                                       aiProcess_FlipUVs | aiProcess_ValidateDataStructure);
+    const auto *scene = importer.ReadFile(input_path, aiProcess_RemoveComponent | aiProcess_Triangulate |
+                                                          aiProcess_SortByPType | aiProcess_JoinIdenticalVertices |
+                                                          aiProcess_FlipUVs | aiProcess_ValidateDataStructure);
     if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
         (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
         return 1;
@@ -178,12 +222,13 @@ int main(int, char **argv) {
     world.register_component<Mesh>();
     world.register_component<Material>();
 
-    auto *pack_file = fopen("scene.vpak", "wb");
-    PackWriter pack_writer(pack_file, CompressionLevel::Ultra);
+    auto *pack_file = fopen(output_path, "wb");
+    PackWriter pack_writer(pack_file, compression_level);
     pack_writer.write_header();
 
     // Walk imported scene hierarchy.
-    const char *root_path = dirname(argv[1]);
+    auto input_path_copy = String::move_raw(strdup(input_path), strlen(input_path));
+    const char *root_path = dirname(input_path_copy.data());
     Vector<Optional<Material>> materials(scene->mNumMaterials);
     uint32_t mesh_index = 0;
     uint32_t texture_index = 0;
@@ -193,7 +238,7 @@ int main(int, char **argv) {
     float world_ratio = world.serialise(pack_writer);
     printf("(world): %.1f%%\n", world_ratio * 100.0f);
 
-    printf("\nWrote %ld bytes in %.2f seconds\n", ftell(pack_file), get_time() - start_time);
+    printf("\nWrote %ld bytes to %s in %.2f seconds\n", ftell(pack_file), output_path, get_time() - start_time);
     fclose(pack_file);
     Assimp::DefaultLogger::kill();
 }
