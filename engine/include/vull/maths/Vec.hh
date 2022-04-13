@@ -28,7 +28,7 @@ class Vec {
 public:
     constexpr Vec() : Vec(T(0)) {}
     template <typename... Ts>
-    constexpr Vec(Ts... ts) requires(sizeof...(Ts) == L) : m_elems{ts...} {}
+    constexpr Vec(Ts... ts) requires(sizeof...(Ts) == L) : m_elems{static_cast<T>(ts)...} {}
     constexpr Vec(T t) requires(L != 1);
 
     DEFINE_OP(+, +=)
