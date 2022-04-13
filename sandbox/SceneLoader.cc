@@ -17,6 +17,7 @@
 // IWYU pragma: no_forward_declare vull::vk::Image_T
 
 #include <stdint.h>
+#include <stdio.h>
 
 namespace {
 
@@ -33,6 +34,8 @@ FormatPair vk_format(vull::PackImageFormat pack_format) {
         return {vull::vk::Format::Bc1RgbaSrgbBlock, uint32_t(8)};
     case vull::PackImageFormat::Bc3Srgb:
         return {vull::vk::Format::Bc3SrgbBlock, uint32_t(16)};
+    case vull::PackImageFormat::RgbaUnorm:
+        return {vull::vk::Format::R8G8B8A8Unorm, uint32_t(64)};
     default:
         VULL_ENSURE_NOT_REACHED();
     }
@@ -80,7 +83,9 @@ void load_image(vull::VkContext &context, vull::PackReader &pack_reader, vull::C
 
     // TODO: What's the best thing to do if this happens?
     uint32_t expected_mip_count = 32u - vull::clz(vull::max(width, height));
-    VULL_ENSURE(mip_count == expected_mip_count);
+    if (mip_count != expected_mip_count) {
+        fprintf(stderr, "warning: expected %u mips, but got %u\n", expected_mip_count, mip_count);
+    }
 
     vull::vk::ImageCreateInfo image_ci{
         .sType = vull::vk::StructureType::ImageCreateInfo,

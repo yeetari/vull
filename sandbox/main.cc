@@ -460,8 +460,10 @@ void main_task(Scheduler &scheduler) {
 
     vk::SamplerCreateInfo texture_sampler_ci{
         .sType = vk::StructureType::SamplerCreateInfo,
-        .magFilter = vk::Filter::Linear,
-        .minFilter = vk::Filter::Linear,
+        // TODO: Switch back to linear filtering; create a separate sampler for things wanting nearest filtering (error
+        //       texture).
+        .magFilter = vk::Filter::Nearest,
+        .minFilter = vk::Filter::Nearest,
         .mipmapMode = vk::SamplerMipmapMode::Linear,
         .addressModeU = vk::SamplerAddressMode::Repeat,
         .addressModeV = vk::SamplerAddressMode::Repeat,
