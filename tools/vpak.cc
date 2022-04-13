@@ -179,7 +179,7 @@ int main(int, char **argv) {
     world.register_component<Material>();
 
     auto *pack_file = fopen("scene.vpak", "wb");
-    PackWriter pack_writer(pack_file);
+    PackWriter pack_writer(pack_file, CompressionLevel::Ultra);
     pack_writer.write_header();
 
     // Walk imported scene hierarchy.

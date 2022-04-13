@@ -14,9 +14,10 @@
 
 namespace vull {
 
-PackWriter::PackWriter(FILE *file)
-    : m_file(file), m_cctx(ZSTD_createCCtx()), m_buffer(new uint8_t[ZSTD_CStreamOutSize()]) {
-    ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_compressionLevel, ZSTD_maxCLevel());
+PackWriter::PackWriter(FILE *file, CompressionLevel level)
+    : m_file(file), m_compression_level(level), m_cctx(ZSTD_createCCtx()),
+      m_buffer(new uint8_t[ZSTD_CStreamOutSize()]) {
+    ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_compressionLevel, level == CompressionLevel::Ultra ? ZSTD_maxCLevel() : 8);
     ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_contentSizeFlag, 0);
     ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_checksumFlag, 1);
 }
@@ -35,6 +36,9 @@ void PackWriter::write_header() {
 void PackWriter::start_entry(PackEntryType type, bool compressed) {
     VULL_ASSERT(!m_compress_head);
     ZSTD_CCtx_reset(m_cctx, ZSTD_reset_session_only);
+    if (m_compression_level == CompressionLevel::None) {
+        compressed = false;
+    }
     write_byte(static_cast<uint8_t>(type) | static_cast<uint8_t>(static_cast<uint8_t>(compressed) << 7u));
 
     // Reserve 4 bytes for the entry size.

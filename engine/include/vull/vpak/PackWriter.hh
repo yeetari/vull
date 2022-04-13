@@ -11,8 +11,15 @@ using ZSTD_CCtx = struct ZSTD_CCtx_s;
 
 namespace vull {
 
+enum class CompressionLevel {
+    None,
+    Normal,
+    Ultra,
+};
+
 class PackWriter {
     FILE *const m_file;
+    const CompressionLevel m_compression_level;
     ZSTD_CCtx *const m_cctx;
     uint8_t *const m_buffer;
 
@@ -22,7 +29,7 @@ class PackWriter {
     Optional<size_t> m_compress_head;
 
 public:
-    explicit PackWriter(FILE *file);
+    PackWriter(FILE *file, CompressionLevel compression_level);
     PackWriter(const PackWriter &) = delete;
     PackWriter(PackWriter &&) = delete;
     ~PackWriter();
