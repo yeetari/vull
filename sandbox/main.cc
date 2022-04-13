@@ -3,6 +3,7 @@
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
+#include <vull/core/Vertex.hh>
 #include <vull/core/Window.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
@@ -259,12 +260,6 @@ void main_task(Scheduler &scheduler) {
     };
     vk::PipelineLayout pipeline_layout;
     VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vk::Result::Success);
-
-    struct Vertex {
-        Vec3f position;
-        Vec3f normal;
-        Vec2f uv;
-    };
 
     Array vertex_attribute_descriptions{
         vk::VertexInputAttributeDescription{

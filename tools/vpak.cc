@@ -3,6 +3,7 @@
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
+#include <vull/core/Vertex.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
@@ -27,12 +28,6 @@ namespace {
 
 struct AssimpLogger : public Assimp::LogStream {
     void write(const char *message) override { fputs(message, stdout); }
-};
-
-struct Vertex {
-    Vec3f position;
-    Vec3f normal;
-    Vec2f uv;
 };
 
 double get_time() {
