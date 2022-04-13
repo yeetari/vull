@@ -128,13 +128,11 @@ void process_node(const char *root_path, const aiScene *scene, EntityManager &wo
         meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
                                     sizeof(Vertex));
 
-        pack_writer.start_entry(PackEntryType::VertexData,
-                                should_compress(PackEntryType::VertexData, vertices.size_bytes()));
+        pack_writer.start_entry(PackEntryType::VertexData, true);
         pack_writer.write(vertices.span());
         float vertex_ratio = pack_writer.end_entry();
 
-        pack_writer.start_entry(PackEntryType::IndexData,
-                                should_compress(PackEntryType::IndexData, indices.size_bytes()));
+        pack_writer.start_entry(PackEntryType::IndexData, indices.size() > 6);
         pack_writer.write(indices.span());
         float index_ratio = pack_writer.end_entry();
 

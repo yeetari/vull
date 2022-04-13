@@ -35,7 +35,7 @@ void PackWriter::write_header() {
 void PackWriter::start_entry(PackEntryType type, bool compressed) {
     VULL_ASSERT(!m_compress_head);
     ZSTD_CCtx_reset(m_cctx, ZSTD_reset_session_only);
-    write_byte(static_cast<uint8_t>(type));
+    write_byte(static_cast<uint8_t>(type) | static_cast<uint8_t>(static_cast<uint8_t>(compressed) << 7u));
 
     // Reserve 4 bytes for the entry size.
     m_size_seek_back = ftello(m_file);

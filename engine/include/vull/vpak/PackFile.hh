@@ -9,20 +9,21 @@
  * };
  *
  * struct Entry {
- *     PackEntryType(u8) type;
+ *     u1 compressed;
+ *     PackEntryType(u7) type;
  *     u32 size; // uncompressed size in bytes
  *     u8 data[];
  * };
  *
- * struct VertexData(type: 0, compressed: true) {
+ * struct VertexData(type: 0) {
  *     Vertex vertices[size / sizeof(Vertex)];
  * };
  *
- * struct IndexData(type: 1, compressed: size > 24) {
+ * struct IndexData(type: 1) {
  *     u32 indices[size / sizeof(u32)];
  * };
  *
- * struct ImageData(type: 2, compressed: true) {
+ * struct ImageData(type: 2) {
  *     PackImageFormat(u8) format;
  *     varint width;
  *     varint height;
@@ -31,7 +32,7 @@
  * };
  *
  * // Handled in World::serialise and World::deserialise
- * struct WorldData(type: 3, compressed: true) {
+ * struct WorldData(type: 3) {
  *     struct Component {
  *         varint component_id;
  *         u8 serialised[];
@@ -58,9 +59,5 @@ enum class PackImageFormat : uint8_t {
     Bc1Srgb = 0,
     Bc3Srgb = 1,
 };
-
-constexpr bool should_compress(PackEntryType type, uint32_t size) {
-    return type != PackEntryType::IndexData || size > 24;
-}
 
 } // namespace vull

@@ -40,12 +40,14 @@ Optional<PackEntry> PackReader::read_entry() {
     if (m_head >= m_size) {
         return {};
     }
-    PackEntry entry;
-    entry.type = static_cast<PackEntryType>(read_byte());
-    entry.size = static_cast<uint32_t>(read_byte() << 24u) | static_cast<uint32_t>(read_byte() << 16u) |
-                 static_cast<uint32_t>(read_byte() << 8u) | static_cast<uint32_t>(read_byte() << 0u);
+    uint8_t type_byte = read_byte();
+    PackEntry entry{
+        .size = static_cast<uint32_t>(read_byte() << 24u) | static_cast<uint32_t>(read_byte() << 16u) |
+                static_cast<uint32_t>(read_byte() << 8u) | static_cast<uint32_t>(read_byte() << 0u),
+        .type = static_cast<PackEntryType>(type_byte & 0x7fu),
+    };
     m_compressed_size = entry.size;
-    if ((m_compressed = should_compress(entry.type, entry.size))) {
+    if ((m_compressed = (((type_byte >> 7u) & 1u) == 1u))) {
         ZSTD_DCtx_reset(m_dctx, ZSTD_reset_session_only);
         m_compressed_size = ZSTD_findFrameCompressedSize(m_data + m_head, m_size - m_head);
         VULL_ENSURE(ZSTD_isError(m_compressed_size) == 0);
