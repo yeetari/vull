@@ -2,14 +2,14 @@
 
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
-#include <vull/core/PackFile.hh>
-#include <vull/core/PackReader.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/PackReader.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Queue.hh>

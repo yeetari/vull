@@ -1,6 +1,5 @@
-#include <vull/core/PackWriter.hh>
+#include <vull/vpak/PackWriter.hh>
 
-#include <vull/core/PackFile.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -8,6 +7,7 @@
 #include <vull/support/ScopeGuard.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
+#include <vull/vpak/PackFile.hh>
 
 #include <stdio.h>
 #include <zstd.h>

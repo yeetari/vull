@@ -1,11 +1,11 @@
 #include "TextureLoader.hh"
 
-#include <vull/core/PackWriter.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/ScopeGuard.hh>
 #include <vull/support/String.hh>
+#include <vull/vpak/PackWriter.hh>
 
 #include <stdint.h>
 #include <stdio.h>

@@ -1,12 +1,12 @@
 #include <vull/ecs/World.hh>
 
-#include <vull/core/PackFile.hh>
-#include <vull/core/PackReader.hh>
-#include <vull/core/PackWriter.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/PackReader.hh>
+#include <vull/vpak/PackWriter.hh>
 
 #include <stdint.h>
 

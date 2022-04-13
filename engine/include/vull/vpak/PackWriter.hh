@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vull/core/PackFile.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
+#include <vull/vpak/PackFile.hh>
 
 #include <stdint.h>
 #include <stdio.h>

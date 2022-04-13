@@ -1,10 +1,10 @@
-#include <vull/core/PackReader.hh>
+#include <vull/vpak/PackReader.hh>
 
-#include <vull/core/PackFile.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
+#include <vull/vpak/PackFile.hh>
 
 #include <string.h>
 #include <sys/mman.h>

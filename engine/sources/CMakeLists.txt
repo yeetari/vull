@@ -1,6 +1,4 @@
 target_sources(vull PRIVATE
-    core/PackReader.cc
-    core/PackWriter.cc
     core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
@@ -17,6 +15,8 @@ target_sources(vull PRIVATE
     ui/GpuFont.cc
     ui/Renderer.cc
     ui/TimeGraph.cc
+    vpak/PackReader.cc
+    vpak/PackWriter.cc
     vulkan/CommandBuffer.cc
     vulkan/CommandPool.cc
     vulkan/Context.cc

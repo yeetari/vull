@@ -2,7 +2,6 @@
 
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
-#include <vull/core/PackReader.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/Window.hh>
 #include <vull/ecs/Entity.hh>
@@ -22,6 +21,7 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
+#include <vull/vpak/PackReader.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>

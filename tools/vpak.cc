@@ -2,8 +2,6 @@
 
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
-#include <vull/core/PackFile.hh>
-#include <vull/core/PackWriter.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Vec.hh>
@@ -11,6 +9,8 @@
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/PackWriter.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <assimp/DefaultLogger.hpp>
