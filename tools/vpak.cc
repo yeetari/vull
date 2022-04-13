@@ -227,6 +227,17 @@ int main(int argc, char **argv) {
         compression_level = CompressionLevel::Ultra;
     }
 
+    unsigned assimp_options = 0;
+    assimp_options |= aiProcess_ValidateDataStructure;
+    assimp_options |= aiProcess_FlipUVs;
+    assimp_options |= aiProcess_RemoveComponent;
+    assimp_options |= aiProcess_Triangulate;
+    if (!fast) {
+        assimp_options |= aiProcess_RemoveRedundantMaterials;
+        assimp_options |= aiProcess_SortByPType;
+        assimp_options |= aiProcess_JoinIdenticalVertices;
+    }
+
     auto start_time = get_time();
     Assimp::DefaultLogger::create("vpak", Assimp::Logger::VERBOSE);
     Assimp::DefaultLogger::get()->attachStream(new AssimpLogger, Assimp::Logger::Debugging | Assimp::Logger::Info |
@@ -235,9 +246,7 @@ int main(int argc, char **argv) {
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS |
                                                             aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS |
                                                             aiComponent_LIGHTS | aiComponent_CAMERAS);
-    const auto *scene = importer.ReadFile(input_path, aiProcess_RemoveComponent | aiProcess_Triangulate |
-                                                          aiProcess_SortByPType | aiProcess_JoinIdenticalVertices |
-                                                          aiProcess_FlipUVs | aiProcess_ValidateDataStructure);
+    const auto *scene = importer.ReadFile(input_path, assimp_options);
     if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
         (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
         return 1;
