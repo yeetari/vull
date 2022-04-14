@@ -3,6 +3,15 @@
 namespace vull {
 namespace detail {
 
+template <bool B, typename T, typename F>
+struct ConditionalImpl {
+    using type = T;
+};
+template <typename T, typename F>
+struct ConditionalImpl<false, T, F> {
+    using type = F;
+};
+
 template <typename T>
 struct RemoveRefImpl {
     using type = T;
@@ -26,6 +35,9 @@ struct IsSameCheck<T, T> {
 };
 
 } // namespace detail
+
+template <bool B, typename T, typename F>
+using Conditional = typename detail::ConditionalImpl<B, T, F>::type;
 
 template <typename T, typename U>
 inline constexpr bool IsSame = detail::IsSameCheck<T, U>::value;
