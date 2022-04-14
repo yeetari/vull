@@ -9,6 +9,6 @@ FetchContent_MakeAvailable(meshoptimizer)
 get_target_property(meshoptimizer_iid meshoptimizer INTERFACE_INCLUDE_DIRECTORIES)
 set_target_properties(meshoptimizer PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${meshoptimizer_iid}")
 
-add_executable(vpak TextureLoader.cc vpak.cc)
+add_executable(vpak vpak/main.cc vpak/TextureLoader.cc)
 target_compile_features(vpak PRIVATE cxx_std_20)
 target_link_libraries(vpak PRIVATE assimp::assimp meshoptimizer vull)
