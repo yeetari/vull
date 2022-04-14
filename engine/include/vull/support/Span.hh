@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vull/support/Utility.hh>
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -20,6 +22,11 @@ public:
 
     constexpr T *begin() const { return m_data; }
     constexpr T *end() const { return m_data + m_size; }
+
+    template <typename U = Conditional<IsSame<T, void>, char, T>>
+    constexpr U &operator[](SizeType index) const requires(!IsSame<T, void>) {
+        return begin()[index];
+    }
 
     constexpr T *data() const { return m_data; }
     constexpr SizeType size() const { return m_size; }
