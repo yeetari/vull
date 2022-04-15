@@ -18,6 +18,7 @@ public:
     constexpr String() = default;
     explicit String(size_t length);
     String(const char *c_string) : String(copy_raw(c_string, __builtin_strlen(c_string))) {}
+    String(StringView view) : String(copy_raw(view.data(), view.length())) {}
     String(const String &) = delete;
     String(String &&other) : m_data(exchange(other.m_data, nullptr)), m_length(exchange(other.m_length, 0u)) {}
     ~String();
