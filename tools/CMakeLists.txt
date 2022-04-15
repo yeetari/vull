@@ -14,6 +14,7 @@ target_compile_features(vpak PRIVATE cxx_std_20)
 target_link_libraries(vpak PRIVATE assimp::assimp meshoptimizer vull)
 
 add_executable(vslc
+    vslc/spv/Builder.cc
     vslc/CharStream.cc
     vslc/Lexer.cc
     vslc/main.cc
