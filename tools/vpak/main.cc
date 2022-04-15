@@ -176,7 +176,7 @@ void process_node(const char *root_path, const aiScene *scene, EntityManager &wo
 }
 
 void print_usage(const char *executable) {
-    fprintf(stderr, "Usage: %s [--fast|--ultra] <input> [output]\n", executable);
+    fprintf(stderr, "usage: %s [--fast|--ultra] <input> [output]\n", executable);
 }
 
 } // namespace

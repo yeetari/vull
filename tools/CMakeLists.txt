@@ -12,3 +12,11 @@ set_target_properties(meshoptimizer PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTOR
 add_executable(vpak vpak/main.cc vpak/TextureLoader.cc)
 target_compile_features(vpak PRIVATE cxx_std_20)
 target_link_libraries(vpak PRIVATE assimp::assimp meshoptimizer vull)
+
+add_executable(vslc
+    vslc/CharStream.cc
+    vslc/Lexer.cc
+    vslc/main.cc
+    vslc/Token.cc)
+target_compile_features(vslc PRIVATE cxx_std_20)
+target_link_libraries(vslc PRIVATE vull)
