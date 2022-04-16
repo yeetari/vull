@@ -41,10 +41,12 @@ if(VULL_BUILD_WARNINGS)
             -Wno-error=deprecated-declarations
             # Disabling this should be fine as it's now allowed in C++ 20.
             -Wno-gnu-zero-variadic-macro-arguments
+            -Wno-non-virtual-dtor
             -Wno-padded
             -Wno-shadow-uncaptured-local
             -Wno-switch
-            -Wno-switch-enum)
+            -Wno-switch-enum
+            -Wno-weak-vtables)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(vull PUBLIC
             -Werror
@@ -53,6 +55,7 @@ if(VULL_BUILD_WARNINGS)
             -Wno-class-memaccess
             -Wno-double-promotion
             -Wno-missing-field-initializers
+            -Wno-non-virtual-dtor
             -Wno-switch
             -Wno-unknown-pragmas)
     endif()
