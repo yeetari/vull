@@ -7,6 +7,8 @@ vull::StringView Token::kind_string(TokenKind kind) {
     switch (kind) {
     case TokenKind::Eof:
         return "eof";
+    case TokenKind::FloatLit:
+        return "float literal";
     case TokenKind::Ident:
         return "identifier";
     case TokenKind::IntLit:
@@ -24,22 +26,29 @@ vull::StringView Token::kind_string(TokenKind kind) {
     }
 }
 
-size_t Token::number() const {
+float Token::decimal() const {
+    VULL_ASSERT(m_kind == TokenKind::FloatLit);
+    return m_number_data.float_data;
+}
+
+size_t Token::integer() const {
     VULL_ASSERT(m_kind == TokenKind::IntLit);
-    return m_int_data;
+    return m_number_data.int_data;
 }
 
 vull::StringView Token::string() const {
     VULL_ASSERT(m_kind == TokenKind::Ident);
-    return {static_cast<const char *>(m_ptr_data), m_int_data};
+    return {static_cast<const char *>(m_ptr_data), m_number_data.int_data};
 }
 
 vull::String Token::to_string() const {
     switch (m_kind) {
+    case TokenKind::FloatLit:
+        return vull::format("'{}f'", decimal());
     case TokenKind::Ident:
         return vull::format("'{}'", string());
     case TokenKind::IntLit:
-        return vull::format("'{}'", number());
+        return vull::format("'{}u'", integer());
     default:
         return kind_string(m_kind);
     }

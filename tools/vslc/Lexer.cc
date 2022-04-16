@@ -4,6 +4,10 @@
 
 namespace {
 
+bool is_digit(char ch) {
+    return ch >= '0' && ch <= '9';
+}
+
 bool is_ident(char ch) {
     return ((static_cast<unsigned char>(ch) | 32u) - 'a' < 26) || ch == '_';
 }
@@ -45,9 +49,33 @@ Token Lexer::next_token() {
         break;
     }
 
+    if (is_digit(ch)) {
+        size_t length = 1;
+        bool is_decimal = false;
+        while (is_digit(m_stream.peek()) || m_stream.peek() == '.') {
+            length++;
+            if (m_stream.next() == '.') {
+                is_decimal = true;
+            }
+        }
+        // TODO: Don't use scanf.
+        vull::StringView view(m_stream.pointer() - length, length);
+        if (is_decimal) {
+            float decimal = 0.0f;
+            sscanf(view.data(), "%f", &decimal);
+            if (m_stream.peek() == 'f') {
+                m_stream.next();
+            }
+            return decimal;
+        }
+        size_t integer = 0;
+        sscanf(view.data(), "%lu", &integer);
+        return integer;
+    }
+
     if (is_ident(ch)) {
         size_t length = 1;
-        while (is_ident(m_stream.peek())) {
+        while (is_ident(m_stream.peek()) || is_digit(m_stream.peek())) {
             length++;
             m_stream.next();
         }

@@ -14,10 +14,14 @@ target_compile_features(vpak PRIVATE cxx_std_20)
 target_link_libraries(vpak PRIVATE assimp::assimp meshoptimizer vull)
 
 add_executable(vslc
+    vslc/spv/Backend.cc
     vslc/spv/Builder.cc
+    vslc/Ast.cc
     vslc/CharStream.cc
     vslc/Lexer.cc
     vslc/main.cc
+    vslc/Parser.cc
     vslc/Token.cc)
 target_compile_features(vslc PRIVATE cxx_std_20)
+target_compile_options(vslc PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
 target_link_libraries(vslc PRIVATE vull)
