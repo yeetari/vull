@@ -45,6 +45,7 @@ public:
     Span<T, SizeType> span() { return {m_data, m_size}; }
     Span<const T, SizeType> span() const { return {m_data, m_size}; }
     Span<T, SizeType> take_all();
+    T take_last();
 
     T *begin() { return m_data; }
     T *end() { return m_data + m_size; }
@@ -206,6 +207,13 @@ template <typename T, typename SizeType>
 Span<T, SizeType> Vector<T, SizeType>::take_all() {
     m_capacity = 0u;
     return {exchange(m_data, nullptr), exchange(m_size, 0u)};
+}
+
+template <typename T, typename SizeType>
+T Vector<T, SizeType>::take_last() {
+    VULL_ASSERT(!empty());
+    m_size--;
+    return move(*end());
 }
 
 template <typename T, typename SizeType>
