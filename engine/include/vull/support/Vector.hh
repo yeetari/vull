@@ -86,7 +86,6 @@ Vector<T, SizeType>::Vector(Vector &&other) {
 template <typename T, typename SizeType>
 Vector<T, SizeType>::~Vector() {
     clear();
-    delete[] reinterpret_cast<uint8_t *>(m_data);
 }
 
 template <typename T, typename SizeType>
@@ -108,6 +107,8 @@ void Vector<T, SizeType>::clear() {
         }
     }
     m_size = 0;
+    m_capacity = 0;
+    delete[] reinterpret_cast<uint8_t *>(exchange(m_data, nullptr));
 }
 
 template <typename T, typename SizeType>
