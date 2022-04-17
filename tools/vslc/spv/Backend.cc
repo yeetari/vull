@@ -20,7 +20,7 @@ Id Backend::convert_type(const ast::Type &vsl_type) {
     return m_builder.vector_type(scalar_type, vsl_type.vector_size());
 }
 
-void Backend::translate_construct_expr(const ast::Type &vsl_type) {
+Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
     // TODO(small-vector)
     vull::Vector<Id> constants;
     for (const Instruction &inst : m_expr_stack) {
@@ -35,7 +35,6 @@ void Backend::translate_construct_expr(const ast::Type &vsl_type) {
             }
             break;
         default:
-            fprintf(stderr, "Op %u\n", static_cast<Word>(inst.op()));
             VULL_ENSURE_NOT_REACHED();
         }
     }
@@ -50,15 +49,10 @@ void Backend::translate_construct_expr(const ast::Type &vsl_type) {
         constants.push(Id(constants.first()));
     }
 
-    // Already only one value, no need to create a composite.
-    if (constants.size() == 1) {
-        return;
-    }
-
-    // Otherwise, create a vector composite.
+    // Create a vector composite.
     const auto scalar_type = convert_type(vsl_type.scalar_type());
     const auto composite_type = m_builder.vector_type(scalar_type, vector_size);
-    m_expr_stack.push(m_builder.composite_constant(composite_type, vull::move(constants)));
+    return m_builder.composite_constant(composite_type, vull::move(constants));
 }
 
 void Backend::visit(const ast::Aggregate &aggregate) {
@@ -70,10 +64,13 @@ void Backend::visit(const ast::Aggregate &aggregate) {
         }
         break;
     case ast::AggregateKind::ConstructExpr:
+        auto saved_stack = vull::move(m_expr_stack);
         for (const auto *node : aggregate.nodes()) {
             node->accept(*this);
         }
-        translate_construct_expr(aggregate.type());
+        auto &inst = translate_construct_expr(aggregate.type());
+        m_expr_stack = vull::move(saved_stack);
+        m_expr_stack.push(inst);
         break;
     }
 }

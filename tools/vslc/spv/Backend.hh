@@ -28,7 +28,8 @@ class Backend : public ast::Visitor {
 
     Id convert_type(ast::ScalarType);
     Id convert_type(const ast::Type &);
-    void translate_construct_expr(const ast::Type &);
+
+    Instruction &translate_construct_expr(const ast::Type &);
 
 public:
     void visit(const ast::Aggregate &) override;

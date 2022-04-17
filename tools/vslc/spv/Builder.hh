@@ -6,9 +6,8 @@
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
-
-#include <stdio.h>
 
 namespace spv {
 
@@ -77,8 +76,8 @@ class Builder {
     vull::Vector<EntryPoint> m_entry_points;
     vull::Vector<Instruction> m_decorations;
     vull::Vector<Instruction> m_types;
-    vull::Vector<Instruction> m_constants;
-    vull::Vector<Instruction> m_global_variables;
+    vull::Vector<vull::UniquePtr<Instruction>> m_constants;
+    vull::Vector<vull::UniquePtr<Instruction>> m_global_variables;
     vull::Vector<Function> m_functions;
     Id m_next_id{1};
     Id m_void_type{0};

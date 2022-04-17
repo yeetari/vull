@@ -1,15 +1,23 @@
-fn foo(): float {
+fn a(): float {
     1.0f
 }
 
-fn bar(): vec2 {
+fn b(): vec2 {
     vec2(2.0f, 4.0f)
 }
 
-fn baz(): vec3 {
+fn c(): vec3 {
     vec3(1.0f)
 }
 
-fn vertex_main(): vec4 {
+fn d(): vec4 {
     vec4(vec3(4.0f), 2.0f)
+}
+
+fn e(): vec4 {
+    vec4(2.0f, vec3(4.0f))
+}
+
+fn vertex_main(): vec4 {
+    vec4(vec2(4.0f), vec2(2.0f))
 }
