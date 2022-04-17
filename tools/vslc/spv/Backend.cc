@@ -76,16 +76,16 @@ void Backend::visit(const ast::Function &vsl_function) {
 
 void Backend::visit(const ast::ReturnStmt &return_stmt) {
     return_stmt.expr().accept(*this);
-
-    // Intercept returns from the vertex shader entry point as stores to gl_Position.
     if (m_is_vertex_entry) {
+        // Intercept returns from the vertex shader entry point as stores to gl_Position.
         auto &store_inst = m_block->append(Op::Store);
         store_inst.append_operand(m_position_output);
         store_inst.append_operand(m_expr_stack.take_last());
         m_block->append(Op::Return);
         return;
     }
-    VULL_ENSURE_NOT_REACHED();
+    auto &return_inst = m_block->append(Op::ReturnValue);
+    return_inst.append_operand(m_expr_stack.take_last());
 }
 
 } // namespace spv

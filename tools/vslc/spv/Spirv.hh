@@ -55,6 +55,7 @@ enum class Op {
     Decorate = 71,
     Label = 248,
     Return = 253,
+    ReturnValue = 254,
 };
 
 enum class StorageClass {
