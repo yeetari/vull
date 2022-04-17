@@ -135,9 +135,6 @@ struct Visitor {
 class Formatter final : public Visitor {
     size_t m_depth{0};
 
-    template <typename... Args>
-    void print(const char *fmt, Args &&...args);
-
 public:
     void visit(const Aggregate &) override;
     void visit(const Constant &) override;

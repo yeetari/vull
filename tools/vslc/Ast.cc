@@ -40,6 +40,35 @@ void DestroyVisitor::visit(const ReturnStmt &return_stmt) {
     m_arena.destroy(&return_stmt);
 }
 
+template <typename... Args>
+void print(const char *fmt, Args &&...args) {
+    auto string = vull::format(fmt, vull::forward<Args>(args)...);
+    fwrite(string.data(), 1, string.length(), stderr);
+}
+
+void print_depth(size_t depth) {
+    for (size_t i = 0; i < depth; i++) {
+        fputs("    ", stderr);
+    }
+}
+
+vull::String type_string(const Type &type) {
+    if (type.vector_size() == 1) {
+        switch (type.scalar_type()) {
+        case ScalarType::Float:
+            return "float";
+        case ScalarType::Uint:
+            return "uint";
+        }
+    }
+    switch (type.scalar_type()) {
+    case ScalarType::Float:
+        return vull::format("vec{}", static_cast<size_t>(type.vector_size()));
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
+}
+
 } // namespace
 
 Root::~Root() {
@@ -57,24 +86,31 @@ void Root::traverse(Visitor &visitor) {
     }
 }
 
-template <typename... Args>
-void Formatter::print(const char *fmt, Args &&...args) {
-    for (size_t i = 0; i < m_depth; i++) {
-        fputs("    ", stderr);
-    }
-    auto string = vull::format(fmt, vull::forward<Args>(args)...);
-    fwrite(string.data(), 1, string.length(), stderr);
-}
-
 void Formatter::visit(const Aggregate &aggregate) {
-    VULL_ENSURE(aggregate.kind() == AggregateKind::Block);
-    print(" {\n");
-    m_depth++;
-    for (const auto *node : aggregate.nodes()) {
-        node->accept(*this);
+    switch (aggregate.kind()) {
+    case AggregateKind::Block:
+        print_depth(m_depth++);
+        print(" {\n");
+        for (const auto *node : aggregate.nodes()) {
+            print_depth(m_depth);
+            node->accept(*this);
+            print("\n");
+        }
+        print_depth(--m_depth);
+        print("}");
+        break;
+    case AggregateKind::ConstructExpr:
+        print("{}(", type_string(aggregate.type()));
+        for (bool first = true; const auto *node : aggregate.nodes()) {
+            if (!first) {
+                print(", ");
+            }
+            node->accept(*this);
+            first = false;
+        }
+        print(")");
+        break;
     }
-    m_depth--;
-    print("}");
 }
 
 void Formatter::visit(const Constant &constant) {
@@ -89,7 +125,7 @@ void Formatter::visit(const Constant &constant) {
 }
 
 void Formatter::visit(const Function &function) {
-    print("fn {}()", function.name());
+    print("fn {}(): {}", function.name(), type_string(function.return_type()));
     function.block().accept(*this);
     print("\n");
 }
