@@ -16,6 +16,26 @@ Token Parser::expect(TokenKind kind) {
     return token;
 }
 
+vull::Optional<ast::Type> Parser::parse_type() {
+    auto ident = consume(TokenKind::Ident);
+    if (!ident) {
+        return {};
+    }
+    if (ident->string() == "float") {
+        return {{ast::ScalarType::Float, 1}};
+    }
+    if (ident->string() == "vec2") {
+        return {{ast::ScalarType::Float, 2}};
+    }
+    if (ident->string() == "vec3") {
+        return {{ast::ScalarType::Float, 3}};
+    }
+    if (ident->string() == "vec4") {
+        return {{ast::ScalarType::Float, 4}};
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
 ast::Constant *Parser::parse_constant() {
     if (auto literal = consume(TokenKind::FloatLit)) {
         return m_root.allocate<ast::Constant>(literal->decimal());
@@ -27,11 +47,9 @@ ast::Constant *Parser::parse_constant() {
 }
 
 ast::Node *Parser::parse_expr() {
-    if (auto ident = consume(TokenKind::Ident)) {
-        VULL_ENSURE(ident->string().length() == 4);
-        const auto vector_size = static_cast<uint8_t>(ident->string()[3] - '0');
+    if (auto type = parse_type()) {
         auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
-        construct_expr->set_type(ast::Type(ast::ScalarType::Float, vector_size));
+        construct_expr->set_type(*type);
         expect(TokenKind::LeftParen);
         while (!consume(TokenKind::RightParen)) {
             construct_expr->append_node(parse_expr());
@@ -61,8 +79,11 @@ ast::Function *Parser::parse_function() {
     auto name = expect(TokenKind::Ident);
     expect(TokenKind::LeftParen);
     expect(TokenKind::RightParen);
+    expect(TokenKind::Colon);
+    auto return_type = parse_type();
+    VULL_ENSURE(return_type);
     auto *block = parse_block();
-    return m_root.allocate<ast::Function>(name.string(), block);
+    return m_root.allocate<ast::Function>(name.string(), block, *return_type);
 }
 
 ast::Node *Parser::parse_top_level() {

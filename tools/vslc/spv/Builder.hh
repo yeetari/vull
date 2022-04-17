@@ -36,6 +36,7 @@ public:
     Id type() const { return m_type; }
     Word operand(uint32_t index) const { return m_operands[index]; }
     uint32_t operand_count() const { return m_operands.size(); }
+    const vull::Vector<Word> &operands() const { return m_operands; }
 };
 
 class Block {
@@ -89,8 +90,8 @@ public:
     Id vector_type(Id component_type, Word component_count);
     Id void_type();
 
-    Id scalar_constant(Id type, Word value);
-    Id composite_constant(Id type, vull::Vector<Id> &&elements);
+    Instruction &scalar_constant(Id type, Word value);
+    Instruction &composite_constant(Id type, vull::Vector<Id> &&elements);
 
     void append_entry_point(Function &function, ExecutionModel model);
     Function &append_function(vull::StringView name, Id return_type, Id function_type);

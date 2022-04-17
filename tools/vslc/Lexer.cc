@@ -37,6 +37,8 @@ Token Lexer::next_token() {
             return next_token();
         }
         break;
+    case ':':
+        return TokenKind::Colon;
     case ',':
         return TokenKind::Comma;
     case '{':

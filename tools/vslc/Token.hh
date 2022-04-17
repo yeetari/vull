@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 enum class TokenKind {
+    Colon,
     Comma,
     Eof,
     FloatLit,

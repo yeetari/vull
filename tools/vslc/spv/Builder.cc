@@ -128,22 +128,22 @@ Id Builder::void_type() {
     return m_void_type;
 }
 
-Id Builder::scalar_constant(Id type, Word value) {
-    for (const auto &constant : m_constants) {
+Instruction &Builder::scalar_constant(Id type, Word value) {
+    for (auto &constant : m_constants) {
         if (constant.type() == type && constant.operand(0) == value) {
-            return constant.id();
+            return constant;
         }
     }
     auto &constant = m_constants.emplace(Op::Constant, m_next_id++, type);
     constant.append_operand(value);
-    return constant.id();
+    return constant;
 }
 
-Id Builder::composite_constant(Id type, vull::Vector<Id> &&elements) {
+Instruction &Builder::composite_constant(Id type, vull::Vector<Id> &&elements) {
     // TODO: Deduplication.
     auto &constant = m_constants.emplace(Op::ConstantComposite, m_next_id++, type);
     constant.extend_operands(elements);
-    return constant.id();
+    return constant;
 }
 
 void Builder::append_entry_point(Function &function, ExecutionModel model) {

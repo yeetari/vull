@@ -12,25 +12,53 @@ Id Backend::convert_type(ast::ScalarType scalar_type) {
     }
 }
 
+Id Backend::convert_type(const ast::Type &vsl_type) {
+    const auto scalar_type = convert_type(vsl_type.scalar_type());
+    if (vsl_type.vector_size() == 1) {
+        return scalar_type;
+    }
+    return m_builder.vector_type(scalar_type, vsl_type.vector_size());
+}
+
 void Backend::translate_construct_expr(const ast::Type &vsl_type) {
+    // TODO(small-vector)
+    vull::Vector<Id> constants;
+    for (const Instruction &inst : m_expr_stack) {
+        switch (inst.op()) {
+        case Op::Constant:
+            constants.push(inst.id());
+            break;
+        case Op::ConstantComposite:
+            // Break down composites.
+            for (Id constant : inst.operands()) {
+                constants.push(constant);
+            }
+            break;
+        default:
+            fprintf(stderr, "Op %u\n", static_cast<Word>(inst.op()));
+            VULL_ENSURE_NOT_REACHED();
+        }
+    }
+    m_expr_stack.clear();
+
     // Ensure that we either have exactly enough arguments, or only one in which case we can extend it.
     const auto vector_size = vsl_type.vector_size();
-    VULL_ENSURE(m_expr_stack.size() == vector_size || m_expr_stack.size() == 1);
+    VULL_ENSURE(constants.size() == vector_size || constants.size() == 1);
 
     // Extend, for example, vec4(1.0f) to vec4(1.0f, 1.0f, 1.0f, 1.0f).
-    for (uint32_t i = m_expr_stack.size(); i < vector_size; i++) {
-        m_expr_stack.push(Id(m_expr_stack.first()));
+    for (uint32_t i = constants.size(); i < vector_size; i++) {
+        constants.push(Id(constants.first()));
     }
 
     // Already only one value, no need to create a composite.
-    if (m_expr_stack.size() == 1) {
+    if (constants.size() == 1) {
         return;
     }
 
     // Otherwise, create a vector composite.
     const auto scalar_type = convert_type(vsl_type.scalar_type());
     const auto composite_type = m_builder.vector_type(scalar_type, vector_size);
-    m_expr_stack.push(m_builder.composite_constant(composite_type, vull::move(m_expr_stack)));
+    m_expr_stack.push(m_builder.composite_constant(composite_type, vull::move(constants)));
 }
 
 void Backend::visit(const ast::Aggregate &aggregate) {
@@ -56,12 +84,15 @@ void Backend::visit(const ast::Constant &constant) {
 }
 
 void Backend::visit(const ast::Function &vsl_function) {
-    m_function = &m_builder.append_function(vsl_function.name(), m_builder.void_type(),
-                                            m_builder.function_type(m_builder.void_type()));
-
-    // Handle special vertex shader entry point.
     m_is_vertex_entry = vsl_function.name() == "vertex_main";
+    Id return_type = convert_type(vsl_function.return_type());
     if (m_is_vertex_entry) {
+        return_type = m_builder.void_type();
+    }
+    m_function = &m_builder.append_function(vsl_function.name(), return_type, m_builder.function_type(return_type));
+    if (m_is_vertex_entry) {
+        VULL_ENSURE(vsl_function.return_type().scalar_type() == ast::ScalarType::Float);
+        VULL_ENSURE(vsl_function.return_type().vector_size() == 4);
         m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
 
         // Declare gl_Position builtin.
@@ -76,16 +107,17 @@ void Backend::visit(const ast::Function &vsl_function) {
 
 void Backend::visit(const ast::ReturnStmt &return_stmt) {
     return_stmt.expr().accept(*this);
+    const Instruction &expr_inst = m_expr_stack.take_last();
     if (m_is_vertex_entry) {
         // Intercept returns from the vertex shader entry point as stores to gl_Position.
         auto &store_inst = m_block->append(Op::Store);
         store_inst.append_operand(m_position_output);
-        store_inst.append_operand(m_expr_stack.take_last());
+        store_inst.append_operand(expr_inst.id());
         m_block->append(Op::Return);
         return;
     }
     auto &return_inst = m_block->append(Op::ReturnValue);
-    return_inst.append_operand(m_expr_stack.take_last());
+    return_inst.append_operand(expr_inst.id());
 }
 
 } // namespace spv

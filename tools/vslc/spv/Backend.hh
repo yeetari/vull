@@ -8,16 +8,26 @@
 namespace spv {
 
 class Backend : public ast::Visitor {
+    class InstRef {
+        Instruction *m_inst;
+
+    public:
+        InstRef(Instruction &inst) : m_inst(&inst) {}
+
+        operator Instruction &() { return *m_inst; }
+    };
+
     Builder m_builder;
     Function *m_function{nullptr};
     Block *m_block{nullptr};
-    vull::Vector<Id> m_expr_stack;
+    vull::Vector<InstRef> m_expr_stack;
 
     // Vertex shader.
     Id m_position_output{0};
     bool m_is_vertex_entry{false};
 
     Id convert_type(ast::ScalarType);
+    Id convert_type(const ast::Type &);
     void translate_construct_expr(const ast::Type &);
 
 public:

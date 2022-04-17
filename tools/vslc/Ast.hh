@@ -79,14 +79,17 @@ public:
 class Function final : public Node {
     vull::StringView m_name;
     Aggregate *m_block;
+    Type m_return_type;
 
 public:
-    Function(vull::StringView name, Aggregate *block) : m_name(name), m_block(block) {}
+    Function(vull::StringView name, Aggregate *block, const Type &return_type)
+        : m_name(name), m_block(block), m_return_type(return_type) {}
 
     void accept(Visitor &visitor) const override;
 
     vull::StringView name() const { return m_name; }
     Aggregate &block() const { return *m_block; }
+    const Type &return_type() const { return m_return_type; }
 };
 
 class ReturnStmt final : public Node {
