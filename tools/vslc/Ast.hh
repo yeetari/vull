@@ -10,14 +10,6 @@ namespace ast {
 
 struct Visitor;
 
-struct Node {
-    virtual void accept(Visitor &visitor) const = 0;
-};
-
-struct CompoundNode : Node {
-    virtual void traverse(Visitor &visitor) const = 0;
-};
-
 enum class ScalarType {
     Float,
     Uint,
@@ -35,52 +27,66 @@ public:
     uint8_t vector_size() const { return m_vector_size; }
 };
 
+struct Node {
+    virtual void accept(Visitor &visitor) const = 0;
+};
+
 class TypedNode : public Node {
     Type m_type;
 
 public:
-    TypedNode() = default;
-    explicit TypedNode(const Type &type) : m_type(type) {}
-
     void set_type(const Type &type) { m_type = type; }
-
     const Type &type() const { return m_type; }
 };
 
-class Block final : public CompoundNode {
+enum class AggregateKind {
+    Block,
+    ConstructExpr,
+};
+
+class Aggregate final : public TypedNode {
+    AggregateKind m_kind;
     vull::Vector<Node *> m_nodes;
 
 public:
-    void append_node(Node *node);
+    explicit Aggregate(AggregateKind kind) : m_kind(kind) {}
+
     void accept(Visitor &visitor) const override;
-    void traverse(Visitor &visitor) const override;
+    void append_node(Node *node) { m_nodes.push(node); }
+
+    AggregateKind kind() const { return m_kind; }
+    const vull::Vector<Node *> &nodes() const { return m_nodes; }
 };
 
-struct Constant {
+class Constant final : public Node {
     union {
         float decimal;
         size_t integer;
-    } literal;
-    ScalarType scalar_type;
-};
+    } m_literal;
+    ScalarType m_scalar_type;
 
-// TODO(small-vector): Use a small vector - a constant list will more often than not have <= 4 elements.
-struct ConstantList final : TypedNode, vull::Vector<Constant> {
-    using TypedNode::TypedNode;
+public:
+    explicit Constant(float decimal) : m_literal({.decimal = decimal}), m_scalar_type(ScalarType::Float) {}
+    explicit Constant(size_t integer) : m_literal({.integer = integer}), m_scalar_type(ScalarType::Uint) {}
+
     void accept(Visitor &visitor) const override;
+
+    float decimal() const { return m_literal.decimal; }
+    size_t integer() const { return m_literal.integer; }
+    ScalarType scalar_type() const { return m_scalar_type; }
 };
 
 class Function final : public Node {
     vull::StringView m_name;
-    Block *m_block;
+    Aggregate *m_block;
 
 public:
-    Function(vull::StringView name, Block *block) : m_name(name), m_block(block) {}
+    Function(vull::StringView name, Aggregate *block) : m_name(name), m_block(block) {}
 
     void accept(Visitor &visitor) const override;
 
     vull::StringView name() const { return m_name; }
-    Block &block() const { return *m_block; }
+    Aggregate &block() const { return *m_block; }
 };
 
 class ReturnStmt final : public Node {
@@ -117,8 +123,8 @@ public:
 };
 
 struct Visitor {
-    virtual void visit(const Block &) = 0;
-    virtual void visit(const ConstantList &) = 0;
+    virtual void visit(const Aggregate &) = 0;
+    virtual void visit(const Constant &) = 0;
     virtual void visit(const Function &) = 0;
     virtual void visit(const ReturnStmt &) = 0;
 };
@@ -130,17 +136,17 @@ class Formatter final : public Visitor {
     void print(const char *fmt, Args &&...args);
 
 public:
-    void visit(const Block &) override;
-    void visit(const ConstantList &) override;
+    void visit(const Aggregate &) override;
+    void visit(const Constant &) override;
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
 };
 
-inline void Block::accept(Visitor &visitor) const {
+inline void Aggregate::accept(Visitor &visitor) const {
     visitor.visit(*this);
 }
 
-inline void ConstantList::accept(Visitor &visitor) const {
+inline void Constant::accept(Visitor &visitor) const {
     visitor.visit(*this);
 }
 

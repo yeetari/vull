@@ -16,38 +16,30 @@ Token Parser::expect(TokenKind kind) {
     return token;
 }
 
-ast::Constant Parser::parse_constant() {
+ast::Constant *Parser::parse_constant() {
     if (auto literal = consume(TokenKind::FloatLit)) {
-        return {
-            .literal{.decimal = literal->decimal()},
-            .scalar_type = ast::ScalarType::Float,
-        };
+        return m_root.allocate<ast::Constant>(literal->decimal());
     }
     if (auto literal = consume(TokenKind::IntLit)) {
-        return {
-            .literal{.integer = literal->integer()},
-            .scalar_type = ast::ScalarType::Uint,
-        };
+        return m_root.allocate<ast::Constant>(literal->integer());
     }
     VULL_ENSURE_NOT_REACHED();
 }
 
 ast::Node *Parser::parse_expr() {
-    auto *constant_list = m_root.allocate<ast::ConstantList>();
     if (auto ident = consume(TokenKind::Ident)) {
         VULL_ENSURE(ident->string().length() == 4);
         const auto vector_size = static_cast<uint8_t>(ident->string()[3] - '0');
-        constant_list->set_type(ast::Type(ast::ScalarType::Float, vector_size));
+        auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
+        construct_expr->set_type(ast::Type(ast::ScalarType::Float, vector_size));
         expect(TokenKind::LeftParen);
         while (!consume(TokenKind::RightParen)) {
-            constant_list->push(parse_constant());
+            construct_expr->append_node(parse_expr());
             consume(TokenKind::Comma);
         }
-        return constant_list;
+        return construct_expr;
     }
-    constant_list->push(parse_constant());
-    constant_list->set_type(ast::Type(constant_list->first().scalar_type, 1));
-    return constant_list;
+    return parse_constant();
 }
 
 ast::Node *Parser::parse_stmt() {
@@ -56,9 +48,9 @@ ast::Node *Parser::parse_stmt() {
     return m_root.allocate<ast::ReturnStmt>(expr);
 }
 
-ast::Block *Parser::parse_block() {
+ast::Aggregate *Parser::parse_block() {
     expect(TokenKind::LeftBrace);
-    auto *block = m_root.allocate<ast::Block>();
+    auto *block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
     while (!consume(TokenKind::RightBrace)) {
         block->append_node(parse_stmt());
     }

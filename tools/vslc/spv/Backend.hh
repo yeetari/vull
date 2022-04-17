@@ -18,10 +18,11 @@ class Backend : public ast::Visitor {
     bool m_is_vertex_entry{false};
 
     Id convert_type(ast::ScalarType);
+    void translate_construct_expr(const ast::Type &);
 
 public:
-    void visit(const ast::Block &) override;
-    void visit(const ast::ConstantList &) override;
+    void visit(const ast::Aggregate &) override;
+    void visit(const ast::Constant &) override;
     void visit(const ast::Function &) override;
     void visit(const ast::ReturnStmt &) override;
 

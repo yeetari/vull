@@ -13,19 +13,21 @@ class DestroyVisitor final : public Visitor {
 public:
     explicit DestroyVisitor(Arena &arena) : m_arena(arena) {}
 
-    void visit(const Block &block) override;
-    void visit(const ConstantList &constant_list) override;
-    void visit(const Function &function) override;
-    void visit(const ReturnStmt &return_stmt) override;
+    void visit(const Aggregate &) override;
+    void visit(const Constant &) override;
+    void visit(const Function &) override;
+    void visit(const ReturnStmt &) override;
 };
 
-void DestroyVisitor::visit(const Block &block) {
-    block.traverse(*this);
-    m_arena.destroy(&block);
+void DestroyVisitor::visit(const Aggregate &aggregate) {
+    for (const auto *node : aggregate.nodes()) {
+        node->accept(*this);
+    }
+    m_arena.destroy(&aggregate);
 }
 
-void DestroyVisitor::visit(const ConstantList &constant_list) {
-    m_arena.destroy(&constant_list);
+void DestroyVisitor::visit(const Constant &constant) {
+    m_arena.destroy(&constant);
 }
 
 void DestroyVisitor::visit(const Function &function) {
@@ -39,16 +41,6 @@ void DestroyVisitor::visit(const ReturnStmt &return_stmt) {
 }
 
 } // namespace
-
-void Block::append_node(Node *node) {
-    m_nodes.push(node);
-}
-
-void Block::traverse(Visitor &visitor) const {
-    for (const auto *node : m_nodes) {
-        node->accept(visitor);
-    }
-}
 
 Root::~Root() {
     DestroyVisitor destroy_visitor(m_arena);
@@ -74,24 +66,26 @@ void Formatter::print(const char *fmt, Args &&...args) {
     fwrite(string.data(), 1, string.length(), stderr);
 }
 
-void Formatter::visit(const Block &block) {
+void Formatter::visit(const Aggregate &aggregate) {
+    VULL_ENSURE(aggregate.kind() == AggregateKind::Block);
     print(" {\n");
     m_depth++;
-    block.traverse(*this);
+    for (const auto *node : aggregate.nodes()) {
+        node->accept(*this);
+    }
     m_depth--;
     print("}");
 }
 
-void Formatter::visit(const ConstantList &constant_list) {
-    if (constant_list.type().vector_size() > 1) {
-        print("vec{}(", static_cast<size_t>(constant_list.type().vector_size()));
+void Formatter::visit(const Constant &constant) {
+    switch (constant.scalar_type()) {
+    case ScalarType::Float:
+        print("{}f", constant.decimal());
+        break;
+    case ScalarType::Uint:
+        print("{}u", constant.integer());
+        break;
     }
-    for (bool first = true; const auto &constant : constant_list) {
-        VULL_ENSURE(constant.scalar_type == ScalarType::Float);
-        print("{}{}f", !first ? "," : "", constant.literal.decimal);
-        first = false;
-    }
-    print("{}\n", constant_list.type().vector_size() > 1 ? ")" : "");
 }
 
 void Formatter::visit(const Function &function) {
