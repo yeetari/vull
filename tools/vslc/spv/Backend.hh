@@ -17,6 +17,8 @@ class Backend : public ast::Visitor {
     Id m_position_output{0};
     bool m_is_vertex_entry{false};
 
+    Id convert_type(ast::ScalarType);
+
 public:
     void visit(const ast::Block &) override;
     void visit(const ast::ConstantList &) override;
