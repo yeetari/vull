@@ -5,6 +5,8 @@
 
 vull::StringView Token::kind_string(TokenKind kind) {
     switch (kind) {
+    case TokenKind::Comma:
+        return "','";
     case TokenKind::Eof:
         return "eof";
     case TokenKind::FloatLit:

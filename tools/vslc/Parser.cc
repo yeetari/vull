@@ -16,25 +16,37 @@ Token Parser::expect(TokenKind kind) {
     return token;
 }
 
+ast::Constant Parser::parse_constant() {
+    if (auto literal = consume(TokenKind::FloatLit)) {
+        return {
+            .literal{.decimal = literal->decimal()},
+            .scalar_type = ast::ScalarType::Float,
+        };
+    }
+    if (auto literal = consume(TokenKind::IntLit)) {
+        return {
+            .literal{.integer = literal->integer()},
+            .scalar_type = ast::ScalarType::Uint,
+        };
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
 ast::Node *Parser::parse_expr() {
-    auto *constant_list = m_root.allocate<ast::ConstantList>(ast::Type(ast::ScalarType::Float, 1));
+    auto *constant_list = m_root.allocate<ast::ConstantList>();
     if (auto ident = consume(TokenKind::Ident)) {
-        VULL_ENSURE(ident->string() == "vec4");
-        constant_list->set_type(ast::Type(ast::ScalarType::Float, 4));
+        VULL_ENSURE(ident->string().length() == 4);
+        const auto vector_size = static_cast<uint8_t>(ident->string()[3] - '0');
+        constant_list->set_type(ast::Type(ast::ScalarType::Float, vector_size));
         expect(TokenKind::LeftParen);
-        auto *sub_list = static_cast<ast::ConstantList *>(parse_expr());
-        for (auto constant : *sub_list) {
-            constant_list->push(constant);
+        while (!consume(TokenKind::RightParen)) {
+            constant_list->push(parse_constant());
+            consume(TokenKind::Comma);
         }
-        sub_list->ast::ConstantList::~ConstantList();
-        expect(TokenKind::RightParen);
         return constant_list;
     }
-    auto literal = expect(TokenKind::FloatLit);
-    constant_list->push(ast::Constant{
-        .literal{.decimal = literal.decimal()},
-        .scalar_type = ast::ScalarType::Float,
-    });
+    constant_list->push(parse_constant());
+    constant_list->set_type(ast::Type(constant_list->first().scalar_type, 1));
     return constant_list;
 }
 

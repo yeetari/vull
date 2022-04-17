@@ -20,6 +20,7 @@ struct CompoundNode : Node {
 
 enum class ScalarType {
     Float,
+    Uint,
 };
 
 class Type {
@@ -27,6 +28,7 @@ class Type {
     uint8_t m_vector_size;
 
 public:
+    Type() = default;
     Type(ScalarType scalar_type, uint8_t vector_size) : m_scalar_type(scalar_type), m_vector_size(vector_size) {}
 
     ScalarType scalar_type() const { return m_scalar_type; }
@@ -37,6 +39,7 @@ class TypedNode : public Node {
     Type m_type;
 
 public:
+    TypedNode() = default;
     explicit TypedNode(const Type &type) : m_type(type) {}
 
     void set_type(const Type &type) { m_type = type; }
