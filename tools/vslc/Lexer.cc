@@ -87,6 +87,9 @@ Token Lexer::next_token() {
         if (ident == "fn") {
             return TokenKind::KeywordFn;
         }
+        if (ident == "let") {
+            return TokenKind::KeywordLet;
+        }
         return {TokenKind::Ident, ident};
     }
     printf("unexpected %c\n", ch);

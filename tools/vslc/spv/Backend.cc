@@ -81,20 +81,35 @@ void Backend::visit(const ast::Constant &constant) {
 }
 
 void Backend::visit(const ast::Function &vsl_function) {
-    m_is_vertex_entry = vsl_function.name() == "vertex_main";
-    Id return_type = convert_type(vsl_function.return_type());
-    if (m_is_vertex_entry) {
-        return_type = m_builder.void_type();
+    vull::Vector<Id> parameter_types;
+    parameter_types.ensure_capacity(vsl_function.parameters().size());
+    for (const auto &parameter : vsl_function.parameters()) {
+        parameter_types.push(convert_type(parameter.type()));
     }
-    m_function = &m_builder.append_function(vsl_function.name(), return_type, m_builder.function_type(return_type));
+
+    auto return_type = convert_type(vsl_function.return_type());
+    auto function_type = m_builder.function_type(return_type, parameter_types);
+    if ((m_is_vertex_entry = vsl_function.name() == "vertex_main")) {
+        return_type = m_builder.void_type();
+        function_type = m_builder.function_type(return_type, {});
+    }
+    m_function = &m_builder.append_function(vsl_function.name(), return_type, function_type);
     if (m_is_vertex_entry) {
         VULL_ENSURE(vsl_function.return_type().scalar_type() == ast::ScalarType::Float);
         VULL_ENSURE(vsl_function.return_type().vector_size() == 4);
         m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
 
-        // Declare gl_Position builtin.
-        Id position_type = m_builder.vector_type(m_builder.float_type(32), 4);
-        Id position_ptr_type = m_builder.pointer_type(StorageClass::Output, position_type);
+        // Create inputs.
+        for (uint32_t i = 0; i < parameter_types.size(); i++) {
+            const auto input_type = parameter_types[i];
+            const auto input_ptr_type = m_builder.pointer_type(StorageClass::Input, input_type);
+            auto &variable = m_builder.append_variable(input_ptr_type, StorageClass::Input);
+            m_builder.decorate(variable.id(), Decoration::Location, i);
+        }
+
+        // Create gl_Position builtin.
+        const auto position_type = m_builder.vector_type(m_builder.float_type(32), 4);
+        const auto position_ptr_type = m_builder.pointer_type(StorageClass::Output, position_type);
         auto &variable = m_builder.append_variable(position_ptr_type, StorageClass::Output);
         m_builder.decorate(variable.id(), Decoration::BuiltIn, BuiltIn::Position);
         m_position_output = variable.id();

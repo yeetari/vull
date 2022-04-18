@@ -23,6 +23,7 @@ enum class Capability {
 
 enum class Decoration {
     BuiltIn = 11,
+    Location = 30,
 };
 
 enum class ExecutionModel {
@@ -59,6 +60,7 @@ enum class Op {
 };
 
 enum class StorageClass {
+    Input = 1,
     Output = 3,
 };
 

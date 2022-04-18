@@ -84,7 +84,7 @@ class Builder {
 
 public:
     Id float_type(Word width);
-    Id function_type(Id return_type);
+    Id function_type(Id return_type, const vull::Vector<Id> &parameter_types);
     Id pointer_type(StorageClass storage_class, Id pointee_type);
     Id vector_type(Id component_type, Word component_count);
     Id void_type();

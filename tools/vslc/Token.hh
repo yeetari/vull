@@ -13,6 +13,7 @@ enum class TokenKind {
     Ident,
     IntLit,
     KeywordFn,
+    KeywordLet,
     LeftBrace,
     LeftParen,
     RightBrace,

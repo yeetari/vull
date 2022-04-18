@@ -19,6 +19,8 @@ vull::StringView Token::kind_string(TokenKind kind) {
         return "integer literal";
     case TokenKind::KeywordFn:
         return "'fn'";
+    case TokenKind::KeywordLet:
+        return "'let'";
     case TokenKind::LeftBrace:
         return "'{'";
     case TokenKind::LeftParen:

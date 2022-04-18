@@ -18,6 +18,10 @@ fn e(): vec4 {
     vec4(2.0f, vec3(4.0f))
 }
 
-fn vertex_main(): vec4 {
+fn f(): vec4 {
     vec4(vec2(4.0f), vec2(2.0f))
+}
+
+fn vertex_main(let position: vec3): vec4 {
+    vec4(1.0f)
 }

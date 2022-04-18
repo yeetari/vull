@@ -76,20 +76,33 @@ public:
     ScalarType scalar_type() const { return m_scalar_type; }
 };
 
+class Parameter {
+    vull::StringView m_name;
+    Type m_type;
+
+public:
+    Parameter(vull::StringView name, const Type &type) : m_name(name), m_type(type) {}
+
+    vull::StringView name() const { return m_name; }
+    const Type &type() const { return m_type; }
+};
+
 class Function final : public Node {
     vull::StringView m_name;
     Aggregate *m_block;
     Type m_return_type;
+    vull::Vector<Parameter> m_parameters;
 
 public:
-    Function(vull::StringView name, Aggregate *block, const Type &return_type)
-        : m_name(name), m_block(block), m_return_type(return_type) {}
+    Function(vull::StringView name, Aggregate *block, const Type &return_type, vull::Vector<Parameter> &&parameters)
+        : m_name(name), m_block(block), m_return_type(return_type), m_parameters(vull::move(parameters)) {}
 
     void accept(Visitor &visitor) const override;
 
     vull::StringView name() const { return m_name; }
     Aggregate &block() const { return *m_block; }
     const Type &return_type() const { return m_return_type; }
+    const vull::Vector<Parameter> &parameters() const { return m_parameters; }
 };
 
 class ReturnStmt final : public Node {

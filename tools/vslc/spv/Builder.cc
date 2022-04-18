@@ -76,17 +76,30 @@ Id Builder::float_type(Word width) {
     return type.id();
 }
 
-Id Builder::function_type(Id return_type) {
+Id Builder::function_type(Id return_type, const vull::Vector<Id> &parameter_types) {
     for (const auto &type : m_types) {
         if (type.op() != Op::TypeFunction) {
             continue;
         }
-        if (type.operand(0) == return_type) {
+        if (type.operand_count() == parameter_types.size() + 1 && type.operand(0) == return_type) {
+            bool matching = true;
+            for (uint32_t i = 0; i < parameter_types.size(); i++) {
+                if (type.operand(i + 1) != parameter_types[i]) {
+                    matching = false;
+                    break;
+                }
+            }
+            if (!matching) {
+                continue;
+            }
             return type.id();
         }
     }
     auto &type = m_types.emplace(Op::TypeFunction, m_next_id++);
     type.append_operand(return_type);
+    for (Id parameter_type : parameter_types) {
+        type.append_operand(parameter_type);
+    }
     return type.id();
 }
 

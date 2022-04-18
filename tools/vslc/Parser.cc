@@ -78,12 +78,22 @@ ast::Aggregate *Parser::parse_block() {
 ast::Function *Parser::parse_function() {
     auto name = expect(TokenKind::Ident);
     expect(TokenKind::LeftParen);
-    expect(TokenKind::RightParen);
+
+    vull::Vector<ast::Parameter> parameters;
+    while (!consume(TokenKind::RightParen)) {
+        expect(TokenKind::KeywordLet);
+        auto param_name = expect(TokenKind::Ident);
+        expect(TokenKind::Colon);
+        auto type = parse_type();
+        VULL_ENSURE(type);
+        parameters.emplace(param_name.string(), *type);
+    }
+
     expect(TokenKind::Colon);
     auto return_type = parse_type();
     VULL_ENSURE(return_type);
     auto *block = parse_block();
-    return m_root.allocate<ast::Function>(name.string(), block, *return_type);
+    return m_root.allocate<ast::Function>(name.string(), block, *return_type, vull::move(parameters));
 }
 
 ast::Node *Parser::parse_top_level() {
