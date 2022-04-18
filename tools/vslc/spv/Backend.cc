@@ -2,6 +2,27 @@
 
 namespace spv {
 
+Backend::Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
+    current = this;
+}
+
+Backend::Scope::~Scope() {
+    m_current = m_parent;
+}
+
+const Backend::Scope::Symbol &Backend::Scope::lookup_symbol(vull::StringView name) const {
+    for (const auto &symbol : m_symbol_map) {
+        if (symbol.name == name) {
+            return symbol;
+        }
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
+void Backend::Scope::put_symbol(vull::StringView name, Id id, const ast::Type &vsl_type) {
+    m_symbol_map.push(Symbol{name, id, vsl_type});
+}
+
 Id Backend::convert_type(ast::ScalarType scalar_type) {
     switch (scalar_type) {
     case ast::ScalarType::Float:
@@ -22,37 +43,58 @@ Id Backend::convert_type(const ast::Type &vsl_type) {
 
 Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
     // TODO(small-vector)
-    vull::Vector<Id> constants;
-    for (const Instruction &inst : m_expr_stack) {
-        switch (inst.op()) {
+    vull::Vector<Id> arguments;
+    bool is_constant = true;
+    for (const auto &value : m_value_stack) {
+        // Break down any composites.
+        switch (value.creator_op()) {
         case Op::Constant:
-            constants.push(inst.id());
+            arguments.push(value.id());
             break;
         case Op::ConstantComposite:
-            // Break down composites.
-            for (Id constant : inst.operands()) {
-                constants.push(constant);
+        case Op::CompositeConstruct:
+            is_constant &= value.creator_op() == Op::ConstantComposite;
+            for (Id constant : value.operands()) {
+                arguments.push(constant);
+            }
+            break;
+        case Op::Load:
+            is_constant = false;
+            if (value.vsl_type().vector_size() == 1) {
+                arguments.push(value.id());
+                break;
+            }
+            for (uint32_t i = 0; i < value.vsl_type().vector_size(); i++) {
+                const auto scalar_type = convert_type(value.vsl_type().scalar_type());
+                auto &extract_inst = m_block->append(Op::CompositeExtract, m_builder.make_id(), scalar_type);
+                extract_inst.append_operand(value.id());
+                extract_inst.append_operand(i);
+                arguments.push(extract_inst.id());
             }
             break;
         default:
             VULL_ENSURE_NOT_REACHED();
         }
     }
-    m_expr_stack.clear();
 
     // Ensure that we either have exactly enough arguments, or only one in which case we can extend it.
     const auto vector_size = vsl_type.vector_size();
-    VULL_ENSURE(constants.size() == vector_size || constants.size() == 1);
+    VULL_ENSURE(arguments.size() == vector_size || arguments.size() == 1);
 
     // Extend, for example, vec4(1.0f) to vec4(1.0f, 1.0f, 1.0f, 1.0f).
-    for (uint32_t i = constants.size(); i < vector_size; i++) {
-        constants.push(Id(constants.first()));
+    for (uint32_t i = arguments.size(); i < vector_size; i++) {
+        arguments.push(Id(arguments.first()));
     }
 
     // Create a vector composite.
     const auto scalar_type = convert_type(vsl_type.scalar_type());
     const auto composite_type = m_builder.vector_type(scalar_type, vector_size);
-    return m_builder.composite_constant(composite_type, vull::move(constants));
+    if (is_constant) {
+        return m_builder.composite_constant(composite_type, vull::move(arguments));
+    }
+    auto &inst = m_block->append(Op::CompositeConstruct, m_builder.make_id(), composite_type);
+    inst.extend_operands(arguments);
+    return inst;
 }
 
 void Backend::visit(const ast::Aggregate &aggregate) {
@@ -64,23 +106,26 @@ void Backend::visit(const ast::Aggregate &aggregate) {
         }
         break;
     case ast::AggregateKind::ConstructExpr:
-        auto saved_stack = vull::move(m_expr_stack);
+        auto saved_stack = vull::move(m_value_stack);
         for (const auto *node : aggregate.nodes()) {
             node->accept(*this);
         }
         auto &inst = translate_construct_expr(aggregate.type());
-        m_expr_stack = vull::move(saved_stack);
-        m_expr_stack.push(inst);
+        m_value_stack = vull::move(saved_stack);
+        m_value_stack.emplace(inst, aggregate.type());
         break;
     }
 }
 
 void Backend::visit(const ast::Constant &constant) {
     const auto type = convert_type(constant.scalar_type());
-    m_expr_stack.push(m_builder.scalar_constant(type, static_cast<Word>(constant.integer())));
+    auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
+    m_value_stack.emplace(inst, ast::Type(constant.scalar_type(), 1));
 }
 
 void Backend::visit(const ast::Function &vsl_function) {
+    Scope scope(m_scope);
+
     vull::Vector<Id> parameter_types;
     parameter_types.ensure_capacity(vsl_function.parameters().size());
     for (const auto &parameter : vsl_function.parameters()) {
@@ -105,6 +150,9 @@ void Backend::visit(const ast::Function &vsl_function) {
             const auto input_ptr_type = m_builder.pointer_type(StorageClass::Input, input_type);
             auto &variable = m_builder.append_variable(input_ptr_type, StorageClass::Input);
             m_builder.decorate(variable.id(), Decoration::Location, i);
+
+            const auto &parameter = vsl_function.parameters()[i];
+            m_scope->put_symbol(parameter.name(), variable.id(), parameter.type());
         }
 
         // Create gl_Position builtin.
@@ -119,17 +167,24 @@ void Backend::visit(const ast::Function &vsl_function) {
 
 void Backend::visit(const ast::ReturnStmt &return_stmt) {
     return_stmt.expr().accept(*this);
-    const Instruction &expr_inst = m_expr_stack.take_last();
+    auto expr_value = m_value_stack.take_last();
     if (m_is_vertex_entry) {
         // Intercept returns from the vertex shader entry point as stores to gl_Position.
         auto &store_inst = m_block->append(Op::Store);
         store_inst.append_operand(m_position_output);
-        store_inst.append_operand(expr_inst.id());
+        store_inst.append_operand(expr_value.id());
         m_block->append(Op::Return);
         return;
     }
     auto &return_inst = m_block->append(Op::ReturnValue);
-    return_inst.append_operand(expr_inst.id());
+    return_inst.append_operand(expr_value.id());
+}
+
+void Backend::visit(const ast::Symbol &vsl_symbol) {
+    const auto &symbol = m_scope->lookup_symbol(vsl_symbol.name());
+    auto &load_inst = m_block->append(Op::Load, m_builder.make_id(), convert_type(symbol.vsl_type));
+    load_inst.append_operand(symbol.id);
+    m_value_stack.emplace(load_inst, symbol.vsl_type);
 }
 
 } // namespace spv

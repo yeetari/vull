@@ -23,5 +23,5 @@ fn f(): vec4 {
 }
 
 fn vertex_main(let position: vec3): vec4 {
-    vec4(1.0f)
+    vec4(position, 1.0f)
 }

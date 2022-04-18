@@ -76,8 +76,8 @@ class Builder {
     vull::Vector<EntryPoint> m_entry_points;
     vull::Vector<Instruction> m_decorations;
     vull::Vector<Instruction> m_types;
-    vull::Vector<vull::UniquePtr<Instruction>> m_constants;
-    vull::Vector<vull::UniquePtr<Instruction>> m_global_variables;
+    vull::Vector<Instruction> m_constants;
+    vull::Vector<Instruction> m_global_variables;
     vull::Vector<Function> m_functions;
     Id m_next_id{1};
     Id m_void_type{0};

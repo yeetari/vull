@@ -143,20 +143,20 @@ Id Builder::void_type() {
 
 Instruction &Builder::scalar_constant(Id type, Word value) {
     for (auto &constant : m_constants) {
-        if (constant->type() == type && constant->operand(0) == value) {
-            return *constant;
+        if (constant.type() == type && constant.operand(0) == value) {
+            return constant;
         }
     }
-    auto &constant = m_constants.emplace(new Instruction(Op::Constant, m_next_id++, type));
-    constant->append_operand(value);
-    return *constant;
+    auto &constant = m_constants.emplace(Op::Constant, m_next_id++, type);
+    constant.append_operand(value);
+    return constant;
 }
 
 Instruction &Builder::composite_constant(Id type, vull::Vector<Id> &&elements) {
     // TODO: Deduplication.
-    auto &constant = m_constants.emplace(new Instruction(Op::ConstantComposite, m_next_id++, type));
-    constant->extend_operands(elements);
-    return *constant;
+    auto &constant = m_constants.emplace(Op::ConstantComposite, m_next_id++, type);
+    constant.extend_operands(elements);
+    return constant;
 }
 
 void Builder::append_entry_point(Function &function, ExecutionModel model) {
@@ -168,12 +168,12 @@ Function &Builder::append_function(vull::StringView name, Id return_type, Id fun
 }
 
 Instruction &Builder::append_variable(Id type, StorageClass storage_class, Id initialiser) {
-    auto &variable = m_global_variables.emplace(new Instruction(Op::Variable, m_next_id++, type));
-    variable->append_operand(storage_class);
+    auto &variable = m_global_variables.emplace(Op::Variable, m_next_id++, type);
+    variable.append_operand(storage_class);
     if (initialiser != 0) {
-        variable->append_operand(initialiser);
+        variable.append_operand(initialiser);
     }
-    return *variable;
+    return variable;
 }
 
 void Builder::write(vull::Function<void(Word)> write_word) const {
@@ -200,7 +200,7 @@ void Builder::write(vull::Function<void(Word)> write_word) const {
         inst.append_operand(entry_point.function.def_inst().id());
         inst.append_string_operand(entry_point.function.name());
         for (const auto &variable : m_global_variables) {
-            inst.append_operand(variable->id());
+            inst.append_operand(variable.id());
         }
         inst.write(write_word);
     }
@@ -211,10 +211,10 @@ void Builder::write(vull::Function<void(Word)> write_word) const {
         type.write(write_word);
     }
     for (const auto &constant : m_constants) {
-        constant->write(write_word);
+        constant.write(write_word);
     }
     for (const auto &variable : m_global_variables) {
-        variable->write(write_word);
+        variable.write(write_word);
     }
     for (const auto &function : m_functions) {
         function.write(write_word);

@@ -138,11 +138,23 @@ public:
     void traverse(Visitor &visitor);
 };
 
+class Symbol final : public Node {
+    vull::StringView m_name;
+
+public:
+    explicit Symbol(vull::StringView name) : m_name(name) {}
+
+    void accept(Visitor &visitor) const override;
+
+    vull::StringView name() const { return m_name; }
+};
+
 struct Visitor {
     virtual void visit(const Aggregate &) = 0;
     virtual void visit(const Constant &) = 0;
     virtual void visit(const Function &) = 0;
     virtual void visit(const ReturnStmt &) = 0;
+    virtual void visit(const Symbol &) = 0;
 };
 
 class Formatter final : public Visitor {
@@ -153,6 +165,7 @@ public:
     void visit(const Constant &) override;
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
+    void visit(const Symbol &) override;
 };
 
 inline void Aggregate::accept(Visitor &visitor) const {
@@ -168,6 +181,10 @@ inline void Function::accept(Visitor &visitor) const {
 }
 
 inline void ReturnStmt::accept(Visitor &visitor) const {
+    visitor.visit(*this);
+}
+
+inline void Symbol::accept(Visitor &visitor) const {
     visitor.visit(*this);
 }
 

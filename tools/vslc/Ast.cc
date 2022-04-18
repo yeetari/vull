@@ -17,6 +17,7 @@ public:
     void visit(const Constant &) override;
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
+    void visit(const Symbol &) override;
 };
 
 void DestroyVisitor::visit(const Aggregate &aggregate) {
@@ -38,6 +39,10 @@ void DestroyVisitor::visit(const Function &function) {
 void DestroyVisitor::visit(const ReturnStmt &return_stmt) {
     return_stmt.expr().accept(*this);
     m_arena.destroy(&return_stmt);
+}
+
+void DestroyVisitor::visit(const Symbol &symbol) {
+    m_arena.destroy(&symbol);
 }
 
 template <typename... Args>
@@ -125,13 +130,25 @@ void Formatter::visit(const Constant &constant) {
 }
 
 void Formatter::visit(const Function &function) {
-    print("fn {}(): {}", function.name(), type_string(function.return_type()));
+    print("fn {}(", function.name());
+    for (bool first = true; const auto &parameter : function.parameters()) {
+        if (!first) {
+            print(", ");
+        }
+        print("let {}: {}", parameter.name(), type_string(parameter.type()));
+        first = false;
+    }
+    print("): {}", type_string(function.return_type()));
     function.block().accept(*this);
     print("\n");
 }
 
 void Formatter::visit(const ReturnStmt &return_stmt) {
     return_stmt.expr().accept(*this);
+}
+
+void Formatter::visit(const Symbol &symbol) {
+    print("{}", symbol.name());
 }
 
 } // namespace ast
