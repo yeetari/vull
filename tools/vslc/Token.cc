@@ -5,6 +5,8 @@
 
 vull::StringView Token::kind_string(TokenKind kind) {
     switch (kind) {
+    case TokenKind::Asterisk:
+        return "'*'";
     case TokenKind::Colon:
         return "':'";
     case TokenKind::Comma:
@@ -25,10 +27,18 @@ vull::StringView Token::kind_string(TokenKind kind) {
         return "'{'";
     case TokenKind::LeftParen:
         return "'('";
+    case TokenKind::Minus:
+        return "'-'";
+    case TokenKind::Percent:
+        return "'%'";
+    case TokenKind::Plus:
+        return "'+'";
     case TokenKind::RightBrace:
         return "'}'";
     case TokenKind::RightParen:
         return "')'";
+    case TokenKind::Slash:
+        return "'/'";
     }
 }
 

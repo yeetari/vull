@@ -28,6 +28,26 @@ Token Lexer::next_token() {
 
     char ch = m_stream.next();
     switch (ch) {
+    case '*':
+        return TokenKind::Asterisk;
+    case ':':
+        return TokenKind::Colon;
+    case ',':
+        return TokenKind::Comma;
+    case '{':
+        return TokenKind::LeftBrace;
+    case '(':
+        return TokenKind::LeftParen;
+    case '-':
+        return TokenKind::Minus;
+    case '%':
+        return TokenKind::Percent;
+    case '+':
+        return TokenKind::Plus;
+    case '}':
+        return TokenKind::RightBrace;
+    case ')':
+        return TokenKind::RightParen;
     case '/':
         // Handle comments.
         if (m_stream.peek() == '/') {
@@ -36,19 +56,7 @@ Token Lexer::next_token() {
             }
             return next_token();
         }
-        break;
-    case ':':
-        return TokenKind::Colon;
-    case ',':
-        return TokenKind::Comma;
-    case '{':
-        return TokenKind::LeftBrace;
-    case '}':
-        return TokenKind::RightBrace;
-    case '(':
-        return TokenKind::LeftParen;
-    case ')':
-        return TokenKind::RightParen;
+        return TokenKind::Slash;
     default:
         break;
     }

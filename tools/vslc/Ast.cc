@@ -14,10 +14,12 @@ public:
     explicit DestroyVisitor(Arena &arena) : m_arena(arena) {}
 
     void visit(const Aggregate &) override;
+    void visit(const BinaryExpr &) override;
     void visit(const Constant &) override;
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
     void visit(const Symbol &) override;
+    void visit(const UnaryExpr &) override;
 };
 
 void DestroyVisitor::visit(const Aggregate &aggregate) {
@@ -25,6 +27,12 @@ void DestroyVisitor::visit(const Aggregate &aggregate) {
         node->accept(*this);
     }
     m_arena.destroy(&aggregate);
+}
+
+void DestroyVisitor::visit(const BinaryExpr &binary_expr) {
+    binary_expr.lhs().accept(*this);
+    binary_expr.rhs().accept(*this);
+    m_arena.destroy(&binary_expr);
 }
 
 void DestroyVisitor::visit(const Constant &constant) {
@@ -43,6 +51,11 @@ void DestroyVisitor::visit(const ReturnStmt &return_stmt) {
 
 void DestroyVisitor::visit(const Symbol &symbol) {
     m_arena.destroy(&symbol);
+}
+
+void DestroyVisitor::visit(const UnaryExpr &unary_expr) {
+    unary_expr.expr().accept(*this);
+    m_arena.destroy(&unary_expr);
 }
 
 template <typename... Args>
@@ -118,6 +131,30 @@ void Formatter::visit(const Aggregate &aggregate) {
     }
 }
 
+void Formatter::visit(const BinaryExpr &binary_expr) {
+    print("(");
+    binary_expr.lhs().accept(*this);
+    switch (binary_expr.op()) {
+    case BinaryOp::Add:
+        print(" + ");
+        break;
+    case BinaryOp::Sub:
+        print(" - ");
+        break;
+    case BinaryOp::Mul:
+        print(" * ");
+        break;
+    case BinaryOp::Div:
+        print(" / ");
+        break;
+    case BinaryOp::Mod:
+        print(" % ");
+        break;
+    }
+    binary_expr.rhs().accept(*this);
+    print(")");
+}
+
 void Formatter::visit(const Constant &constant) {
     switch (constant.scalar_type()) {
     case ScalarType::Float:
@@ -149,6 +186,15 @@ void Formatter::visit(const ReturnStmt &return_stmt) {
 
 void Formatter::visit(const Symbol &symbol) {
     print("{}", symbol.name());
+}
+
+void Formatter::visit(const UnaryExpr &unary_expr) {
+    switch (unary_expr.op()) {
+    case UnaryOp::Negate:
+        print("-");
+        break;
+    }
+    unary_expr.expr().accept(*this);
 }
 
 } // namespace ast

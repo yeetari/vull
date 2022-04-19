@@ -1,6 +1,31 @@
 #include "Backend.hh"
 
 namespace spv {
+namespace {
+
+Op binary_op(ast::BinaryOp op) {
+    switch (op) {
+    case ast::BinaryOp::Add:
+        return Op::FAdd;
+    case ast::BinaryOp::Sub:
+        return Op::FSub;
+    case ast::BinaryOp::Mul:
+        return Op::FMul;
+    case ast::BinaryOp::Div:
+        return Op::FDiv;
+    case ast::BinaryOp::Mod:
+        VULL_ENSURE_NOT_REACHED("% only defined for integer types");
+    }
+}
+
+Op unary_op(ast::UnaryOp op) {
+    switch (op) {
+    case ast::UnaryOp::Negate:
+        return Op::FNegate;
+    }
+}
+
+} // namespace
 
 Backend::Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
     current = this;
@@ -59,6 +84,7 @@ Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
             }
             break;
         case Op::Load:
+        case Op::FNegate:
             is_constant = false;
             if (value.vsl_type().vector_size() == 1) {
                 arguments.push(value.id());
@@ -115,6 +141,20 @@ void Backend::visit(const ast::Aggregate &aggregate) {
         m_value_stack.emplace(inst, aggregate.type());
         break;
     }
+}
+
+void Backend::visit(const ast::BinaryExpr &binary_expr) {
+    binary_expr.lhs().accept(*this);
+    binary_expr.rhs().accept(*this);
+    auto rhs_value = m_value_stack.take_last();
+    auto lhs_value = m_value_stack.take_last();
+    VULL_ENSURE(lhs_value.vsl_type().scalar_type() == ast::ScalarType::Float);
+    VULL_ENSURE(rhs_value.vsl_type().scalar_type() == ast::ScalarType::Float);
+
+    auto &inst = m_block->append(binary_op(binary_expr.op()), m_builder.make_id(), convert_type(lhs_value.vsl_type()));
+    inst.append_operand(lhs_value.id());
+    inst.append_operand(rhs_value.id());
+    m_value_stack.emplace(inst, lhs_value.vsl_type());
 }
 
 void Backend::visit(const ast::Constant &constant) {
@@ -185,6 +225,16 @@ void Backend::visit(const ast::Symbol &vsl_symbol) {
     auto &load_inst = m_block->append(Op::Load, m_builder.make_id(), convert_type(symbol.vsl_type));
     load_inst.append_operand(symbol.id);
     m_value_stack.emplace(load_inst, symbol.vsl_type);
+}
+
+void Backend::visit(const ast::UnaryExpr &unary_expr) {
+    unary_expr.expr().accept(*this);
+    auto expr_value = m_value_stack.take_last();
+    VULL_ENSURE(expr_value.vsl_type().scalar_type() == ast::ScalarType::Float);
+
+    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), convert_type(expr_value.vsl_type()));
+    inst.append_operand(expr_value.id());
+    m_value_stack.emplace(inst, expr_value.vsl_type());
 }
 
 } // namespace spv

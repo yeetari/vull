@@ -14,7 +14,7 @@ class Parser {
     vull::Optional<Token> consume(TokenKind kind);
     Token expect(TokenKind kind);
 
-    ast::Constant *parse_constant();
+    ast::Node *parse_atom();
     ast::Node *parse_expr();
     ast::Node *parse_stmt();
     ast::Aggregate *parse_block();

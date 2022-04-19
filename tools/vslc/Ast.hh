@@ -58,6 +58,29 @@ public:
     const vull::Vector<Node *> &nodes() const { return m_nodes; }
 };
 
+enum class BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+};
+
+class BinaryExpr final : public Node {
+    Node *m_lhs;
+    Node *m_rhs;
+    BinaryOp m_op;
+
+public:
+    BinaryExpr(BinaryOp op, Node *lhs, Node *rhs) : m_lhs(lhs), m_rhs(rhs), m_op(op) {}
+
+    void accept(Visitor &visitor) const override;
+
+    BinaryOp op() const { return m_op; }
+    Node &lhs() const { return *m_lhs; }
+    Node &rhs() const { return *m_rhs; }
+};
+
 class Constant final : public Node {
     union {
         float decimal;
@@ -149,12 +172,31 @@ public:
     vull::StringView name() const { return m_name; }
 };
 
+enum class UnaryOp {
+    Negate,
+};
+
+class UnaryExpr final : public Node {
+    Node *m_expr;
+    UnaryOp m_op;
+
+public:
+    UnaryExpr(UnaryOp op, Node *expr) : m_expr(expr), m_op(op) {}
+
+    void accept(Visitor &visitor) const override;
+
+    UnaryOp op() const { return m_op; }
+    Node &expr() const { return *m_expr; }
+};
+
 struct Visitor {
     virtual void visit(const Aggregate &) = 0;
+    virtual void visit(const BinaryExpr &) = 0;
     virtual void visit(const Constant &) = 0;
     virtual void visit(const Function &) = 0;
     virtual void visit(const ReturnStmt &) = 0;
     virtual void visit(const Symbol &) = 0;
+    virtual void visit(const UnaryExpr &) = 0;
 };
 
 class Formatter final : public Visitor {
@@ -162,13 +204,19 @@ class Formatter final : public Visitor {
 
 public:
     void visit(const Aggregate &) override;
+    void visit(const BinaryExpr &) override;
     void visit(const Constant &) override;
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
     void visit(const Symbol &) override;
+    void visit(const UnaryExpr &) override;
 };
 
 inline void Aggregate::accept(Visitor &visitor) const {
+    visitor.visit(*this);
+}
+
+inline void BinaryExpr::accept(Visitor &visitor) const {
     visitor.visit(*this);
 }
 
@@ -185,6 +233,10 @@ inline void ReturnStmt::accept(Visitor &visitor) const {
 }
 
 inline void Symbol::accept(Visitor &visitor) const {
+    visitor.visit(*this);
+}
+
+inline void UnaryExpr::accept(Visitor &visitor) const {
     visitor.visit(*this);
 }
 

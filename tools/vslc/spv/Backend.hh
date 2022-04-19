@@ -66,10 +66,12 @@ class Backend : public ast::Visitor {
 
 public:
     void visit(const ast::Aggregate &) override;
+    void visit(const ast::BinaryExpr &) override;
     void visit(const ast::Constant &) override;
     void visit(const ast::Function &) override;
     void visit(const ast::ReturnStmt &) override;
     void visit(const ast::Symbol &) override;
+    void visit(const ast::UnaryExpr &) override;
 
     const Builder &builder() const { return m_builder; }
 };

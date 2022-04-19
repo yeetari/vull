@@ -7,7 +7,80 @@
 
 namespace {
 
+enum class Op {
+    // Binary arithmetic operators.
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+
+    // Unary operators.
+    Negate,
+
+    OpenParen,
+};
+
+ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operands) {
+    auto *rhs = operands.take_last();
+    switch (op) {
+    case Op::Negate:
+        return root.allocate<ast::UnaryExpr>(ast::UnaryOp::Negate, rhs);
+    }
+    auto *lhs = operands.take_last();
+    switch (op) {
+    case Op::Add:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Add, lhs, rhs);
+    case Op::Sub:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Sub, lhs, rhs);
+    case Op::Mul:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Mul, lhs, rhs);
+    case Op::Div:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Div, lhs, rhs);
+    case Op::Mod:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Mod, lhs, rhs);
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
+}
+
+unsigned precedence(Op op) {
+    switch (op) {
+    case Op::OpenParen:
+        return 0;
+    case Op::Add:
+    case Op::Sub:
+        return 1;
+    case Op::Mul:
+    case Op::Div:
+    case Op::Mod:
+        return 2;
+    case Op::Negate:
+        return 3;
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
+}
+
+vull::Optional<Op> to_binary_op(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::Plus:
+        return Op::Add;
+    case TokenKind::Minus:
+        return Op::Sub;
+    case TokenKind::Asterisk:
+        return Op::Mul;
+    case TokenKind::Slash:
+        return Op::Div;
+    case TokenKind::Percent:
+        return Op::Mod;
+    default:
+        return {};
+    }
+}
+
 ast::Type parse_type(const Token &ident) {
+    // TODO(hash-map): Hash map for builtin types.
     if (ident.string() == "float") {
         return {ast::ScalarType::Float, 1};
     }
@@ -36,17 +109,13 @@ Token Parser::expect(TokenKind kind) {
     return token;
 }
 
-ast::Constant *Parser::parse_constant() {
+ast::Node *Parser::parse_atom() {
     if (auto literal = consume(TokenKind::FloatLit)) {
         return m_root.allocate<ast::Constant>(literal->decimal());
     }
     if (auto literal = consume(TokenKind::IntLit)) {
         return m_root.allocate<ast::Constant>(literal->integer());
     }
-    VULL_ENSURE_NOT_REACHED();
-}
-
-ast::Node *Parser::parse_expr() {
     if (auto ident = consume(TokenKind::Ident)) {
         if (!consume(TokenKind::LeftParen)) {
             return m_root.allocate<ast::Symbol>(ident->string());
@@ -59,7 +128,63 @@ ast::Node *Parser::parse_expr() {
         }
         return construct_expr;
     }
-    return parse_constant();
+    return nullptr;
+}
+
+ast::Node *Parser::parse_expr() {
+    vull::Vector<ast::Node *> operands;
+    vull::Vector<Op> operators;
+    unsigned paren_depth = 0;
+    while (true) {
+        if (auto *atom = parse_atom()) {
+            operands.push(atom);
+            continue;
+        }
+
+        // Unary negate.
+        if (consume(TokenKind::Minus)) {
+            operators.push(Op::Negate);
+            continue;
+        }
+
+        if (auto binary_op = to_binary_op(m_lexer.peek().kind())) {
+            m_lexer.next();
+            while (!operators.empty() && precedence(operators.last()) >= precedence(*binary_op)) {
+                auto op = operators.take_last();
+                operands.push(create_expr(m_root, op, operands));
+            }
+            operators.push(*binary_op);
+            continue;
+        }
+
+        // Open parenthesis.
+        if (consume(TokenKind::LeftParen)) {
+            operators.push(Op::OpenParen);
+            paren_depth++;
+            continue;
+        }
+
+        // Close parenthesis.
+        if (paren_depth > 0 && consume(TokenKind::RightParen)) {
+            while (!operators.empty() && operators.last() != Op::OpenParen) {
+                auto op = operators.take_last();
+                operands.push(create_expr(m_root, op, operands));
+            }
+            // Pop parenthesis.
+            VULL_ENSURE(operators.take_last() == Op::OpenParen);
+            paren_depth--;
+            continue;
+        }
+        break;
+    }
+
+    while (!operators.empty()) {
+        auto op = operators.take_last();
+        operands.push(create_expr(m_root, op, operands));
+    }
+
+    VULL_ENSURE(operands.size() == 1);
+    return operands.last();
 }
 
 ast::Node *Parser::parse_stmt() {

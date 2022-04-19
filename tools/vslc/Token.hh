@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 enum class TokenKind {
+    Asterisk,
     Colon,
     Comma,
     Eof,
@@ -16,8 +17,12 @@ enum class TokenKind {
     KeywordLet,
     LeftBrace,
     LeftParen,
+    Minus,
+    Percent,
+    Plus,
     RightBrace,
     RightParen,
+    Slash,
 };
 
 class Token {
