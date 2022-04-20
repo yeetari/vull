@@ -10,21 +10,28 @@ namespace ast {
 
 struct Visitor;
 
-enum class ScalarType {
+enum class ScalarType : uint8_t {
     Float,
     Uint,
 };
 
 class Type {
     ScalarType m_scalar_type;
-    uint8_t m_vector_size;
+    uint8_t m_vector_size : 4;
+    uint8_t m_matrix_cols : 4;
 
 public:
     Type() = default;
-    Type(ScalarType scalar_type, uint8_t vector_size) : m_scalar_type(scalar_type), m_vector_size(vector_size) {}
+    Type(ScalarType scalar_type, uint8_t vector_size, uint8_t matrix_cols)
+        : m_scalar_type(scalar_type), m_vector_size(vector_size), m_matrix_cols(matrix_cols) {}
+
+    bool is_matrix() const { return m_matrix_cols > 1; }
+    bool is_vector() const { return m_vector_size > 1 && !is_matrix(); }
+    bool is_scalar() const { return !is_vector(); }
 
     ScalarType scalar_type() const { return m_scalar_type; }
     uint8_t vector_size() const { return m_vector_size; }
+    uint8_t matrix_cols() const { return m_matrix_cols; }
 };
 
 struct Node {
@@ -45,8 +52,8 @@ enum class AggregateKind {
 };
 
 class Aggregate final : public TypedNode {
-    AggregateKind m_kind;
     vull::Vector<Node *> m_nodes;
+    AggregateKind m_kind;
 
 public:
     explicit Aggregate(AggregateKind kind) : m_kind(kind) {}

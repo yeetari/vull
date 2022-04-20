@@ -63,7 +63,11 @@ Id Backend::convert_type(const ast::Type &vsl_type) {
     if (vsl_type.vector_size() == 1) {
         return scalar_type;
     }
-    return m_builder.vector_type(scalar_type, vsl_type.vector_size());
+    const auto vector_type = m_builder.vector_type(scalar_type, vsl_type.vector_size());
+    if (vsl_type.matrix_cols() == 1) {
+        return vector_type;
+    }
+    return m_builder.matrix_type(vector_type, vsl_type.matrix_cols());
 }
 
 Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
@@ -86,12 +90,12 @@ Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
         case Op::Load:
         case Op::FNegate:
             is_constant = false;
-            if (value.vsl_type().vector_size() == 1) {
+            if (value.vector_size() == 1) {
                 arguments.push(value.id());
                 break;
             }
-            for (uint32_t i = 0; i < value.vsl_type().vector_size(); i++) {
-                const auto scalar_type = convert_type(value.vsl_type().scalar_type());
+            for (uint32_t i = 0; i < value.vector_size(); i++) {
+                const auto scalar_type = convert_type(value.scalar_type());
                 auto &extract_inst = m_block->append(Op::CompositeExtract, m_builder.make_id(), scalar_type);
                 extract_inst.append_operand(value.id());
                 extract_inst.append_operand(i);
@@ -146,21 +150,31 @@ void Backend::visit(const ast::Aggregate &aggregate) {
 void Backend::visit(const ast::BinaryExpr &binary_expr) {
     binary_expr.lhs().accept(*this);
     binary_expr.rhs().accept(*this);
-    auto rhs_value = m_value_stack.take_last();
-    auto lhs_value = m_value_stack.take_last();
-    VULL_ENSURE(lhs_value.vsl_type().scalar_type() == ast::ScalarType::Float);
-    VULL_ENSURE(rhs_value.vsl_type().scalar_type() == ast::ScalarType::Float);
+    auto rhs = m_value_stack.take_last();
+    auto lhs = m_value_stack.take_last();
+    VULL_ENSURE(lhs.scalar_type() == ast::ScalarType::Float);
+    VULL_ENSURE(rhs.scalar_type() == ast::ScalarType::Float);
 
-    auto &inst = m_block->append(binary_op(binary_expr.op()), m_builder.make_id(), convert_type(lhs_value.vsl_type()));
-    inst.append_operand(lhs_value.id());
-    inst.append_operand(rhs_value.id());
-    m_value_stack.emplace(inst, lhs_value.vsl_type());
+    Op op = binary_op(binary_expr.op());
+    Id type = convert_type(lhs);
+    if (lhs.is_matrix() && !rhs.is_matrix()) {
+        if (rhs.is_vector()) {
+            VULL_ENSURE(lhs.vector_size() == rhs.vector_size());
+            op = Op::MatrixTimesVector;
+            type = m_builder.vector_type(convert_type(lhs.scalar_type()), lhs.vector_size());
+        }
+    }
+
+    auto &inst = m_block->append(op, m_builder.make_id(), type);
+    inst.append_operand(lhs.id());
+    inst.append_operand(rhs.id());
+    m_value_stack.emplace(inst, lhs);
 }
 
 void Backend::visit(const ast::Constant &constant) {
     const auto type = convert_type(constant.scalar_type());
     auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
-    m_value_stack.emplace(inst, ast::Type(constant.scalar_type(), 1));
+    m_value_stack.emplace(inst, ast::Type(constant.scalar_type(), 1, 1));
 }
 
 void Backend::visit(const ast::Function &vsl_function) {
@@ -230,11 +244,11 @@ void Backend::visit(const ast::Symbol &vsl_symbol) {
 void Backend::visit(const ast::UnaryExpr &unary_expr) {
     unary_expr.expr().accept(*this);
     auto expr_value = m_value_stack.take_last();
-    VULL_ENSURE(expr_value.vsl_type().scalar_type() == ast::ScalarType::Float);
+    VULL_ENSURE(expr_value.scalar_type() == ast::ScalarType::Float);
 
-    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), convert_type(expr_value.vsl_type()));
+    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), convert_type(expr_value));
     inst.append_operand(expr_value.id());
-    m_value_stack.emplace(inst, expr_value.vsl_type());
+    m_value_stack.emplace(inst, expr_value);
 }
 
 } // namespace spv

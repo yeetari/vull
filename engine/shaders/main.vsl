@@ -1,3 +1,3 @@
-fn vertex_main(let position: vec3): vec4 {
-    vec4(position, 1.0f) * vec4(1.0f)
+fn vertex_main(let position: vec3, let view: mat4): vec4 {
+    view * vec4(position, 1.0f)
 }

@@ -8,21 +8,19 @@
 namespace spv {
 
 class Backend : public ast::Visitor {
-    class Value {
+    // Extend from ast::Type to allow for nicer access to type-related functions.
+    class Value : public ast::Type {
         const Id m_id;
         const Op m_creator_op;
         const vull::Vector<Word> &m_operands;
-        // TODO: If Builder had a way to retrieve a type from an ID we wouldn't have to store the AST type.
-        const ast::Type m_vsl_type;
 
     public:
         Value(Instruction &inst, const ast::Type &vsl_type)
-            : m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()), m_vsl_type(vsl_type) {}
+            : ast::Type(vsl_type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
 
         Id id() const { return m_id; }
         Op creator_op() const { return m_creator_op; }
         const vull::Vector<Word> &operands() const { return m_operands; }
-        const ast::Type &vsl_type() const { return m_vsl_type; }
     };
 
     class Scope {

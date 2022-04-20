@@ -103,6 +103,21 @@ Id Builder::function_type(Id return_type, const vull::Vector<Id> &parameter_type
     return type.id();
 }
 
+Id Builder::matrix_type(Id column_type, Word column_count) {
+    for (const auto &type : m_types) {
+        if (type.op() != Op::TypeMatrix) {
+            continue;
+        }
+        if (type.operand(0) == column_type && type.operand(1) == column_count) {
+            return type.id();
+        }
+    }
+    auto &type = m_types.emplace(Op::TypeMatrix, m_next_id++);
+    type.append_operand(column_type);
+    type.append_operand(column_count);
+    return type.id();
+}
+
 Id Builder::pointer_type(StorageClass storage_class, Id pointee_type) {
     for (const auto &type : m_types) {
         if (type.op() != Op::TypePointer) {
