@@ -79,25 +79,25 @@ vull::Optional<Op> to_binary_op(TokenKind kind) {
     }
 }
 
-ast::Type parse_type(const Token &ident) {
+Type parse_type(const Token &ident) {
     // TODO(hash-map): Hash map for builtin types.
     if (ident.string() == "float") {
-        return {ast::ScalarType::Float, 1, 1};
+        return {ScalarType::Float, 1, 1};
     }
     if (ident.string() == "vec2") {
-        return {ast::ScalarType::Float, 2, 1};
+        return {ScalarType::Float, 2, 1};
     }
     if (ident.string() == "vec3") {
-        return {ast::ScalarType::Float, 3, 1};
+        return {ScalarType::Float, 3, 1};
     }
     if (ident.string() == "vec4") {
-        return {ast::ScalarType::Float, 4, 1};
+        return {ScalarType::Float, 4, 1};
     }
     if (ident.string() == "mat3") {
-        return {ast::ScalarType::Float, 3, 3};
+        return {ScalarType::Float, 3, 3};
     }
     if (ident.string() == "mat4") {
-        return {ast::ScalarType::Float, 4, 4};
+        return {ScalarType::Float, 4, 4};
     }
     VULL_ENSURE_NOT_REACHED();
 }

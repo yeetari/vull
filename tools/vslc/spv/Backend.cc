@@ -44,21 +44,21 @@ const Backend::Scope::Symbol &Backend::Scope::lookup_symbol(vull::StringView nam
     VULL_ENSURE_NOT_REACHED();
 }
 
-void Backend::Scope::put_symbol(vull::StringView name, Id id, const ast::Type &vsl_type) {
+void Backend::Scope::put_symbol(vull::StringView name, Id id, const Type &vsl_type) {
     m_symbol_map.push(Symbol{name, id, vsl_type});
 }
 
-Id Backend::convert_type(ast::ScalarType scalar_type) {
+Id Backend::convert_type(ScalarType scalar_type) {
     switch (scalar_type) {
-    case ast::ScalarType::Float:
+    case ScalarType::Float:
         return m_builder.float_type(32);
-    case ast::ScalarType::Uint:
+    case ScalarType::Uint:
         // TODO
         VULL_ENSURE_NOT_REACHED();
     }
 }
 
-Id Backend::convert_type(const ast::Type &vsl_type) {
+Id Backend::convert_type(const Type &vsl_type) {
     const auto scalar_type = convert_type(vsl_type.scalar_type());
     if (vsl_type.vector_size() == 1) {
         return scalar_type;
@@ -70,7 +70,7 @@ Id Backend::convert_type(const ast::Type &vsl_type) {
     return m_builder.matrix_type(vector_type, vsl_type.matrix_cols());
 }
 
-Instruction &Backend::translate_construct_expr(const ast::Type &vsl_type) {
+Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
     // TODO(small-vector)
     vull::Vector<Id> arguments;
     bool is_constant = true;
@@ -152,8 +152,8 @@ void Backend::visit(const ast::BinaryExpr &binary_expr) {
     binary_expr.rhs().accept(*this);
     auto rhs = m_value_stack.take_last();
     auto lhs = m_value_stack.take_last();
-    VULL_ENSURE(lhs.scalar_type() == ast::ScalarType::Float);
-    VULL_ENSURE(rhs.scalar_type() == ast::ScalarType::Float);
+    VULL_ENSURE(lhs.scalar_type() == ScalarType::Float);
+    VULL_ENSURE(rhs.scalar_type() == ScalarType::Float);
 
     Op op = binary_op(binary_expr.op());
     Id type = convert_type(lhs);
@@ -174,7 +174,7 @@ void Backend::visit(const ast::BinaryExpr &binary_expr) {
 void Backend::visit(const ast::Constant &constant) {
     const auto type = convert_type(constant.scalar_type());
     auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
-    m_value_stack.emplace(inst, ast::Type(constant.scalar_type(), 1, 1));
+    m_value_stack.emplace(inst, Type(constant.scalar_type(), 1, 1));
 }
 
 void Backend::visit(const ast::Function &vsl_function) {
@@ -194,7 +194,7 @@ void Backend::visit(const ast::Function &vsl_function) {
     }
     m_function = &m_builder.append_function(vsl_function.name(), return_type, function_type);
     if (m_is_vertex_entry) {
-        VULL_ENSURE(vsl_function.return_type().scalar_type() == ast::ScalarType::Float);
+        VULL_ENSURE(vsl_function.return_type().scalar_type() == ScalarType::Float);
         VULL_ENSURE(vsl_function.return_type().vector_size() == 4);
         m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
 
@@ -244,7 +244,7 @@ void Backend::visit(const ast::Symbol &vsl_symbol) {
 void Backend::visit(const ast::UnaryExpr &unary_expr) {
     unary_expr.expr().accept(*this);
     auto expr_value = m_value_stack.take_last();
-    VULL_ENSURE(expr_value.scalar_type() == ast::ScalarType::Float);
+    VULL_ENSURE(expr_value.scalar_type() == ScalarType::Float);
 
     auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), convert_type(expr_value));
     inst.append_operand(expr_value.id());

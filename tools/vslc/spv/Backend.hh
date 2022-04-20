@@ -8,15 +8,15 @@
 namespace spv {
 
 class Backend : public ast::Visitor {
-    // Extend from ast::Type to allow for nicer access to type-related functions.
-    class Value : public ast::Type {
+    // Extend from Type to allow for nicer access to type-related functions.
+    class Value : public Type {
         const Id m_id;
         const Op m_creator_op;
         const vull::Vector<Word> &m_operands;
 
     public:
-        Value(Instruction &inst, const ast::Type &vsl_type)
-            : ast::Type(vsl_type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
+        Value(Instruction &inst, const Type &vsl_type)
+            : Type(vsl_type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
 
         Id id() const { return m_id; }
         Op creator_op() const { return m_creator_op; }
@@ -29,7 +29,7 @@ class Backend : public ast::Visitor {
         struct Symbol {
             vull::StringView name;
             Id id;
-            const ast::Type &vsl_type;
+            const Type &vsl_type;
         };
         // TODO(hash-map)
         vull::Vector<Symbol> m_symbol_map;
@@ -44,7 +44,7 @@ class Backend : public ast::Visitor {
         Scope &operator=(Scope &&) = delete;
 
         const Symbol &lookup_symbol(vull::StringView name) const;
-        void put_symbol(vull::StringView name, Id id, const ast::Type &vsl_type);
+        void put_symbol(vull::StringView name, Id id, const Type &vsl_type);
     };
 
     Builder m_builder;
@@ -57,10 +57,10 @@ class Backend : public ast::Visitor {
     Id m_position_output{0};
     bool m_is_vertex_entry{false};
 
-    Id convert_type(ast::ScalarType);
-    Id convert_type(const ast::Type &);
+    Id convert_type(ScalarType);
+    Id convert_type(const Type &);
 
-    Instruction &translate_construct_expr(const ast::Type &);
+    Instruction &translate_construct_expr(const Type &);
 
 public:
     void visit(const ast::Aggregate &) override;
