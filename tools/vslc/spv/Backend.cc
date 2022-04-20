@@ -132,13 +132,13 @@ void Backend::visit(const ast::Aggregate &aggregate) {
     case ast::AggregateKind::Block:
         m_block = &m_function->append_block(m_builder.make_id());
         for (const auto *stmt : aggregate.nodes()) {
-            stmt->accept(*this);
+            stmt->traverse(*this);
         }
         break;
     case ast::AggregateKind::ConstructExpr:
         auto saved_stack = vull::move(m_value_stack);
         for (const auto *node : aggregate.nodes()) {
-            node->accept(*this);
+            node->traverse(*this);
         }
         auto &inst = translate_construct_expr(aggregate.type());
         m_value_stack = vull::move(saved_stack);
@@ -148,8 +148,6 @@ void Backend::visit(const ast::Aggregate &aggregate) {
 }
 
 void Backend::visit(const ast::BinaryExpr &binary_expr) {
-    binary_expr.lhs().accept(*this);
-    binary_expr.rhs().accept(*this);
     auto rhs = m_value_stack.take_last();
     auto lhs = m_value_stack.take_last();
     VULL_ENSURE(lhs.scalar_type() == ScalarType::Float);
@@ -216,11 +214,10 @@ void Backend::visit(const ast::Function &vsl_function) {
         m_builder.decorate(variable.id(), Decoration::BuiltIn, BuiltIn::Position);
         m_position_output = variable.id();
     }
-    vsl_function.block().accept(*this);
+    vsl_function.block().traverse(*this);
 }
 
-void Backend::visit(const ast::ReturnStmt &return_stmt) {
-    return_stmt.expr().accept(*this);
+void Backend::visit(const ast::ReturnStmt &) {
     auto expr_value = m_value_stack.take_last();
     if (m_is_vertex_entry) {
         // Intercept returns from the vertex shader entry point as stores to gl_Position.
@@ -242,7 +239,6 @@ void Backend::visit(const ast::Symbol &vsl_symbol) {
 }
 
 void Backend::visit(const ast::UnaryExpr &unary_expr) {
-    unary_expr.expr().accept(*this);
     auto expr_value = m_value_stack.take_last();
     VULL_ENSURE(expr_value.scalar_type() == ScalarType::Float);
 

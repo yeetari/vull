@@ -7,7 +7,7 @@
 
 namespace spv {
 
-class Backend : public ast::Visitor {
+class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     // Extend from Type to allow for nicer access to type-related functions.
     class Value : public Type {
         const Id m_id;
@@ -69,6 +69,7 @@ public:
     void visit(const ast::Function &) override;
     void visit(const ast::ReturnStmt &) override;
     void visit(const ast::Symbol &) override;
+    void visit(const ast::Root &) override {}
     void visit(const ast::UnaryExpr &) override;
 
     const Builder &builder() const { return m_builder; }

@@ -7,7 +7,7 @@
 namespace ast {
 namespace {
 
-class DestroyVisitor final : public Visitor {
+class DestroyVisitor final : public Traverser<TraverseOrder::PostOrder> {
     Arena &m_arena;
 
 public:
@@ -19,19 +19,18 @@ public:
     void visit(const Function &) override;
     void visit(const ReturnStmt &) override;
     void visit(const Symbol &) override;
+    void visit(const Root &) override {}
     void visit(const UnaryExpr &) override;
 };
 
 void DestroyVisitor::visit(const Aggregate &aggregate) {
     for (const auto *node : aggregate.nodes()) {
-        node->accept(*this);
+        node->traverse(*this);
     }
     m_arena.destroy(&aggregate);
 }
 
 void DestroyVisitor::visit(const BinaryExpr &binary_expr) {
-    binary_expr.lhs().accept(*this);
-    binary_expr.rhs().accept(*this);
     m_arena.destroy(&binary_expr);
 }
 
@@ -40,12 +39,11 @@ void DestroyVisitor::visit(const Constant &constant) {
 }
 
 void DestroyVisitor::visit(const Function &function) {
-    function.block().accept(*this);
+    function.block().traverse(*this);
     m_arena.destroy(&function);
 }
 
 void DestroyVisitor::visit(const ReturnStmt &return_stmt) {
-    return_stmt.expr().accept(*this);
     m_arena.destroy(&return_stmt);
 }
 
@@ -54,7 +52,6 @@ void DestroyVisitor::visit(const Symbol &symbol) {
 }
 
 void DestroyVisitor::visit(const UnaryExpr &unary_expr) {
-    unary_expr.expr().accept(*this);
     m_arena.destroy(&unary_expr);
 }
 
@@ -98,12 +95,6 @@ void Root::append_top_level(Node *node) {
     m_top_level_nodes.push(node);
 }
 
-void Root::traverse(Visitor &visitor) {
-    for (const auto *node : m_top_level_nodes) {
-        node->accept(visitor);
-    }
-}
-
 void Formatter::visit(const Aggregate &aggregate) {
     switch (aggregate.kind()) {
     case AggregateKind::Block:
@@ -111,7 +102,7 @@ void Formatter::visit(const Aggregate &aggregate) {
         print(" {\n");
         for (const auto *node : aggregate.nodes()) {
             print_depth(m_depth);
-            node->accept(*this);
+            node->traverse(*this);
             print("\n");
         }
         print_depth(--m_depth);
@@ -123,7 +114,7 @@ void Formatter::visit(const Aggregate &aggregate) {
             if (!first) {
                 print(", ");
             }
-            node->accept(*this);
+            node->traverse(*this);
             first = false;
         }
         print(")");
@@ -133,7 +124,7 @@ void Formatter::visit(const Aggregate &aggregate) {
 
 void Formatter::visit(const BinaryExpr &binary_expr) {
     print("(");
-    binary_expr.lhs().accept(*this);
+    binary_expr.lhs().traverse(*this);
     switch (binary_expr.op()) {
     case BinaryOp::Add:
         print(" + ");
@@ -151,7 +142,7 @@ void Formatter::visit(const BinaryExpr &binary_expr) {
         print(" % ");
         break;
     }
-    binary_expr.rhs().accept(*this);
+    binary_expr.rhs().traverse(*this);
     print(")");
 }
 
@@ -176,12 +167,12 @@ void Formatter::visit(const Function &function) {
         first = false;
     }
     print("): {}", type_string(function.return_type()));
-    function.block().accept(*this);
+    function.block().traverse(*this);
     print("\n");
 }
 
 void Formatter::visit(const ReturnStmt &return_stmt) {
-    return_stmt.expr().accept(*this);
+    return_stmt.expr().traverse(*this);
 }
 
 void Formatter::visit(const Symbol &symbol) {
@@ -194,7 +185,7 @@ void Formatter::visit(const UnaryExpr &unary_expr) {
         print("-");
         break;
     }
-    unary_expr.expr().accept(*this);
+    unary_expr.expr().traverse(*this);
 }
 
 } // namespace ast
