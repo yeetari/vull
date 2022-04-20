@@ -82,16 +82,16 @@ vull::Optional<Op> to_binary_op(TokenKind kind) {
 Type parse_type(const Token &ident) {
     // TODO(hash-map): Hash map for builtin types.
     if (ident.string() == "float") {
-        return {ScalarType::Float, 1, 1};
+        return {ScalarType::Float};
     }
     if (ident.string() == "vec2") {
-        return {ScalarType::Float, 2, 1};
+        return {ScalarType::Float, 2};
     }
     if (ident.string() == "vec3") {
-        return {ScalarType::Float, 3, 1};
+        return {ScalarType::Float, 3};
     }
     if (ident.string() == "vec4") {
-        return {ScalarType::Float, 4, 1};
+        return {ScalarType::Float, 4};
     }
     if (ident.string() == "mat3") {
         return {ScalarType::Float, 3, 3};

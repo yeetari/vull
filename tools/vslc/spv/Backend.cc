@@ -15,6 +15,16 @@ Op binary_op(ast::BinaryOp op) {
         return Op::FDiv;
     case ast::BinaryOp::Mod:
         VULL_ENSURE_NOT_REACHED("% only defined for integer types");
+    case ast::BinaryOp::VectorTimesScalar:
+        return Op::VectorTimesScalar;
+    case ast::BinaryOp::MatrixTimesScalar:
+        return Op::MatrixTimesScalar;
+    case ast::BinaryOp::VectorTimesMatrix:
+        return Op::VectorTimesMatrix;
+    case ast::BinaryOp::MatrixTimesVector:
+        return Op::MatrixTimesVector;
+    case ast::BinaryOp::MatrixTimesMatrix:
+        return Op::MatrixTimesMatrix;
     }
 }
 
@@ -35,17 +45,17 @@ Backend::Scope::~Scope() {
     m_current = m_parent;
 }
 
-const Backend::Scope::Symbol &Backend::Scope::lookup_symbol(vull::StringView name) const {
+Id Backend::Scope::lookup_symbol(vull::StringView name) const {
     for (const auto &symbol : m_symbol_map) {
         if (symbol.name == name) {
-            return symbol;
+            return symbol.id;
         }
     }
     VULL_ENSURE_NOT_REACHED();
 }
 
-void Backend::Scope::put_symbol(vull::StringView name, Id id, const Type &vsl_type) {
-    m_symbol_map.push(Symbol{name, id, vsl_type});
+void Backend::Scope::put_symbol(vull::StringView name, Id id) {
+    m_symbol_map.push(Symbol{name, id});
 }
 
 Id Backend::convert_type(ScalarType scalar_type) {
@@ -53,18 +63,19 @@ Id Backend::convert_type(ScalarType scalar_type) {
     case ScalarType::Float:
         return m_builder.float_type(32);
     case ScalarType::Uint:
-        // TODO
+        VULL_ENSURE_NOT_REACHED("TODO Uint");
+    default:
         VULL_ENSURE_NOT_REACHED();
     }
 }
 
 Id Backend::convert_type(const Type &vsl_type) {
     const auto scalar_type = convert_type(vsl_type.scalar_type());
-    if (vsl_type.vector_size() == 1) {
+    if (vsl_type.is_scalar()) {
         return scalar_type;
     }
     const auto vector_type = m_builder.vector_type(scalar_type, vsl_type.vector_size());
-    if (vsl_type.matrix_cols() == 1) {
+    if (vsl_type.is_vector()) {
         return vector_type;
     }
     return m_builder.matrix_type(vector_type, vsl_type.matrix_cols());
@@ -87,8 +98,7 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
                 arguments.push(constant);
             }
             break;
-        case Op::Load:
-        case Op::FNegate:
+        default:
             is_constant = false;
             if (value.vector_size() == 1) {
                 arguments.push(value.id());
@@ -102,8 +112,6 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
                 arguments.push(extract_inst.id());
             }
             break;
-        default:
-            VULL_ENSURE_NOT_REACHED();
         }
     }
 
@@ -127,17 +135,17 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
     return inst;
 }
 
-void Backend::visit(const ast::Aggregate &aggregate) {
+void Backend::visit(ast::Aggregate &aggregate) {
     switch (aggregate.kind()) {
     case ast::AggregateKind::Block:
         m_block = &m_function->append_block(m_builder.make_id());
-        for (const auto *stmt : aggregate.nodes()) {
+        for (auto *stmt : aggregate.nodes()) {
             stmt->traverse(*this);
         }
         break;
     case ast::AggregateKind::ConstructExpr:
         auto saved_stack = vull::move(m_value_stack);
-        for (const auto *node : aggregate.nodes()) {
+        for (auto *node : aggregate.nodes()) {
             node->traverse(*this);
         }
         auto &inst = translate_construct_expr(aggregate.type());
@@ -147,35 +155,24 @@ void Backend::visit(const ast::Aggregate &aggregate) {
     }
 }
 
-void Backend::visit(const ast::BinaryExpr &binary_expr) {
-    auto rhs = m_value_stack.take_last();
-    auto lhs = m_value_stack.take_last();
-    VULL_ENSURE(lhs.scalar_type() == ScalarType::Float);
-    VULL_ENSURE(rhs.scalar_type() == ScalarType::Float);
-
-    Op op = binary_op(binary_expr.op());
-    Id type = convert_type(lhs);
-    if (lhs.is_matrix() && !rhs.is_matrix()) {
-        if (rhs.is_vector()) {
-            VULL_ENSURE(lhs.vector_size() == rhs.vector_size());
-            op = Op::MatrixTimesVector;
-            type = m_builder.vector_type(convert_type(lhs.scalar_type()), lhs.vector_size());
-        }
-    }
-
+void Backend::visit(ast::BinaryExpr &binary_expr) {
+    const auto rhs = m_value_stack.take_last();
+    const auto lhs = m_value_stack.take_last();
+    const auto op = binary_op(binary_expr.op());
+    const auto type = convert_type(binary_expr.type());
     auto &inst = m_block->append(op, m_builder.make_id(), type);
     inst.append_operand(lhs.id());
     inst.append_operand(rhs.id());
-    m_value_stack.emplace(inst, lhs);
+    m_value_stack.emplace(inst, binary_expr.type());
 }
 
-void Backend::visit(const ast::Constant &constant) {
+void Backend::visit(ast::Constant &constant) {
     const auto type = convert_type(constant.scalar_type());
     auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
-    m_value_stack.emplace(inst, Type(constant.scalar_type(), 1, 1));
+    m_value_stack.emplace(inst, constant.type());
 }
 
-void Backend::visit(const ast::Function &vsl_function) {
+void Backend::visit(ast::Function &vsl_function) {
     Scope scope(m_scope);
 
     vull::Vector<Id> parameter_types;
@@ -204,7 +201,7 @@ void Backend::visit(const ast::Function &vsl_function) {
             m_builder.decorate(variable.id(), Decoration::Location, i);
 
             const auto &parameter = vsl_function.parameters()[i];
-            m_scope->put_symbol(parameter.name(), variable.id(), parameter.type());
+            m_scope->put_symbol(parameter.name(), variable.id());
         }
 
         // Create gl_Position builtin.
@@ -217,7 +214,7 @@ void Backend::visit(const ast::Function &vsl_function) {
     vsl_function.block().traverse(*this);
 }
 
-void Backend::visit(const ast::ReturnStmt &) {
+void Backend::visit(ast::ReturnStmt &) {
     auto expr_value = m_value_stack.take_last();
     if (m_is_vertex_entry) {
         // Intercept returns from the vertex shader entry point as stores to gl_Position.
@@ -231,20 +228,19 @@ void Backend::visit(const ast::ReturnStmt &) {
     return_inst.append_operand(expr_value.id());
 }
 
-void Backend::visit(const ast::Symbol &vsl_symbol) {
-    const auto &symbol = m_scope->lookup_symbol(vsl_symbol.name());
-    auto &load_inst = m_block->append(Op::Load, m_builder.make_id(), convert_type(symbol.vsl_type));
-    load_inst.append_operand(symbol.id);
-    m_value_stack.emplace(load_inst, symbol.vsl_type);
+void Backend::visit(ast::Symbol &symbol) {
+    const auto type = convert_type(symbol.type());
+    auto &load_inst = m_block->append(Op::Load, m_builder.make_id(), type);
+    load_inst.append_operand(m_scope->lookup_symbol(symbol.name()));
+    m_value_stack.emplace(load_inst, symbol.type());
 }
 
-void Backend::visit(const ast::UnaryExpr &unary_expr) {
-    auto expr_value = m_value_stack.take_last();
-    VULL_ENSURE(expr_value.scalar_type() == ScalarType::Float);
-
-    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), convert_type(expr_value));
-    inst.append_operand(expr_value.id());
-    m_value_stack.emplace(inst, expr_value);
+void Backend::visit(ast::UnaryExpr &unary_expr) {
+    const auto expr = m_value_stack.take_last();
+    const auto type = convert_type(unary_expr.type());
+    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), type);
+    inst.append_operand(expr.id());
+    m_value_stack.emplace(inst, unary_expr.type());
 }
 
 } // namespace spv

@@ -1,4 +1,5 @@
 #include "CharStream.hh"
+#include "Legaliser.hh"
 #include "Lexer.hh"
 #include "Parser.hh"
 #include "spv/Backend.hh"
@@ -38,6 +39,9 @@ int main(int argc, char **argv) {
         ast.traverse(formatter);
         return 0;
     }
+
+    Legaliser legaliser;
+    ast.traverse(legaliser);
 
     spv::Backend backend;
     ast.traverse(backend);

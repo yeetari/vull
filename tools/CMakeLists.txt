@@ -18,6 +18,7 @@ add_executable(vslc
     vslc/spv/Builder.cc
     vslc/Ast.cc
     vslc/CharStream.cc
+    vslc/Legaliser.cc
     vslc/Lexer.cc
     vslc/main.cc
     vslc/Parser.cc

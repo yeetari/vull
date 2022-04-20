@@ -15,8 +15,8 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
         const vull::Vector<Word> &m_operands;
 
     public:
-        Value(Instruction &inst, const Type &vsl_type)
-            : Type(vsl_type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
+        Value(Instruction &inst, Type type)
+            : Type(type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
 
         Id id() const { return m_id; }
         Op creator_op() const { return m_creator_op; }
@@ -29,7 +29,6 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
         struct Symbol {
             vull::StringView name;
             Id id;
-            const Type &vsl_type;
         };
         // TODO(hash-map)
         vull::Vector<Symbol> m_symbol_map;
@@ -43,8 +42,8 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
         Scope &operator=(const Scope &) = delete;
         Scope &operator=(Scope &&) = delete;
 
-        const Symbol &lookup_symbol(vull::StringView name) const;
-        void put_symbol(vull::StringView name, Id id, const Type &vsl_type);
+        Id lookup_symbol(vull::StringView name) const;
+        void put_symbol(vull::StringView name, Id id);
     };
 
     Builder m_builder;
@@ -63,14 +62,14 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     Instruction &translate_construct_expr(const Type &);
 
 public:
-    void visit(const ast::Aggregate &) override;
-    void visit(const ast::BinaryExpr &) override;
-    void visit(const ast::Constant &) override;
-    void visit(const ast::Function &) override;
-    void visit(const ast::ReturnStmt &) override;
-    void visit(const ast::Symbol &) override;
-    void visit(const ast::Root &) override {}
-    void visit(const ast::UnaryExpr &) override;
+    void visit(ast::Aggregate &) override;
+    void visit(ast::BinaryExpr &) override;
+    void visit(ast::Constant &) override;
+    void visit(ast::Function &) override;
+    void visit(ast::ReturnStmt &) override;
+    void visit(ast::Symbol &) override;
+    void visit(ast::Root &) override {}
+    void visit(ast::UnaryExpr &) override;
 
     const Builder &builder() const { return m_builder; }
 };
