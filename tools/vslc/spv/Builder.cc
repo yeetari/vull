@@ -41,23 +41,64 @@ void Instruction::write(const vull::Function<void(Word)> &write_word) const {
     }
 }
 
-void Block::write(const vull::Function<void(Word)> &write_word) const {
+Block::Block(Builder &builder) : m_builder(builder), m_label(Op::Label, builder.make_id()) {}
+
+static bool op_has_id(Op op) {
+    switch (op) {
+    case Op::Store:
+    case Op::Return:
+    case Op::ReturnValue:
+        return false;
+    default:
+        return true;
+    }
+}
+
+Instruction &Block::append(Op op, Id type) {
+    return m_instructions.emplace(op, op_has_id(op) ? m_builder.make_id() : 0, type);
+}
+
+void Block::write_label(const vull::Function<void(Word)> &write_word) const {
     m_label.write(write_word);
+}
+
+void Block::write_insts(const vull::Function<void(Word)> &write_word) const {
     for (const auto &instruction : m_instructions) {
         instruction.write(write_word);
     }
 }
 
-Function::Function(vull::String name, Id id, Id return_type, Id function_type)
-    : m_name(vull::move(name)), m_def_inst(Op::Function, id, return_type) {
+void Block::write(const vull::Function<void(Word)> &write_word) const {
+    write_label(write_word);
+    write_insts(write_word);
+}
+
+Function::Function(Builder &builder, vull::String name, Id return_type, Id function_type)
+    : m_builder(builder), m_name(vull::move(name)), m_def_inst(Op::Function, builder.make_id(), return_type) {
     m_def_inst.append_operand(FunctionControl::None);
     m_def_inst.append_operand(function_type);
 }
 
+Block &Function::append_block() {
+    return m_blocks.emplace(m_builder);
+}
+
+Instruction &Function::append_variable(Id type) {
+    const auto pointer_type = m_builder.pointer_type(StorageClass::Function, type);
+    auto &variable = m_variables.emplace(Op::Variable, m_builder.make_id(), pointer_type);
+    variable.append_operand(StorageClass::Function);
+    return variable;
+}
+
 void Function::write(const vull::Function<void(Word)> &write_word) const {
     m_def_inst.write(write_word);
-    for (const auto &block : m_blocks) {
-        block.write(write_word);
+    m_blocks[0].write_label(write_word);
+    for (const auto &variable : m_variables) {
+        variable.write(write_word);
+    }
+    m_blocks[0].write_insts(write_word);
+    for (uint32_t i = 1; i < m_blocks.size(); i++) {
+        m_blocks[i].write(write_word);
     }
     write_word(INST_WORD(Op::FunctionEnd, 1));
 }
@@ -179,15 +220,12 @@ void Builder::append_entry_point(Function &function, ExecutionModel model) {
 }
 
 Function &Builder::append_function(vull::StringView name, Id return_type, Id function_type) {
-    return m_functions.emplace(name, m_next_id++, return_type, function_type);
+    return m_functions.emplace(*this, name, return_type, function_type);
 }
 
-Instruction &Builder::append_variable(Id type, StorageClass storage_class, Id initialiser) {
-    auto &variable = m_global_variables.emplace(Op::Variable, m_next_id++, type);
+Instruction &Builder::append_variable(Id type, StorageClass storage_class) {
+    auto &variable = m_global_variables.emplace(Op::Variable, m_next_id++, pointer_type(storage_class, type));
     variable.append_operand(storage_class);
-    if (initialiser != 0) {
-        variable.append_operand(initialiser);
-    }
     return variable;
 }
 

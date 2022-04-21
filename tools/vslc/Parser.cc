@@ -18,6 +18,7 @@ enum class Op {
     // Unary operators.
     Negate,
 
+    Assign,
     OpenParen,
 };
 
@@ -39,6 +40,8 @@ ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operan
         return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Div, lhs, rhs);
     case Op::Mod:
         return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Mod, lhs, rhs);
+    case Op::Assign:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Assign, lhs, rhs);
     default:
         VULL_ENSURE_NOT_REACHED();
     }
@@ -46,6 +49,7 @@ ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operan
 
 unsigned precedence(Op op) {
     switch (op) {
+    case Op::Assign:
     case Op::OpenParen:
         return 0;
     case Op::Add:
@@ -62,6 +66,17 @@ unsigned precedence(Op op) {
     }
 }
 
+bool is_right_asc(Op op) {
+    return op == Op::Assign;
+}
+
+bool higher_precedence(Op a, Op b) {
+    if (is_right_asc(b)) {
+        return precedence(a) > precedence(b);
+    }
+    return precedence(a) >= precedence(b);
+}
+
 vull::Optional<Op> to_binary_op(TokenKind kind) {
     switch (kind) {
     case TokenKind::Plus:
@@ -74,6 +89,8 @@ vull::Optional<Op> to_binary_op(TokenKind kind) {
         return Op::Div;
     case TokenKind::Percent:
         return Op::Mod;
+    case TokenKind::Equals:
+        return Op::Assign;
     default:
         return {};
     }
@@ -138,6 +155,7 @@ ast::Node *Parser::parse_atom() {
 }
 
 ast::Node *Parser::parse_expr() {
+    // TODO(small-vector)
     vull::Vector<ast::Node *> operands;
     vull::Vector<Op> operators;
     unsigned paren_depth = 0;
@@ -155,7 +173,7 @@ ast::Node *Parser::parse_expr() {
 
         if (auto binary_op = to_binary_op(m_lexer.peek().kind())) {
             m_lexer.next();
-            while (!operators.empty() && precedence(operators.last()) >= precedence(*binary_op)) {
+            while (!operators.empty() && higher_precedence(operators.last(), *binary_op)) {
                 auto op = operators.take_last();
                 operands.push(create_expr(m_root, op, operands));
             }
@@ -194,9 +212,15 @@ ast::Node *Parser::parse_expr() {
 }
 
 ast::Node *Parser::parse_stmt() {
-    auto *expr = parse_expr();
+    if (consume(TokenKind::KeywordLet)) {
+        auto name = expect(TokenKind::Ident);
+        expect(TokenKind::Equals);
+        auto *value = parse_expr();
+        expect(TokenKind::Semi);
+        return m_root.allocate<ast::DeclStmt>(name.string(), value);
+    }
     // Implicit return.
-    return m_root.allocate<ast::ReturnStmt>(expr);
+    return m_root.allocate<ast::ReturnStmt>(parse_expr());
 }
 
 ast::Aggregate *Parser::parse_block() {

@@ -15,6 +15,8 @@ Op binary_op(ast::BinaryOp op) {
         return Op::FDiv;
     case ast::BinaryOp::Mod:
         VULL_ENSURE_NOT_REACHED("% only defined for integer types");
+    case ast::BinaryOp::Assign:
+        return Op::Store;
     case ast::BinaryOp::VectorTimesScalar:
         return Op::VectorTimesScalar;
     case ast::BinaryOp::MatrixTimesScalar:
@@ -106,7 +108,7 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
             }
             for (uint32_t i = 0; i < value.vector_size(); i++) {
                 const auto scalar_type = convert_type(value.scalar_type());
-                auto &extract_inst = m_block->append(Op::CompositeExtract, m_builder.make_id(), scalar_type);
+                auto &extract_inst = m_block->append(Op::CompositeExtract, scalar_type);
                 extract_inst.append_operand(value.id());
                 extract_inst.append_operand(i);
                 arguments.push(extract_inst.id());
@@ -130,7 +132,7 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
     if (is_constant) {
         return m_builder.composite_constant(composite_type, vull::move(arguments));
     }
-    auto &inst = m_block->append(Op::CompositeConstruct, m_builder.make_id(), composite_type);
+    auto &inst = m_block->append(Op::CompositeConstruct, composite_type);
     inst.extend_operands(arguments);
     return inst;
 }
@@ -138,7 +140,7 @@ Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
 void Backend::visit(ast::Aggregate &aggregate) {
     switch (aggregate.kind()) {
     case ast::AggregateKind::Block:
-        m_block = &m_function->append_block(m_builder.make_id());
+        m_block = &m_function->append_block();
         for (auto *stmt : aggregate.nodes()) {
             stmt->traverse(*this);
         }
@@ -160,7 +162,7 @@ void Backend::visit(ast::BinaryExpr &binary_expr) {
     const auto lhs = m_value_stack.take_last();
     const auto op = binary_op(binary_expr.op());
     const auto type = convert_type(binary_expr.type());
-    auto &inst = m_block->append(op, m_builder.make_id(), type);
+    auto &inst = m_block->append(op, type);
     inst.append_operand(lhs.id());
     inst.append_operand(rhs.id());
     m_value_stack.emplace(inst, binary_expr.type());
@@ -170,6 +172,19 @@ void Backend::visit(ast::Constant &constant) {
     const auto type = convert_type(constant.scalar_type());
     auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
     m_value_stack.emplace(inst, constant.type());
+}
+
+void Backend::visit(ast::DeclStmt &decl_stmt) {
+    const auto value = m_value_stack.take_last();
+    auto &variable = m_function->append_variable(convert_type(value));
+    if (value.creator_op() == Op::Constant || value.creator_op() == Op::ConstantComposite) {
+        variable.append_operand(value.id());
+    } else {
+        auto &store_inst = m_block->append(Op::Store);
+        store_inst.append_operand(variable.id());
+        store_inst.append_operand(value.id());
+    }
+    m_scope->put_symbol(decl_stmt.name(), variable.id());
 }
 
 void Backend::visit(ast::Function &vsl_function) {
@@ -196,8 +211,7 @@ void Backend::visit(ast::Function &vsl_function) {
         // Create inputs.
         for (uint32_t i = 0; i < parameter_types.size(); i++) {
             const auto input_type = parameter_types[i];
-            const auto input_ptr_type = m_builder.pointer_type(StorageClass::Input, input_type);
-            auto &variable = m_builder.append_variable(input_ptr_type, StorageClass::Input);
+            auto &variable = m_builder.append_variable(input_type, StorageClass::Input);
             m_builder.decorate(variable.id(), Decoration::Location, i);
 
             const auto &parameter = vsl_function.parameters()[i];
@@ -206,8 +220,7 @@ void Backend::visit(ast::Function &vsl_function) {
 
         // Create gl_Position builtin.
         const auto position_type = m_builder.vector_type(m_builder.float_type(32), 4);
-        const auto position_ptr_type = m_builder.pointer_type(StorageClass::Output, position_type);
-        auto &variable = m_builder.append_variable(position_ptr_type, StorageClass::Output);
+        auto &variable = m_builder.append_variable(position_type, StorageClass::Output);
         m_builder.decorate(variable.id(), Decoration::BuiltIn, BuiltIn::Position);
         m_position_output = variable.id();
     }
@@ -230,7 +243,7 @@ void Backend::visit(ast::ReturnStmt &) {
 
 void Backend::visit(ast::Symbol &symbol) {
     const auto type = convert_type(symbol.type());
-    auto &load_inst = m_block->append(Op::Load, m_builder.make_id(), type);
+    auto &load_inst = m_block->append(Op::Load, type);
     load_inst.append_operand(m_scope->lookup_symbol(symbol.name()));
     m_value_stack.emplace(load_inst, symbol.type());
 }
@@ -238,7 +251,7 @@ void Backend::visit(ast::Symbol &symbol) {
 void Backend::visit(ast::UnaryExpr &unary_expr) {
     const auto expr = m_value_stack.take_last();
     const auto type = convert_type(unary_expr.type());
-    auto &inst = m_block->append(unary_op(unary_expr.op()), m_builder.make_id(), type);
+    auto &inst = m_block->append(unary_op(unary_expr.op()), type);
     inst.append_operand(expr.id());
     m_value_stack.emplace(inst, unary_expr.type());
 }

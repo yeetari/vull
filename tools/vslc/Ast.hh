@@ -61,6 +61,8 @@ enum class BinaryOp {
     Div,
     Mod,
 
+    Assign,
+
     // Parsed-generated Muls can be turned into these by the legaliser.
     VectorTimesScalar,
     MatrixTimesScalar,
@@ -106,6 +108,21 @@ public:
     float decimal() const { return m_literal.decimal; }
     size_t integer() const { return m_literal.integer; }
     ScalarType scalar_type() const { return m_scalar_type; }
+};
+
+class DeclStmt final : public Node {
+    vull::StringView m_name;
+    Node *m_value;
+
+public:
+    DeclStmt(vull::StringView name, Node *value) : m_name(name), m_value(value) {}
+
+    void traverse(Traverser<TraverseOrder::None> &) override;
+    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
+    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
+
+    vull::StringView name() const { return m_name; }
+    Node &value() const { return *m_value; }
 };
 
 class Parameter {
@@ -174,6 +191,7 @@ public:
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
     void traverse(Traverser<TraverseOrder::PostOrder> &) override;
+    const vull::Vector<Node *> &top_level_nodes() const { return m_top_level_nodes; }
 };
 
 class Symbol final : public TypedNode {
@@ -213,6 +231,7 @@ struct Traverser {
     virtual void visit(Aggregate &) = 0;
     virtual void visit(BinaryExpr &) = 0;
     virtual void visit(Constant &) = 0;
+    virtual void visit(DeclStmt &) = 0;
     virtual void visit(Function &) = 0;
     virtual void visit(ReturnStmt &) = 0;
     virtual void visit(Root &) = 0;
@@ -227,9 +246,10 @@ public:
     void visit(Aggregate &) override;
     void visit(BinaryExpr &) override;
     void visit(Constant &) override;
+    void visit(DeclStmt &) override;
     void visit(Function &) override;
     void visit(ReturnStmt &) override;
-    void visit(Root &) override {}
+    void visit(Root &) override;
     void visit(Symbol &) override;
     void visit(UnaryExpr &) override;
 };
@@ -259,6 +279,20 @@ inline void BinaryExpr::traverse(Traverser<TraverseOrder::PreOrder> &traverser) 
 inline void BinaryExpr::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
     m_lhs->traverse(traverser);
     m_rhs->traverse(traverser);
+    traverser.visit(*this);
+}
+
+inline void DeclStmt::traverse(Traverser<TraverseOrder::None> &traverser) {
+    traverser.visit(*this);
+}
+
+inline void DeclStmt::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
+    traverser.visit(*this);
+    m_value->traverse(traverser);
+}
+
+inline void DeclStmt::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
+    m_value->traverse(traverser);
     traverser.visit(*this);
 }
 

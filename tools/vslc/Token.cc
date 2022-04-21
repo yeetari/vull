@@ -13,6 +13,8 @@ vull::StringView Token::kind_string(TokenKind kind) {
         return "','";
     case TokenKind::Eof:
         return "eof";
+    case TokenKind::Equals:
+        return "'='";
     case TokenKind::FloatLit:
         return "float literal";
     case TokenKind::Ident:
@@ -37,6 +39,8 @@ vull::StringView Token::kind_string(TokenKind kind) {
         return "'}'";
     case TokenKind::RightParen:
         return "')'";
+    case TokenKind::Semi:
+        return "';'";
     case TokenKind::Slash:
         return "'/'";
     }

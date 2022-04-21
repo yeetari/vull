@@ -11,6 +11,8 @@
 
 namespace spv {
 
+class Builder;
+
 class Instruction {
     const Op m_op;
     const Id m_id;
@@ -39,28 +41,31 @@ public:
 };
 
 class Block {
+    Builder &m_builder;
     Instruction m_label;
     vull::Vector<Instruction> m_instructions;
 
 public:
-    explicit Block(Id id) : m_label(Op::Label, id) {}
+    explicit Block(Builder &builder);
 
-    template <typename... Args>
-    Instruction &append(Args &&...args) {
-        return m_instructions.emplace(vull::forward<Args>(args)...);
-    }
+    Instruction &append(Op op, Id type = 0);
+    void write_label(const vull::Function<void(Word)> &write_word) const;
+    void write_insts(const vull::Function<void(Word)> &write_word) const;
     void write(const vull::Function<void(Word)> &write_word) const;
 };
 
 class Function {
+    Builder &m_builder;
     vull::String m_name;
     Instruction m_def_inst;
+    vull::Vector<Instruction> m_variables;
     vull::Vector<Block> m_blocks;
 
 public:
-    Function(vull::String name, Id id, Id return_type, Id function_type);
+    Function(Builder &builder, vull::String name, Id return_type, Id function_type);
 
-    Block &append_block(Id id) { return m_blocks.emplace(id); }
+    Block &append_block();
+    Instruction &append_variable(Id type);
     void write(const vull::Function<void(Word)> &write_word) const;
 
     const vull::String &name() const { return m_name; }
@@ -95,7 +100,7 @@ public:
 
     void append_entry_point(Function &function, ExecutionModel model);
     Function &append_function(vull::StringView name, Id return_type, Id function_type);
-    Instruction &append_variable(Id type, StorageClass storage_class, Id initialiser = 0);
+    Instruction &append_variable(Id type, StorageClass storage_class);
     template <typename... Literals>
     void decorate(Id id, Decoration decoration, Literals... literals);
 

@@ -76,6 +76,7 @@ enum class Op {
 enum class StorageClass {
     Input = 1,
     Output = 3,
+    Function = 7,
 };
 
 } // namespace spv

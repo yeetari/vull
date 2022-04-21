@@ -65,6 +65,7 @@ public:
     void visit(ast::Aggregate &) override;
     void visit(ast::BinaryExpr &) override;
     void visit(ast::Constant &) override;
+    void visit(ast::DeclStmt &) override;
     void visit(ast::Function &) override;
     void visit(ast::ReturnStmt &) override;
     void visit(ast::Symbol &) override;

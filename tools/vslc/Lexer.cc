@@ -34,6 +34,8 @@ Token Lexer::next_token() {
         return TokenKind::Colon;
     case ',':
         return TokenKind::Comma;
+    case '=':
+        return TokenKind::Equals;
     case '{':
         return TokenKind::LeftBrace;
     case '(':
@@ -48,6 +50,8 @@ Token Lexer::next_token() {
         return TokenKind::RightBrace;
     case ')':
         return TokenKind::RightParen;
+    case ';':
+        return TokenKind::Semi;
     case '/':
         // Handle comments.
         if (m_stream.peek() == '/') {

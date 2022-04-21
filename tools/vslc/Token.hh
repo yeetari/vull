@@ -10,6 +10,7 @@ enum class TokenKind {
     Colon,
     Comma,
     Eof,
+    Equals,
     FloatLit,
     Ident,
     IntLit,
@@ -22,6 +23,7 @@ enum class TokenKind {
     Plus,
     RightBrace,
     RightParen,
+    Semi,
     Slash,
 };
 

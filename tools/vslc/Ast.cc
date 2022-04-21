@@ -16,6 +16,7 @@ public:
     void visit(Aggregate &) override;
     void visit(BinaryExpr &) override;
     void visit(Constant &) override;
+    void visit(DeclStmt &) override;
     void visit(Function &) override;
     void visit(ReturnStmt &) override;
     void visit(Symbol &) override;
@@ -36,6 +37,10 @@ void DestroyVisitor::visit(BinaryExpr &binary_expr) {
 
 void DestroyVisitor::visit(Constant &constant) {
     m_arena.destroy(&constant);
+}
+
+void DestroyVisitor::visit(DeclStmt &decl_stmt) {
+    m_arena.destroy(&decl_stmt);
 }
 
 void DestroyVisitor::visit(Function &function) {
@@ -141,6 +146,9 @@ void Formatter::visit(BinaryExpr &binary_expr) {
     case BinaryOp::Mod:
         print(" % ");
         break;
+    case BinaryOp::Assign:
+        print(" = ");
+        break;
     }
     binary_expr.rhs().traverse(*this);
     print(")");
@@ -155,6 +163,12 @@ void Formatter::visit(Constant &constant) {
         print("{}u", constant.integer());
         break;
     }
+}
+
+void Formatter::visit(DeclStmt &decl_stmt) {
+    print("let {} = ", decl_stmt.name());
+    decl_stmt.value().traverse(*this);
+    print(";");
 }
 
 void Formatter::visit(Function &function) {
@@ -173,6 +187,12 @@ void Formatter::visit(Function &function) {
 
 void Formatter::visit(ReturnStmt &return_stmt) {
     return_stmt.expr().traverse(*this);
+}
+
+void Formatter::visit(Root &root) {
+    for (auto *node : root.top_level_nodes()) {
+        node->traverse(*this);
+    }
 }
 
 void Formatter::visit(Symbol &symbol) {

@@ -16,7 +16,7 @@ Type Legaliser::Scope::lookup_symbol(vull::StringView name) const {
             return symbol.type;
         }
     }
-    VULL_ENSURE_NOT_REACHED();
+    return ScalarType::Invalid;
 }
 
 void Legaliser::Scope::put_symbol(vull::StringView name, Type type) {
@@ -53,6 +53,10 @@ void Legaliser::visit(BinaryExpr &binary_expr) {
         VULL_ASSERT((lhs.is_scalar() && rhs.is_scalar()) || (lhs.is_vector() && rhs.is_vector()));
         binary_expr.set_type(scalar_type);
     }
+}
+
+void Legaliser::visit(DeclStmt &decl_stmt) {
+    m_scope->put_symbol(decl_stmt.name(), decl_stmt.value().type());
 }
 
 void Legaliser::visit(Function &function) {
