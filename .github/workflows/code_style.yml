@@ -59,7 +59,7 @@ jobs:
       - name: Build IWYU
         run: |
           cd /opt
-          git clone https://github.com/include-what-you-use/include-what-you-use.git
+          git clone --branch 0.18 https://github.com/include-what-you-use/include-what-you-use.git
           cmake -B/opt/include-what-you-use/build /opt/include-what-you-use
           cmake --build /opt/include-what-you-use/build --target install
       - name: Checkout
