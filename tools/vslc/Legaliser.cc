@@ -33,6 +33,11 @@ void Legaliser::visit(BinaryExpr &binary_expr) {
     const auto lhs = binary_expr.lhs().type();
     const auto rhs = binary_expr.rhs().type();
 
+    if (binary_expr.op() == BinaryOp::Assign) {
+        binary_expr.set_type(lhs);
+        return;
+    }
+
     const auto scalar_type = lhs.scalar_type();
     if ((lhs.is_vector() && rhs.is_scalar()) || (lhs.is_scalar() && rhs.is_vector())) {
         binary_expr.set_op(BinaryOp::VectorTimesScalar);

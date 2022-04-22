@@ -219,8 +219,14 @@ ast::Node *Parser::parse_stmt() {
         expect(TokenKind::Semi);
         return m_root.allocate<ast::DeclStmt>(name.string(), value);
     }
-    // Implicit return.
-    return m_root.allocate<ast::ReturnStmt>(parse_expr());
+
+    // Freestanding expression.
+    auto *expr = parse_expr();
+    if (consume(TokenKind::Semi)) {
+        return expr;
+    }
+    // Otherwise, implicit return.
+    return m_root.allocate<ast::ReturnStmt>(expr);
 }
 
 ast::Aggregate *Parser::parse_block() {
