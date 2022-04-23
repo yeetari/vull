@@ -15,6 +15,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
+#include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
@@ -35,7 +36,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 using namespace vull;
 
@@ -49,13 +49,6 @@ uint32_t find_graphics_family(const VkContext &context) {
         }
     }
     VULL_ENSURE_NOT_REACHED();
-}
-
-double get_time() {
-    struct timespec ts {};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
-           1000000000;
 }
 
 Mat4f get_transform_matrix(World &world, EntityId id) {
@@ -713,21 +706,21 @@ void main_task(Scheduler &scheduler) {
     vk::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
-    double previous_time = get_time();
+    Timer frame_timer;
     while (!window.should_close()) {
-        double current_time = get_time();
-        auto dt = static_cast<float>(current_time - exchange(previous_time, current_time));
+        float dt = frame_timer.elapsed();
+        frame_timer.reset();
 
         ui::TimeGraph::Bar cpu_frame_bar;
 
-        double start_time = get_time();
+        Timer acquire_timer;
         uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
-        cpu_frame_bar.sections.push({"Acquire swapchain", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Acquire swapchain", acquire_timer.elapsed()});
 
-        start_time = get_time();
+        Timer wait_fence_timer;
         context.vkWaitForFences(1, &fence, true, ~0ul);
         context.vkResetFences(1, &fence);
-        cpu_frame_bar.sections.push({"Wait fence", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
 
         Array<uint64_t, 8> timestamp_data{};
         context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
@@ -784,7 +777,7 @@ void main_task(Scheduler &scheduler) {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
-        start_time = get_time();
+        Timer record_timer;
         command_pool.begin(vk::CommandPoolResetFlags::None);
         auto cmd_buf = command_pool.request_cmd_buf();
         cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
@@ -1001,7 +994,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         queue.submit(cmd_buf, fence, signal_semaphores.span(), wait_semaphores.span());
-        cpu_frame_bar.sections.push({"Record", static_cast<float>(get_time() - start_time)});
+        cpu_frame_bar.sections.push({"Record", record_timer.elapsed()});
 
         Array present_wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, present_wait_semaphores.span());

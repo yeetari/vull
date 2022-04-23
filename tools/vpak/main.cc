@@ -9,6 +9,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Timer.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/PackWriter.hh>
@@ -20,7 +21,6 @@
 #include <assimp/scene.h>
 #include <libgen.h>
 #include <meshoptimizer.h>
-#include <time.h>
 
 using namespace vull;
 
@@ -29,13 +29,6 @@ namespace {
 struct AssimpLogger : public Assimp::LogStream {
     void write(const char *message) override { fputs(message, stdout); }
 };
-
-double get_time() {
-    struct timespec ts {};
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return static_cast<double>(static_cast<uint64_t>(ts.tv_sec) * 1000000000 + static_cast<uint64_t>(ts.tv_nsec)) /
-           1000000000;
-}
 
 void emit_error_texture(PackWriter &pack_writer) {
     // TODO: Don't duplicate this.
@@ -233,7 +226,6 @@ int main(int argc, char **argv) {
         assimp_options |= aiProcess_JoinIdenticalVertices;
     }
 
-    auto start_time = get_time();
     Assimp::DefaultLogger::create("vpak", Assimp::Logger::VERBOSE);
     Assimp::DefaultLogger::get()->attachStream(new AssimpLogger, Assimp::Logger::Debugging | Assimp::Logger::Info |
                                                                      Assimp::Logger::Warn | Assimp::Logger::Err);
@@ -241,6 +233,7 @@ int main(int argc, char **argv) {
     importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS |
                                                             aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS |
                                                             aiComponent_LIGHTS | aiComponent_CAMERAS);
+    Timer timer;
     const auto *scene = importer.ReadFile(input_path, assimp_options);
     if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
         (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
@@ -269,7 +262,7 @@ int main(int argc, char **argv) {
     float world_ratio = world.serialise(pack_writer);
     printf("(world): %.1f%%\n", world_ratio * 100.0f);
 
-    printf("\nWrote %ld bytes to %s in %.2f seconds\n", ftell(pack_file), output_path, get_time() - start_time);
+    printf("\nWrote %ld bytes to %s in %.2f seconds\n", ftell(pack_file), output_path, timer.elapsed());
     fclose(pack_file);
     Assimp::DefaultLogger::kill();
 }

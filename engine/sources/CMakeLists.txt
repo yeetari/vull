@@ -6,6 +6,7 @@ target_sources(vull PRIVATE
     support/String.cc
     support/StringBuilder.cc
     support/StringView.cc
+    support/Timer.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
     terrain/Chunk.cc
