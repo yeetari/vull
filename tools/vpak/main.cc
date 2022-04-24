@@ -51,34 +51,48 @@ void emit_error_texture(PackWriter &pack_writer) {
     pack_writer.end_entry();
 }
 
-void process_material(PackWriter &pack_writer, const char *root_path, const aiMaterial *material, int indentation) {
-    // TODO: Texture caching. Even though materials are deduplicated, two different materials may still point to the
-    //       same texture.
-    const auto diffuse_count = material->GetTextureCount(aiTextureType_DIFFUSE);
-    if (diffuse_count == 0) {
-        // TODO: Can this ever != 0?
-        VULL_ENSURE(material->GetTextureCount(aiTextureType_BASE_COLOR) == 0);
-        emit_error_texture(pack_writer);
-        return;
-    }
-    VULL_ENSURE(diffuse_count == 1);
+void emit_normal_texture(PackWriter &pack_writer) {
+    // TODO: Don't duplicate this.
+    pack_writer.start_entry(PackEntryType::ImageData, true);
+    pack_writer.write_byte(uint8_t(PackImageFormat::RgUnorm));
+    pack_writer.write_varint(1);
+    pack_writer.write_varint(1);
+    pack_writer.write_varint(1);
+    constexpr Array<uint8_t, 2> data{128, 128};
+    pack_writer.write(data.span());
+    pack_writer.end_entry();
+}
 
-    aiString albedo_path;
-    material->GetTexture(aiTextureType_DIFFUSE, 0, &albedo_path);
-    auto path = vull::format("{}/{}", root_path, albedo_path.C_Str());
-
-    // TODO: Horrible hack to replace backslashes with forward slashes.
+bool process_texture(PackWriter &pack_writer, const char *root_path, const aiString &ai_path, int indentation) {
+    auto path = vull::format("{}/{}", root_path, ai_path.C_Str());
+    // TODO: String::replace_all() function.
     char *slash_ptr = nullptr;
     while ((slash_ptr = strchr(path.data(), '\\')) != nullptr) {
         *slash_ptr = '/';
     }
 
     if (!load_texture(pack_writer, path)) {
-        emit_error_texture(pack_writer);
-        return;
+        return false;
     }
     float ratio = pack_writer.end_entry();
-    printf("%*s(%s): %.1f%%\n", indentation + 2, "", albedo_path.C_Str(), ratio * 100.0f);
+    printf("%*s(%s): %.1f%%\n", indentation + 2, "", ai_path.C_Str(), ratio * 100.0f);
+    return true;
+}
+
+void process_material(PackWriter &pack_writer, const char *root_path, const aiMaterial *material, int indentation) {
+    // TODO: Texture caching. Even though materials are deduplicated, two different materials may still point to the
+    //       same texture.
+    aiString albedo_path;
+    if (material->GetTexture(aiTextureType_DIFFUSE, 0, &albedo_path) != aiReturn_SUCCESS ||
+        !process_texture(pack_writer, root_path, albedo_path, indentation)) {
+        emit_error_texture(pack_writer);
+    }
+
+    aiString normal_path;
+    if (material->GetTexture(aiTextureType_NORMALS, 0, &normal_path) != aiReturn_SUCCESS ||
+        !process_texture(pack_writer, root_path, normal_path, indentation)) {
+        emit_normal_texture(pack_writer);
+    }
 }
 
 void process_mesh(const aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indices) {
@@ -156,7 +170,8 @@ void process_node(const char *root_path, const aiScene *scene, EntityManager &wo
 
         if (!materials[mesh->mMaterialIndex]) {
             process_material(pack_writer, root_path, scene->mMaterials[mesh->mMaterialIndex], indentation + 2);
-            materials[mesh->mMaterialIndex].emplace(texture_index++);
+            materials[mesh->mMaterialIndex].emplace(texture_index, texture_index + 1);
+            texture_index += 2;
         }
         entity.add<Material>(*materials[mesh->mMaterialIndex]);
     }

@@ -12,19 +12,19 @@ layout (binding = 0) uniform UniformBuffer {
 
 layout (push_constant) uniform ObjectData {
     mat4 g_transform;
-    uint g_albedo_index;
 };
 
 layout (location = 0) out FragmentData {
+    vec3 position;
     vec3 normal;
-    vec3 world_position;
     vec2 uv;
 } g_fragment;
 
 void main() {
+    mat4 normal_matrix = transpose(inverse(g_transform));
     vec4 world_position = g_transform * vec4(g_position, 1.0f);
-    g_fragment.normal = normalize((transpose(inverse(g_transform)) * vec4(g_normal, 0.0f)).xyz);
-    g_fragment.world_position = world_position.xyz;
+    g_fragment.position = world_position.xyz;
+    g_fragment.normal = (normal_matrix * vec4(g_normal, 0.0f)).xyz;
     g_fragment.uv = g_uv;
     gl_Position = g_ubo.proj * g_ubo.view * world_position;
 }

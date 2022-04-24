@@ -88,7 +88,7 @@ void main_task(Scheduler &scheduler) {
     Queue queue(context, graphics_family_index);
 
     vk::MemoryRequirements scene_memory_requirements{
-        .size = 1024ul * 1024ul * 512ul,
+        .size = 1024ul * 1024ul * 2048ul,
         .memoryTypeBits = 0xffffffffu,
     };
     auto *scene_memory = context.allocate_memory(scene_memory_requirements, MemoryType::DeviceLocal);
@@ -223,6 +223,12 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 5,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 6,
             .descriptorType = vk::DescriptorType::SampledImage,
             .descriptorCount = texture_image_views.size(),
             .stageFlags = vk::ShaderStage::Fragment,
@@ -239,6 +245,7 @@ void main_task(Scheduler &scheduler) {
     struct PushConstantBlock {
         Mat4f transform;
         uint32_t albedo_index;
+        uint32_t normal_index;
     };
     vk::PushConstantRange push_constant_range{
         .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
@@ -446,7 +453,7 @@ void main_task(Scheduler &scheduler) {
     vk::Sampler depth_sampler;
     VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vk::Result::Success);
 
-    vk::SamplerCreateInfo texture_sampler_ci{
+    vk::SamplerCreateInfo albedo_sampler_ci{
         .sType = vk::StructureType::SamplerCreateInfo,
         // TODO: Switch back to linear filtering; create a separate sampler for things wanting nearest filtering (error
         //       texture).
@@ -462,8 +469,24 @@ void main_task(Scheduler &scheduler) {
         .maxLod = 7.0f,
         .borderColor = vk::BorderColor::FloatTransparentBlack,
     };
-    vk::Sampler texture_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&texture_sampler_ci, &texture_sampler) == vk::Result::Success);
+    vk::Sampler albedo_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&albedo_sampler_ci, &albedo_sampler) == vk::Result::Success);
+
+    vk::SamplerCreateInfo normal_sampler_ci{
+        .sType = vk::StructureType::SamplerCreateInfo,
+        .magFilter = vk::Filter::Linear,
+        .minFilter = vk::Filter::Linear,
+        .mipmapMode = vk::SamplerMipmapMode::Linear,
+        .addressModeU = vk::SamplerAddressMode::Repeat,
+        .addressModeV = vk::SamplerAddressMode::Repeat,
+        .addressModeW = vk::SamplerAddressMode::Repeat,
+        .anisotropyEnable = true,
+        .maxAnisotropy = 16.0f,
+        .maxLod = vk::k_lod_clamp_none,
+        .borderColor = vk::BorderColor::FloatTransparentBlack,
+    };
+    vk::Sampler normal_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&normal_sampler_ci, &normal_sampler) == vk::Result::Success);
 
     struct UniformBuffer {
         Mat4f proj;
@@ -530,7 +553,7 @@ void main_task(Scheduler &scheduler) {
     Array descriptor_pool_sizes{
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::Sampler,
-            .descriptorCount = 1,
+            .descriptorCount = 2,
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::SampledImage,
@@ -584,8 +607,11 @@ void main_task(Scheduler &scheduler) {
         .imageView = depth_image_view,
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
-    vk::DescriptorImageInfo texture_sampler_info{
-        .sampler = texture_sampler,
+    vk::DescriptorImageInfo albedo_sampler_info{
+        .sampler = albedo_sampler,
+    };
+    vk::DescriptorImageInfo normal_sampler_info{
+        .sampler = normal_sampler,
     };
     Vector<vk::DescriptorImageInfo> texture_image_infos;
     texture_image_infos.ensure_capacity(texture_image_views.size());
@@ -634,12 +660,20 @@ void main_task(Scheduler &scheduler) {
             .dstBinding = 4,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::Sampler,
-            .pImageInfo = &texture_sampler_info,
+            .pImageInfo = &albedo_sampler_info,
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 5,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .pImageInfo = &normal_sampler_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = descriptor_set,
+            .dstBinding = 6,
             .descriptorCount = texture_image_infos.size(),
             .descriptorType = vk::DescriptorType::SampledImage,
             .pImageInfo = texture_image_infos.data(),
@@ -789,6 +823,7 @@ void main_task(Scheduler &scheduler) {
                 PushConstantBlock push_constant_block{
                     .transform = get_transform_matrix(world, entity),
                     .albedo_index = material.albedo_index(),
+                    .normal_index = material.normal_index(),
                 };
                 cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
                 cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
@@ -1014,7 +1049,8 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(lights_buffer);
     context.vkFreeMemory(uniform_buffer_memory);
     context.vkDestroyBuffer(uniform_buffer);
-    context.vkDestroySampler(texture_sampler);
+    context.vkDestroySampler(normal_sampler);
+    context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(depth_sampler);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);

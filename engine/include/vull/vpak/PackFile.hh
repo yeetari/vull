@@ -58,7 +58,9 @@ enum class PackEntryType : uint8_t {
 enum class PackImageFormat : uint8_t {
     Bc1Srgb = 0,
     Bc3Srgb = 1,
-    RgbaUnorm = 2,
+    Bc5Unorm = 2,
+    RgUnorm = 3,
+    RgbaUnorm = 4,
 };
 
 } // namespace vull

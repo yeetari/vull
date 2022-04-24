@@ -25,17 +25,22 @@ constexpr auto k_staging_buffer_size = 1024ul * 1024ul * 4ul;
 
 struct FormatPair {
     vull::vk::Format format;
-    uint32_t block_size;
+    uint32_t unit_size;
+    bool block_compressed;
 };
 
 FormatPair vk_format(vull::PackImageFormat pack_format) {
     switch (pack_format) {
     case vull::PackImageFormat::Bc1Srgb:
-        return {vull::vk::Format::Bc1RgbaSrgbBlock, uint32_t(8)};
+        return {vull::vk::Format::Bc1RgbaSrgbBlock, uint32_t(8), true};
     case vull::PackImageFormat::Bc3Srgb:
-        return {vull::vk::Format::Bc3SrgbBlock, uint32_t(16)};
+        return {vull::vk::Format::Bc3SrgbBlock, uint32_t(16), true};
+    case vull::PackImageFormat::Bc5Unorm:
+        return {vull::vk::Format::Bc5UnormBlock, uint32_t(16), true};
+    case vull::PackImageFormat::RgUnorm:
+        return {vull::vk::Format::R8G8Unorm, uint32_t(2), false};
     case vull::PackImageFormat::RgbaUnorm:
-        return {vull::vk::Format::R8G8B8A8Unorm, uint32_t(64)};
+        return {vull::vk::Format::R8G8B8A8Unorm, uint32_t(4), false};
     default:
         VULL_ENSURE_NOT_REACHED();
     }
@@ -76,7 +81,7 @@ void load_image(vull::VkContext &context, vull::PackReader &pack_reader, vull::C
                 vull::Queue &queue, vull::Vector<vull::vk::Image> &images,
                 vull::Vector<vull::vk::ImageView> &image_views, vull::vk::Buffer staging_buffer, void *staging_data,
                 vull::vk::DeviceMemory memory, vull::vk::DeviceSize &memory_offset) {
-    const auto [format, block_size] = vk_format(vull::PackImageFormat(pack_reader.read_byte()));
+    const auto [format, unit_size, block_compressed] = vk_format(vull::PackImageFormat(pack_reader.read_byte()));
     const auto width = pack_reader.read_varint();
     const auto height = pack_reader.read_varint();
     const auto mip_count = pack_reader.read_varint();
@@ -142,7 +147,8 @@ void load_image(vull::VkContext &context, vull::PackReader &pack_reader, vull::C
     uint32_t mip_width = width;
     uint32_t mip_height = height;
     for (uint32_t i = 0; i < mip_count; i++) {
-        const uint32_t mip_size = ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * block_size;
+        const uint32_t mip_size = block_compressed ? ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * unit_size
+                                                   : mip_width * mip_height * unit_size;
         VULL_ENSURE(mip_size <= k_staging_buffer_size);
         pack_reader.read({staging_data, mip_size});
 
