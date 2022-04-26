@@ -28,6 +28,7 @@ public:
         return begin()[index];
     }
 
+    constexpr bool empty() const { return m_size == 0; }
     constexpr T *data() const { return m_data; }
     constexpr SizeType size() const { return m_size; }
     constexpr SizeType size_bytes() const { return m_size * sizeof(T); }
