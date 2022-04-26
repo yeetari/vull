@@ -1,6 +1,8 @@
 #include <vull/vulkan/CommandBuffer.hh>
 
+#include <vull/support/Assert.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Utility.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -8,11 +10,51 @@ namespace vull {
 
 CommandBuffer::CommandBuffer(const VkContext &context, vk::CommandBuffer cmd_buf)
     : m_context(context), m_cmd_buf(cmd_buf) {
+    vk::SemaphoreTypeCreateInfo timeline_ci{
+        .sType = vk::StructureType::SemaphoreTypeCreateInfo,
+        .semaphoreType = vk::SemaphoreType::Timeline,
+        .initialValue = m_completion_value++,
+    };
+    vk::SemaphoreCreateInfo semaphore_ci{
+        .sType = vk::StructureType::SemaphoreCreateInfo,
+        .pNext = &timeline_ci,
+    };
+    VULL_ENSURE(m_context.vkCreateSemaphore(&semaphore_ci, &m_completion_semaphore) == vk::Result::Success);
+
     vk::CommandBufferBeginInfo cmd_buf_bi{
         .sType = vk::StructureType::CommandBufferBeginInfo,
         .flags = vk::CommandBufferUsage::OneTimeSubmit,
     };
     context.vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
+}
+
+CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context), m_cmd_buf(other.m_cmd_buf) {
+    m_completion_semaphore = exchange(other.m_completion_semaphore, nullptr);
+    m_completion_value = exchange(other.m_completion_value, 0u);
+}
+
+CommandBuffer::~CommandBuffer() {
+    [[maybe_unused]] uint64_t value;
+    VULL_ASSERT(m_context.vkGetSemaphoreCounterValue(m_completion_semaphore, &value) == vk::Result::Success);
+    VULL_ASSERT(value == m_completion_value);
+    m_context.vkDestroySemaphore(m_completion_semaphore);
+}
+
+void CommandBuffer::reset() {
+    // Reset the semaphore to an uncompleted state and the command buffer back to a fresh recording state. Since the
+    // command pool was created with the RESET_COMMAND_BUFFER flag, the reset is implicitly performed by
+    // vkBeginCommandBuffer.
+    vk::SemaphoreSignalInfo signal_info{
+        .sType = vk::StructureType::SemaphoreSignalInfo,
+        .semaphore = m_completion_semaphore,
+        .value = (++m_completion_value)++,
+    };
+    VULL_ENSURE(m_context.vkSignalSemaphore(&signal_info) == vk::Result::Success);
+    vk::CommandBufferBeginInfo cmd_buf_bi{
+        .sType = vk::StructureType::CommandBufferBeginInfo,
+        .flags = vk::CommandBufferUsage::OneTimeSubmit,
+    };
+    m_context.vkBeginCommandBuffer(m_cmd_buf, &cmd_buf_bi);
 }
 
 void CommandBuffer::begin_rendering(const vk::RenderingInfo &rendering_info) const {

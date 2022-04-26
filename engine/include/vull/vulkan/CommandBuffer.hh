@@ -7,14 +7,28 @@
 
 namespace vull {
 
+class CommandPool;
 class VkContext;
 
 class CommandBuffer {
+    friend CommandPool;
+
+private:
     const VkContext &m_context;
     const vk::CommandBuffer m_cmd_buf;
+    vk::Semaphore m_completion_semaphore;
+    uint64_t m_completion_value{0};
+
+    void reset();
 
 public:
     CommandBuffer(const VkContext &context, vk::CommandBuffer cmd_buf);
+    CommandBuffer(const CommandBuffer &) = delete;
+    CommandBuffer(CommandBuffer &&);
+    ~CommandBuffer();
+
+    CommandBuffer &operator=(const CommandBuffer &) = delete;
+    CommandBuffer &operator=(CommandBuffer &&) = delete;
 
     void begin_rendering(const vk::RenderingInfo &rendering_info) const;
     void end_rendering() const;
@@ -41,6 +55,8 @@ public:
     void write_timestamp(vk::PipelineStage stage, vk::QueryPool query_pool, uint32_t query) const;
 
     vk::CommandBuffer operator*() const { return m_cmd_buf; }
+    vk::Semaphore completion_semaphore() const { return m_completion_semaphore; }
+    uint64_t completion_value() const { return m_completion_value; }
 };
 
 } // namespace vull

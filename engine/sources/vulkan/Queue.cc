@@ -2,6 +2,7 @@
 
 #include <vull/support/Function.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
@@ -14,8 +15,7 @@ Queue::Queue(const VkContext &context, uint32_t queue_family_index) : m_context(
 }
 
 void Queue::immediate_submit(CommandPool &cmd_pool, Function<void(const CommandBuffer &)> callback) {
-    cmd_pool.begin(vull::vk::CommandPoolResetFlags::None);
-    auto cmd_buf = cmd_pool.request_cmd_buf();
+    const auto &cmd_buf = cmd_pool.request_cmd_buf();
     callback(cmd_buf);
     submit(cmd_buf, nullptr, {}, {});
     wait_idle();
@@ -24,6 +24,16 @@ void Queue::immediate_submit(CommandPool &cmd_pool, Function<void(const CommandB
 void Queue::submit(const CommandBuffer &cmd_buf, vk::Fence signal_fence,
                    Span<vk::SemaphoreSubmitInfo> signal_semaphores, Span<vk::SemaphoreSubmitInfo> wait_semaphores) {
     m_context.vkEndCommandBuffer(*cmd_buf);
+
+    // TODO(small-vector)
+    Vector<vk::SemaphoreSubmitInfo> signal_sems;
+    signal_sems.ensure_capacity(signal_semaphores.size() + 1);
+    signal_sems.extend(signal_semaphores);
+    signal_sems.push({
+        .sType = vk::StructureType::SemaphoreSubmitInfo,
+        .semaphore = cmd_buf.completion_semaphore(),
+        .value = cmd_buf.completion_value(),
+    });
 
     vk::CommandBufferSubmitInfo cmd_buf_si{
         .sType = vk::StructureType::CommandBufferSubmitInfo,
@@ -35,8 +45,8 @@ void Queue::submit(const CommandBuffer &cmd_buf, vk::Fence signal_fence,
         .pWaitSemaphoreInfos = wait_semaphores.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmd_buf_si,
-        .signalSemaphoreInfoCount = signal_semaphores.size(),
-        .pSignalSemaphoreInfos = signal_semaphores.data(),
+        .signalSemaphoreInfoCount = signal_sems.size(),
+        .pSignalSemaphoreInfos = signal_sems.data(),
     };
     m_context.vkQueueSubmit2(m_queue, 1, &submit_info, signal_fence);
 }

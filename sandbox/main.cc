@@ -812,8 +812,7 @@ void main_task(Scheduler &scheduler) {
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         Timer record_timer;
-        command_pool.begin(vk::CommandPoolResetFlags::None);
-        auto cmd_buf = command_pool.request_cmd_buf();
+        const auto &cmd_buf = command_pool.request_cmd_buf();
         cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, pipeline_layout, {&descriptor_set, 1});
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});

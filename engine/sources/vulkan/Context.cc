@@ -121,6 +121,7 @@ VkContext::VkContext() : ContextTable{} {
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
         .scalarBlockLayout = true,
+        .timelineSemaphore = true,
     };
     vk::PhysicalDeviceVulkan13Features device_13_features{
         .sType = vk::StructureType::PhysicalDeviceVulkan13Features,
