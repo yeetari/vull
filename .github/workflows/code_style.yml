@@ -16,10 +16,11 @@ jobs:
           clang-format-13
           git
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Run clang-format
         shell: bash
         run: |
+          git config --global --add safe.directory /__w/vull/vull
           find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-13 -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
@@ -63,7 +64,7 @@ jobs:
           cmake -B/opt/include-what-you-use/build /opt/include-what-you-use
           cmake --build /opt/include-what-you-use/build --target install
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Configure CMake
         run: cmake . -Bbuild
       - name: Run include-what-you-use

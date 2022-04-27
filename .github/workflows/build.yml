@@ -40,7 +40,7 @@ jobs:
           ninja-build
           shaderc
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Configure CMake
         run: >-
           cmake .
