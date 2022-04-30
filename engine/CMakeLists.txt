@@ -29,6 +29,7 @@ if(VULL_BUILD_TESTS)
     target_link_libraries(vull-tests PRIVATE vull)
 endif()
 
+# TODO: Use cmake presets for this.
 if(VULL_BUILD_WARNINGS)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         target_compile_options(vull PUBLIC
