@@ -159,6 +159,7 @@ void main_task(Scheduler &scheduler) {
     auto *light_cull_shader = load_shader(context, "engine/shaders/light_cull.comp.spv");
     auto *main_vertex_shader = load_shader(context, "engine/shaders/main.vert.spv");
     auto *main_fragment_shader = load_shader(context, "engine/shaders/main.frag.spv");
+    auto *shadow_shader = load_shader(context, "engine/shaders/shadow.vert.spv");
     auto *ui_vertex_shader = load_shader(context, "engine/shaders/ui.vert.spv");
     auto *ui_fragment_shader = load_shader(context, "engine/shaders/ui.frag.spv");
     vk::PipelineShaderStageCreateInfo depth_pass_shader_stage_ci{
@@ -189,6 +190,13 @@ void main_task(Scheduler &scheduler) {
             .pSpecializationInfo = &specialisation_info,
         },
     };
+    vk::PipelineShaderStageCreateInfo shadow_shader_stage_ci{
+        .sType = vk::StructureType::PipelineShaderStageCreateInfo,
+        .stage = vk::ShaderStage::Vertex,
+        .module = shadow_shader,
+        .pName = "main",
+        .pSpecializationInfo = &specialisation_info,
+    };
 
     Array set_bindings{
         vk::DescriptorSetLayoutBinding{
@@ -217,7 +225,7 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 4,
-            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStage::Fragment,
         },
@@ -229,6 +237,12 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 6,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 7,
             .descriptorType = vk::DescriptorType::SampledImage,
             .descriptorCount = texture_image_views.size(),
             .stageFlags = vk::ShaderStage::Fragment,
@@ -310,11 +324,37 @@ void main_task(Scheduler &scheduler) {
         .pScissors = &scissor,
     };
 
+    vk::Rect2D shadow_scissor{
+        .extent = {2048, 2048},
+    };
+    vk::Viewport shadow_viewport{
+        .width = 2048.0f,
+        .height = 2048.0f,
+        .maxDepth = 1.0f,
+    };
+    vk::PipelineViewportStateCreateInfo shadow_pass_viewport_state{
+        .sType = vk::StructureType::PipelineViewportStateCreateInfo,
+        .viewportCount = 1,
+        .pViewports = &shadow_viewport,
+        .scissorCount = 1,
+        .pScissors = &shadow_scissor,
+    };
+
     vk::PipelineRasterizationStateCreateInfo rasterisation_state{
         .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
         .polygonMode = vk::PolygonMode::Fill,
         .cullMode = vk::CullMode::Back,
         .frontFace = vk::FrontFace::CounterClockwise,
+        .lineWidth = 1.0f,
+    };
+    vk::PipelineRasterizationStateCreateInfo shadow_pass_rasterisation_state{
+        .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
+        .polygonMode = vk::PolygonMode::Fill,
+        .cullMode = vk::CullMode::Back,
+        .frontFace = vk::FrontFace::CounterClockwise,
+        .depthBiasEnable = true,
+        .depthBiasConstantFactor = 1.25f,
+        .depthBiasSlopeFactor = 1.75f,
         .lineWidth = 1.0f,
     };
 
@@ -329,6 +369,12 @@ void main_task(Scheduler &scheduler) {
         .depthTestEnable = true,
         .depthWriteEnable = true,
         .depthCompareOp = vk::CompareOp::GreaterOrEqual,
+    };
+    vk::PipelineDepthStencilStateCreateInfo shadow_pass_depth_stencil_state{
+        .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
+        .depthTestEnable = true,
+        .depthWriteEnable = true,
+        .depthCompareOp = vk::CompareOp::LessOrEqual,
     };
     vk::PipelineDepthStencilStateCreateInfo main_pass_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
@@ -351,7 +397,6 @@ void main_task(Scheduler &scheduler) {
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
-
     vk::GraphicsPipelineCreateInfo depth_pass_pipeline_ci{
         .sType = vk::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &depth_pass_rendering_create_info,
@@ -378,6 +423,28 @@ void main_task(Scheduler &scheduler) {
     VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
                 vk::Result::Success);
 
+    vk::PipelineRenderingCreateInfo shadow_pass_rendering_create_info{
+        .sType = vk::StructureType::PipelineRenderingCreateInfo,
+        .depthAttachmentFormat = vk::Format::D32Sfloat,
+        .stencilAttachmentFormat = vk::Format::D32Sfloat,
+    };
+    vk::GraphicsPipelineCreateInfo shadow_pass_pipeline_ci{
+        .sType = vk::StructureType::GraphicsPipelineCreateInfo,
+        .pNext = &shadow_pass_rendering_create_info,
+        .stageCount = 1,
+        .pStages = &shadow_shader_stage_ci,
+        .pVertexInputState = &vertex_input_state,
+        .pInputAssemblyState = &input_assembly_state,
+        .pViewportState = &shadow_pass_viewport_state,
+        .pRasterizationState = &shadow_pass_rasterisation_state,
+        .pMultisampleState = &multisample_state,
+        .pDepthStencilState = &shadow_pass_depth_stencil_state,
+        .layout = pipeline_layout,
+    };
+    vk::Pipeline shadow_pass_pipeline;
+    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &shadow_pass_pipeline_ci, &shadow_pass_pipeline) ==
+                vk::Result::Success);
+
     const auto colour_format = vk::Format::B8G8R8A8Srgb;
     vk::PipelineRenderingCreateInfo main_pass_rendering_create_info{
         .sType = vk::StructureType::PipelineRenderingCreateInfo,
@@ -386,7 +453,6 @@ void main_task(Scheduler &scheduler) {
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
-
     vk::GraphicsPipelineCreateInfo main_pass_pipeline_ci{
         .sType = vk::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &main_pass_rendering_create_info,
@@ -440,6 +506,41 @@ void main_task(Scheduler &scheduler) {
     vk::ImageView depth_image_view;
     VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == vk::Result::Success);
 
+    vk::ImageCreateInfo shadow_map_ci{
+        .sType = vk::StructureType::ImageCreateInfo,
+        .imageType = vk::ImageType::_2D,
+        .format = vk::Format::D32Sfloat,
+        .extent = {2048, 2048, 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCount::_1,
+        .tiling = vk::ImageTiling::Optimal,
+        .usage = vk::ImageUsage::DepthStencilAttachment | vk::ImageUsage::Sampled,
+        .sharingMode = vk::SharingMode::Exclusive,
+        .initialLayout = vk::ImageLayout::Undefined,
+    };
+    vk::Image shadow_map;
+    VULL_ENSURE(context.vkCreateImage(&shadow_map_ci, &shadow_map) == vk::Result::Success);
+
+    vk::MemoryRequirements shadow_map_requirements{};
+    context.vkGetImageMemoryRequirements(shadow_map, &shadow_map_requirements);
+    vk::DeviceMemory shadow_map_memory = context.allocate_memory(shadow_map_requirements, MemoryType::DeviceLocal);
+    VULL_ENSURE(context.vkBindImageMemory(shadow_map, shadow_map_memory, 0) == vk::Result::Success);
+
+    vk::ImageViewCreateInfo shadow_map_view_ci{
+        .sType = vk::StructureType::ImageViewCreateInfo,
+        .image = shadow_map,
+        .viewType = vk::ImageViewType::_2D,
+        .format = shadow_map_ci.format,
+        .subresourceRange{
+            .aspectMask = vk::ImageAspect::Depth,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    vk::ImageView shadow_map_view;
+    VULL_ENSURE(context.vkCreateImageView(&shadow_map_view_ci, &shadow_map_view) == vk::Result::Success);
+
     vk::SamplerCreateInfo depth_sampler_ci{
         .sType = vk::StructureType::SamplerCreateInfo,
         .magFilter = vk::Filter::Nearest,
@@ -491,6 +592,7 @@ void main_task(Scheduler &scheduler) {
     struct UniformBuffer {
         Mat4f proj;
         Mat4f view;
+        Mat4f sun_matrix;
         Vec3f camera_position;
     };
     vk::BufferCreateInfo uniform_buffer_ci{
@@ -569,7 +671,7 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
+            .descriptorCount = 2,
         },
     };
     vk::DescriptorPoolCreateInfo descriptor_pool_ci{
@@ -605,6 +707,11 @@ void main_task(Scheduler &scheduler) {
     vk::DescriptorImageInfo depth_sampler_image_info{
         .sampler = depth_sampler,
         .imageView = depth_image_view,
+        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+    };
+    vk::DescriptorImageInfo shadow_map_image_info{
+        .sampler = depth_sampler,
+        .imageView = shadow_map_view,
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
     vk::DescriptorImageInfo albedo_sampler_info{
@@ -659,8 +766,8 @@ void main_task(Scheduler &scheduler) {
             .dstSet = descriptor_set,
             .dstBinding = 4,
             .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::Sampler,
-            .pImageInfo = &albedo_sampler_info,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .pImageInfo = &shadow_map_image_info,
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
@@ -668,12 +775,20 @@ void main_task(Scheduler &scheduler) {
             .dstBinding = 5,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::Sampler,
-            .pImageInfo = &normal_sampler_info,
+            .pImageInfo = &albedo_sampler_info,
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
             .dstSet = descriptor_set,
             .dstBinding = 6,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .pImageInfo = &normal_sampler_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = descriptor_set,
+            .dstBinding = 7,
             .descriptorCount = texture_image_infos.size(),
             .descriptorType = vk::DescriptorType::SampledImage,
             .pImageInfo = texture_image_infos.data(),
@@ -701,22 +816,25 @@ void main_task(Scheduler &scheduler) {
         return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX) / (max - min));
     };
 
-    Vector<PointLight> lights(500);
+    Vector<PointLight> lights(50);
     for (auto &light : lights) {
-        light.colour = {1.0f};
-        light.radius = rand_float(2.5f, 20.0f);
+        light.colour = {rand_float(0.1f, 1.0f), rand_float(0.1f, 1.0f), rand_float(0.1f, 1.0f)};
+        light.radius = rand_float(2.5f, 15.0f);
         light.position[0] = rand_float(-50.0f, 100.0f);
         light.position[1] = rand_float(2.0f, 30.0f);
         light.position[2] = rand_float(-70.0f, 50.0f);
     }
 
+    const auto sun_proj = vull::perspective(1.0f, 1.0f, 400.0f, 0.73f);
+    const auto sun_view = vull::look_at(Vec3f(30.0f, 35.0f, -32.0f), Vec3f(0.0f), Vec3f(0.0f, 1.0f, 0.0f));
     UniformBuffer ubo{
-        .proj = projection_matrix(window.aspect_ratio(), 0.1f, 1.03f),
-        .camera_position{0.0f, 0.0f, -200.0f},
+        .proj = vull::infinite_perspective(window.aspect_ratio(), 0.1f, 1.03f),
+        .sun_matrix = sun_proj * sun_view,
+        .camera_position{20.0f, 15.0f, -20.0f},
     };
 
-    float yaw = 2.15f;
-    float pitch = -0.84f;
+    float yaw = 2.4f;
+    float pitch = -0.3f;
 
     void *lights_data;
     void *ubo_data;
@@ -726,7 +844,7 @@ void main_task(Scheduler &scheduler) {
     vk::QueryPoolCreateInfo query_pool_ci{
         .sType = vk::StructureType::QueryPoolCreateInfo,
         .queryType = vk::QueryType::Timestamp,
-        .queryCount = 8,
+        .queryCount = 10,
     };
     vk::QueryPool query_pool;
     context.vkCreateQueryPool(&query_pool_ci, &query_pool);
@@ -756,7 +874,7 @@ void main_task(Scheduler &scheduler) {
         context.vkResetFences(1, &fence);
         cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
 
-        Array<uint64_t, 8> timestamp_data{};
+        Array<uint64_t, 10> timestamp_data{};
         context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
                                       timestamp_data.data(), sizeof(uint64_t), vk::QueryResultFlags::_64);
 
@@ -764,13 +882,16 @@ void main_task(Scheduler &scheduler) {
         gpu_frame_bar.sections.push({"Depth pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
                                                     device_properties.limits.timestampPeriod) /
                                                        1000000000.0f});
-        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
+        gpu_frame_bar.sections.push({"Shadow pass", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
+                                                     device_properties.limits.timestampPeriod) /
+                                                        1000000000.0f});
+        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
                                                     device_properties.limits.timestampPeriod) /
                                                        1000000000.0f});
-        gpu_frame_bar.sections.push({"Main pass", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
+        gpu_frame_bar.sections.push({"Main pass", (static_cast<float>((timestamp_data[7] - timestamp_data[6])) *
                                                    device_properties.limits.timestampPeriod) /
                                                       1000000000.0f});
-        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[7] - timestamp_data[6])) *
+        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[9] - timestamp_data[8])) *
                                             device_properties.limits.timestampPeriod) /
                                                1000000000.0f});
         gpu_time_graph.add_bar(move(gpu_frame_bar));
@@ -873,6 +994,47 @@ void main_task(Scheduler &scheduler) {
         render_meshes();
         cmd_buf.end_rendering();
 
+        vk::ImageMemoryBarrier shadow_map_write_barrier{
+            .sType = vk::StructureType::ImageMemoryBarrier,
+            .dstAccessMask = vk::Access::DepthStencilAttachmentWrite,
+            .oldLayout = vk::ImageLayout::Undefined,
+            .newLayout = vk::ImageLayout::DepthAttachmentOptimal,
+            .image = shadow_map,
+            .subresourceRange{
+                .aspectMask = vk::ImageAspect::Depth,
+                .levelCount = 1,
+                .layerCount = 1,
+            },
+        };
+        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe,
+                                 vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
+                                 {&shadow_map_write_barrier, 1});
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
+        vk::RenderingAttachmentInfo shadow_map_write_attachment{
+            .sType = vk::StructureType::RenderingAttachmentInfo,
+            .imageView = shadow_map_view,
+            .imageLayout = vk::ImageLayout::DepthAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::Clear,
+            .storeOp = vk::AttachmentStoreOp::Store,
+            .clearValue{
+                .depthStencil{1.0f, 0},
+            },
+        };
+        vk::RenderingInfo shadow_map_rendering_info{
+            .sType = vk::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = {2048, 2048},
+            },
+            .layerCount = 1,
+            .pDepthAttachment = &shadow_map_write_attachment,
+            .pStencilAttachment = &shadow_map_write_attachment,
+        };
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 2);
+        cmd_buf.begin_rendering(shadow_map_rendering_info);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, shadow_pass_pipeline);
+        render_meshes();
+        cmd_buf.end_rendering();
+
         vk::ImageMemoryBarrier depth_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
             .srcAccessMask = vk::Access::DepthStencilAttachmentWrite,
@@ -888,11 +1050,11 @@ void main_task(Scheduler &scheduler) {
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                  vk::PipelineStage::ComputeShader, {}, {&depth_sample_barrier, 1});
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 3);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, light_cull_pipeline);
         cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
-        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 2);
-        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 3);
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 4);
+        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 5);
 
         Array main_pass_buffer_barriers{
             vk::BufferMemoryBarrier{
@@ -938,11 +1100,26 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
+        vk::ImageMemoryBarrier shadow_map_sample_barrier{
+            .sType = vk::StructureType::ImageMemoryBarrier,
+            .srcAccessMask = vk::Access::DepthStencilAttachmentWrite,
+            .dstAccessMask = vk::Access::ShaderRead,
+            .oldLayout = vk::ImageLayout::DepthAttachmentOptimal,
+            .newLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+            .image = shadow_map,
+            .subresourceRange{
+                .aspectMask = vk::ImageAspect::Depth,
+                .levelCount = 1,
+                .layerCount = 1,
+            },
+        };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ColorAttachmentOutput, {},
                                  {&colour_write_barrier, 1});
         cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader,
                                  vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
                                  {&depth_read_barrier, 1});
+        cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
+                                 vk::PipelineStage::FragmentShader, {}, {&shadow_map_sample_barrier, 1});
 
         vk::RenderingAttachmentInfo colour_write_attachment{
             .sType = vk::StructureType::RenderingAttachmentInfo,
@@ -972,12 +1149,12 @@ void main_task(Scheduler &scheduler) {
             .pDepthAttachment = &depth_read_attachment,
             .pStencilAttachment = &depth_read_attachment,
         };
-        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 4);
+        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 6);
         cmd_buf.begin_rendering(main_pass_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, main_pass_pipeline);
         render_meshes();
         cmd_buf.end_rendering();
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 5);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
 
         vk::ImageMemoryBarrier ui_colour_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -995,9 +1172,9 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::ColorAttachmentOutput, {},
                                  {&ui_colour_write_barrier, 1});
 
-        cmd_buf.write_timestamp(vk::PipelineStage::ColorAttachmentOutput, query_pool, 6);
+        cmd_buf.write_timestamp(vk::PipelineStage::ColorAttachmentOutput, query_pool, 8);
         ui.render(cmd_buf, image_index);
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 9);
 
         vk::ImageMemoryBarrier colour_present_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1051,16 +1228,21 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(depth_sampler);
+    context.vkDestroyImageView(shadow_map_view);
+    context.vkFreeMemory(shadow_map_memory);
+    context.vkDestroyImage(shadow_map);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
     context.vkDestroyImage(depth_image);
     context.vkDestroyPipeline(main_pass_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
+    context.vkDestroyPipeline(shadow_pass_pipeline);
     context.vkDestroyPipeline(depth_pass_pipeline);
     context.vkDestroyPipelineLayout(pipeline_layout);
     context.vkDestroyDescriptorSetLayout(set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
+    context.vkDestroyShaderModule(shadow_shader);
     context.vkDestroyShaderModule(main_fragment_shader);
     context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);

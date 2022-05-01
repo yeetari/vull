@@ -8,6 +8,7 @@ layout (local_size_x_id = 0) in;
 layout (binding = 0) readonly uniform UniformBuffer {
     mat4 proj;
     mat4 view;
+    mat4 sun_matrix;
     vec3 camera_position;
 } g_ubo;
 layout (binding = 1, std430) readonly buffer Lights {

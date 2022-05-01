@@ -63,16 +63,28 @@ Mat<T, 4, 4> look_at(const Vec<T, 3> &camera, const Vec<T, 3> &center, const Vec
     return ret;
 }
 
-// Infinite reversed depth.
+// Infinite, reversed depth perspective projection.
 // TODO: Take in horizontal_fov?
 template <typename T>
-Mat<T, 4, 4> projection_matrix(T aspect_ratio, T near_plane, T vertical_fov) {
+Mat<T, 4, 4> infinite_perspective(T aspect_ratio, T near_plane, T vertical_fov) {
     const T tan_half_fov = vull::tan(vertical_fov / T(2));
     Mat<T, 4, 4> ret(T(0));
     ret[0][0] = T(1) / (aspect_ratio * tan_half_fov);
     ret[1][1] = T(-1) / tan_half_fov;
     ret[2][3] = T(-1);
     ret[3][2] = near_plane;
+    return ret;
+}
+
+template <typename T>
+Mat<T, 4, 4> perspective(T aspect_ratio, T near_plane, T far_plane, T vertical_fov) {
+    const T tan_half_fov = vull::tan(vertical_fov / T(2));
+    Mat<T, 4, 4> ret(T(0));
+    ret[0][0] = T(1) / (aspect_ratio * tan_half_fov);
+    ret[1][1] = T(-1) / tan_half_fov;
+    ret[2][2] = far_plane / (near_plane - far_plane);
+    ret[2][3] = T(-1);
+    ret[3][2] = -(far_plane * near_plane) / (far_plane - near_plane);
     return ret;
 }
 
