@@ -61,6 +61,59 @@ Vec<T, C> operator*(const Mat<T, C, C> &lhs, const Vec<T, C> &rhs) {
 }
 
 template <typename T>
+Mat<T, 4, 4> inverse(const Mat<T, 4, 4> &mat) {
+    T coef00 = mat[2][2] * mat[3][3] - mat[3][2] * mat[2][3];
+    T coef02 = mat[1][2] * mat[3][3] - mat[3][2] * mat[1][3];
+    T coef03 = mat[1][2] * mat[2][3] - mat[2][2] * mat[1][3];
+
+    T coef04 = mat[2][1] * mat[3][3] - mat[3][1] * mat[2][3];
+    T coef06 = mat[1][1] * mat[3][3] - mat[3][1] * mat[1][3];
+    T coef07 = mat[1][1] * mat[2][3] - mat[2][1] * mat[1][3];
+
+    T coef08 = mat[2][1] * mat[3][2] - mat[3][1] * mat[2][2];
+    T coef10 = mat[1][1] * mat[3][2] - mat[3][1] * mat[1][2];
+    T coef11 = mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2];
+
+    T coef12 = mat[2][0] * mat[3][3] - mat[3][0] * mat[2][3];
+    T coef14 = mat[1][0] * mat[3][3] - mat[3][0] * mat[1][3];
+    T coef15 = mat[1][0] * mat[2][3] - mat[2][0] * mat[1][3];
+
+    T coef16 = mat[2][0] * mat[3][2] - mat[3][0] * mat[2][2];
+    T coef18 = mat[1][0] * mat[3][2] - mat[3][0] * mat[1][2];
+    T coef19 = mat[1][0] * mat[2][2] - mat[2][0] * mat[1][2];
+
+    T coef20 = mat[2][0] * mat[3][1] - mat[3][0] * mat[2][1];
+    T coef22 = mat[1][0] * mat[3][1] - mat[3][0] * mat[1][1];
+    T coef23 = mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1];
+
+    Vec<T, 4> fac0(coef00, coef00, coef02, coef03);
+    Vec<T, 4> fac1(coef04, coef04, coef06, coef07);
+    Vec<T, 4> fac2(coef08, coef08, coef10, coef11);
+    Vec<T, 4> fac3(coef12, coef12, coef14, coef15);
+    Vec<T, 4> fac4(coef16, coef16, coef18, coef19);
+    Vec<T, 4> fac5(coef20, coef20, coef22, coef23);
+
+    Vec<T, 4> vec0(mat[1][0], mat[0][0], mat[0][0], mat[0][0]);
+    Vec<T, 4> vec1(mat[1][1], mat[0][1], mat[0][1], mat[0][1]);
+    Vec<T, 4> vec2(mat[1][2], mat[0][2], mat[0][2], mat[0][2]);
+    Vec<T, 4> vec3(mat[1][3], mat[0][3], mat[0][3], mat[0][3]);
+
+    Vec<T, 4> inv0(vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
+    Vec<T, 4> inv1(vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
+    Vec<T, 4> inv2(vec0 * fac1 - vec1 * fac3 + vec3 * fac5);
+    Vec<T, 4> inv3(vec0 * fac2 - vec1 * fac4 + vec2 * fac5);
+
+    Vec<T, 4> signA(+1, -1, +1, -1);
+    Vec<T, 4> signB(-1, +1, -1, +1);
+    Mat<T, 4, 4> inverse({inv0 * signA, inv1 * signB, inv2 * signA, inv3 * signB});
+
+    Vec<T, 4> row0(inverse[0][0], inverse[1][0], inverse[2][0], inverse[3][0]);
+    Vec<T, 4> dot0(mat[0] * row0);
+    T dot1 = (dot0.x() + dot0.y()) + (dot0.z() + dot0.w());
+    return inverse * (T(1) / dot1);
+}
+
+template <typename T>
 Mat<T, 4, 4> look_at(const Vec<T, 3> &camera, const Vec<T, 3> &center, const Vec<T, 3> &up) {
     const auto f = normalise(center - camera);
     const auto s = normalise(cross(f, up));
@@ -91,6 +144,18 @@ Mat<T, 4, 4> infinite_perspective(T aspect_ratio, T near_plane, T vertical_fov) 
     ret[1][1] = T(-1) / tan_half_fov;
     ret[2][3] = T(-1);
     ret[3][2] = near_plane;
+    return ret;
+}
+
+template <typename T>
+Mat<T, 4, 4> ortho(T left, T right, T bottom, T top, T near, T far) {
+    Mat<T, 4, 4> ret(T(1));
+    ret[0][0] = T(2) / (right - left);
+    ret[1][1] = T(-2) / (top - bottom);
+    ret[2][2] = T(-1) / (far - near);
+    ret[3][0] = -(right + left) / (right - left);
+    ret[3][1] = -(top + bottom) / (top - bottom);
+    ret[3][2] = -near / (far - near);
     return ret;
 }
 
