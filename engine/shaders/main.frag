@@ -68,7 +68,7 @@ const mat4 k_shadow_bias = mat4(
     0.5f, 0.5f, 0.0f, 1.0f
 );
 
-uint calc_cascade_index(vec4 world_position) {
+uint choose_cascade(vec4 world_position) {
     vec4 view_position = g_ubo.view * world_position;
     for (uint i = 0; i < 4; i++) {
         if (abs(view_position.z) < g_ubo.sun_cascade_split_depths[i]) {
@@ -79,12 +79,11 @@ uint calc_cascade_index(vec4 world_position) {
 }
 
 float shadow_factor(vec4 world_position, sampler2DArray shadow_map) {
-    uint cascade_index = calc_cascade_index(world_position);
+    uint cascade_index = choose_cascade(world_position);
     vec4 projected = k_shadow_bias * g_ubo.sun_matrices[cascade_index] * world_position;
-    projected /= projected.w;
 
     float shadow = 0.0f;
-    vec2 texel_size = 1.0f / vec2(textureSize(shadow_map, 0));
+    float texel_size = 1.0f / textureSize(shadow_map, 0).x;
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
             float closest_depth = texture(shadow_map, vec3(projected.xy + vec2(x, y) * texel_size, cascade_index)).r;

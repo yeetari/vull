@@ -910,8 +910,16 @@ void main_task(Scheduler &scheduler) {
             // TODO: direction duplicated in shader.
             constexpr Vec3f direction(0.6f, 0.6f, -0.6f);
             constexpr Vec3f up(0.0f, 1.0f, 0.0f);
-            const auto proj = vull::ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
-            const auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up);
+            auto proj = vull::ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
+            auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up);
+
+            // Apply a small correction factor to the projection matrix to snap texels and avoid shimmering around the
+            // edges of shadows.
+            Vec4f origin = (proj * view * Vec4f(0.0f, 0.0f, 0.0f, 1.0f)) * (shadow_resolution / 2.0f);
+            Vec2f rounded_origin(roundf(origin.x()), roundf(origin.y()));
+            Vec2f round_offset = (rounded_origin - origin) * (2.0f / shadow_resolution);
+            proj[3] += Vec4f(round_offset, 0.0f, 0.0f);
+
             ubo.sun_matrices[i] = proj * view;
             ubo.sun_cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
             last_split_distance = split_distances[i];
