@@ -31,6 +31,15 @@ constexpr Mat<T, C, R>::Mat(T t) : m_cols{} {
     }
 }
 
+template <typename T, unsigned C, unsigned R>
+Mat<T, C, R> operator*(const Mat<T, C, R> &lhs, T rhs) {
+    Mat<T, C, R> ret;
+    for (unsigned i = 0; i < C; i++) {
+        ret[i] = lhs[i] * rhs;
+    }
+    return ret;
+}
+
 template <typename T, unsigned C, unsigned R, unsigned RhsC>
 Mat<T, RhsC, R> operator*(const Mat<T, C, R> &lhs, const Mat<T, RhsC, C> &rhs) {
     Mat<T, RhsC, R> ret;
@@ -38,6 +47,15 @@ Mat<T, RhsC, R> operator*(const Mat<T, C, R> &lhs, const Mat<T, RhsC, C> &rhs) {
         for (unsigned i = 0; i < C; i++) {
             ret[col] += lhs[i] * rhs[col][i];
         }
+    }
+    return ret;
+}
+
+template <typename T, unsigned C>
+Vec<T, C> operator*(const Mat<T, C, C> &lhs, const Vec<T, C> &rhs) {
+    Vec<T, C> ret;
+    for (unsigned i = 0; i < C; i++) {
+        ret += lhs[i] * rhs[i];
     }
     return ret;
 }
