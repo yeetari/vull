@@ -1,3 +1,4 @@
+#include "Camera.hh"
 #include "SceneLoader.hh"
 
 #include <vull/core/Material.hh>
@@ -847,10 +848,14 @@ void main_task(Scheduler &scheduler) {
         light.position[2] = rand_float(-70.0f, 50.0f);
     }
 
+    Camera camera;
+    camera.set_position({20.0f, 15.0f, -20.0f});
+    camera.set_pitch(-0.3f);
+    camera.set_yaw(2.4f);
+
     const float near_plane = 0.1f;
     UniformBuffer ubo{
         .proj = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, near_plane),
-        .camera_position{20.0f, 15.0f, -20.0f},
     };
 
     auto update_cascades = [&] {
@@ -906,15 +911,12 @@ void main_task(Scheduler &scheduler) {
             constexpr Vec3f direction(0.6f, 0.6f, -0.6f);
             constexpr Vec3f up(0.0f, 1.0f, 0.0f);
             const auto proj = vull::ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
-            const auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up); // TODO: * radius?
+            const auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up);
             ubo.sun_matrices[i] = proj * view;
             ubo.sun_cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
             last_split_distance = split_distances[i];
         }
     };
-
-    float yaw = 2.4f;
-    float pitch = -0.3f;
 
     void *lights_data;
     void *ubo_data;
@@ -984,29 +986,9 @@ void main_task(Scheduler &scheduler) {
                      vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
                                   ubo.camera_position.z()));
 
-        yaw += window.delta_x() * dt * 0.5f;
-        pitch -= window.delta_y() * dt * 0.5f;
-
-        constexpr Vec3f up(0.0f, 1.0f, 0.0f);
-        Vec3f forward(cos(yaw) * cos(pitch), sin(pitch), sin(yaw) * cos(pitch));
-        forward = normalise(forward);
-        auto right = normalise(cross(forward, up));
-
-        const float speed = (window.is_key_down(Key::Shift) ? 150.0f : 15.0f) * dt;
-        if (window.is_key_down(Key::W)) {
-            ubo.camera_position += forward * speed;
-        }
-        if (window.is_key_down(Key::S)) {
-            ubo.camera_position -= forward * speed;
-        }
-        if (window.is_key_down(Key::A)) {
-            ubo.camera_position -= right * speed;
-        }
-        if (window.is_key_down(Key::D)) {
-            ubo.camera_position += right * speed;
-        }
-        ubo.view = look_at(ubo.camera_position, ubo.camera_position + forward, up);
-
+        camera.update(window, dt);
+        ubo.camera_position = camera.position();
+        ubo.view = camera.view_matrix();
         update_cascades();
 
         uint32_t light_count = lights.size();
