@@ -20,7 +20,7 @@ jobs:
       - name: Run clang-format
         shell: bash
         run: |
-          git config --global --add safe.directory /__w/vull/vull
+          git config --global --add safe.directory $(pwd)
           find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-13 -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
@@ -43,10 +43,10 @@ jobs:
       - name: Install tools and dependencies
         run: >-
           apt install -y
-          clang
+          clang-13
           cmake
           git
-          libclang-dev
+          iwyu
           libfreetype-dev
           libharfbuzz-dev
           libx11-dev
@@ -54,19 +54,12 @@ jobs:
           libxcb-util-dev
           libxcb-xkb-dev
           libzstd-dev
-          llvm-dev
           parallel
           shaderc
-      - name: Build IWYU
-        run: |
-          cd /opt
-          git clone --branch 0.18 https://github.com/include-what-you-use/include-what-you-use.git
-          cmake -B/opt/include-what-you-use/build /opt/include-what-you-use
-          cmake --build /opt/include-what-you-use/build --target install
       - name: Checkout
         uses: actions/checkout@v3
       - name: Configure CMake
-        run: cmake . -Bbuild
+        run: CXX=clang++-13 cmake . -Bbuild
       - name: Run include-what-you-use
         run: |
           find engine/sources sandbox \
