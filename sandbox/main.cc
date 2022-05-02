@@ -357,8 +357,8 @@ void main_task(Scheduler &scheduler) {
         .cullMode = vk::CullMode::Back,
         .frontFace = vk::FrontFace::CounterClockwise,
         .depthBiasEnable = true,
-        .depthBiasConstantFactor = 1.25f,
-        .depthBiasSlopeFactor = 1.75f,
+        .depthBiasConstantFactor = 2.0f,
+        .depthBiasSlopeFactor = 5.0f,
         .lineWidth = 1.0f,
     };
 
