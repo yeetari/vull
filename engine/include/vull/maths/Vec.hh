@@ -54,6 +54,11 @@ public:
     DEFINE_OP(<<, <<=)
     DEFINE_OP(>>, >>=)
 
+    void set_x(T x) requires(L >= 1) { m_elems[0] = x; }
+    void set_y(T y) requires(L >= 2) { m_elems[1] = y; }
+    void set_z(T z) requires(L >= 3) { m_elems[2] = z; }
+    void set_w(T w) requires(L >= 4) { m_elems[3] = w; }
+
     constexpr T &operator[](unsigned elem) { return m_elems[elem]; }
     constexpr T operator[](unsigned elem) const { return m_elems[elem]; }
     constexpr T x() const requires(L >= 1) { return m_elems[0]; }
