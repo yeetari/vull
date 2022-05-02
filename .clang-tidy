@@ -69,7 +69,6 @@ Checks: >
   google-default-arguments,
   google-global-names-in-headers,
   google-readability-avoid-underscore-in-googletest-name,
-  google-readability-casting,
   google-runtime-operator,
   google-upgrade-googletest-case,
   hicpp-multiway-paths-covered,
