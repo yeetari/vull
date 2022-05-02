@@ -7,7 +7,7 @@ layout (location = 2) in vec2 g_uv;
 layout (binding = 0) uniform UniformBuffer {
     mat4 proj;
     mat4 view;
-    mat4 sun_matrix;
+    mat4 sun_matrices[4];
     vec3 camera_position;
 } g_ubo;
 

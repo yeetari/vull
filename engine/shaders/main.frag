@@ -2,6 +2,7 @@
 #include "common.glsl"
 
 #extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_scalar_block_layout : enable
 
 layout (early_fragment_tests) in;
 layout (location = 0) in FragmentData {
@@ -10,11 +11,12 @@ layout (location = 0) in FragmentData {
     vec2 uv;
 } g_fragment;
 
-layout (binding = 0) readonly uniform UniformBuffer {
+layout (binding = 0, std430) readonly uniform UniformBuffer {
     mat4 proj;
     mat4 view;
-    mat4 sun_matrix;
+    mat4 sun_matrices[4];
     vec3 camera_position;
+    float sun_cascade_split_depths[4];
 } g_ubo;
 layout (binding = 1, std430) readonly buffer Lights {
     uint g_light_count;
@@ -23,7 +25,7 @@ layout (binding = 1, std430) readonly buffer Lights {
 layout (binding = 2) readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (binding = 4) uniform sampler2D g_shadow_map;
+layout (binding = 4) uniform sampler2DArray g_shadow_map;
 layout (binding = 5) uniform sampler g_albedo_sampler;
 layout (binding = 6) uniform sampler g_normal_sampler;
 layout (binding = 7) uniform texture2D g_textures[];
@@ -66,10 +68,30 @@ const mat4 k_shadow_bias = mat4(
     0.5f, 0.5f, 0.0f, 1.0f
 );
 
-float shadow_factor(vec4 map_space, sampler2D shadow_map) {
-    vec4 projected = map_space / map_space.w;
-    float closest_depth = texture(shadow_map, projected.xy).r;
-    return closest_depth < projected.z ? 0.0f : 1.0f;
+uint calc_cascade_index(vec4 world_position) {
+    vec4 view_position = g_ubo.view * world_position;
+    for (uint i = 0; i < 4; i++) {
+        if (abs(view_position.z) < g_ubo.sun_cascade_split_depths[i]) {
+            return i;
+        }
+    }
+    return 3;
+}
+
+float shadow_factor(vec4 world_position, sampler2DArray shadow_map) {
+    uint cascade_index = calc_cascade_index(world_position);
+    vec4 projected = k_shadow_bias * g_ubo.sun_matrices[cascade_index] * world_position;
+    projected /= projected.w;
+
+    float shadow = 0.0f;
+    vec2 texel_size = 1.0f / vec2(textureSize(shadow_map, 0));
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            float closest_depth = texture(shadow_map, vec3(projected.xy + vec2(x, y) * texel_size, cascade_index)).r;
+            shadow += closest_depth < projected.z ? 0.0f : 1.0f;
+        }
+    }
+    return shadow / 9.0f;
 }
 
 void main() {
@@ -83,7 +105,7 @@ void main() {
 
     // Sun.
     const vec3 sun_direction = vec3(0.6f, 0.6f, -0.6f);
-    float sun_shadow = shadow_factor(k_shadow_bias * g_ubo.sun_matrix * vec4(g_fragment.position, 1.0f), g_shadow_map);
+    float sun_shadow = shadow_factor(vec4(g_fragment.position, 1.0f), g_shadow_map);
     illuminance += calc_light(albedo, vec3(1.0f), sun_direction, normal, view, 1.0f) * sun_shadow;
 
     // Point lights.

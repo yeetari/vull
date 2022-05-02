@@ -31,6 +31,7 @@
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -260,6 +261,7 @@ void main_task(Scheduler &scheduler) {
         Mat4f transform;
         uint32_t albedo_index;
         uint32_t normal_index;
+        uint32_t cascade_index;
     };
     vk::PushConstantRange push_constant_range{
         .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
@@ -324,12 +326,13 @@ void main_task(Scheduler &scheduler) {
         .pScissors = &scissor,
     };
 
+    constexpr uint32_t shadow_resolution = 2048;
     vk::Rect2D shadow_scissor{
-        .extent = {2048, 2048},
+        .extent = {shadow_resolution, shadow_resolution},
     };
     vk::Viewport shadow_viewport{
-        .width = 2048.0f,
-        .height = 2048.0f,
+        .width = shadow_resolution,
+        .height = shadow_resolution,
         .maxDepth = 1.0f,
     };
     vk::PipelineViewportStateCreateInfo shadow_pass_viewport_state{
@@ -506,13 +509,14 @@ void main_task(Scheduler &scheduler) {
     vk::ImageView depth_image_view;
     VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == vk::Result::Success);
 
+    constexpr uint32_t shadow_cascade_count = 4;
     vk::ImageCreateInfo shadow_map_ci{
         .sType = vk::StructureType::ImageCreateInfo,
         .imageType = vk::ImageType::_2D,
         .format = vk::Format::D32Sfloat,
-        .extent = {2048, 2048, 1},
+        .extent = {shadow_resolution, shadow_resolution, 1},
         .mipLevels = 1,
-        .arrayLayers = 1,
+        .arrayLayers = shadow_cascade_count,
         .samples = vk::SampleCount::_1,
         .tiling = vk::ImageTiling::Optimal,
         .usage = vk::ImageUsage::DepthStencilAttachment | vk::ImageUsage::Sampled,
@@ -530,16 +534,33 @@ void main_task(Scheduler &scheduler) {
     vk::ImageViewCreateInfo shadow_map_view_ci{
         .sType = vk::StructureType::ImageViewCreateInfo,
         .image = shadow_map,
-        .viewType = vk::ImageViewType::_2D,
+        .viewType = vk::ImageViewType::_2DArray,
         .format = shadow_map_ci.format,
         .subresourceRange{
             .aspectMask = vk::ImageAspect::Depth,
             .levelCount = 1,
-            .layerCount = 1,
+            .layerCount = shadow_cascade_count,
         },
     };
     vk::ImageView shadow_map_view;
     VULL_ENSURE(context.vkCreateImageView(&shadow_map_view_ci, &shadow_map_view) == vk::Result::Success);
+
+    Vector<vk::ImageView> shadow_cascade_views(shadow_cascade_count);
+    for (uint32_t i = 0; i < shadow_cascade_count; i++) {
+        vk::ImageViewCreateInfo view_ci{
+            .sType = vk::StructureType::ImageViewCreateInfo,
+            .image = shadow_map,
+            .viewType = vk::ImageViewType::_2DArray,
+            .format = shadow_map_ci.format,
+            .subresourceRange{
+                .aspectMask = vk::ImageAspect::Depth,
+                .levelCount = 1,
+                .baseArrayLayer = i,
+                .layerCount = 1,
+            },
+        };
+        VULL_ENSURE(context.vkCreateImageView(&view_ci, &shadow_cascade_views[i]) == vk::Result::Success);
+    }
 
     vk::SamplerCreateInfo depth_sampler_ci{
         .sType = vk::StructureType::SamplerCreateInfo,
@@ -592,8 +613,9 @@ void main_task(Scheduler &scheduler) {
     struct UniformBuffer {
         Mat4f proj;
         Mat4f view;
-        Mat4f sun_matrix;
+        Array<Mat4f, 4> sun_matrices;
         Vec3f camera_position;
+        Vec4f sun_cascade_split_depths;
     };
     vk::BufferCreateInfo uniform_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
@@ -825,12 +847,70 @@ void main_task(Scheduler &scheduler) {
         light.position[2] = rand_float(-70.0f, 50.0f);
     }
 
-    const auto sun_proj = vull::perspective(1.0f, 1.0f, 400.0f, 0.73f);
-    const auto sun_view = vull::look_at(Vec3f(30.0f, 35.0f, -32.0f), Vec3f(0.0f), Vec3f(0.0f, 1.0f, 0.0f));
+    const float near_plane = 0.1f;
     UniformBuffer ubo{
-        .proj = vull::infinite_perspective(window.aspect_ratio(), 0.1f, 1.03f),
-        .sun_matrix = sun_proj * sun_view,
+        .proj = vull::infinite_perspective(window.aspect_ratio(), near_plane, 1.03f),
         .camera_position{20.0f, 15.0f, -20.0f},
+    };
+
+    auto update_cascades = [&] {
+        const float shadow_distance = 500.0f;
+        const float clip_range = shadow_distance - near_plane;
+        const float split_lambda = 0.95f;
+        Array<float, 4> split_distances;
+        for (uint32_t i = 0; i < shadow_cascade_count; i++) {
+            float p = static_cast<float>(i + 1) / static_cast<float>(shadow_cascade_count);
+            float log = near_plane * vull::pow((near_plane + clip_range) / near_plane, p);
+            float uniform = near_plane + clip_range * p;
+            float d = split_lambda * (log - uniform) + uniform;
+            split_distances[i] = (d - near_plane) / clip_range;
+        }
+
+        // Build cascade matrices.
+        const auto inv_camera =
+            vull::inverse(vull::perspective(window.aspect_ratio(), near_plane, shadow_distance, 1.03f) * ubo.view);
+        float last_split_distance = 0.0f;
+        for (uint32_t i = 0; i < shadow_cascade_count; i++) {
+            Array<Vec3f, 8> frustum_corners{
+                Vec3f(-1.0f, 1.0f, -1.0f),  Vec3f(1.0f, 1.0f, -1.0f),  Vec3f(1.0f, -1.0f, -1.0f),
+                Vec3f(-1.0f, -1.0f, -1.0f), Vec3f(-1.0f, 1.0f, 1.0f),  Vec3f(1.0f, 1.0f, 1.0f),
+                Vec3f(1.0f, -1.0f, 1.0f),   Vec3f(-1.0f, -1.0f, 1.0f),
+            };
+
+            // Project corners into world space.
+            for (auto &corner : frustum_corners) {
+                Vec4f inv_corner = inv_camera * Vec4f(corner, 1.0f);
+                corner = inv_corner / inv_corner.w();
+            }
+
+            for (uint32_t j = 0; j < 4; j++) {
+                Vec3f dist = frustum_corners[j + 4] - frustum_corners[j];
+                frustum_corners[j + 4] = frustum_corners[j] + (dist * split_distances[i]);
+                frustum_corners[j] = frustum_corners[j] + (dist * last_split_distance);
+            }
+
+            Vec3f frustum_center;
+            for (const auto &corner : frustum_corners) {
+                frustum_center += corner;
+            }
+            frustum_center /= 8.0f;
+
+            float radius = 0.0f;
+            for (const auto &corner : frustum_corners) {
+                float distance = vull::magnitude(corner - frustum_center);
+                radius = vull::max(radius, distance);
+            }
+            radius = ceilf(radius * 16.0f) / 16.0f;
+
+            // TODO: direction duplicated in shader.
+            constexpr Vec3f direction(0.6f, 0.6f, -0.6f);
+            constexpr Vec3f up(0.0f, 1.0f, 0.0f);
+            const auto proj = vull::ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
+            const auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up); // TODO: * radius?
+            ubo.sun_matrices[i] = proj * view;
+            ubo.sun_cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
+            last_split_distance = split_distances[i];
+        }
     };
 
     float yaw = 2.4f;
@@ -927,6 +1007,8 @@ void main_task(Scheduler &scheduler) {
         }
         ubo.view = look_at(ubo.camera_position, ubo.camera_position + forward, up);
 
+        update_cascades();
+
         uint32_t light_count = lights.size();
         memcpy(lights_data, &light_count, sizeof(uint32_t));
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
@@ -938,12 +1020,13 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, pipeline_layout, {&descriptor_set, 1});
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});
 
-        auto render_meshes = [&] {
+        auto render_meshes = [&](uint32_t cascade_index) {
             for (auto [entity, mesh, material] : world.view<Mesh, Material>()) {
                 PushConstantBlock push_constant_block{
                     .transform = get_transform_matrix(world, entity),
                     .albedo_index = material.albedo_index(),
                     .normal_index = material.normal_index(),
+                    .cascade_index = cascade_index,
                 };
                 cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
                 cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
@@ -991,7 +1074,7 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 0);
         cmd_buf.begin_rendering(depth_pass_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        render_meshes();
+        render_meshes(0);
         cmd_buf.end_rendering();
 
         vk::ImageMemoryBarrier shadow_map_write_barrier{
@@ -1003,37 +1086,40 @@ void main_task(Scheduler &scheduler) {
             .subresourceRange{
                 .aspectMask = vk::ImageAspect::Depth,
                 .levelCount = 1,
-                .layerCount = 1,
+                .layerCount = shadow_cascade_count,
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe,
                                  vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
                                  {&shadow_map_write_barrier, 1});
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
-        vk::RenderingAttachmentInfo shadow_map_write_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfo,
-            .imageView = shadow_map_view,
-            .imageLayout = vk::ImageLayout::DepthAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::Clear,
-            .storeOp = vk::AttachmentStoreOp::Store,
-            .clearValue{
-                .depthStencil{1.0f, 0},
-            },
-        };
-        vk::RenderingInfo shadow_map_rendering_info{
-            .sType = vk::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = {2048, 2048},
-            },
-            .layerCount = 1,
-            .pDepthAttachment = &shadow_map_write_attachment,
-            .pStencilAttachment = &shadow_map_write_attachment,
-        };
+
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 2);
-        cmd_buf.begin_rendering(shadow_map_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, shadow_pass_pipeline);
-        render_meshes();
-        cmd_buf.end_rendering();
+        for (uint32_t i = 0; i < shadow_cascade_count; i++) {
+            vk::RenderingAttachmentInfo shadow_map_write_attachment{
+                .sType = vk::StructureType::RenderingAttachmentInfo,
+                .imageView = shadow_cascade_views[i],
+                .imageLayout = vk::ImageLayout::DepthAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::Clear,
+                .storeOp = vk::AttachmentStoreOp::Store,
+                .clearValue{
+                    .depthStencil{1.0f, 0},
+                },
+            };
+            vk::RenderingInfo shadow_map_rendering_info{
+                .sType = vk::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = {shadow_resolution, shadow_resolution},
+                },
+                .layerCount = 1,
+                .pDepthAttachment = &shadow_map_write_attachment,
+                .pStencilAttachment = &shadow_map_write_attachment,
+            };
+            cmd_buf.begin_rendering(shadow_map_rendering_info);
+            render_meshes(i);
+            cmd_buf.end_rendering();
+        }
 
         vk::ImageMemoryBarrier depth_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1110,7 +1196,7 @@ void main_task(Scheduler &scheduler) {
             .subresourceRange{
                 .aspectMask = vk::ImageAspect::Depth,
                 .levelCount = 1,
-                .layerCount = 1,
+                .layerCount = shadow_cascade_count,
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ColorAttachmentOutput, {},
@@ -1152,7 +1238,7 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 6);
         cmd_buf.begin_rendering(main_pass_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, main_pass_pipeline);
-        render_meshes();
+        render_meshes(0);
         cmd_buf.end_rendering();
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
 
@@ -1228,6 +1314,9 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(depth_sampler);
+    for (auto *cascade_view : shadow_cascade_views) {
+        context.vkDestroyImageView(cascade_view);
+    }
     context.vkDestroyImageView(shadow_map_view);
     context.vkFreeMemory(shadow_map_memory);
     context.vkDestroyImage(shadow_map);
