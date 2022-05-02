@@ -849,7 +849,7 @@ void main_task(Scheduler &scheduler) {
 
     const float near_plane = 0.1f;
     UniformBuffer ubo{
-        .proj = vull::infinite_perspective(window.aspect_ratio(), near_plane, 1.03f),
+        .proj = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, near_plane),
         .camera_position{20.0f, 15.0f, -20.0f},
     };
 
@@ -867,8 +867,8 @@ void main_task(Scheduler &scheduler) {
         }
 
         // Build cascade matrices.
-        const auto inv_camera =
-            vull::inverse(vull::perspective(window.aspect_ratio(), near_plane, shadow_distance, 1.03f) * ubo.view);
+        const auto inv_camera = vull::inverse(
+            vull::perspective(window.aspect_ratio(), vull::half_pi<float>, near_plane, shadow_distance) * ubo.view);
         float last_split_distance = 0.0f;
         for (uint32_t i = 0; i < shadow_cascade_count; i++) {
             Array<Vec3f, 8> frustum_corners{
