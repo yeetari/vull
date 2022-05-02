@@ -27,9 +27,21 @@ class Vec {
 
 public:
     constexpr Vec() : Vec(T(0)) {}
+
+    // Duplication construction, e.g. Vec3f(1.0f) == Vec3f(1.0f, 1.0f, 1.0f)
+    constexpr Vec(T t) requires(L != 1);
+
+    // Construction from all components e.g. Vec2f(1.0f, 2.0f) or Vec3f(1.0f, 2.0f, 3.0f)
     template <typename... Ts>
     constexpr Vec(Ts... ts) requires(sizeof...(Ts) == L) : m_elems{static_cast<T>(ts)...} {}
-    constexpr Vec(T t) requires(L != 1);
+
+    // Construction from a smaller vector + remaining scalar components, e.g. Vec4f(Vec3f(), 1.0f)
+    template <unsigned L1, typename... Ts>
+    constexpr Vec(const Vec<T, L1> &vec, Ts... ts) requires(sizeof...(Ts) == L - L1);
+
+    // Truncating construction from a larger vector, e.g. Vec3f(Vec4f())
+    template <unsigned L1>
+    constexpr Vec(const Vec<T, L1> &vec) requires(L1 > L);
 
     DEFINE_OP(+, +=)
     DEFINE_OP(-, -=)
@@ -62,6 +74,26 @@ template <typename T, unsigned L>
 constexpr Vec<T, L>::Vec(T t) requires(L != 1) {
     for (unsigned i = 0; i < L; i++) {
         m_elems[i] = t;
+    }
+}
+
+template <typename T, unsigned L>
+template <unsigned L1, typename... Ts>
+constexpr Vec<T, L>::Vec(const Vec<T, L1> &vec, Ts... ts) requires(sizeof...(Ts) == L - L1) {
+    for (unsigned i = 0; i < L1; i++) {
+        m_elems[i] = vec[i];
+    }
+    Array packed{static_cast<T>(ts)...};
+    for (unsigned i = 0; i < sizeof...(Ts); i++) {
+        m_elems[L1 + i] = packed[i];
+    }
+}
+
+template <typename T, unsigned L>
+template <unsigned L1>
+constexpr Vec<T, L>::Vec(const Vec<T, L1> &vec) requires(L1 > L) {
+    for (unsigned i = 0; i < L; i++) {
+        m_elems[i] = vec[i];
     }
 }
 
