@@ -12,12 +12,11 @@
 
 namespace vull {
 
-PackReader::PackReader(FILE *file)
-    : m_file(file), m_dctx(ZSTD_createDCtx()), m_buffer(new uint8_t[ZSTD_DStreamOutSize()]) {
-    fseek(m_file, 0, SEEK_END);
-    m_size = static_cast<size_t>(ftell(m_file));
-    m_data = static_cast<uint8_t *>(mmap(nullptr, m_size, PROT_READ, MAP_PRIVATE, fileno(m_file), 0));
-    fseek(m_file, 0, SEEK_SET);
+PackReader::PackReader(FILE *file) : m_dctx(ZSTD_createDCtx()), m_buffer(new uint8_t[ZSTD_DStreamOutSize()]) {
+    fseek(file, 0, SEEK_END);
+    m_size = static_cast<size_t>(ftell(file));
+    m_data = static_cast<uint8_t *>(mmap(nullptr, m_size, PROT_READ, MAP_PRIVATE, fileno(file), 0));
+    fseek(file, 0, SEEK_SET);
 }
 
 PackReader::~PackReader() {

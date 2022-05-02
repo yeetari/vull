@@ -17,7 +17,6 @@ struct PackEntry {
 };
 
 class PackReader {
-    FILE *const m_file;
     ZSTD_DCtx *const m_dctx;
     uint8_t *const m_buffer;
     size_t m_size{0};
