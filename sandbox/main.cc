@@ -1,14 +1,8 @@
 #include "Camera.hh"
-#include "SceneLoader.hh"
 
-#include <vull/core/Material.hh>
-#include <vull/core/Mesh.hh>
-#include <vull/core/Transform.hh>
+#include <vull/core/Scene.hh>
 #include <vull/core/Vertex.hh>
 #include <vull/core/Window.hh>
-#include <vull/ecs/Entity.hh>
-#include <vull/ecs/EntityId.hh>
-#include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
@@ -17,14 +11,12 @@
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
-#include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
-#include <vull/vpak/PackReader.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
@@ -53,16 +45,6 @@ uint32_t find_graphics_family(const VkContext &context) {
     VULL_ENSURE_NOT_REACHED();
 }
 
-Mat4f get_transform_matrix(World &world, EntityId id) {
-    const auto &transform = world.get_component<Transform>(id);
-    if (transform.parent() == id) {
-        // Root node.
-        return {1.0f};
-    }
-    const auto parent_matrix = get_transform_matrix(world, transform.parent());
-    return parent_matrix * transform.matrix();
-}
-
 vk::ShaderModule load_shader(const VkContext &context, const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
@@ -86,24 +68,12 @@ void main_task(Scheduler &scheduler) {
     auto swapchain = window.create_swapchain(context);
 
     const auto graphics_family_index = find_graphics_family(context);
-    CommandPool command_pool(context, graphics_family_index);
+    CommandPool cmd_pool(context, graphics_family_index);
     Queue queue(context, graphics_family_index);
 
-    vk::MemoryRequirements scene_memory_requirements{
-        .size = 1024ul * 1024ul * 2048ul,
-        .memoryTypeBits = 0xffffffffu,
-    };
-    auto *scene_memory = context.allocate_memory(scene_memory_requirements, MemoryType::DeviceLocal);
-
     auto *pack_file = fopen("scene.vpak", "rb");
-    PackReader pack_reader(pack_file);
-    World world;
-    Vector<vk::Buffer> vertex_buffers;
-    Vector<vk::Buffer> index_buffers;
-    Vector<vk::Image> texture_images;
-    Vector<vk::ImageView> texture_image_views;
-    load_scene(context, pack_reader, command_pool, queue, world, vertex_buffers, index_buffers, texture_images,
-               texture_image_views, scene_memory);
+    Scene scene(context);
+    scene.load(cmd_pool, queue, pack_file);
     fclose(pack_file);
 
     constexpr uint32_t tile_size = 32;
@@ -246,7 +216,7 @@ void main_task(Scheduler &scheduler) {
         vk::DescriptorSetLayoutBinding{
             .binding = 7,
             .descriptorType = vk::DescriptorType::SampledImage,
-            .descriptorCount = texture_image_views.size(),
+            .descriptorCount = scene.texture_count(),
             .stageFlags = vk::ShaderStage::Fragment,
         },
     };
@@ -258,14 +228,8 @@ void main_task(Scheduler &scheduler) {
     vk::DescriptorSetLayout set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
 
-    struct PushConstantBlock {
-        Mat4f transform;
-        uint32_t albedo_index;
-        uint32_t normal_index;
-        uint32_t cascade_index;
-    };
     vk::PushConstantRange push_constant_range{
-        .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
+        .stageFlags = vk::ShaderStage::All,
         .size = sizeof(PushConstantBlock),
     };
     vk::PipelineLayoutCreateInfo pipeline_layout_ci{
@@ -682,7 +646,7 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::SampledImage,
-            .descriptorCount = texture_image_views.size(),
+            .descriptorCount = scene.texture_count(),
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::UniformBuffer,
@@ -744,8 +708,8 @@ void main_task(Scheduler &scheduler) {
         .sampler = normal_sampler,
     };
     Vector<vk::DescriptorImageInfo> texture_image_infos;
-    texture_image_infos.ensure_capacity(texture_image_views.size());
-    for (auto *image_view : texture_image_views) {
+    texture_image_infos.ensure_capacity(scene.texture_count());
+    for (auto *image_view : scene.texture_views()) {
         texture_image_infos.push(vk::DescriptorImageInfo{
             .imageView = image_view,
             .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
@@ -1005,26 +969,10 @@ void main_task(Scheduler &scheduler) {
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         Timer record_timer;
-        const auto &cmd_buf = command_pool.request_cmd_buf();
+        const auto &cmd_buf = cmd_pool.request_cmd_buf();
         cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, pipeline_layout, {&descriptor_set, 1});
         cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});
-
-        auto render_meshes = [&](uint32_t cascade_index) {
-            for (auto [entity, mesh, material] : world.view<Mesh, Material>()) {
-                PushConstantBlock push_constant_block{
-                    .transform = get_transform_matrix(world, entity),
-                    .albedo_index = material.albedo_index(),
-                    .normal_index = material.normal_index(),
-                    .cascade_index = cascade_index,
-                };
-                cmd_buf.bind_vertex_buffer(vertex_buffers[mesh.index()]);
-                cmd_buf.bind_index_buffer(index_buffers[mesh.index()], vk::IndexType::Uint32);
-                cmd_buf.push_constants(pipeline_layout, vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
-                                       sizeof(PushConstantBlock), &push_constant_block);
-                cmd_buf.draw_indexed(mesh.index_count(), 1);
-            }
-        };
 
         vk::ImageMemoryBarrier depth_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1064,7 +1012,7 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 0);
         cmd_buf.begin_rendering(depth_pass_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        render_meshes(0);
+        scene.render(cmd_buf, pipeline_layout, 0);
         cmd_buf.end_rendering();
 
         vk::ImageMemoryBarrier shadow_map_write_barrier{
@@ -1107,7 +1055,7 @@ void main_task(Scheduler &scheduler) {
                 .pStencilAttachment = &shadow_map_write_attachment,
             };
             cmd_buf.begin_rendering(shadow_map_rendering_info);
-            render_meshes(i);
+            scene.render(cmd_buf, pipeline_layout, i);
             cmd_buf.end_rendering();
         }
 
@@ -1228,7 +1176,7 @@ void main_task(Scheduler &scheduler) {
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 6);
         cmd_buf.begin_rendering(main_pass_rendering_info);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, main_pass_pipeline);
-        render_meshes(0);
+        scene.render(cmd_buf, pipeline_layout, 0);
         cmd_buf.end_rendering();
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
 
@@ -1325,19 +1273,6 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyShaderModule(main_fragment_shader);
     context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
-    for (auto *image_view : texture_image_views) {
-        context.vkDestroyImageView(image_view);
-    }
-    for (auto *image : texture_images) {
-        context.vkDestroyImage(image);
-    }
-    for (auto *buffer : index_buffers) {
-        context.vkDestroyBuffer(buffer);
-    }
-    for (auto *buffer : vertex_buffers) {
-        context.vkDestroyBuffer(buffer);
-    }
-    context.vkFreeMemory(scene_memory);
 }
 
 } // namespace
