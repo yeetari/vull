@@ -39,6 +39,10 @@ public:
     template <unsigned L1, typename... Ts>
     constexpr Vec(const Vec<T, L1> &vec, Ts... ts) requires(sizeof...(Ts) == L - L1);
 
+    // Casting construction.
+    template <typename T1>
+    constexpr Vec(const Vec<T1, L> &vec);
+
     // Truncating construction from a larger vector, e.g. Vec3f(Vec4f())
     template <unsigned L1>
     constexpr Vec(const Vec<T, L1> &vec) requires(L1 > L);
@@ -91,6 +95,14 @@ constexpr Vec<T, L>::Vec(const Vec<T, L1> &vec, Ts... ts) requires(sizeof...(Ts)
     Array packed{static_cast<T>(ts)...};
     for (unsigned i = 0; i < sizeof...(Ts); i++) {
         m_elems[L1 + i] = packed[i];
+    }
+}
+
+template <typename T, unsigned L>
+template <typename T1>
+constexpr Vec<T, L>::Vec(const Vec<T1, L> &vec) {
+    for (unsigned i = 0; i < L; i++) {
+        m_elems[i] = static_cast<T>(vec[i]);
     }
 }
 
