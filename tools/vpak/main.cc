@@ -1,5 +1,3 @@
-#include "TextureLoader.hh"
-
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
@@ -7,277 +5,412 @@
 #include <vull/ecs/World.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/PackWriter.hh>
-#include <vull/vulkan/Vulkan.hh>
 
-#include <assimp/DefaultLogger.hpp>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
-#include <libgen.h>
 #include <meshoptimizer.h>
+#include <simdjson.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 
-using namespace vull;
+#define DWORD_LE(data, start)                                                                                          \
+    (static_cast<uint32_t>((data)[(start)] << 0u) | static_cast<uint32_t>((data)[(start) + 1] << 8u) |                 \
+     static_cast<uint32_t>((data)[(start) + 2] << 16u) | static_cast<uint32_t>((data)[(start) + 3] << 24u))
 
 namespace {
 
-struct AssimpLogger : public Assimp::LogStream {
-    void write(const char *message) override { fputs(message, stdout); }
+class Traverser {
+    struct MeshInfo {
+        uint32_t index_count;
+        float vertex_ratio;
+        float index_ratio;
+    };
+
+    const uint8_t *const m_binary_data;
+    simdjson::dom::element &m_document;
+    vull::PackWriter &m_pack_writer;
+    vull::World &m_world;
+    const bool m_fast;
+
+    vull::Vector<vull::Material> m_materials;
+    vull::Vector<MeshInfo> m_meshes;
+
+public:
+    Traverser(const uint8_t *binary_data, simdjson::dom::element &document, vull::PackWriter &pack_writer,
+              vull::World &world, bool fast)
+        : m_binary_data(binary_data), m_document(document), m_pack_writer(pack_writer), m_world(world), m_fast(fast) {}
+
+    void process_materials();
+    void process_meshes();
+    void process_primitive(simdjson::dom::object &primitive);
+    void traverse_node(uint64_t node_index, vull::EntityId parent_id, int indentation);
 };
 
-void emit_error_texture(PackWriter &pack_writer) {
-    // TODO: Don't duplicate this.
-    pack_writer.start_entry(PackEntryType::ImageData, true);
-    pack_writer.write_byte(uint8_t(PackImageFormat::RgbaUnorm));
-    pack_writer.write_varint(16);
-    pack_writer.write_varint(16);
-    pack_writer.write_varint(1);
+void Traverser::process_materials() {
+    simdjson::dom::array materials;
+    if (m_document["materials"].get(materials) != simdjson::SUCCESS) {
+        return;
+    }
+    for (auto material : materials) {
+        static_cast<void>(material); // TODO
+        // Emit error albedo.
+        m_pack_writer.start_entry(vull::PackEntryType::ImageData, true);
+        m_pack_writer.write_byte(uint8_t(vull::PackImageFormat::RgbaUnorm));
+        m_pack_writer.write_varint(16);
+        m_pack_writer.write_varint(16);
+        m_pack_writer.write_varint(1);
+        constexpr vull::Array colours{
+            vull::Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
+            vull::Vec<uint8_t, 4>(0x94, 0x00, 0xd3, 0xff),
+        };
+        for (uint32_t y = 0; y < 16; y++) {
+            for (uint32_t x = 0; x < 16; x++) {
+                uint32_t colour_index = (x + y) % colours.size();
+                m_pack_writer.write({&colours[colour_index], 4});
+            }
+        }
+        m_pack_writer.end_entry();
 
-    constexpr Array colours{
-        Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
-        Vec<uint8_t, 4>(0x94, 0x00, 0xd3, 0xff),
-    };
-    for (uint32_t y = 0; y < 16; y++) {
-        for (uint32_t x = 0; x < 16; x++) {
-            uint32_t colour_index = (x + y) % colours.size();
-            pack_writer.write({&colours[colour_index], 4});
+        // Emit default normal map.
+        m_pack_writer.start_entry(vull::PackEntryType::ImageData, true);
+        m_pack_writer.write_byte(uint8_t(vull::PackImageFormat::RgUnorm));
+        m_pack_writer.write_varint(1);
+        m_pack_writer.write_varint(1);
+        m_pack_writer.write_varint(1);
+        constexpr vull::Array<uint8_t, 2> data{128, 128};
+        m_pack_writer.write(data.span());
+        m_pack_writer.end_entry();
+
+        m_materials.emplace(m_materials.size() * 2, m_materials.size() * 2 + 1);
+    }
+}
+
+void Traverser::process_meshes() {
+    simdjson::dom::array meshes;
+    VULL_ENSURE(m_document["meshes"].get(meshes) == simdjson::SUCCESS);
+    for (auto mesh : meshes) {
+        simdjson::dom::array primitives;
+        VULL_ENSURE(mesh["primitives"].get(primitives) == simdjson::SUCCESS);
+        for (auto prim : primitives) {
+            simdjson::dom::object primitive;
+            VULL_ENSURE(prim.get(primitive) == simdjson::SUCCESS);
+            process_primitive(primitive);
         }
     }
-    pack_writer.end_entry();
 }
 
-void emit_normal_texture(PackWriter &pack_writer) {
-    // TODO: Don't duplicate this.
-    pack_writer.start_entry(PackEntryType::ImageData, true);
-    pack_writer.write_byte(uint8_t(PackImageFormat::RgUnorm));
-    pack_writer.write_varint(1);
-    pack_writer.write_varint(1);
-    pack_writer.write_varint(1);
-    constexpr Array<uint8_t, 2> data{128, 128};
-    pack_writer.write(data.span());
-    pack_writer.end_entry();
-}
+void Traverser::process_primitive(simdjson::dom::object &primitive) {
+    uint64_t positions_index;
+    VULL_ENSURE(primitive["attributes"]["POSITION"].get(positions_index) == simdjson::SUCCESS);
 
-bool process_texture(PackWriter &pack_writer, const char *root_path, const aiString &ai_path, int indentation) {
-    auto path = vull::format("{}/{}", root_path, ai_path.C_Str());
-    // TODO: String::replace_all() function.
-    char *slash_ptr = nullptr;
-    while ((slash_ptr = strchr(path.data(), '\\')) != nullptr) {
-        *slash_ptr = '/';
+    uint64_t normals_index;
+    VULL_ENSURE(primitive["attributes"]["NORMAL"].get(normals_index) == simdjson::SUCCESS);
+
+    uint64_t uvs_index;
+    VULL_ENSURE(primitive["attributes"]["TEXCOORD_0"].get(uvs_index) == simdjson::SUCCESS);
+
+    uint64_t indices_index;
+    VULL_ENSURE(primitive["indices"].get(indices_index) == simdjson::SUCCESS);
+
+    // TODO: Accessor validation.
+    auto positions_accessor = m_document["accessors"].at(positions_index);
+    auto normals_accessor = m_document["accessors"].at(normals_index);
+    auto uvs_accessor = m_document["accessors"].at(uvs_index);
+    auto indices_accessor = m_document["accessors"].at(indices_index);
+
+    VULL_ENSURE(positions_accessor["bufferView"].get(positions_index) == simdjson::SUCCESS);
+    VULL_ENSURE(normals_accessor["bufferView"].get(normals_index) == simdjson::SUCCESS);
+    VULL_ENSURE(uvs_accessor["bufferView"].get(uvs_index) == simdjson::SUCCESS);
+    VULL_ENSURE(indices_accessor["bufferView"].get(indices_index) == simdjson::SUCCESS);
+
+    uint64_t positions_offset;
+    VULL_ENSURE(m_document["bufferViews"].at(positions_index)["byteOffset"].get(positions_offset) == simdjson::SUCCESS);
+
+    uint64_t normals_offset;
+    VULL_ENSURE(m_document["bufferViews"].at(normals_index)["byteOffset"].get(normals_offset) == simdjson::SUCCESS);
+
+    uint64_t uvs_offset;
+    VULL_ENSURE(m_document["bufferViews"].at(uvs_index)["byteOffset"].get(uvs_offset) == simdjson::SUCCESS);
+
+    uint64_t indices_offset;
+    VULL_ENSURE(m_document["bufferViews"].at(indices_index)["byteOffset"].get(indices_offset) == simdjson::SUCCESS);
+
+    uint64_t vertex_count;
+    VULL_ENSURE(positions_accessor["count"].get(vertex_count) == simdjson::SUCCESS);
+    vull::Vector<vull::Vertex> vertices;
+    vertices.ensure_capacity(static_cast<uint32_t>(vertex_count));
+    for (uint64_t i = 0; i < vertex_count; i++) {
+        auto &vertex = vertices.emplace();
+        memcpy(&vertex.position, &m_binary_data[positions_offset + i * sizeof(vull::Vec3f)], sizeof(vull::Vec3f));
+        memcpy(&vertex.normal, &m_binary_data[normals_offset + i * sizeof(vull::Vec3f)], sizeof(vull::Vec3f));
+        memcpy(&vertex.uv, &m_binary_data[uvs_offset + i * sizeof(vull::Vec2f)], sizeof(vull::Vec2f));
     }
 
-    if (!load_texture(pack_writer, path)) {
-        return false;
+    uint64_t index_count;
+    VULL_ENSURE(indices_accessor["count"].get(index_count) == simdjson::SUCCESS);
+
+    uint64_t index_type;
+    VULL_ENSURE(indices_accessor["componentType"].get(index_type) == simdjson::SUCCESS);
+
+    size_t index_size;
+    switch (index_type) {
+    case 5121:
+        index_size = sizeof(uint8_t);
+        break;
+    case 5123:
+        index_size = sizeof(uint16_t);
+        break;
+    case 5125:
+        index_size = sizeof(uint32_t);
+        break;
+    default:
+        VULL_ENSURE_NOT_REACHED();
     }
-    float ratio = pack_writer.end_entry();
-    printf("%*s(%s): %.1f%%\n", indentation + 2, "", ai_path.C_Str(), ratio * 100.0f);
-    return true;
-}
 
-void process_material(PackWriter &pack_writer, const char *root_path, const aiMaterial *material, int indentation) {
-    // TODO: Texture caching. Even though materials are deduplicated, two different materials may still point to the
-    //       same texture.
-    aiString albedo_path;
-    if (material->GetTexture(aiTextureType_DIFFUSE, 0, &albedo_path) != aiReturn_SUCCESS ||
-        !process_texture(pack_writer, root_path, albedo_path, indentation)) {
-        emit_error_texture(pack_writer);
+    vull::Vector<uint32_t> indices(static_cast<uint32_t>(index_count));
+    for (auto &index : indices) {
+        const auto *index_bytes = &m_binary_data[indices_offset];
+        switch (index_size) {
+        case sizeof(uint32_t):
+            index |= static_cast<uint32_t>(index_bytes[3]) << 24u;
+            index |= static_cast<uint32_t>(index_bytes[2]) << 16u;
+            [[fallthrough]];
+        case sizeof(uint16_t):
+            index |= static_cast<uint32_t>(index_bytes[1]) << 8u;
+            [[fallthrough]];
+        case sizeof(uint8_t):
+            index |= static_cast<uint32_t>(index_bytes[0]) << 0u;
+            break;
+        default:
+            __builtin_unreachable();
+        }
+        indices_offset += index_size;
     }
 
-    aiString normal_path;
-    if (material->GetTexture(aiTextureType_NORMALS, 0, &normal_path) != aiReturn_SUCCESS ||
-        !process_texture(pack_writer, root_path, normal_path, indentation)) {
-        emit_normal_texture(pack_writer);
-    }
-}
-
-void process_mesh(const aiMesh *mesh, Vector<Vertex> &vertices, Vector<uint32_t> &indices) {
-    vertices.ensure_capacity(mesh->mNumVertices);
-    for (unsigned i = 0; i < mesh->mNumVertices; i++) {
-        vertices.push(Vertex{
-            .position{
-                mesh->mVertices[i].x,
-                mesh->mVertices[i].y,
-                mesh->mVertices[i].z,
-            },
-            .normal = normalise(Vec3f{
-                mesh->mNormals[i].x,
-                mesh->mNormals[i].y,
-                mesh->mNormals[i].z,
-            }),
-            .uv{
-                mesh->mTextureCoords[0][i].x,
-                mesh->mTextureCoords[0][i].y,
-            },
-        });
-    }
-    indices.ensure_capacity(mesh->mNumFaces * 3);
-    for (unsigned i = 0; i < mesh->mNumFaces; i++) {
-        const auto &face = mesh->mFaces[i];
-        indices.push(face.mIndices[0]);
-        indices.push(face.mIndices[1]);
-        indices.push(face.mIndices[2]);
-    }
-}
-
-void process_node(const char *root_path, const aiScene *scene, EntityManager &world, PackWriter &pack_writer,
-                  Vector<Optional<Material>> &materials, EntityId parent_id, aiNode *node, uint32_t &mesh_index,
-                  uint32_t &texture_index, int indentation) {
-    printf("%*s%s\n", indentation, "", node->mName.C_Str());
-
-    // Create a container entity that acts as a parent for any meshes, and that any child nodes can use as parent.
-    // TODO: A more optimal way to handle multiple meshes on a node?
-    // TODO: At least don't generate a container entity for single-mesh nodes.
-    auto container_entity = world.create_entity();
-    container_entity.add<Transform>(parent_id, Mat4f{Array{
-                                                   Vec4f(node->mTransformation.a1, node->mTransformation.b1,
-                                                         node->mTransformation.c1, node->mTransformation.d1),
-                                                   Vec4f(node->mTransformation.a2, node->mTransformation.b2,
-                                                         node->mTransformation.c2, node->mTransformation.d2),
-                                                   Vec4f(node->mTransformation.a3, node->mTransformation.b3,
-                                                         node->mTransformation.c3, node->mTransformation.d3),
-                                                   Vec4f(node->mTransformation.a4, node->mTransformation.b4,
-                                                         node->mTransformation.c4, node->mTransformation.d4),
-                                               }});
-    for (unsigned i = 0; i < node->mNumMeshes; i++) {
-        auto entity = world.create_entity();
-        entity.add<Transform>(container_entity, Mat4f(1.0f));
-
-        Vector<Vertex> vertices;
-        Vector<uint32_t> indices;
-        const auto *mesh = scene->mMeshes[node->mMeshes[i]];
-        process_mesh(mesh, vertices, indices);
-        entity.add<Mesh>(mesh_index++, indices.size());
-
+    if (!m_fast) {
         meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
         meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
-                                    sizeof(Vertex));
-
-        pack_writer.start_entry(PackEntryType::VertexData, true);
-        pack_writer.write(vertices.span());
-        float vertex_ratio = pack_writer.end_entry();
-
-        pack_writer.start_entry(PackEntryType::IndexData, indices.size() > 6);
-        pack_writer.write(indices.span());
-        float index_ratio = pack_writer.end_entry();
-
-        printf("%*s(mesh %u): %.1f%% verts, %.1f%% inds\n", indentation + 2, "", i, vertex_ratio * 100.0f,
-               index_ratio * 100.0f);
-
-        if (!materials[mesh->mMaterialIndex]) {
-            process_material(pack_writer, root_path, scene->mMaterials[mesh->mMaterialIndex], indentation + 2);
-            materials[mesh->mMaterialIndex].emplace(texture_index, texture_index + 1);
-            texture_index += 2;
-        }
-        entity.add<Material>(*materials[mesh->mMaterialIndex]);
+                                    sizeof(vull::Vertex));
     }
 
-    // Recursively traverse children.
-    for (unsigned i = 0; i < node->mNumChildren; i++) {
-        process_node(root_path, scene, world, pack_writer, materials, container_entity, node->mChildren[i], mesh_index,
-                     texture_index, indentation + 2);
+    m_pack_writer.start_entry(vull::PackEntryType::VertexData, true);
+    m_pack_writer.write(vertices.span());
+    float vertex_ratio = m_pack_writer.end_entry();
+
+    m_pack_writer.start_entry(vull::PackEntryType::IndexData, indices.size() > 6);
+    m_pack_writer.write(indices.span());
+    float index_ratio = m_pack_writer.end_entry();
+    m_meshes.push(MeshInfo{indices.size(), vertex_ratio, index_ratio});
+}
+
+void Traverser::traverse_node(uint64_t node_index, vull::EntityId parent_id, int indentation) {
+    simdjson::dom::object node;
+    VULL_ENSURE(m_document["nodes"].at(node_index).get(node) == simdjson::SUCCESS);
+
+    std::string_view node_name = "<unnamed>";
+    static_cast<void>(node["name"].get(node_name));
+    printf("%*s%.*s\n", indentation, "", static_cast<int>(node_name.length()), node_name.data());
+
+    vull::Vec<double, 3> position(0.0);
+    vull::Quat<double> rotation;
+    vull::Vec<double, 3> scale(1.0);
+    if (simdjson::dom::array position_array; node["translation"].get(position_array) == simdjson::SUCCESS) {
+        VULL_ENSURE(position_array.at(0).get(position[0]) == simdjson::SUCCESS);
+        VULL_ENSURE(position_array.at(1).get(position[1]) == simdjson::SUCCESS);
+        VULL_ENSURE(position_array.at(2).get(position[2]) == simdjson::SUCCESS);
+    }
+    if (simdjson::dom::array rotation_array; node["rotation"].get(rotation_array) == simdjson::SUCCESS) {
+        VULL_ENSURE(rotation_array.at(0).get(rotation[0]) == simdjson::SUCCESS);
+        VULL_ENSURE(rotation_array.at(1).get(rotation[1]) == simdjson::SUCCESS);
+        VULL_ENSURE(rotation_array.at(2).get(rotation[2]) == simdjson::SUCCESS);
+        VULL_ENSURE(rotation_array.at(3).get(rotation[3]) == simdjson::SUCCESS);
+    }
+    if (simdjson::dom::array scale_array; node["scale"].get(scale_array) == simdjson::SUCCESS) {
+        VULL_ENSURE(scale_array.at(0).get(scale[0]) == simdjson::SUCCESS);
+        VULL_ENSURE(scale_array.at(1).get(scale[1]) == simdjson::SUCCESS);
+        VULL_ENSURE(scale_array.at(2).get(scale[2]) == simdjson::SUCCESS);
+    }
+
+    // Create a container entity that acts as a parent for any primitives, and that any child nodes can use as parent.
+    // TODO: A more optimal way to handle multiple primitives on a node?
+    // TODO: At least don't generate a container entity for single-primitive nodes.
+    vull::Quatf rotation_float(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+    auto container_entity = m_world.create_entity();
+    container_entity.add<vull::Transform>(parent_id, position, rotation_float, scale);
+    if (uint64_t mesh_index; node["mesh"].get(mesh_index) == simdjson::SUCCESS) {
+        simdjson::dom::array primitives;
+        VULL_ENSURE(m_document["meshes"].at(mesh_index)["primitives"].get(primitives) == simdjson::SUCCESS);
+        for (uint32_t i = 0; auto primitive : primitives) {
+            const auto mesh_array_index = static_cast<uint32_t>(mesh_index) + i++;
+            const auto &mesh_info = m_meshes[mesh_array_index];
+            printf("%*s(mesh %u): %.1f%% verts, %.1f%% inds\n", indentation + 2, "", mesh_array_index,
+                   mesh_info.vertex_ratio, mesh_info.index_ratio);
+
+            auto entity = m_world.create_entity();
+            entity.add<vull::Transform>(container_entity);
+            entity.add<vull::Mesh>(mesh_array_index, mesh_info.index_count);
+            uint64_t material_index = 0;
+            static_cast<void>(primitive["material"].get(material_index));
+            entity.add<vull::Material>(m_materials[static_cast<uint32_t>(material_index)]);
+        }
+    }
+
+    if (simdjson::dom::array children_indices; node["children"].get(children_indices) == simdjson::SUCCESS) {
+        for (auto child_index : children_indices) {
+            traverse_node(child_index.get_uint64().value_unsafe(), container_entity, indentation + 2);
+        }
     }
 }
 
 void print_usage(const char *executable) {
-    fprintf(stderr, "usage: %s [--fast|--ultra] <input> [output]\n", executable);
+    fprintf(stderr, "usage: %s [--dump-json] [--fast|--ultra] <input-gltf> [output-vpak]\n", executable);
 }
 
 } // namespace
 
 int main(int argc, char **argv) {
+    bool dump_json = false;
     bool fast = false;
     bool ultra = false;
     const char *input_path = nullptr;
     const char *output_path = nullptr;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--fast") == 0) {
+        if (strcmp(argv[i], "--dump-json") == 0) {
+            dump_json = true;
+        } else if (strcmp(argv[i], "--fast") == 0) {
             fast = true;
         } else if (strcmp(argv[i], "--ultra") == 0) {
             ultra = true;
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "fatal: unknown option %s\n", argv[i]);
+            print_usage(argv[0]);
+            return 1;
         } else if (input_path == nullptr) {
             input_path = argv[i];
         } else if (output_path == nullptr) {
             output_path = argv[i];
         } else {
-            fprintf(stderr, "Invalid argument %s\n", argv[i]);
+            fprintf(stderr, "fatal: invalid argument %s\n", argv[i]);
             print_usage(argv[0]);
             return 1;
         }
     }
 
     if (fast && ultra) {
-        fputs("Can't have --fast and --ultra\n", stderr);
+        fputs("fatal: can't have --fast and --ultra\n", stderr);
         return 1;
     }
     if (input_path == nullptr) {
         print_usage(argv[0]);
         return 1;
     }
-    if (output_path == nullptr) {
-        output_path = "scene.vpak";
-    }
+    output_path = output_path != nullptr ? output_path : "scene.vpak";
 
-    auto compression_level = CompressionLevel::Normal;
+    auto compression_level = vull::CompressionLevel::Normal;
     if (fast) {
-        compression_level = CompressionLevel::None;
+        compression_level = vull::CompressionLevel::None;
     }
     if (ultra) {
-        compression_level = CompressionLevel::Ultra;
+        compression_level = vull::CompressionLevel::Ultra;
     }
 
-    unsigned assimp_options = 0;
-    assimp_options |= aiProcess_ValidateDataStructure;
-    assimp_options |= aiProcess_FlipUVs;
-    assimp_options |= aiProcess_RemoveComponent;
-    assimp_options |= aiProcess_Triangulate;
-    if (!fast) {
-        assimp_options |= aiProcess_RemoveRedundantMaterials;
-        assimp_options |= aiProcess_SortByPType;
-        assimp_options |= aiProcess_JoinIdenticalVertices;
-    }
+    // TODO: Tidy this block up (file/mmap utility in vull + proper error handling).
+    FILE *file = fopen(input_path, "rb");
+    struct stat stat {};
+    fstat(fileno(file), &stat);
+    const auto file_size = static_cast<size_t>(stat.st_size);
+    const auto *data = static_cast<const uint8_t *>(mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fileno(file), 0));
+    fclose(file);
 
-    Assimp::DefaultLogger::create("vpak", Assimp::Logger::VERBOSE);
-    Assimp::DefaultLogger::get()->attachStream(new AssimpLogger, Assimp::Logger::Debugging | Assimp::Logger::Info |
-                                                                     Assimp::Logger::Warn | Assimp::Logger::Err);
-    Assimp::Importer importer;
-    importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, aiComponent_TANGENTS_AND_BITANGENTS | aiComponent_COLORS |
-                                                            aiComponent_BONEWEIGHTS | aiComponent_ANIMATIONS |
-                                                            aiComponent_LIGHTS | aiComponent_CAMERAS);
-    Timer timer;
-    const auto *scene = importer.ReadFile(input_path, assimp_options);
-    if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) != 0 ||
-        (scene->mFlags & AI_SCENE_FLAGS_VALIDATION_WARNING) != 0) {
-        return 1;
-    }
-    putchar('\n');
-
-    World world;
-    world.register_component<Transform>();
-    world.register_component<Mesh>();
-    world.register_component<Material>();
-
-    auto *pack_file = fopen(output_path, "wb");
-    PackWriter pack_writer(pack_file, compression_level);
+    vull::Timer timer;
+    FILE *pack_file = fopen(output_path, "wb");
+    vull::PackWriter pack_writer(pack_file, compression_level);
     pack_writer.write_header();
 
-    // Walk imported scene hierarchy.
-    auto input_path_copy = String::move_raw(strdup(input_path), strlen(input_path));
-    const char *root_path = dirname(input_path_copy.data());
-    Vector<Optional<Material>> materials(scene->mNumMaterials);
-    uint32_t mesh_index = 0;
-    uint32_t texture_index = 0;
-    process_node(root_path, scene, world, pack_writer, materials, 0, scene->mRootNode, mesh_index, texture_index, 0);
+    // Validate magic number.
+    if (const auto magic = DWORD_LE(data, 0); magic != 0x46546c67u) {
+        fprintf(stderr, "fatal: invalid magic number 0x%x\n", magic);
+        return 1;
+    }
+
+    // Validate version.
+    if (const auto version = DWORD_LE(data, 4); version != 2) {
+        fprintf(stderr, "fatal: unsupported version %u\n", version);
+        return 1;
+    }
+
+    // Validate the alleged size in the header is the actual size.
+    if (const auto size = DWORD_LE(data, 8); size != file_size) {
+        fprintf(stderr, "fatal: size mismatch %u vs %lu\n", size, file_size);
+        return 1;
+    }
+
+    // glTF 2 must have a single JSON chunk at the start.
+    uint32_t json_length = DWORD_LE(data, 12);
+    if (DWORD_LE(data, 16) != 0x4e4f534au) {
+        fputs("fatal: missing or invalid JSON chunk\n", stderr);
+        return 1;
+    }
+
+    if (dump_json) {
+        printf("%.*s\n", json_length, &data[20]);
+        return 0;
+    }
+
+    simdjson::dom::parser parser;
+    simdjson::dom::element document;
+    if (auto error = parser.parse(&data[20], json_length, false).get(document)) {
+        fprintf(stderr, "fatal: json parse error (%s)\n", simdjson::error_message(error));
+        return 1;
+    }
+
+    simdjson::dom::object asset_info;
+    if (auto error = document["asset"].get(asset_info)) {
+        fprintf(stderr, "fatal: failed to get asset info (%s)\n", simdjson::error_message(error));
+        return 1;
+    }
+    if (std::string_view generator; asset_info["generator"].get(generator) == simdjson::SUCCESS) {
+        printf("Generator: %.*s\n", static_cast<int>(generator.length()), generator.data());
+    }
+
+    vull::World world;
+    world.register_component<vull::Transform>();
+    world.register_component<vull::Mesh>();
+    world.register_component<vull::Material>();
+
+    Traverser traverser(&data[20 + json_length + 8], document, pack_writer, world, fast);
+    traverser.process_materials();
+    traverser.process_meshes();
+
+    // The scene property may not be present, so we assume the first one if not.
+    uint64_t scene_index = 0;
+    static_cast<void>(document["scene"].get(scene_index));
+
+    simdjson::dom::object scene;
+    if (auto error = document["scenes"].at(scene_index).get(scene)) {
+        fprintf(stderr, "fatal: failed to get scene at index %lu (%s)\n", scene_index, simdjson::error_message(error));
+        return 1;
+    }
+    if (std::string_view scene_name; scene["name"].get(scene_name) == simdjson::SUCCESS) {
+        printf("Scene: \"%.*s\" (idx %lu)\n", static_cast<int>(scene_name.length()), scene_name.data(), scene_index);
+    }
+
+    auto root_entity = world.create_entity();
+    root_entity.add<vull::Transform>(root_entity);
+    if (simdjson::dom::array node_indices; scene["nodes"].get(node_indices) == simdjson::SUCCESS) {
+        for (auto node_index : node_indices) {
+            traverser.traverse_node(node_index.get_uint64().value_unsafe(), root_entity, 0);
+        }
+    }
 
     // Serialise ECS state.
     float world_ratio = world.serialise(pack_writer);
-    printf("(world): %.1f%%\n", world_ratio * 100.0f);
+    printf("(world): %.1f%%\n", world_ratio);
 
-    printf("\nWrote %ld bytes to %s in %.2f seconds\n", ftell(pack_file), output_path, timer.elapsed());
+    printf("\nWrote %lu bytes to %s in %.2f seconds\n", ftello(pack_file), output_path, timer.elapsed());
     fclose(pack_file);
-    Assimp::DefaultLogger::kill();
 }

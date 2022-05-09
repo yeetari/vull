@@ -65,7 +65,7 @@ float PackWriter::end_entry() {
     });
 
     if (!m_compress_head) {
-        return 1.0f;
+        return 100.0f;
     }
 
     size_t remaining = 0;
@@ -86,7 +86,7 @@ float PackWriter::end_entry() {
     // Flush any remaining compressed data.
     m_compressed_size += fwrite(m_buffer, 1, *m_compress_head, m_file);
     m_compress_head.clear();
-    return static_cast<float>(m_compressed_size) / static_cast<float>(m_entry_size);
+    return static_cast<float>(m_compressed_size) / static_cast<float>(m_entry_size) * 100.0f;
 }
 
 void PackWriter::write(Span<const void> data) {

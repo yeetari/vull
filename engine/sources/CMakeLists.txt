@@ -1,5 +1,6 @@
 target_sources(vull PRIVATE
     core/Scene.cc
+    core/Transform.cc
     core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
