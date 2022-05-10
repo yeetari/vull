@@ -108,6 +108,6 @@ void main() {
     }
 
     // Final output with fog blended in.
-    float fog = fog_factor(0.004f, distance(g_fragment.position, g_ubo.camera_position));
+    float fog = fog_factor(0.01f, distance(g_fragment.position, g_ubo.camera_position));
     g_out_colour = vec4(mix(illuminance, vec3(0.47f, 0.5f, 0.67f), fog), 1.0f);
 }

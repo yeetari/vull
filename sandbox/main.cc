@@ -838,7 +838,7 @@ void main_task(Scheduler &scheduler) {
     };
 
     auto update_cascades = [&] {
-        const float shadow_distance = 500.0f;
+        const float shadow_distance = 2000.0f;
         const float clip_range = shadow_distance - near_plane;
         const float split_lambda = 0.95f;
         Array<float, 4> split_distances;
