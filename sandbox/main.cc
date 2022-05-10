@@ -540,6 +540,21 @@ void main_task(Scheduler &scheduler) {
     vk::Sampler depth_sampler;
     VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vk::Result::Success);
 
+    vk::SamplerCreateInfo shadow_sampler_ci{
+        .sType = vk::StructureType::SamplerCreateInfo,
+        .magFilter = vk::Filter::Linear,
+        .minFilter = vk::Filter::Linear,
+        .mipmapMode = vk::SamplerMipmapMode::Linear,
+        .addressModeU = vk::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::ClampToEdge,
+        .compareEnable = true,
+        .compareOp = vk::CompareOp::Less,
+        .borderColor = vk::BorderColor::FloatOpaqueWhite,
+    };
+    vk::Sampler shadow_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&shadow_sampler_ci, &shadow_sampler) == vk::Result::Success);
+
     vk::SamplerCreateInfo albedo_sampler_ci{
         .sType = vk::StructureType::SamplerCreateInfo,
         // TODO: Switch back to linear filtering; create a separate sampler for things wanting nearest filtering (error
@@ -697,7 +712,7 @@ void main_task(Scheduler &scheduler) {
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
     vk::DescriptorImageInfo shadow_map_image_info{
-        .sampler = depth_sampler,
+        .sampler = shadow_sampler,
         .imageView = shadow_map_view,
         .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
     };
@@ -1251,6 +1266,7 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(uniform_buffer);
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
+    context.vkDestroySampler(shadow_sampler);
     context.vkDestroySampler(depth_sampler);
     for (auto *cascade_view : shadow_cascade_views) {
         context.vkDestroyImageView(cascade_view);

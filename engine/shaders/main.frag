@@ -25,7 +25,7 @@ layout (binding = 1, std430) readonly buffer Lights {
 layout (binding = 2) readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (binding = 4) uniform sampler2DArray g_shadow_map;
+layout (binding = 4) uniform sampler2DArrayShadow g_shadow_map;
 layout (binding = 5) uniform sampler g_albedo_sampler;
 layout (binding = 6) uniform sampler g_normal_sampler;
 layout (binding = 7) uniform texture2D g_textures[];
@@ -78,19 +78,10 @@ uint choose_cascade(vec4 world_position) {
     return 3;
 }
 
-float shadow_factor(vec4 world_position, sampler2DArray shadow_map) {
+float shadow_factor(vec4 world_position, sampler2DArrayShadow shadow_map) {
     uint cascade_index = choose_cascade(world_position);
     vec4 projected = k_shadow_bias * g_ubo.sun_matrices[cascade_index] * world_position;
-
-    float shadow = 0.0f;
-    float texel_size = 1.0f / textureSize(shadow_map, 0).x;
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            float closest_depth = texture(shadow_map, vec3(projected.xy + vec2(x, y) * texel_size, cascade_index)).r;
-            shadow += closest_depth < projected.z ? 0.0f : 1.0f;
-        }
-    }
-    return shadow / 9.0f;
+    return texture(shadow_map, vec4(projected.xy, cascade_index, projected.z)).r;
 }
 
 void main() {
