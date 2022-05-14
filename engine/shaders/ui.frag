@@ -1,4 +1,5 @@
 #version 460
+#include "lib/common.glsl"
 #include "ui.glsl"
 
 #extension GL_EXT_nonuniform_qualifier : enable
@@ -32,4 +33,5 @@ void main() {
         g_out_colour = vec4(overall_colour, overall_alpha);
         break;
     }
+    g_out_colour = linear_to_srgb(g_out_colour);
 }

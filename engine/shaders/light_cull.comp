@@ -1,16 +1,14 @@
 #version 460
-#include "common.glsl"
+#include "lib/common.glsl"
+#include "lib/constants.glsl"
+#include "lib/lighting.glsl"
+#include "lib/ubo.glsl"
 
 #extension GL_EXT_shader_atomic_float2 : enable
 
-layout (local_size_x_id = 0) in;
+layout (local_size_x_id = 2) in;
 
-layout (binding = 0) readonly uniform UniformBuffer {
-    mat4 proj;
-    mat4 view;
-    mat4 sun_matrices[4];
-    vec3 camera_position;
-} g_ubo;
+DECLARE_UBO(0);
 layout (binding = 1, std430) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
@@ -18,7 +16,7 @@ layout (binding = 1, std430) readonly buffer Lights {
 layout (binding = 2) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (binding = 3) uniform sampler2D g_depth_sampler;
+layout (set = 1, binding = 0) uniform sampler2D g_depth_sampler;
 
 struct ViewFrustum {
     vec3 planes[4];
@@ -30,7 +28,7 @@ shared uint g_tile_light_count;
 shared ViewFrustum g_frustum;
 
 ViewFrustum create_frustum(ivec2 tile_id) {
-    mat4 inv_proj = inverse(g_ubo.proj);
+    mat4 inv_proj = inverse(g_proj);
     vec2 ndc_tile_size = 2.0f * vec2(k_tile_size) / vec2(k_viewport_width, k_viewport_height);
     vec4 ndc_points[4];
     ndc_points[0] = vec4(tile_id * ndc_tile_size - 1.0f, 1.0f, 1.0f);
@@ -49,7 +47,7 @@ ViewFrustum create_frustum(ivec2 tile_id) {
 }
 
 bool is_light_visible(PointLight light) {
-    vec3 position = (g_ubo.view * vec4(light.position, 1.0f)).xyz;
+    vec3 position = (g_view * vec4(light.position, 1.0f)).xyz;
     for (uint i = 0; i < 4; i++) {
         if (dot(position, g_frustum.planes[i]) > light.radius) {
             return false;
@@ -75,7 +73,7 @@ void main() {
     }
     for (uint y = 0; y < k_tile_size; y++) {
         vec2 sample_location = vec2(k_tile_size) * tile_id + vec2(gl_LocalInvocationIndex, y);
-        float depth = linearise_depth(texelFetch(g_depth_sampler, ivec2(sample_location), 0).r, g_ubo.proj);
+        float depth = linearise_depth(texelFetch(g_depth_sampler, ivec2(sample_location), 0).r, g_proj);
         atomicMin(g_min_depth, depth);
         atomicMax(g_max_depth, depth);
     }

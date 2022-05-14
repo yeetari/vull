@@ -190,7 +190,7 @@ Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vk::Sha
             .pName = "main",
         },
     };
-    const auto colour_format = vk::Format::B8G8R8A8Srgb;
+    const auto colour_format = vk::Format::B8G8R8A8Unorm;
     vk::PipelineRenderingCreateInfo rendering_create_info{
         .sType = vk::StructureType::PipelineRenderingCreateInfo,
         .colorAttachmentCount = 1,

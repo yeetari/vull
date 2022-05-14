@@ -63,7 +63,7 @@ vk::ShaderModule load_shader(const VkContext &context, const char *path) {
 }
 
 void main_task(Scheduler &scheduler) {
-    Window window(2560, 1440, false);
+    Window window(2560, 1440, true);
     VkContext context;
     auto swapchain = window.create_swapchain(context);
 
@@ -81,44 +81,44 @@ void main_task(Scheduler &scheduler) {
     uint32_t col_tile_count = (window.height() + (window.height() % tile_size)) / tile_size;
 
     struct SpecialisationData {
+        uint32_t viewport_width;
+        uint32_t viewport_height;
         uint32_t tile_size;
         uint32_t tile_max_light_count;
         uint32_t row_tile_count;
-        uint32_t viewport_width;
-        uint32_t viewport_height;
     } specialisation_data{
+        .viewport_width = window.width(),
+        .viewport_height = window.height(),
         .tile_size = tile_size,
         .tile_max_light_count = 400,
         .row_tile_count = row_tile_count,
-        .viewport_width = window.width(),
-        .viewport_height = window.height(),
     };
 
     Array specialisation_map_entries{
         vk::SpecializationMapEntry{
             .constantID = 0,
-            .offset = offsetof(SpecialisationData, tile_size),
-            .size = sizeof(SpecialisationData::tile_size),
-        },
-        vk::SpecializationMapEntry{
-            .constantID = 1,
-            .offset = offsetof(SpecialisationData, tile_max_light_count),
-            .size = sizeof(SpecialisationData::tile_max_light_count),
-        },
-        vk::SpecializationMapEntry{
-            .constantID = 2,
-            .offset = offsetof(SpecialisationData, row_tile_count),
-            .size = sizeof(SpecialisationData::row_tile_count),
-        },
-        vk::SpecializationMapEntry{
-            .constantID = 3,
             .offset = offsetof(SpecialisationData, viewport_width),
             .size = sizeof(SpecialisationData::viewport_width),
         },
         vk::SpecializationMapEntry{
-            .constantID = 4,
+            .constantID = 1,
             .offset = offsetof(SpecialisationData, viewport_height),
             .size = sizeof(SpecialisationData::viewport_height),
+        },
+        vk::SpecializationMapEntry{
+            .constantID = 2,
+            .offset = offsetof(SpecialisationData, tile_size),
+            .size = sizeof(SpecialisationData::tile_size),
+        },
+        vk::SpecializationMapEntry{
+            .constantID = 3,
+            .offset = offsetof(SpecialisationData, tile_max_light_count),
+            .size = sizeof(SpecialisationData::tile_max_light_count),
+        },
+        vk::SpecializationMapEntry{
+            .constantID = 4,
+            .offset = offsetof(SpecialisationData, row_tile_count),
+            .size = sizeof(SpecialisationData::row_tile_count),
         },
     };
     vk::SpecializationInfo specialisation_info{
@@ -128,17 +128,36 @@ void main_task(Scheduler &scheduler) {
         .pData = &specialisation_data,
     };
 
+    auto *default_vertex_shader = load_shader(context, "engine/shaders/default.vert.spv");
+    auto *default_fragment_shader = load_shader(context, "engine/shaders/default.frag.spv");
+    auto *deferred_shader = load_shader(context, "engine/shaders/deferred.comp.spv");
     auto *light_cull_shader = load_shader(context, "engine/shaders/light_cull.comp.spv");
-    auto *main_vertex_shader = load_shader(context, "engine/shaders/main.vert.spv");
-    auto *main_fragment_shader = load_shader(context, "engine/shaders/main.frag.spv");
     auto *shadow_shader = load_shader(context, "engine/shaders/shadow.vert.spv");
     auto *ui_vertex_shader = load_shader(context, "engine/shaders/ui.vert.spv");
     auto *ui_fragment_shader = load_shader(context, "engine/shaders/ui.frag.spv");
-    vk::PipelineShaderStageCreateInfo depth_pass_shader_stage_ci{
+
+    Array geometry_pass_shader_stage_cis{
+        vk::PipelineShaderStageCreateInfo{
+            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vk::ShaderStage::Vertex,
+            .module = default_vertex_shader,
+            .pName = "main",
+            .pSpecializationInfo = &specialisation_info,
+        },
+        vk::PipelineShaderStageCreateInfo{
+            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vk::ShaderStage::Fragment,
+            .module = default_fragment_shader,
+            .pName = "main",
+            .pSpecializationInfo = &specialisation_info,
+        },
+    };
+    vk::PipelineShaderStageCreateInfo deferred_shader_stage_ci{
         .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-        .stage = vk::ShaderStage::Vertex,
-        .module = main_vertex_shader,
+        .stage = vk::ShaderStage::Compute,
+        .module = deferred_shader,
         .pName = "main",
+        .pSpecializationInfo = &specialisation_info,
     };
     vk::PipelineShaderStageCreateInfo light_cull_shader_stage_ci{
         .sType = vk::StructureType::PipelineShaderStageCreateInfo,
@@ -146,21 +165,6 @@ void main_task(Scheduler &scheduler) {
         .module = light_cull_shader,
         .pName = "main",
         .pSpecializationInfo = &specialisation_info,
-    };
-    Array main_shader_stage_cis{
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Vertex,
-            .module = main_vertex_shader,
-            .pName = "main",
-        },
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Fragment,
-            .module = main_fragment_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
     };
     vk::PipelineShaderStageCreateInfo shadow_shader_stage_ci{
         .sType = vk::StructureType::PipelineShaderStageCreateInfo,
@@ -170,7 +174,7 @@ void main_task(Scheduler &scheduler) {
         .pSpecializationInfo = &specialisation_info,
     };
 
-    Array set_bindings{
+    Array global_set_bindings{
         vk::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vk::DescriptorType::UniformBuffer,
@@ -181,13 +185,76 @@ void main_task(Scheduler &scheduler) {
             .binding = 1,
             .descriptorType = vk::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Compute | vk::ShaderStage::Fragment,
+            .stageFlags = vk::ShaderStage::Compute,
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 2,
             .descriptorType = vk::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Compute | vk::ShaderStage::Fragment,
+            .stageFlags = vk::ShaderStage::Compute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 3,
+            .descriptorType = vk::DescriptorType::StorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Compute,
+        },
+    };
+    vk::DescriptorSetLayoutCreateInfo global_set_layout_ci{
+        .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
+        .bindingCount = global_set_bindings.size(),
+        .pBindings = global_set_bindings.data(),
+    };
+    vk::DescriptorSetLayout global_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&global_set_layout_ci, &global_set_layout) == vk::Result::Success);
+
+    Array geometry_set_bindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::Sampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = vk::DescriptorType::SampledImage,
+            .descriptorCount = scene.texture_count(),
+            .stageFlags = vk::ShaderStage::Fragment,
+        },
+    };
+    vk::DescriptorSetLayoutCreateInfo geometry_set_layout_ci{
+        .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
+        .bindingCount = geometry_set_bindings.size(),
+        .pBindings = geometry_set_bindings.data(),
+    };
+    vk::DescriptorSetLayout geometry_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&geometry_set_layout_ci, &geometry_set_layout) ==
+                vk::Result::Success);
+
+    Array deferred_set_bindings{
+        vk::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Compute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Compute,
+        },
+        vk::DescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStage::Compute,
         },
         vk::DescriptorSetLayoutBinding{
             .binding = 3,
@@ -195,52 +262,47 @@ void main_task(Scheduler &scheduler) {
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStage::Compute,
         },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 4,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Fragment,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 5,
-            .descriptorType = vk::DescriptorType::Sampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Fragment,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 6,
-            .descriptorType = vk::DescriptorType::Sampler,
-            .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Fragment,
-        },
-        vk::DescriptorSetLayoutBinding{
-            .binding = 7,
-            .descriptorType = vk::DescriptorType::SampledImage,
-            .descriptorCount = scene.texture_count(),
-            .stageFlags = vk::ShaderStage::Fragment,
-        },
     };
-    vk::DescriptorSetLayoutCreateInfo set_layout_ci{
+    vk::DescriptorSetLayoutCreateInfo deferred_set_layout_ci{
         .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = set_bindings.size(),
-        .pBindings = set_bindings.data(),
+        .bindingCount = deferred_set_bindings.size(),
+        .pBindings = deferred_set_bindings.data(),
     };
-    vk::DescriptorSetLayout set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &set_layout) == vk::Result::Success);
+    vk::DescriptorSetLayout deferred_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&deferred_set_layout_ci, &deferred_set_layout) ==
+                vk::Result::Success);
 
     vk::PushConstantRange push_constant_range{
         .stageFlags = vk::ShaderStage::All,
         .size = sizeof(PushConstantBlock),
     };
-    vk::PipelineLayoutCreateInfo pipeline_layout_ci{
+    Array geometry_set_layouts{
+        global_set_layout,
+        geometry_set_layout,
+    };
+    vk::PipelineLayoutCreateInfo geometry_pipeline_layout_ci{
         .sType = vk::StructureType::PipelineLayoutCreateInfo,
-        .setLayoutCount = 1,
-        .pSetLayouts = &set_layout,
+        .setLayoutCount = geometry_set_layouts.size(),
+        .pSetLayouts = geometry_set_layouts.data(),
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant_range,
     };
-    vk::PipelineLayout pipeline_layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &pipeline_layout) == vk::Result::Success);
+    vk::PipelineLayout geometry_pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&geometry_pipeline_layout_ci, &geometry_pipeline_layout) ==
+                vk::Result::Success);
+
+    Array compute_set_layouts{
+        global_set_layout,
+        deferred_set_layout,
+    };
+    vk::PipelineLayoutCreateInfo compute_pipeline_layout_ci{
+        .sType = vk::StructureType::PipelineLayoutCreateInfo,
+        .setLayoutCount = compute_set_layouts.size(),
+        .pSetLayouts = compute_set_layouts.data(),
+    };
+    vk::PipelineLayout compute_pipeline_layout;
+    VULL_ENSURE(context.vkCreatePipelineLayout(&compute_pipeline_layout_ci, &compute_pipeline_layout) ==
+                vk::Result::Success);
 
     Array vertex_attribute_descriptions{
         vk::VertexInputAttributeDescription{
@@ -263,12 +325,19 @@ void main_task(Scheduler &scheduler) {
         .stride = sizeof(Vertex),
         .inputRate = vk::VertexInputRate::Vertex,
     };
-    vk::PipelineVertexInputStateCreateInfo vertex_input_state{
+    vk::PipelineVertexInputStateCreateInfo main_vertex_input_state{
         .sType = vk::StructureType::PipelineVertexInputStateCreateInfo,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &vertex_binding_description,
         .vertexAttributeDescriptionCount = vertex_attribute_descriptions.size(),
         .pVertexAttributeDescriptions = vertex_attribute_descriptions.data(),
+    };
+    vk::PipelineVertexInputStateCreateInfo shadow_vertex_input_state{
+        .sType = vk::StructureType::PipelineVertexInputStateCreateInfo,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &vertex_binding_description,
+        .vertexAttributeDescriptionCount = 1,
+        .pVertexAttributeDescriptions = &vertex_attribute_descriptions.first(),
     };
     vk::PipelineInputAssemblyStateCreateInfo input_assembly_state{
         .sType = vk::StructureType::PipelineInputAssemblyStateCreateInfo,
@@ -300,7 +369,7 @@ void main_task(Scheduler &scheduler) {
         .height = shadow_resolution,
         .maxDepth = 1.0f,
     };
-    vk::PipelineViewportStateCreateInfo shadow_pass_viewport_state{
+    vk::PipelineViewportStateCreateInfo shadow_viewport_state{
         .sType = vk::StructureType::PipelineViewportStateCreateInfo,
         .viewportCount = 1,
         .pViewports = &shadow_viewport,
@@ -308,14 +377,14 @@ void main_task(Scheduler &scheduler) {
         .pScissors = &shadow_scissor,
     };
 
-    vk::PipelineRasterizationStateCreateInfo rasterisation_state{
+    vk::PipelineRasterizationStateCreateInfo main_rasterisation_state{
         .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
         .polygonMode = vk::PolygonMode::Fill,
         .cullMode = vk::CullMode::Back,
         .frontFace = vk::FrontFace::CounterClockwise,
         .lineWidth = 1.0f,
     };
-    vk::PipelineRasterizationStateCreateInfo shadow_pass_rasterisation_state{
+    vk::PipelineRasterizationStateCreateInfo shadow_rasterisation_state{
         .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
         .polygonMode = vk::PolygonMode::Fill,
         .cullMode = vk::CullMode::Back,
@@ -332,63 +401,63 @@ void main_task(Scheduler &scheduler) {
         .minSampleShading = 1.0f,
     };
 
-    vk::PipelineDepthStencilStateCreateInfo depth_pass_depth_stencil_state{
+    vk::PipelineDepthStencilStateCreateInfo main_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
         .depthTestEnable = true,
         .depthWriteEnable = true,
         .depthCompareOp = vk::CompareOp::GreaterOrEqual,
     };
-    vk::PipelineDepthStencilStateCreateInfo shadow_pass_depth_stencil_state{
+    vk::PipelineDepthStencilStateCreateInfo shadow_depth_stencil_state{
         .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
         .depthTestEnable = true,
         .depthWriteEnable = true,
         .depthCompareOp = vk::CompareOp::LessOrEqual,
     };
-    vk::PipelineDepthStencilStateCreateInfo main_pass_depth_stencil_state{
-        .sType = vk::StructureType::PipelineDepthStencilStateCreateInfo,
-        .depthTestEnable = true,
-        .depthCompareOp = vk::CompareOp::Equal,
-    };
 
-    vk::PipelineColorBlendAttachmentState main_pass_blend_attachment{
-        .colorWriteMask = vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
+    Array main_blend_attachments{
+        vk::PipelineColorBlendAttachmentState{
+            .colorWriteMask =
+                vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
+        },
+        vk::PipelineColorBlendAttachmentState{
+            .colorWriteMask =
+                vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
+        },
     };
-    vk::PipelineColorBlendStateCreateInfo main_pass_blend_state{
+    vk::PipelineColorBlendStateCreateInfo main_blend_state{
         .sType = vk::StructureType::PipelineColorBlendStateCreateInfo,
-        .attachmentCount = 1,
-        .pAttachments = &main_pass_blend_attachment,
+        .attachmentCount = main_blend_attachments.size(),
+        .pAttachments = main_blend_attachments.data(),
     };
 
+    Array gbuffer_formats{
+        vk::Format::R8G8B8A8Unorm,
+        vk::Format::R32G32B32A32Sfloat,
+    };
     const auto depth_format = vk::Format::D32Sfloat;
-    vk::PipelineRenderingCreateInfo depth_pass_rendering_create_info{
+    vk::PipelineRenderingCreateInfo geometry_pass_rendering_create_info{
         .sType = vk::StructureType::PipelineRenderingCreateInfo,
+        .colorAttachmentCount = gbuffer_formats.size(),
+        .pColorAttachmentFormats = gbuffer_formats.data(),
         .depthAttachmentFormat = depth_format,
         .stencilAttachmentFormat = depth_format,
     };
-    vk::GraphicsPipelineCreateInfo depth_pass_pipeline_ci{
+    vk::GraphicsPipelineCreateInfo geometry_pass_pipeline_ci{
         .sType = vk::StructureType::GraphicsPipelineCreateInfo,
-        .pNext = &depth_pass_rendering_create_info,
-        .stageCount = 1,
-        .pStages = &depth_pass_shader_stage_ci,
-        .pVertexInputState = &vertex_input_state,
+        .pNext = &geometry_pass_rendering_create_info,
+        .stageCount = geometry_pass_shader_stage_cis.size(),
+        .pStages = geometry_pass_shader_stage_cis.data(),
+        .pVertexInputState = &main_vertex_input_state,
         .pInputAssemblyState = &input_assembly_state,
         .pViewportState = &viewport_state,
-        .pRasterizationState = &rasterisation_state,
+        .pRasterizationState = &main_rasterisation_state,
         .pMultisampleState = &multisample_state,
-        .pDepthStencilState = &depth_pass_depth_stencil_state,
-        .layout = pipeline_layout,
+        .pDepthStencilState = &main_depth_stencil_state,
+        .pColorBlendState = &main_blend_state,
+        .layout = geometry_pipeline_layout,
     };
-    vk::Pipeline depth_pass_pipeline;
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &depth_pass_pipeline_ci, &depth_pass_pipeline) ==
-                vk::Result::Success);
-
-    vk::ComputePipelineCreateInfo light_cull_pipeline_ci{
-        .sType = vk::StructureType::ComputePipelineCreateInfo,
-        .stage = light_cull_shader_stage_ci,
-        .layout = pipeline_layout,
-    };
-    vk::Pipeline light_cull_pipeline;
-    VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
+    vk::Pipeline geometry_pass_pipeline;
+    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &geometry_pass_pipeline_ci, &geometry_pass_pipeline) ==
                 vk::Result::Success);
 
     vk::PipelineRenderingCreateInfo shadow_pass_rendering_create_info{
@@ -401,42 +470,34 @@ void main_task(Scheduler &scheduler) {
         .pNext = &shadow_pass_rendering_create_info,
         .stageCount = 1,
         .pStages = &shadow_shader_stage_ci,
-        .pVertexInputState = &vertex_input_state,
+        .pVertexInputState = &shadow_vertex_input_state,
         .pInputAssemblyState = &input_assembly_state,
-        .pViewportState = &shadow_pass_viewport_state,
-        .pRasterizationState = &shadow_pass_rasterisation_state,
+        .pViewportState = &shadow_viewport_state,
+        .pRasterizationState = &shadow_rasterisation_state,
         .pMultisampleState = &multisample_state,
-        .pDepthStencilState = &shadow_pass_depth_stencil_state,
-        .layout = pipeline_layout,
+        .pDepthStencilState = &shadow_depth_stencil_state,
+        .layout = geometry_pipeline_layout,
     };
     vk::Pipeline shadow_pass_pipeline;
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &shadow_pass_pipeline_ci, &shadow_pass_pipeline) ==
                 vk::Result::Success);
 
-    const auto colour_format = vk::Format::B8G8R8A8Srgb;
-    vk::PipelineRenderingCreateInfo main_pass_rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfo,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &colour_format,
-        .depthAttachmentFormat = depth_format,
-        .stencilAttachmentFormat = depth_format,
+    vk::ComputePipelineCreateInfo light_cull_pipeline_ci{
+        .sType = vk::StructureType::ComputePipelineCreateInfo,
+        .stage = light_cull_shader_stage_ci,
+        .layout = compute_pipeline_layout,
     };
-    vk::GraphicsPipelineCreateInfo main_pass_pipeline_ci{
-        .sType = vk::StructureType::GraphicsPipelineCreateInfo,
-        .pNext = &main_pass_rendering_create_info,
-        .stageCount = main_shader_stage_cis.size(),
-        .pStages = main_shader_stage_cis.data(),
-        .pVertexInputState = &vertex_input_state,
-        .pInputAssemblyState = &input_assembly_state,
-        .pViewportState = &viewport_state,
-        .pRasterizationState = &rasterisation_state,
-        .pMultisampleState = &multisample_state,
-        .pDepthStencilState = &main_pass_depth_stencil_state,
-        .pColorBlendState = &main_pass_blend_state,
-        .layout = pipeline_layout,
+    vk::Pipeline light_cull_pipeline;
+    VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &light_cull_pipeline_ci, &light_cull_pipeline) ==
+                vk::Result::Success);
+
+    vk::ComputePipelineCreateInfo deferred_pipeline_ci{
+        .sType = vk::StructureType::ComputePipelineCreateInfo,
+        .stage = deferred_shader_stage_ci,
+        .layout = compute_pipeline_layout,
     };
-    vk::Pipeline main_pass_pipeline;
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &main_pass_pipeline_ci, &main_pass_pipeline) ==
+    vk::Pipeline deferred_pipeline;
+    VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &deferred_pipeline_ci, &deferred_pipeline) ==
                 vk::Result::Success);
 
     vk::ImageCreateInfo depth_image_ci{
@@ -473,6 +534,76 @@ void main_task(Scheduler &scheduler) {
     };
     vk::ImageView depth_image_view;
     VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == vk::Result::Success);
+
+    vk::ImageCreateInfo albedo_image_ci{
+        .sType = vk::StructureType::ImageCreateInfo,
+        .imageType = vk::ImageType::_2D,
+        .format = gbuffer_formats[0],
+        .extent = swapchain.extent_3D(),
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCount::_1,
+        .tiling = vk::ImageTiling::Optimal,
+        .usage = vk::ImageUsage::ColorAttachment | vk::ImageUsage::Sampled,
+        .sharingMode = vk::SharingMode::Exclusive,
+        .initialLayout = vk::ImageLayout::Undefined,
+    };
+    vk::Image albedo_image;
+    VULL_ENSURE(context.vkCreateImage(&albedo_image_ci, &albedo_image) == vk::Result::Success);
+
+    vk::MemoryRequirements albedo_image_requirements{};
+    context.vkGetImageMemoryRequirements(albedo_image, &albedo_image_requirements);
+    vk::DeviceMemory albedo_image_memory = context.allocate_memory(albedo_image_requirements, MemoryType::DeviceLocal);
+    VULL_ENSURE(context.vkBindImageMemory(albedo_image, albedo_image_memory, 0) == vk::Result::Success);
+
+    vk::ImageViewCreateInfo albedo_image_view_ci{
+        .sType = vk::StructureType::ImageViewCreateInfo,
+        .image = albedo_image,
+        .viewType = vk::ImageViewType::_2D,
+        .format = albedo_image_ci.format,
+        .subresourceRange{
+            .aspectMask = vk::ImageAspect::Color,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    vk::ImageView albedo_image_view;
+    VULL_ENSURE(context.vkCreateImageView(&albedo_image_view_ci, &albedo_image_view) == vk::Result::Success);
+
+    vk::ImageCreateInfo normal_image_ci{
+        .sType = vk::StructureType::ImageCreateInfo,
+        .imageType = vk::ImageType::_2D,
+        .format = gbuffer_formats[1],
+        .extent = swapchain.extent_3D(),
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vk::SampleCount::_1,
+        .tiling = vk::ImageTiling::Optimal,
+        .usage = vk::ImageUsage::ColorAttachment | vk::ImageUsage::Sampled,
+        .sharingMode = vk::SharingMode::Exclusive,
+        .initialLayout = vk::ImageLayout::Undefined,
+    };
+    vk::Image normal_image;
+    VULL_ENSURE(context.vkCreateImage(&normal_image_ci, &normal_image) == vk::Result::Success);
+
+    vk::MemoryRequirements normal_image_requirements{};
+    context.vkGetImageMemoryRequirements(normal_image, &normal_image_requirements);
+    vk::DeviceMemory normal_image_memory = context.allocate_memory(normal_image_requirements, MemoryType::DeviceLocal);
+    VULL_ENSURE(context.vkBindImageMemory(normal_image, normal_image_memory, 0) == vk::Result::Success);
+
+    vk::ImageViewCreateInfo normal_image_view_ci{
+        .sType = vk::StructureType::ImageViewCreateInfo,
+        .image = normal_image,
+        .viewType = vk::ImageViewType::_2D,
+        .format = normal_image_ci.format,
+        .subresourceRange{
+            .aspectMask = vk::ImageAspect::Color,
+            .levelCount = 1,
+            .layerCount = 1,
+        },
+    };
+    vk::ImageView normal_image_view;
+    VULL_ENSURE(context.vkCreateImageView(&normal_image_view_ci, &normal_image_view) == vk::Result::Success);
 
     constexpr uint32_t shadow_cascade_count = 4;
     vk::ImageCreateInfo shadow_map_ci{
@@ -567,8 +698,7 @@ void main_task(Scheduler &scheduler) {
         .addressModeW = vk::SamplerAddressMode::Repeat,
         .anisotropyEnable = true,
         .maxAnisotropy = 16.0f,
-        // TODO: Bistro's mipmap levels smaller than 16x16 seem to be really broken.
-        .maxLod = 7.0f,
+        .maxLod = vk::k_lod_clamp_none,
         .borderColor = vk::BorderColor::FloatTransparentBlack,
     };
     vk::Sampler albedo_sampler;
@@ -590,12 +720,28 @@ void main_task(Scheduler &scheduler) {
     vk::Sampler normal_sampler;
     VULL_ENSURE(context.vkCreateSampler(&normal_sampler_ci, &normal_sampler) == vk::Result::Success);
 
+    vk::SamplerCreateInfo deferred_sampler_ci{
+        .sType = vk::StructureType::SamplerCreateInfo,
+        .magFilter = vk::Filter::Nearest,
+        .minFilter = vk::Filter::Nearest,
+        .mipmapMode = vk::SamplerMipmapMode::Nearest,
+        .addressModeU = vk::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::ClampToEdge,
+        .borderColor = vk::BorderColor::FloatTransparentBlack,
+    };
+    vk::Sampler deferred_sampler;
+    VULL_ENSURE(context.vkCreateSampler(&deferred_sampler_ci, &deferred_sampler) == vk::Result::Success);
+
+    struct ShadowInfo {
+        Array<Mat4f, 8> cascade_matrices;
+        Array<float, 8> cascade_split_depths;
+    };
     struct UniformBuffer {
         Mat4f proj;
         Mat4f view;
-        Array<Mat4f, 4> sun_matrices;
         Vec3f camera_position;
-        Vec4f sun_cascade_split_depths;
+        ShadowInfo shadow_info;
     };
     vk::BufferCreateInfo uniform_buffer_ci{
         .sType = vk::StructureType::BufferCreateInfo,
@@ -673,27 +819,50 @@ void main_task(Scheduler &scheduler) {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 2,
+            .descriptorCount = 4,
+        },
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::StorageImage,
+            .descriptorCount = 1,
         },
     };
     vk::DescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = vk::StructureType::DescriptorPoolCreateInfo,
-        .maxSets = 1,
+        .maxSets = 3,
         .poolSizeCount = descriptor_pool_sizes.size(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
     vk::DescriptorPool descriptor_pool;
     VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &descriptor_pool) == vk::Result::Success);
 
-    vk::DescriptorSetAllocateInfo descriptor_set_ai{
+    vk::DescriptorSetAllocateInfo global_set_ai{
         .sType = vk::StructureType::DescriptorSetAllocateInfo,
         .descriptorPool = descriptor_pool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &set_layout,
+        .pSetLayouts = &global_set_layout,
     };
-    vk::DescriptorSet descriptor_set;
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &descriptor_set) == vk::Result::Success);
+    vk::DescriptorSet global_set;
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&global_set_ai, &global_set) == vk::Result::Success);
 
+    vk::DescriptorSetAllocateInfo geometry_set_ai{
+        .sType = vk::StructureType::DescriptorSetAllocateInfo,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &geometry_set_layout,
+    };
+    vk::DescriptorSet geometry_set;
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&geometry_set_ai, &geometry_set) == vk::Result::Success);
+
+    vk::DescriptorSetAllocateInfo deferred_set_ai{
+        .sType = vk::StructureType::DescriptorSetAllocateInfo,
+        .descriptorPool = descriptor_pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &deferred_set_layout,
+    };
+    vk::DescriptorSet deferred_set;
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&deferred_set_ai, &deferred_set) == vk::Result::Success);
+
+    // Global set.
     vk::DescriptorBufferInfo uniform_buffer_info{
         .buffer = uniform_buffer,
         .range = vk::k_whole_size,
@@ -706,16 +875,8 @@ void main_task(Scheduler &scheduler) {
         .buffer = light_visibilities_buffer,
         .range = vk::k_whole_size,
     };
-    vk::DescriptorImageInfo depth_sampler_image_info{
-        .sampler = depth_sampler,
-        .imageView = depth_image_view,
-        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
-    };
-    vk::DescriptorImageInfo shadow_map_image_info{
-        .sampler = shadow_sampler,
-        .imageView = shadow_map_view,
-        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
-    };
+
+    // Geometry set.
     vk::DescriptorImageInfo albedo_sampler_info{
         .sampler = albedo_sampler,
     };
@@ -730,10 +891,34 @@ void main_task(Scheduler &scheduler) {
             .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
         });
     }
+
+    // Deferred set.
+    vk::DescriptorImageInfo depth_sampler_image_info{
+        .sampler = depth_sampler,
+        .imageView = depth_image_view,
+        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+    };
+    vk::DescriptorImageInfo albedo_sampler_image_info{
+        .sampler = deferred_sampler,
+        .imageView = albedo_image_view,
+        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+    };
+    vk::DescriptorImageInfo normal_sampler_image_info{
+        .sampler = deferred_sampler,
+        .imageView = normal_image_view,
+        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+    };
+    vk::DescriptorImageInfo shadow_map_image_info{
+        .sampler = shadow_sampler,
+        .imageView = shadow_map_view,
+        .imageLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+    };
+
     Array descriptor_writes{
+        // Global set.
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
+            .dstSet = global_set,
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::UniformBuffer,
@@ -741,7 +926,7 @@ void main_task(Scheduler &scheduler) {
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
+            .dstSet = global_set,
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::StorageBuffer,
@@ -749,51 +934,71 @@ void main_task(Scheduler &scheduler) {
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
+            .dstSet = global_set,
             .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::StorageBuffer,
             .pBufferInfo = &light_visibilities_buffer_info,
         },
+
+        // Geometry set.
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 3,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &depth_sampler_image_info,
-        },
-        vk::WriteDescriptorSet{
-            .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 4,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &shadow_map_image_info,
-        },
-        vk::WriteDescriptorSet{
-            .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 5,
+            .dstSet = geometry_set,
+            .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::Sampler,
             .pImageInfo = &albedo_sampler_info,
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 6,
+            .dstSet = geometry_set,
+            .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::Sampler,
             .pImageInfo = &normal_sampler_info,
         },
         vk::WriteDescriptorSet{
             .sType = vk::StructureType::WriteDescriptorSet,
-            .dstSet = descriptor_set,
-            .dstBinding = 7,
+            .dstSet = geometry_set,
+            .dstBinding = 2,
             .descriptorCount = texture_image_infos.size(),
             .descriptorType = vk::DescriptorType::SampledImage,
             .pImageInfo = texture_image_infos.data(),
+        },
+
+        // Deferred set.
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = deferred_set,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .pImageInfo = &depth_sampler_image_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = deferred_set,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .pImageInfo = &albedo_sampler_image_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = deferred_set,
+            .dstBinding = 2,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .pImageInfo = &normal_sampler_image_info,
+        },
+        vk::WriteDescriptorSet{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = deferred_set,
+            .dstBinding = 3,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .pImageInfo = &shadow_map_image_info,
         },
     };
     context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
@@ -899,8 +1104,8 @@ void main_task(Scheduler &scheduler) {
             Vec2f round_offset = (rounded_origin - origin) * (2.0f / shadow_resolution);
             proj[3] += Vec4f(round_offset, 0.0f, 0.0f);
 
-            ubo.sun_matrices[i] = proj * view;
-            ubo.sun_cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
+            ubo.shadow_info.cascade_matrices[i] = proj * view;
+            ubo.shadow_info.cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
             last_split_distance = split_distances[i];
         }
     };
@@ -913,7 +1118,7 @@ void main_task(Scheduler &scheduler) {
     vk::QueryPoolCreateInfo query_pool_ci{
         .sType = vk::StructureType::QueryPoolCreateInfo,
         .queryType = vk::QueryType::Timestamp,
-        .queryCount = 10,
+        .queryCount = 6,
     };
     vk::QueryPool query_pool;
     context.vkCreateQueryPool(&query_pool_ci, &query_pool);
@@ -943,24 +1148,24 @@ void main_task(Scheduler &scheduler) {
         context.vkResetFences(1, &fence);
         cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
 
-        Array<uint64_t, 10> timestamp_data{};
+        Array<uint64_t, 6> timestamp_data{};
         context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
                                       timestamp_data.data(), sizeof(uint64_t), vk::QueryResultFlags::_64);
 
         ui::TimeGraph::Bar gpu_frame_bar;
-        gpu_frame_bar.sections.push({"Depth pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
-                                                    device_properties.limits.timestampPeriod) /
-                                                       1000000000.0f});
-        gpu_frame_bar.sections.push({"Shadow pass", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
+        gpu_frame_bar.sections.push({"Geometry pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
+                                                       device_properties.limits.timestampPeriod) /
+                                                          1000000000.0f});
+        gpu_frame_bar.sections.push({"Shadow pass", (static_cast<float>((timestamp_data[2] - timestamp_data[1])) *
                                                      device_properties.limits.timestampPeriod) /
                                                         1000000000.0f});
-        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
+        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
                                                     device_properties.limits.timestampPeriod) /
                                                        1000000000.0f});
-        gpu_frame_bar.sections.push({"Main pass", (static_cast<float>((timestamp_data[7] - timestamp_data[6])) *
-                                                   device_properties.limits.timestampPeriod) /
-                                                      1000000000.0f});
-        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[9] - timestamp_data[8])) *
+        gpu_frame_bar.sections.push({"Deferred pass", (static_cast<float>((timestamp_data[4] - timestamp_data[3])) *
+                                                       device_properties.limits.timestampPeriod) /
+                                                          1000000000.0f});
+        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
                                             device_properties.limits.timestampPeriod) /
                                                1000000000.0f});
         gpu_time_graph.add_bar(move(gpu_frame_bar));
@@ -983,11 +1188,58 @@ void main_task(Scheduler &scheduler) {
         memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
+        vk::DescriptorImageInfo output_image_info{
+            .imageView = swapchain.image_view(image_index),
+            .imageLayout = vk::ImageLayout::General,
+        };
+        vk::WriteDescriptorSet output_image_write{
+            .sType = vk::StructureType::WriteDescriptorSet,
+            .dstSet = global_set,
+            .dstBinding = 3,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::StorageImage,
+            .pImageInfo = &output_image_info,
+        };
+        context.vkUpdateDescriptorSets(1, &output_image_write, 0, nullptr);
+
         Timer record_timer;
         const auto &cmd_buf = cmd_pool.request_cmd_buf();
         cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
-        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, pipeline_layout, {&descriptor_set, 1});
-        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, pipeline_layout, {&descriptor_set, 1});
+
+        Array compute_sets{global_set, deferred_set};
+        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Compute, compute_pipeline_layout, compute_sets.span());
+
+        Array graphics_sets{global_set, geometry_set};
+        cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, geometry_pipeline_layout, graphics_sets.span());
+
+        Array gbuffer_write_barriers{
+            vk::ImageMemoryBarrier{
+                .sType = vk::StructureType::ImageMemoryBarrier,
+                .dstAccessMask = vk::Access::ColorAttachmentWrite,
+                .oldLayout = vk::ImageLayout::Undefined,
+                .newLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .image = albedo_image,
+                .subresourceRange{
+                    .aspectMask = vk::ImageAspect::Color,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            },
+            vk::ImageMemoryBarrier{
+                .sType = vk::StructureType::ImageMemoryBarrier,
+                .dstAccessMask = vk::Access::ColorAttachmentWrite,
+                .oldLayout = vk::ImageLayout::Undefined,
+                .newLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .image = normal_image,
+                .subresourceRange{
+                    .aspectMask = vk::ImageAspect::Color,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            },
+        };
+        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ColorAttachmentOutput, {},
+                                 gbuffer_write_barriers.span());
 
         vk::ImageMemoryBarrier depth_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1005,6 +1257,28 @@ void main_task(Scheduler &scheduler) {
                                  vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
                                  {&depth_write_barrier, 1});
 
+        Array gbuffer_write_attachments{
+            vk::RenderingAttachmentInfo{
+                .sType = vk::StructureType::RenderingAttachmentInfo,
+                .imageView = albedo_image_view,
+                .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::Clear,
+                .storeOp = vk::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+            vk::RenderingAttachmentInfo{
+                .sType = vk::StructureType::RenderingAttachmentInfo,
+                .imageView = normal_image_view,
+                .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vk::AttachmentLoadOp::Clear,
+                .storeOp = vk::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+        };
         vk::RenderingAttachmentInfo depth_write_attachment{
             .sType = vk::StructureType::RenderingAttachmentInfo,
             .imageView = depth_image_view,
@@ -1015,19 +1289,21 @@ void main_task(Scheduler &scheduler) {
                 .depthStencil{0.0f, 0},
             },
         };
-        vk::RenderingInfo depth_pass_rendering_info{
+        vk::RenderingInfo geometry_pass_rendering_info{
             .sType = vk::StructureType::RenderingInfo,
             .renderArea{
                 .extent = swapchain.extent_2D(),
             },
             .layerCount = 1,
+            .colorAttachmentCount = gbuffer_write_attachments.size(),
+            .pColorAttachments = gbuffer_write_attachments.data(),
             .pDepthAttachment = &depth_write_attachment,
             .pStencilAttachment = &depth_write_attachment,
         };
         cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 0);
-        cmd_buf.begin_rendering(depth_pass_rendering_info);
-        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, depth_pass_pipeline);
-        scene.render(cmd_buf, pipeline_layout, 0);
+        cmd_buf.begin_rendering(geometry_pass_rendering_info);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, geometry_pass_pipeline);
+        scene.render(cmd_buf, geometry_pipeline_layout, 0);
         cmd_buf.end_rendering();
 
         vk::ImageMemoryBarrier shadow_map_write_barrier{
@@ -1047,7 +1323,6 @@ void main_task(Scheduler &scheduler) {
                                  {&shadow_map_write_barrier, 1});
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
 
-        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 2);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, shadow_pass_pipeline);
         for (uint32_t i = 0; i < shadow_cascade_count; i++) {
             vk::RenderingAttachmentInfo shadow_map_write_attachment{
@@ -1070,7 +1345,7 @@ void main_task(Scheduler &scheduler) {
                 .pStencilAttachment = &shadow_map_write_attachment,
             };
             cmd_buf.begin_rendering(shadow_map_rendering_info);
-            scene.render(cmd_buf, pipeline_layout, i);
+            scene.render(cmd_buf, geometry_pipeline_layout, i);
             cmd_buf.end_rendering();
         }
 
@@ -1089,13 +1364,11 @@ void main_task(Scheduler &scheduler) {
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
                                  vk::PipelineStage::ComputeShader, {}, {&depth_sample_barrier, 1});
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 3);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 2);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, light_cull_pipeline);
         cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
-        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 4);
-        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 5);
 
-        Array main_pass_buffer_barriers{
+        Array deferred_pass_buffer_barriers{
             vk::BufferMemoryBarrier{
                 .sType = vk::StructureType::BufferMemoryBarrier,
                 .srcAccessMask = vk::Access::ShaderWrite,
@@ -1111,14 +1384,46 @@ void main_task(Scheduler &scheduler) {
                 .size = light_visibilities_buffer_size,
             },
         };
-        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader, vk::PipelineStage::FragmentShader,
-                                 main_pass_buffer_barriers.span(), {});
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader, vk::PipelineStage::ComputeShader,
+                                 deferred_pass_buffer_barriers.span(), {});
+        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 3);
 
-        vk::ImageMemoryBarrier colour_write_barrier{
+        Array gbuffer_sample_barriers{
+            vk::ImageMemoryBarrier{
+                .sType = vk::StructureType::ImageMemoryBarrier,
+                .srcAccessMask = vk::Access::ColorAttachmentWrite,
+                .dstAccessMask = vk::Access::ShaderRead,
+                .oldLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .newLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+                .image = albedo_image,
+                .subresourceRange{
+                    .aspectMask = vk::ImageAspect::Color,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            },
+            vk::ImageMemoryBarrier{
+                .sType = vk::StructureType::ImageMemoryBarrier,
+                .srcAccessMask = vk::Access::ColorAttachmentWrite,
+                .dstAccessMask = vk::Access::ShaderRead,
+                .oldLayout = vk::ImageLayout::ColorAttachmentOptimal,
+                .newLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
+                .image = normal_image,
+                .subresourceRange{
+                    .aspectMask = vk::ImageAspect::Color,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            },
+        };
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::ComputeShader, {},
+                                 gbuffer_sample_barriers.span());
+
+        vk::ImageMemoryBarrier output_image_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
-            .dstAccessMask = vk::Access::ColorAttachmentWrite,
+            .dstAccessMask = vk::Access::ShaderWrite,
             .oldLayout = vk::ImageLayout::Undefined,
-            .newLayout = vk::ImageLayout::ColorAttachmentOptimal,
+            .newLayout = vk::ImageLayout::General,
             .image = swapchain.image(image_index),
             .subresourceRange{
                 .aspectMask = vk::ImageAspect::Color,
@@ -1126,19 +1431,9 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        vk::ImageMemoryBarrier depth_read_barrier{
-            .sType = vk::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vk::Access::ShaderRead,
-            .dstAccessMask = vk::Access::DepthStencilAttachmentRead,
-            .oldLayout = vk::ImageLayout::ShaderReadOnlyOptimal,
-            .newLayout = vk::ImageLayout::DepthReadOnlyOptimal,
-            .image = depth_image,
-            .subresourceRange{
-                .aspectMask = vk::ImageAspect::Depth,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
+        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ComputeShader, {},
+                                 {&output_image_barrier, 1});
+
         vk::ImageMemoryBarrier shadow_map_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
             .srcAccessMask = vk::Access::DepthStencilAttachmentWrite,
@@ -1152,54 +1447,17 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = shadow_cascade_count,
             },
         };
-        cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ColorAttachmentOutput, {},
-                                 {&colour_write_barrier, 1});
-        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader,
-                                 vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
-                                 {&depth_read_barrier, 1});
         cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                 vk::PipelineStage::FragmentShader, {}, {&shadow_map_sample_barrier, 1});
+                                 vk::PipelineStage::ComputeShader, {}, {&shadow_map_sample_barrier, 1});
 
-        vk::RenderingAttachmentInfo colour_write_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfo,
-            .imageView = swapchain.image_view(image_index),
-            .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vk::AttachmentLoadOp::Clear,
-            .storeOp = vk::AttachmentStoreOp::Store,
-            .clearValue{
-                .color{{0.47f, 0.5f, 0.67f, 1.0f}},
-            },
-        };
-        vk::RenderingAttachmentInfo depth_read_attachment{
-            .sType = vk::StructureType::RenderingAttachmentInfo,
-            .imageView = depth_image_view,
-            .imageLayout = vk::ImageLayout::DepthReadOnlyOptimal,
-            .loadOp = vk::AttachmentLoadOp::Load,
-            .storeOp = vk::AttachmentStoreOp::None,
-        };
-        vk::RenderingInfo main_pass_rendering_info{
-            .sType = vk::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = swapchain.extent_2D(),
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colour_write_attachment,
-            .pDepthAttachment = &depth_read_attachment,
-            .pStencilAttachment = &depth_read_attachment,
-        };
-        cmd_buf.write_timestamp(vk::PipelineStage::TopOfPipe, query_pool, 6);
-        cmd_buf.begin_rendering(main_pass_rendering_info);
-        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, main_pass_pipeline);
-        scene.render(cmd_buf, pipeline_layout, 0);
-        cmd_buf.end_rendering();
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 7);
+        cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, deferred_pipeline);
+        cmd_buf.dispatch(window.width() / 8, window.height() / 8, 1);
 
         vk::ImageMemoryBarrier ui_colour_write_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vk::Access::ColorAttachmentWrite,
+            .srcAccessMask = vk::Access::ShaderWrite,
             .dstAccessMask = vk::Access::ColorAttachmentRead,
-            .oldLayout = vk::ImageLayout::ColorAttachmentOptimal,
+            .oldLayout = vk::ImageLayout::General,
             .newLayout = vk::ImageLayout::ColorAttachmentOptimal,
             .image = swapchain.image(image_index),
             .subresourceRange{
@@ -1208,12 +1466,12 @@ void main_task(Scheduler &scheduler) {
                 .layerCount = 1,
             },
         };
-        cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::ColorAttachmentOutput, {},
+        cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader, vk::PipelineStage::ColorAttachmentOutput, {},
                                  {&ui_colour_write_barrier, 1});
 
-        cmd_buf.write_timestamp(vk::PipelineStage::ColorAttachmentOutput, query_pool, 8);
+        cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 4);
         ui.render(cmd_buf, image_index);
-        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 9);
+        cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 5);
 
         vk::ImageMemoryBarrier colour_present_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1264,6 +1522,7 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(lights_buffer);
     context.vkFreeMemory(uniform_buffer_memory);
     context.vkDestroyBuffer(uniform_buffer);
+    context.vkDestroySampler(deferred_sampler);
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(shadow_sampler);
@@ -1274,21 +1533,31 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyImageView(shadow_map_view);
     context.vkFreeMemory(shadow_map_memory);
     context.vkDestroyImage(shadow_map);
+    context.vkDestroyImageView(normal_image_view);
+    context.vkFreeMemory(normal_image_memory);
+    context.vkDestroyImage(normal_image);
+    context.vkDestroyImageView(albedo_image_view);
+    context.vkFreeMemory(albedo_image_memory);
+    context.vkDestroyImage(albedo_image);
     context.vkDestroyImageView(depth_image_view);
     context.vkFreeMemory(depth_image_memory);
     context.vkDestroyImage(depth_image);
-    context.vkDestroyPipeline(main_pass_pipeline);
+    context.vkDestroyPipeline(deferred_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
     context.vkDestroyPipeline(shadow_pass_pipeline);
-    context.vkDestroyPipeline(depth_pass_pipeline);
-    context.vkDestroyPipelineLayout(pipeline_layout);
-    context.vkDestroyDescriptorSetLayout(set_layout);
+    context.vkDestroyPipeline(geometry_pass_pipeline);
+    context.vkDestroyPipelineLayout(compute_pipeline_layout);
+    context.vkDestroyPipelineLayout(geometry_pipeline_layout);
+    context.vkDestroyDescriptorSetLayout(deferred_set_layout);
+    context.vkDestroyDescriptorSetLayout(geometry_set_layout);
+    context.vkDestroyDescriptorSetLayout(global_set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
     context.vkDestroyShaderModule(shadow_shader);
-    context.vkDestroyShaderModule(main_fragment_shader);
-    context.vkDestroyShaderModule(main_vertex_shader);
     context.vkDestroyShaderModule(light_cull_shader);
+    context.vkDestroyShaderModule(deferred_shader);
+    context.vkDestroyShaderModule(default_fragment_shader);
+    context.vkDestroyShaderModule(default_vertex_shader);
 }
 
 } // namespace

@@ -1,0 +1,68 @@
+#version 460
+#include "lib/common.glsl"
+#include "lib/constants.glsl"
+#include "lib/lighting.glsl"
+#include "lib/shadow.glsl"
+#include "lib/ubo.glsl"
+
+layout (local_size_x = 8, local_size_y = 8) in;
+
+DECLARE_UBO(0);
+layout (binding = 1, std430) readonly buffer Lights {
+    uint g_light_count;
+    PointLight g_lights[];
+};
+layout (binding = 2) readonly buffer LightVisibilities {
+    LightVisibility g_light_visibilities[];
+};
+layout (binding = 3, rgba8) writeonly uniform image2D g_output_image;
+
+layout (set = 1, binding = 0) uniform sampler2D g_depth_sampler;
+layout (set = 1, binding = 1) uniform sampler2D g_albedo_sampler;
+layout (set = 1, binding = 2) uniform sampler2D g_normal_sampler;
+layout (set = 1, binding = 3) uniform sampler2DArrayShadow g_shadow_map;
+
+const vec3 k_clear_colour = vec3(0.47f, 0.5f, 0.67f);
+
+float compute_fog(float density, float dist) {
+    float d = density * dist;
+    return 1.0f - clamp(exp2(d * d * -1.442695f), 0.0f, 1.0f);
+}
+
+void main() {
+    vec4 albedo = texelFetch(g_albedo_sampler, ivec2(gl_GlobalInvocationID.xy), 0);
+    if (albedo.a == 0.0f) {
+        imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(k_clear_colour, 1.0f)));
+        return;
+    }
+    ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
+    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
+    vec3 normal = texelFetch(g_normal_sampler, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
+
+    float depth = texelFetch(g_depth_sampler, ivec2(gl_GlobalInvocationID.xy), 0).r;
+    vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
+    world_position = inverse(g_proj * g_view) * world_position;
+    world_position /= world_position.w;
+
+    vec3 illuminance = albedo.rgb * 0.02f;
+    vec3 view = normalize(g_camera_position - world_position.xyz);
+
+    // Sun.
+    const vec3 sun_direction = vec3(0.6f, 0.6f, -0.6f);
+    float sun_shadow = compute_shadow(world_position, g_view, g_shadow_map, g_shadow_info);
+    illuminance += compute_light(albedo.rgb, vec3(1.0f), sun_direction, normal, view) * sun_shadow;
+
+    // Point lights.
+    for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {
+        PointLight light = g_lights[g_light_visibilities[tile_index].indices[i]];
+        vec3 direction = normalize(light.position - world_position.xyz);
+        float dist = distance(light.position, world_position.xyz);
+        float attenuation = clamp(1.0f - dist * dist / (light.radius * light.radius), 0.0f, 1.0f);
+        illuminance += compute_light(albedo.rgb, light.colour, direction, normal, view) * attenuation;
+    }
+
+    // Final output with fog blended.
+    float fog_factor = compute_fog(0.01f, distance(world_position.xyz, g_camera_position));
+    vec3 final_colour = mix(illuminance, k_clear_colour, fog_factor);
+    imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(final_colour, 1.0f)));
+}

@@ -13,7 +13,7 @@ namespace vull {
 Swapchain::Swapchain(const VkContext &context, vk::Extent2D extent, vk::SurfaceKHR surface)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vk::SurfaceFormatKHR surface_format{
-        .format = vk::Format::B8G8R8A8Srgb,
+        .format = vk::Format::B8G8R8A8Unorm,
         .colorSpace = vk::ColorSpaceKHR::SrgbNonlinearKHR,
     };
     VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
@@ -28,7 +28,7 @@ Swapchain::Swapchain(const VkContext &context, vk::Extent2D extent, vk::SurfaceK
         .imageColorSpace = surface_format.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,
-        .imageUsage = vk::ImageUsage::ColorAttachment,
+        .imageUsage = vk::ImageUsage::ColorAttachment | vk::ImageUsage::Storage, // TODO: Still need ColorAttachment?
         .imageSharingMode = vk::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::OpaqueKHR,
@@ -48,12 +48,6 @@ Swapchain::Swapchain(const VkContext &context, vk::Extent2D extent, vk::SurfaceK
             .image = m_images[i],
             .viewType = vk::ImageViewType::_2D,
             .format = surface_format.format,
-            .components{
-                vk::ComponentSwizzle::Identity,
-                vk::ComponentSwizzle::Identity,
-                vk::ComponentSwizzle::Identity,
-                vk::ComponentSwizzle::Identity,
-            },
             .subresourceRange{
                 .aspectMask = vk::ImageAspect::Color,
                 .levelCount = 1,
