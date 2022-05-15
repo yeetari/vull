@@ -21,7 +21,7 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vkb::ShaderModule vertex_shader,
+Renderer::Renderer(const vk::Context &context, const vk::Swapchain &swapchain, vkb::ShaderModule vertex_shader,
                    vkb::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
@@ -49,7 +49,7 @@ Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vkb::Sh
 
     vkb::MemoryRequirements ui_data_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(m_ui_data_buffer, &ui_data_buffer_requirements);
-    m_ui_data_buffer_memory = context.allocate_memory(ui_data_buffer_requirements, MemoryType::HostVisible);
+    m_ui_data_buffer_memory = context.allocate_memory(ui_data_buffer_requirements, vk::MemoryType::HostVisible);
     VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vkb::Result::Success);
 
     void *ui_data = nullptr;
@@ -281,7 +281,7 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
     }
 }
 
-void Renderer::render(const CommandBuffer &cmd_buf, uint32_t image_index) {
+void Renderer::render(const vk::CommandBuffer &cmd_buf, uint32_t image_index) {
     *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
     cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
     vkb::RenderingAttachmentInfo colour_write_attachment{

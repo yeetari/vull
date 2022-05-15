@@ -7,9 +7,13 @@
 #include <xcb/xcb.h>
 #include <xcb/xproto.h>
 
-namespace vull {
+namespace vull::vk {
 
-class VkContext;
+class Context;
+
+} // namespace vull::vk
+
+namespace vull {
 
 enum class Key : uint8_t {
     Unknown = 0,
@@ -46,7 +50,7 @@ public:
     Window &operator=(const Window &) = delete;
     Window &operator=(Window &&) = delete;
 
-    Swapchain create_swapchain(const VkContext &context);
+    vk::Swapchain create_swapchain(const vk::Context &context);
     void close();
     void poll_events();
 

@@ -8,9 +8,9 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-namespace vull {
+namespace vull::vk {
 
-Swapchain::Swapchain(const VkContext &context, vkb::Extent2D extent, vkb::SurfaceKHR surface)
+Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vkb::SurfaceFormatKHR surface_format{
         .format = vkb::Format::B8G8R8A8Unorm,
@@ -96,4 +96,4 @@ void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphor
     m_context.vkQueuePresentKHR(m_present_queue, &present_info);
 }
 
-} // namespace vull
+} // namespace vull::vk

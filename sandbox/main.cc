@@ -35,7 +35,7 @@ using namespace vull;
 
 namespace {
 
-uint32_t find_graphics_family(const VkContext &context) {
+uint32_t find_graphics_family(const vk::Context &context) {
     for (uint32_t i = 0; i < context.queue_families().size(); i++) {
         const auto &family = context.queue_families()[i];
         if ((family.queueFlags & vkb::QueueFlags::Graphics) != vkb::QueueFlags::None) {
@@ -45,7 +45,7 @@ uint32_t find_graphics_family(const VkContext &context) {
     VULL_ENSURE_NOT_REACHED();
 }
 
-vkb::ShaderModule load_shader(const VkContext &context, const char *path) {
+vkb::ShaderModule load_shader(const vk::Context &context, const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
     LargeVector<uint32_t> binary(static_cast<size_t>(ftell(file)) / sizeof(uint32_t));
@@ -64,12 +64,12 @@ vkb::ShaderModule load_shader(const VkContext &context, const char *path) {
 
 void main_task(Scheduler &scheduler) {
     Window window(2560, 1440, true);
-    VkContext context;
+    vk::Context context;
     auto swapchain = window.create_swapchain(context);
 
     const auto graphics_family_index = find_graphics_family(context);
-    CommandPool cmd_pool(context, graphics_family_index);
-    Queue queue(context, graphics_family_index);
+    vk::CommandPool cmd_pool(context, graphics_family_index);
+    vk::Queue queue(context, graphics_family_index);
 
     auto *pack_file = fopen("scene.vpak", "rb");
     Scene scene(context);
@@ -518,7 +518,8 @@ void main_task(Scheduler &scheduler) {
 
     vkb::MemoryRequirements depth_image_requirements{};
     context.vkGetImageMemoryRequirements(depth_image, &depth_image_requirements);
-    vkb::DeviceMemory depth_image_memory = context.allocate_memory(depth_image_requirements, MemoryType::DeviceLocal);
+    vkb::DeviceMemory depth_image_memory =
+        context.allocate_memory(depth_image_requirements, vk::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindImageMemory(depth_image, depth_image_memory, 0) == vkb::Result::Success);
 
     vkb::ImageViewCreateInfo depth_image_view_ci{
@@ -553,7 +554,8 @@ void main_task(Scheduler &scheduler) {
 
     vkb::MemoryRequirements albedo_image_requirements{};
     context.vkGetImageMemoryRequirements(albedo_image, &albedo_image_requirements);
-    vkb::DeviceMemory albedo_image_memory = context.allocate_memory(albedo_image_requirements, MemoryType::DeviceLocal);
+    vkb::DeviceMemory albedo_image_memory =
+        context.allocate_memory(albedo_image_requirements, vk::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindImageMemory(albedo_image, albedo_image_memory, 0) == vkb::Result::Success);
 
     vkb::ImageViewCreateInfo albedo_image_view_ci{
@@ -588,7 +590,8 @@ void main_task(Scheduler &scheduler) {
 
     vkb::MemoryRequirements normal_image_requirements{};
     context.vkGetImageMemoryRequirements(normal_image, &normal_image_requirements);
-    vkb::DeviceMemory normal_image_memory = context.allocate_memory(normal_image_requirements, MemoryType::DeviceLocal);
+    vkb::DeviceMemory normal_image_memory =
+        context.allocate_memory(normal_image_requirements, vk::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindImageMemory(normal_image, normal_image_memory, 0) == vkb::Result::Success);
 
     vkb::ImageViewCreateInfo normal_image_view_ci{
@@ -624,7 +627,7 @@ void main_task(Scheduler &scheduler) {
 
     vkb::MemoryRequirements shadow_map_requirements{};
     context.vkGetImageMemoryRequirements(shadow_map, &shadow_map_requirements);
-    vkb::DeviceMemory shadow_map_memory = context.allocate_memory(shadow_map_requirements, MemoryType::DeviceLocal);
+    vkb::DeviceMemory shadow_map_memory = context.allocate_memory(shadow_map_requirements, vk::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindImageMemory(shadow_map, shadow_map_memory, 0) == vkb::Result::Success);
 
     vkb::ImageViewCreateInfo shadow_map_view_ci{
@@ -755,7 +758,7 @@ void main_task(Scheduler &scheduler) {
     vkb::MemoryRequirements uniform_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(uniform_buffer, &uniform_buffer_requirements);
     vkb::DeviceMemory uniform_buffer_memory =
-        context.allocate_memory(uniform_buffer_requirements, MemoryType::HostVisible);
+        context.allocate_memory(uniform_buffer_requirements, vk::MemoryType::HostVisible);
     VULL_ENSURE(context.vkBindBufferMemory(uniform_buffer, uniform_buffer_memory, 0) == vkb::Result::Success);
 
     struct PointLight {
@@ -780,7 +783,7 @@ void main_task(Scheduler &scheduler) {
     vkb::MemoryRequirements lights_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(lights_buffer, &lights_buffer_requirements);
     vkb::DeviceMemory lights_buffer_memory =
-        context.allocate_memory(lights_buffer_requirements, MemoryType::HostVisible);
+        context.allocate_memory(lights_buffer_requirements, vk::MemoryType::HostVisible);
     VULL_ENSURE(context.vkBindBufferMemory(lights_buffer, lights_buffer_memory, 0) == vkb::Result::Success);
 
     vkb::BufferCreateInfo light_visibilities_buffer_ci{
@@ -796,7 +799,7 @@ void main_task(Scheduler &scheduler) {
     vkb::MemoryRequirements light_visibilities_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(light_visibilities_buffer, &light_visibilities_buffer_requirements);
     vkb::DeviceMemory light_visibilities_buffer_memory =
-        context.allocate_memory(light_visibilities_buffer_requirements, MemoryType::DeviceLocal);
+        context.allocate_memory(light_visibilities_buffer_requirements, vk::MemoryType::DeviceLocal);
     VULL_ENSURE(context.vkBindBufferMemory(light_visibilities_buffer, light_visibilities_buffer_memory, 0) ==
                 vkb::Result::Success);
 

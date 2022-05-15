@@ -6,17 +6,17 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::vk {
 
-class VkContext;
+class Context;
 
 class CommandPool {
-    const VkContext &m_context;
+    const Context &m_context;
     vkb::CommandPool m_command_pool{nullptr};
     Vector<CommandBuffer> m_command_buffers;
 
 public:
-    CommandPool(const VkContext &context, uint32_t queue_family_index);
+    CommandPool(const Context &context, uint32_t queue_family_index);
     CommandPool(const CommandPool &) = delete;
     CommandPool(CommandPool &&);
     ~CommandPool();
@@ -27,4 +27,4 @@ public:
     CommandBuffer &request_cmd_buf();
 };
 
-} // namespace vull
+} // namespace vull::vk

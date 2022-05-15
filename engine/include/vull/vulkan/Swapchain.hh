@@ -7,12 +7,12 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::vk {
 
-class VkContext;
+class Context;
 
 class Swapchain {
-    const VkContext &m_context;
+    const Context &m_context;
     const vkb::Extent2D m_extent;
     const vkb::SurfaceKHR m_surface;
     vkb::SurfaceCapabilitiesKHR m_surface_capabilities{};
@@ -22,7 +22,7 @@ class Swapchain {
     vkb::Queue m_present_queue{nullptr};
 
 public:
-    Swapchain(const VkContext &context, vkb::Extent2D extent, vkb::SurfaceKHR surface);
+    Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface);
     Swapchain(const Swapchain &) = delete;
     Swapchain(Swapchain &&) = delete;
     ~Swapchain();
@@ -40,4 +40,4 @@ public:
     vkb::ImageView image_view(uint32_t index) const { return m_image_views[index]; }
 };
 
-} // namespace vull
+} // namespace vull::vk

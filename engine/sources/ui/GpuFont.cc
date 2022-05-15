@@ -17,14 +17,14 @@ constexpr uint32_t k_glyph_size = 64ull;
 
 } // namespace
 
-GpuFont::GpuFont(const VkContext &context, Font &&font) : Font(move(font)), m_context(context) {
+GpuFont::GpuFont(const vk::Context &context, Font &&font) : Font(move(font)), m_context(context) {
     m_images.ensure_size(glyph_count());
     m_image_views.ensure_size(glyph_count());
     vkb::MemoryRequirements memory_requirements{
         .size = static_cast<vkb::DeviceSize>(glyph_count()) * k_glyph_pixel_count * sizeof(float),
         .memoryTypeBits = 0xffffffffu,
     };
-    m_memory = context.allocate_memory(memory_requirements, MemoryType::HostVisible);
+    m_memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
     m_context.vkMapMemory(m_memory, 0, vkb::k_whole_size, 0, reinterpret_cast<void **>(&m_image_data));
 }
 

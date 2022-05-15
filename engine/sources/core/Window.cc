@@ -145,7 +145,7 @@ Key Window::translate_keycode(uint8_t keycode) {
     return m_keycode_map[keycode];
 }
 
-Swapchain Window::create_swapchain(const VkContext &context) {
+vk::Swapchain Window::create_swapchain(const vk::Context &context) {
     vkb::XcbSurfaceCreateInfoKHR surface_ci{
         .sType = vkb::StructureType::XcbSurfaceCreateInfoKHR,
         .connection = m_connection,

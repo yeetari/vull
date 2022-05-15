@@ -5,16 +5,16 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::vk {
 
 class CommandPool;
-class VkContext;
+class Context;
 
 class CommandBuffer {
     friend CommandPool;
 
 private:
-    const VkContext &m_context;
+    const Context &m_context;
     const vkb::CommandBuffer m_cmd_buf;
     vkb::Semaphore m_completion_semaphore;
     uint64_t m_completion_value{0};
@@ -22,7 +22,7 @@ private:
     void reset();
 
 public:
-    CommandBuffer(const VkContext &context, vkb::CommandBuffer cmd_buf);
+    CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf);
     CommandBuffer(const CommandBuffer &) = delete;
     CommandBuffer(CommandBuffer &&);
     ~CommandBuffer();
@@ -59,4 +59,4 @@ public:
     uint64_t completion_value() const { return m_completion_value; }
 };
 
-} // namespace vull
+} // namespace vull::vk

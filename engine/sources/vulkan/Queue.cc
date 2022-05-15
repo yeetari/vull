@@ -8,9 +8,9 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-namespace vull {
+namespace vull::vk {
 
-Queue::Queue(const VkContext &context, uint32_t queue_family_index) : m_context(context) {
+Queue::Queue(const Context &context, uint32_t queue_family_index) : m_context(context) {
     context.vkGetDeviceQueue(queue_family_index, 0, &m_queue);
 }
 
@@ -55,4 +55,4 @@ void Queue::wait_idle() {
     m_context.vkQueueWaitIdle(m_queue);
 }
 
-} // namespace vull
+} // namespace vull::vk

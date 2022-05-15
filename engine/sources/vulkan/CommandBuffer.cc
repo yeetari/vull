@@ -6,9 +6,9 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-namespace vull {
+namespace vull::vk {
 
-CommandBuffer::CommandBuffer(const VkContext &context, vkb::CommandBuffer cmd_buf)
+CommandBuffer::CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf)
     : m_context(context), m_cmd_buf(cmd_buf) {
     vkb::SemaphoreTypeCreateInfo timeline_ci{
         .sType = vkb::StructureType::SemaphoreTypeCreateInfo,
@@ -126,4 +126,4 @@ void CommandBuffer::write_timestamp(vkb::PipelineStage stage, vkb::QueryPool que
     m_context.vkCmdWriteTimestamp(m_cmd_buf, stage, query_pool, query);
 }
 
-} // namespace vull
+} // namespace vull::vk

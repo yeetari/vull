@@ -6,18 +6,18 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::vk {
 
 class CommandBuffer;
 class CommandPool;
-class VkContext;
+class Context;
 
 class Queue {
-    const VkContext &m_context;
+    const Context &m_context;
     vkb::Queue m_queue;
 
 public:
-    Queue(const VkContext &context, uint32_t queue_family_index);
+    Queue(const Context &context, uint32_t queue_family_index);
 
     void immediate_submit(CommandPool &cmd_pool, Function<void(const CommandBuffer &)> callback);
     void submit(const CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
@@ -25,4 +25,4 @@ public:
     void wait_idle();
 };
 
-} // namespace vull
+} // namespace vull::vk

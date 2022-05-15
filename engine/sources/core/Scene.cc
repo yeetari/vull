@@ -21,7 +21,7 @@
 
 #include <stdio.h>
 
-// IWYU pragma: no_forward_declare vull::vk::Image_T
+// IWYU pragma: no_forward_declare vull::vkb::Image_T
 
 namespace vull {
 namespace {
@@ -79,9 +79,9 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     return parent_matrix * transform.matrix();
 }
 
-vkb::Buffer Scene::load_buffer(CommandPool &cmd_pool, Queue &queue, PackReader &pack_reader, vkb::Buffer staging_buffer,
-                              void *staging_data, vkb::DeviceSize &memory_offset, uint32_t size,
-                               vkb::BufferUsage usage) {
+vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &pack_reader,
+                               vkb::Buffer staging_buffer, void *staging_data, vkb::DeviceSize &memory_offset,
+                               uint32_t size, vkb::BufferUsage usage) {
     vkb::BufferCreateInfo buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
         .size = size,
@@ -99,7 +99,7 @@ vkb::Buffer Scene::load_buffer(CommandPool &cmd_pool, Queue &queue, PackReader &
     VULL_ENSURE(size <= k_staging_buffer_size);
     pack_reader.read({staging_data, size});
 
-    queue.immediate_submit(cmd_pool, [=](const CommandBuffer &cmd_buf) {
+    queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
         vkb::BufferCopy copy{
             .size = size,
         };
@@ -109,7 +109,7 @@ vkb::Buffer Scene::load_buffer(CommandPool &cmd_pool, Queue &queue, PackReader &
     return buffer;
 }
 
-void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_reader, vkb::Buffer staging_buffer,
+void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &pack_reader, vkb::Buffer staging_buffer,
                        void *staging_data, vkb::DeviceSize &memory_offset) {
     const auto [format, unit_size, block_compressed] = parse_format(pack_reader.read_byte());
     const auto width = pack_reader.read_varint();
@@ -157,7 +157,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
     VULL_ENSURE(m_context.vkCreateImageView(&image_view_ci, &m_texture_views.emplace()) == vkb::Result::Success);
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
-    queue.immediate_submit(cmd_pool, [image, mip_count](const CommandBuffer &cmd_buf) {
+    queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier,
             .dstAccessMask = vkb::Access::TransferWrite,
@@ -182,7 +182,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
         pack_reader.read({staging_data, mip_size});
 
         // Perform CPU -> GPU copy.
-        queue.immediate_submit(cmd_pool, [=](const CommandBuffer &cmd_buf) {
+        queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
             vkb::BufferImageCopy copy{
                 .imageSubresource{
                     .aspectMask = vkb::ImageAspect::Color,
@@ -199,7 +199,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
     }
 
     // Transition the whole image to ShaderReadOnlyOptimal.
-    queue.immediate_submit(cmd_pool, [image, mip_count](const CommandBuffer &cmd_buf) {
+    queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier image_read_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier,
             .srcAccessMask = vkb::Access::TransferWrite,
@@ -217,13 +217,13 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
     });
 }
 
-void Scene::load(CommandPool &cmd_pool, Queue &queue, FILE *pack_file) {
+void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, FILE *pack_file) {
     // For now, allocate a fixed amount of VRAM to store all the scene's resources in.
     vkb::MemoryRequirements memory_requirements{
         .size = 1024ul * 1024ul * 2048ul,
         .memoryTypeBits = 0xffffffffu,
     };
-    m_memory = m_context.allocate_memory(memory_requirements, MemoryType::DeviceLocal);
+    m_memory = m_context.allocate_memory(memory_requirements, vk::MemoryType::DeviceLocal);
 
     // Read pack header and register default components. Note that the order currently matters.
     PackReader pack_reader(pack_file);
@@ -243,7 +243,7 @@ void Scene::load(CommandPool &cmd_pool, Queue &queue, FILE *pack_file) {
     VULL_ENSURE(m_context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vkb::Result::Success);
     vkb::MemoryRequirements staging_memory_requirements{};
     m_context.vkGetBufferMemoryRequirements(staging_buffer, &staging_memory_requirements);
-    auto *staging_memory = m_context.allocate_memory(staging_memory_requirements, MemoryType::Staging);
+    auto *staging_memory = m_context.allocate_memory(staging_memory_requirements, vk::MemoryType::Staging);
     VULL_ENSURE(m_context.vkBindBufferMemory(staging_buffer, staging_memory, 0) == vkb::Result::Success);
     void *staging_data;
     VULL_ENSURE(m_context.vkMapMemory(staging_memory, 0, vkb::k_whole_size, 0, &staging_data) == vkb::Result::Success);
@@ -273,7 +273,7 @@ void Scene::load(CommandPool &cmd_pool, Queue &queue, FILE *pack_file) {
     m_context.vkDestroyBuffer(staging_buffer);
 }
 
-void Scene::render(const CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index) {
+void Scene::render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index) {
     for (auto [entity, mesh, material] : m_world.view<Mesh, Material>()) {
         PushConstantBlock push_constant_block{
             .transform = get_transform_matrix(entity),

@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
-namespace vull {
+namespace vull::vk {
 namespace {
 
 #define VK_MAKE_VERSION(major, minor, patch)                                                                           \
@@ -33,7 +33,7 @@ vkb::MemoryPropertyFlags memory_flags(MemoryType type) {
 
 } // namespace
 
-VkContext::VkContext() : ContextTable{} {
+Context::Context() : ContextTable{} {
     LsanDisabler lsan_disabler;
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
@@ -153,12 +153,12 @@ VkContext::VkContext() : ContextTable{} {
     load_device();
 }
 
-VkContext::~VkContext() {
+Context::~Context() {
     vkDestroyDevice();
     vkDestroyInstance();
 }
 
-uint32_t VkContext::find_memory_type_index(const vkb::MemoryRequirements &requirements, MemoryType type) const {
+uint32_t Context::find_memory_type_index(const vkb::MemoryRequirements &requirements, MemoryType type) const {
     const auto flags = memory_flags(type);
     for (uint32_t i = 0; i < m_memory_types.size(); i++) {
         if ((requirements.memoryTypeBits & (1u << i)) == 0u) {
@@ -172,7 +172,7 @@ uint32_t VkContext::find_memory_type_index(const vkb::MemoryRequirements &requir
     VULL_ENSURE_NOT_REACHED();
 }
 
-vkb::DeviceMemory VkContext::allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const {
+vkb::DeviceMemory Context::allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const {
     vkb::MemoryAllocateInfo memory_ai{
         .sType = vkb::StructureType::MemoryAllocateInfo,
         .allocationSize = requirements.size,
@@ -183,4 +183,4 @@ vkb::DeviceMemory VkContext::allocate_memory(const vkb::MemoryRequirements &requ
     return memory;
 }
 
-} // namespace vull
+} // namespace vull::vk

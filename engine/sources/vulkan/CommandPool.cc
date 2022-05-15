@@ -7,9 +7,9 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-namespace vull {
+namespace vull::vk {
 
-CommandPool::CommandPool(const VkContext &context, uint32_t queue_family_index) : m_context(context) {
+CommandPool::CommandPool(const Context &context, uint32_t queue_family_index) : m_context(context) {
     vkb::CommandPoolCreateInfo pool_ci{
         .sType = vkb::StructureType::CommandPoolCreateInfo,
         .flags = vkb::CommandPoolCreateFlags::Transient | vkb::CommandPoolCreateFlags::ResetCommandBuffer,
@@ -70,4 +70,4 @@ CommandBuffer &CommandPool::request_cmd_buf() {
     return m_command_buffers.emplace(m_context, buffer);
 }
 
-} // namespace vull
+} // namespace vull::vk
