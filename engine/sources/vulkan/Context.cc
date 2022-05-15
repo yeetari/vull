@@ -18,15 +18,15 @@ namespace {
 #define VK_MAKE_VERSION(major, minor, patch)                                                                           \
     ((static_cast<uint32_t>(major) << 22u) | (static_cast<uint32_t>(minor) << 12u) | static_cast<uint32_t>(patch))
 
-vk::MemoryPropertyFlags memory_flags(MemoryType type) {
+vkb::MemoryPropertyFlags memory_flags(MemoryType type) {
     switch (type) {
     case MemoryType::DeviceLocal:
-        return vk::MemoryPropertyFlags::DeviceLocal;
+        return vkb::MemoryPropertyFlags::DeviceLocal;
     case MemoryType::HostVisible:
-        return vk::MemoryPropertyFlags::DeviceLocal | vk::MemoryPropertyFlags::HostVisible |
-               vk::MemoryPropertyFlags::HostCoherent;
+        return vkb::MemoryPropertyFlags::DeviceLocal | vkb::MemoryPropertyFlags::HostVisible |
+               vkb::MemoryPropertyFlags::HostCoherent;
     case MemoryType::Staging:
-        return vk::MemoryPropertyFlags::HostVisible | vk::MemoryPropertyFlags::HostCoherent;
+        return vkb::MemoryPropertyFlags::HostVisible | vkb::MemoryPropertyFlags::HostCoherent;
     }
     VULL_ENSURE_NOT_REACHED();
 }
@@ -41,7 +41,7 @@ VkContext::VkContext() : ContextTable{} {
         VULL_ENSURE(libvulkan != nullptr, "Failed to find vulkan");
     }
     auto *vkGetInstanceProcAddr =
-        reinterpret_cast<vk::PFN_vkGetInstanceProcAddr>(dlsym(libvulkan, "vkGetInstanceProcAddr"));
+        reinterpret_cast<vkb::PFN_vkGetInstanceProcAddr>(dlsym(libvulkan, "vkGetInstanceProcAddr"));
     load_loader(vkGetInstanceProcAddr);
 
     Array enabled_instance_extensions{
@@ -49,12 +49,12 @@ VkContext::VkContext() : ContextTable{} {
         "VK_KHR_surface",
         "VK_KHR_xcb_surface",
     };
-    vk::ApplicationInfo application_info{
-        .sType = vk::StructureType::ApplicationInfo,
+    vkb::ApplicationInfo application_info{
+        .sType = vkb::StructureType::ApplicationInfo,
         .apiVersion = VK_MAKE_VERSION(1, 3, 0),
     };
-    vk::InstanceCreateInfo instance_ci{
-        .sType = vk::StructureType::InstanceCreateInfo,
+    vkb::InstanceCreateInfo instance_ci{
+        .sType = vkb::StructureType::InstanceCreateInfo,
         .pApplicationInfo = &application_info,
         .enabledExtensionCount = enabled_instance_extensions.size(),
         .ppEnabledExtensionNames = enabled_instance_extensions.data(),
@@ -62,7 +62,7 @@ VkContext::VkContext() : ContextTable{} {
 #ifndef NDEBUG
     uint32_t layer_count = 0;
     vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-    Vector<vk::LayerProperties> layers(layer_count);
+    Vector<vkb::LayerProperties> layers(layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
 
     const char *validation_layer_name = "VK_LAYER_KHRONOS_validation";
@@ -81,15 +81,15 @@ VkContext::VkContext() : ContextTable{} {
         fputs("Validation layer not present!", stderr);
     }
 #endif
-    VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vk::Result::Success);
+    VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
     load_instance(vkGetInstanceProcAddr);
 
     uint32_t physical_device_count = 1;
-    vk::Result enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
-    VULL_ENSURE(enumeration_result == vk::Result::Success || enumeration_result == vk::Result::Incomplete);
+    vkb::Result enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
+    VULL_ENSURE(enumeration_result == vkb::Result::Success || enumeration_result == vkb::Result::Incomplete);
     VULL_ENSURE(physical_device_count == 1);
 
-    vk::PhysicalDeviceMemoryProperties memory_properties{};
+    vkb::PhysicalDeviceMemoryProperties memory_properties{};
     vkGetPhysicalDeviceMemoryProperties(&memory_properties);
     for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
         m_memory_types.push(memory_properties.memoryTypes[i]);
@@ -100,37 +100,37 @@ VkContext::VkContext() : ContextTable{} {
     m_queue_families.ensure_size(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, m_queue_families.data());
 
-    Vector<vk::DeviceQueueCreateInfo> queue_cis;
+    Vector<vkb::DeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0f;
     for (uint32_t i = 0; i < m_queue_families.size(); i++) {
         queue_cis.push({
-            .sType = vk::StructureType::DeviceQueueCreateInfo,
+            .sType = vkb::StructureType::DeviceQueueCreateInfo,
             .queueFamilyIndex = i,
             .queueCount = 1,
             .pQueuePriorities = &queue_priority,
         });
     }
 
-    vk::PhysicalDeviceFeatures device_features{
+    vkb::PhysicalDeviceFeatures device_features{
         .fillModeNonSolid = true,
         .samplerAnisotropy = true,
     };
-    vk::PhysicalDeviceVulkan12Features device_12_features{
-        .sType = vk::StructureType::PhysicalDeviceVulkan12Features,
+    vkb::PhysicalDeviceVulkan12Features device_12_features{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
         .scalarBlockLayout = true,
         .timelineSemaphore = true,
     };
-    vk::PhysicalDeviceVulkan13Features device_13_features{
-        .sType = vk::StructureType::PhysicalDeviceVulkan13Features,
+    vkb::PhysicalDeviceVulkan13Features device_13_features{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan13Features,
         .pNext = &device_12_features,
         .synchronization2 = true,
         .dynamicRendering = true,
     };
-    vk::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
-        .sType = vk::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
+    vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
+        .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
         .pNext = &device_13_features,
         .shaderSharedFloat32AtomicMinMax = true,
     };
@@ -140,8 +140,8 @@ VkContext::VkContext() : ContextTable{} {
         "VK_EXT_shader_atomic_float2",
         "VK_KHR_swapchain",
     };
-    vk::DeviceCreateInfo device_ci{
-        .sType = vk::StructureType::DeviceCreateInfo,
+    vkb::DeviceCreateInfo device_ci{
+        .sType = vkb::StructureType::DeviceCreateInfo,
         .pNext = &atomic_float_min_max_features,
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
@@ -149,7 +149,7 @@ VkContext::VkContext() : ContextTable{} {
         .ppEnabledExtensionNames = enabled_device_extensions.data(),
         .pEnabledFeatures = &device_features,
     };
-    VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vk::Result::Success);
+    VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vkb::Result::Success);
     load_device();
 }
 
@@ -158,7 +158,7 @@ VkContext::~VkContext() {
     vkDestroyInstance();
 }
 
-uint32_t VkContext::find_memory_type_index(const vk::MemoryRequirements &requirements, MemoryType type) const {
+uint32_t VkContext::find_memory_type_index(const vkb::MemoryRequirements &requirements, MemoryType type) const {
     const auto flags = memory_flags(type);
     for (uint32_t i = 0; i < m_memory_types.size(); i++) {
         if ((requirements.memoryTypeBits & (1u << i)) == 0u) {
@@ -172,14 +172,14 @@ uint32_t VkContext::find_memory_type_index(const vk::MemoryRequirements &require
     VULL_ENSURE_NOT_REACHED();
 }
 
-vk::DeviceMemory VkContext::allocate_memory(const vk::MemoryRequirements &requirements, MemoryType type) const {
-    vk::MemoryAllocateInfo memory_ai{
-        .sType = vk::StructureType::MemoryAllocateInfo,
+vkb::DeviceMemory VkContext::allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const {
+    vkb::MemoryAllocateInfo memory_ai{
+        .sType = vkb::StructureType::MemoryAllocateInfo,
         .allocationSize = requirements.size,
         .memoryTypeIndex = find_memory_type_index(requirements, type),
     };
-    vk::DeviceMemory memory;
-    VULL_ENSURE(vkAllocateMemory(&memory_ai, &memory) == vk::Result::Success);
+    vkb::DeviceMemory memory;
+    VULL_ENSURE(vkAllocateMemory(&memory_ai, &memory) == vkb::Result::Success);
     return memory;
 }
 

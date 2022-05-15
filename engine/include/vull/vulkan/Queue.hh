@@ -14,14 +14,14 @@ class VkContext;
 
 class Queue {
     const VkContext &m_context;
-    vk::Queue m_queue;
+    vkb::Queue m_queue;
 
 public:
     Queue(const VkContext &context, uint32_t queue_family_index);
 
     void immediate_submit(CommandPool &cmd_pool, Function<void(const CommandBuffer &)> callback);
-    void submit(const CommandBuffer &cmd_buf, vk::Fence signal_fence, Span<vk::SemaphoreSubmitInfo> signal_semaphores,
-                Span<vk::SemaphoreSubmitInfo> wait_semaphores);
+    void submit(const CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
+                Span<vkb::SemaphoreSubmitInfo> wait_semaphores);
     void wait_idle();
 };
 

@@ -16,9 +16,9 @@ namespace vull::ui {
 
 class GpuFont : public Font {
     const VkContext &m_context;
-    vk::DeviceMemory m_memory{nullptr};
-    Vector<vk::Image> m_images;
-    Vector<vk::ImageView> m_image_views;
+    vkb::DeviceMemory m_memory{nullptr};
+    Vector<vkb::Image> m_images;
+    Vector<vkb::ImageView> m_image_views;
     float *m_image_data{nullptr};
 
 public:
@@ -30,7 +30,7 @@ public:
     GpuFont &operator=(const GpuFont &) = delete;
     GpuFont &operator=(GpuFont &&) = delete;
 
-    void rasterise(uint32_t glyph_index, vk::DescriptorSet descriptor_set, vk::Sampler sampler);
+    void rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set, vkb::Sampler sampler);
 };
 
 } // namespace vull::ui

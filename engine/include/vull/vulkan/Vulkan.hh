@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <xcb/xcb.h>
 
-namespace vull::vk {
+namespace vull::vkb {
 
 #if defined(_WIN32)
 #define VKAPI_PTR __stdcall
@@ -5064,4 +5064,4 @@ using PFN_vkUpdateDescriptorSets = void (*)(Device device, uint32_t descriptorWr
 using PFN_vkWaitForFences = Result (*)(Device device, uint32_t fenceCount, const Fence *pFences, Bool waitAll, uint64_t timeout); // NOLINT
 using PFN_vkWaitSemaphores = Result (*)(Device device, const SemaphoreWaitInfo *pWaitInfo, uint64_t timeout); // NOLINT
 
-} // namespace vull::vk
+} // namespace vull::vkb

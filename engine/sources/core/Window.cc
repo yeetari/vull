@@ -146,12 +146,12 @@ Key Window::translate_keycode(uint8_t keycode) {
 }
 
 Swapchain Window::create_swapchain(const VkContext &context) {
-    vk::XcbSurfaceCreateInfoKHR surface_ci{
-        .sType = vk::StructureType::XcbSurfaceCreateInfoKHR,
+    vkb::XcbSurfaceCreateInfoKHR surface_ci{
+        .sType = vkb::StructureType::XcbSurfaceCreateInfoKHR,
         .connection = m_connection,
         .window = m_id,
     };
-    vk::SurfaceKHR surface;
+    vkb::SurfaceKHR surface;
     context.vkCreateXcbSurfaceKHR(&surface_ci, &surface);
     return {context, {m_width, m_height}, surface};
 }

@@ -27,15 +27,15 @@ struct PushConstantBlock {
 class Scene {
     VkContext &m_context;
     World m_world;
-    vk::DeviceMemory m_memory{nullptr};
-    Vector<vk::Buffer> m_vertex_buffers;
-    Vector<vk::Buffer> m_index_buffers;
-    Vector<vk::Image> m_texture_images;
-    Vector<vk::ImageView> m_texture_views;
+    vkb::DeviceMemory m_memory{nullptr};
+    Vector<vkb::Buffer> m_vertex_buffers;
+    Vector<vkb::Buffer> m_index_buffers;
+    Vector<vkb::Image> m_texture_images;
+    Vector<vkb::ImageView> m_texture_views;
 
-    vk::Buffer load_buffer(CommandPool &, Queue &, PackReader &, vk::Buffer, void *, vk::DeviceSize &, uint32_t,
-                           vk::BufferUsage);
-    void load_image(CommandPool &, Queue &, PackReader &, vk::Buffer, void *, vk::DeviceSize &);
+    vkb::Buffer load_buffer(CommandPool &, Queue &, PackReader &, vkb::Buffer, void *, vkb::DeviceSize &, uint32_t,
+                            vkb::BufferUsage);
+    void load_image(CommandPool &, Queue &, PackReader &, vkb::Buffer, void *, vkb::DeviceSize &);
 
 public:
     explicit Scene(VkContext &context) : m_context(context) {}
@@ -48,10 +48,10 @@ public:
 
     Mat4f get_transform_matrix(EntityId entity);
     void load(CommandPool &cmd_pool, Queue &queue, FILE *pack_file);
-    void render(const CommandBuffer &cmd_buf, vk::PipelineLayout pipeline_layout, uint32_t cascade_index);
+    void render(const CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index);
 
     uint32_t texture_count() const { return m_texture_images.size(); }
-    const Vector<vk::ImageView> &texture_views() const { return m_texture_views; }
+    const Vector<vkb::ImageView> &texture_views() const { return m_texture_views; }
 };
 
 } // namespace vull

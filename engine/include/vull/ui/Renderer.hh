@@ -37,14 +37,14 @@ class Renderer {
     const VkContext &m_context;
     const Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
-    vk::Sampler m_font_sampler{nullptr};
-    vk::Buffer m_ui_data_buffer{nullptr};
-    vk::DeviceMemory m_ui_data_buffer_memory{nullptr};
-    vk::DescriptorPool m_descriptor_pool{nullptr};
-    vk::DescriptorSetLayout m_descriptor_set_layout{nullptr};
-    vk::DescriptorSet m_descriptor_set{nullptr};
-    vk::PipelineLayout m_pipeline_layout{nullptr};
-    vk::Pipeline m_pipeline{nullptr};
+    vkb::Sampler m_font_sampler{nullptr};
+    vkb::Buffer m_ui_data_buffer{nullptr};
+    vkb::DeviceMemory m_ui_data_buffer_memory{nullptr};
+    vkb::DescriptorPool m_descriptor_pool{nullptr};
+    vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
+    vkb::DescriptorSet m_descriptor_set{nullptr};
+    vkb::PipelineLayout m_pipeline_layout{nullptr};
+    vkb::Pipeline m_pipeline{nullptr};
     float m_global_scale{1.0f};
 
     Vec2f *m_scaling_ratio{nullptr};
@@ -52,8 +52,8 @@ class Renderer {
     uint32_t m_object_index{0};
 
 public:
-    Renderer(const VkContext &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
-             vk::ShaderModule fragment_shader);
+    Renderer(const VkContext &context, const Swapchain &swapchain, vkb::ShaderModule vertex_shader,
+             vkb::ShaderModule fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();

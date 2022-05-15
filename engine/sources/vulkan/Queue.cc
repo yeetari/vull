@@ -21,26 +21,26 @@ void Queue::immediate_submit(CommandPool &cmd_pool, Function<void(const CommandB
     wait_idle();
 }
 
-void Queue::submit(const CommandBuffer &cmd_buf, vk::Fence signal_fence,
-                   Span<vk::SemaphoreSubmitInfo> signal_semaphores, Span<vk::SemaphoreSubmitInfo> wait_semaphores) {
+void Queue::submit(const CommandBuffer &cmd_buf, vkb::Fence signal_fence,
+                   Span<vkb::SemaphoreSubmitInfo> signal_semaphores, Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
     m_context.vkEndCommandBuffer(*cmd_buf);
 
     // TODO(small-vector)
-    Vector<vk::SemaphoreSubmitInfo> signal_sems;
+    Vector<vkb::SemaphoreSubmitInfo> signal_sems;
     signal_sems.ensure_capacity(signal_semaphores.size() + 1);
     signal_sems.extend(signal_semaphores);
     signal_sems.push({
-        .sType = vk::StructureType::SemaphoreSubmitInfo,
+        .sType = vkb::StructureType::SemaphoreSubmitInfo,
         .semaphore = cmd_buf.completion_semaphore(),
         .value = cmd_buf.completion_value(),
     });
 
-    vk::CommandBufferSubmitInfo cmd_buf_si{
-        .sType = vk::StructureType::CommandBufferSubmitInfo,
+    vkb::CommandBufferSubmitInfo cmd_buf_si{
+        .sType = vkb::StructureType::CommandBufferSubmitInfo,
         .commandBuffer = *cmd_buf,
     };
-    vk::SubmitInfo2 submit_info{
-        .sType = vk::StructureType::SubmitInfo2,
+    vkb::SubmitInfo2 submit_info{
+        .sType = vkb::StructureType::SubmitInfo2,
         .waitSemaphoreInfoCount = wait_semaphores.size(),
         .pWaitSemaphoreInfos = wait_semaphores.data(),
         .commandBufferInfoCount = 1,

@@ -21,183 +21,184 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vk::ShaderModule vertex_shader,
-                   vk::ShaderModule fragment_shader)
+Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vkb::ShaderModule vertex_shader,
+                   vkb::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
 
-    vk::SamplerCreateInfo font_sampler_ci{
-        .sType = vk::StructureType::SamplerCreateInfo,
-        .magFilter = vk::Filter::Linear,
-        .minFilter = vk::Filter::Linear,
-        .mipmapMode = vk::SamplerMipmapMode::Linear,
-        .addressModeU = vk::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vk::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vk::SamplerAddressMode::ClampToEdge,
-        .borderColor = vk::BorderColor::FloatOpaqueWhite,
+    vkb::SamplerCreateInfo font_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
+        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
     };
-    VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vkb::Result::Success);
 
     // TODO: Dynamic resizing.
-    vk::BufferCreateInfo ui_data_buffer_ci{
-        .sType = vk::StructureType::BufferCreateInfo,
+    vkb::BufferCreateInfo ui_data_buffer_ci{
+        .sType = vkb::StructureType::BufferCreateInfo,
         .size = sizeof(Vec2f) + sizeof(Object) * 2000,
-        .usage = vk::BufferUsage::StorageBuffer,
-        .sharingMode = vk::SharingMode::Exclusive,
+        .usage = vkb::BufferUsage::StorageBuffer,
+        .sharingMode = vkb::SharingMode::Exclusive,
     };
-    VULL_ENSURE(context.vkCreateBuffer(&ui_data_buffer_ci, &m_ui_data_buffer) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateBuffer(&ui_data_buffer_ci, &m_ui_data_buffer) == vkb::Result::Success);
 
-    vk::MemoryRequirements ui_data_buffer_requirements{};
+    vkb::MemoryRequirements ui_data_buffer_requirements{};
     context.vkGetBufferMemoryRequirements(m_ui_data_buffer, &ui_data_buffer_requirements);
     m_ui_data_buffer_memory = context.allocate_memory(ui_data_buffer_requirements, MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vk::Result::Success);
+    VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vkb::Result::Success);
 
     void *ui_data = nullptr;
-    context.vkMapMemory(m_ui_data_buffer_memory, 0, vk::k_whole_size, 0, &ui_data);
+    context.vkMapMemory(m_ui_data_buffer_memory, 0, vkb::k_whole_size, 0, &ui_data);
     m_scaling_ratio = reinterpret_cast<Vec2f *>(ui_data);
     m_objects = reinterpret_cast<Object *>(m_scaling_ratio + 1);
 
     Array descriptor_pool_sizes{
-        vk::DescriptorPoolSize{
-            .type = vk::DescriptorType::StorageBuffer,
+        vkb::DescriptorPoolSize{
+            .type = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
         },
-        vk::DescriptorPoolSize{
+        vkb::DescriptorPoolSize{
             // TODO: Dynamic count or glyph streaming.
-            .type = vk::DescriptorType::CombinedImageSampler,
+            .type = vkb::DescriptorType::CombinedImageSampler,
             .descriptorCount = 2000,
         },
     };
-    vk::DescriptorPoolCreateInfo descriptor_pool_ci{
-        .sType = vk::StructureType::DescriptorPoolCreateInfo,
+    vkb::DescriptorPoolCreateInfo descriptor_pool_ci{
+        .sType = vkb::StructureType::DescriptorPoolCreateInfo,
         .maxSets = 1,
         .poolSizeCount = descriptor_pool_sizes.size(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
-    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &m_descriptor_pool) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &m_descriptor_pool) == vkb::Result::Success);
 
     Array set_bindings{
-        vk::DescriptorSetLayoutBinding{
+        vkb::DescriptorSetLayoutBinding{
             .binding = 0,
-            .descriptorType = vk::DescriptorType::StorageBuffer,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vk::ShaderStage::Vertex | vk::ShaderStage::Fragment,
+            .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
         },
-        vk::DescriptorSetLayoutBinding{
+        vkb::DescriptorSetLayoutBinding{
             .binding = 1,
-            .descriptorType = vk::DescriptorType::CombinedImageSampler,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
             .descriptorCount = descriptor_pool_sizes[1].descriptorCount,
-            .stageFlags = vk::ShaderStage::Fragment,
+            .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     Array set_binding_flags{
-        vk::DescriptorBindingFlags::None,
-        vk::DescriptorBindingFlags::PartiallyBound,
+        vkb::DescriptorBindingFlags::None,
+        vkb::DescriptorBindingFlags::PartiallyBound,
     };
-    vk::DescriptorSetLayoutBindingFlagsCreateInfo set_binding_flags_ci{
-        .sType = vk::StructureType::DescriptorSetLayoutBindingFlagsCreateInfo,
+    vkb::DescriptorSetLayoutBindingFlagsCreateInfo set_binding_flags_ci{
+        .sType = vkb::StructureType::DescriptorSetLayoutBindingFlagsCreateInfo,
         .bindingCount = set_bindings.size(),
         .pBindingFlags = set_binding_flags.data(),
     };
-    vk::DescriptorSetLayoutCreateInfo set_layout_ci{
-        .sType = vk::StructureType::DescriptorSetLayoutCreateInfo,
+    vkb::DescriptorSetLayoutCreateInfo set_layout_ci{
+        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
         .pNext = &set_binding_flags_ci,
         .bindingCount = set_bindings.size(),
         .pBindings = set_bindings.data(),
     };
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_descriptor_set_layout) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_descriptor_set_layout) == vkb::Result::Success);
 
-    vk::DescriptorSetAllocateInfo descriptor_set_ai{
-        .sType = vk::StructureType::DescriptorSetAllocateInfo,
+    vkb::DescriptorSetAllocateInfo descriptor_set_ai{
+        .sType = vkb::StructureType::DescriptorSetAllocateInfo,
         .descriptorPool = m_descriptor_pool,
         .descriptorSetCount = 1,
         .pSetLayouts = &m_descriptor_set_layout,
     };
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &m_descriptor_set) == vk::Result::Success);
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &m_descriptor_set) == vkb::Result::Success);
 
-    vk::PipelineLayoutCreateInfo pipeline_layout_ci{
-        .sType = vk::StructureType::PipelineLayoutCreateInfo,
+    vkb::PipelineLayoutCreateInfo pipeline_layout_ci{
+        .sType = vkb::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &m_descriptor_set_layout,
     };
-    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &m_pipeline_layout) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &m_pipeline_layout) == vkb::Result::Success);
 
-    vk::PipelineVertexInputStateCreateInfo vertex_input_state{
-        .sType = vk::StructureType::PipelineVertexInputStateCreateInfo,
+    vkb::PipelineVertexInputStateCreateInfo vertex_input_state{
+        .sType = vkb::StructureType::PipelineVertexInputStateCreateInfo,
     };
-    vk::PipelineInputAssemblyStateCreateInfo input_assembly_state{
-        .sType = vk::StructureType::PipelineInputAssemblyStateCreateInfo,
-        .topology = vk::PrimitiveTopology::TriangleList,
+    vkb::PipelineInputAssemblyStateCreateInfo input_assembly_state{
+        .sType = vkb::StructureType::PipelineInputAssemblyStateCreateInfo,
+        .topology = vkb::PrimitiveTopology::TriangleList,
     };
 
-    vk::Rect2D scissor{
+    vkb::Rect2D scissor{
         .extent = swapchain.extent_2D(),
     };
-    vk::Viewport viewport{
+    vkb::Viewport viewport{
         .width = static_cast<float>(swapchain.extent_2D().width),
         .height = static_cast<float>(swapchain.extent_2D().height),
         .maxDepth = 1.0f,
     };
-    vk::PipelineViewportStateCreateInfo viewport_state{
-        .sType = vk::StructureType::PipelineViewportStateCreateInfo,
+    vkb::PipelineViewportStateCreateInfo viewport_state{
+        .sType = vkb::StructureType::PipelineViewportStateCreateInfo,
         .viewportCount = 1,
         .pViewports = &viewport,
         .scissorCount = 1,
         .pScissors = &scissor,
     };
 
-    vk::PipelineRasterizationStateCreateInfo rasterisation_state{
-        .sType = vk::StructureType::PipelineRasterizationStateCreateInfo,
-        .polygonMode = vk::PolygonMode::Fill,
-        .cullMode = vk::CullMode::None,
-        .frontFace = vk::FrontFace::Clockwise,
+    vkb::PipelineRasterizationStateCreateInfo rasterisation_state{
+        .sType = vkb::StructureType::PipelineRasterizationStateCreateInfo,
+        .polygonMode = vkb::PolygonMode::Fill,
+        .cullMode = vkb::CullMode::None,
+        .frontFace = vkb::FrontFace::Clockwise,
         .lineWidth = 1.0f,
     };
 
-    vk::PipelineMultisampleStateCreateInfo multisample_state{
-        .sType = vk::StructureType::PipelineMultisampleStateCreateInfo,
-        .rasterizationSamples = vk::SampleCount::_1,
+    vkb::PipelineMultisampleStateCreateInfo multisample_state{
+        .sType = vkb::StructureType::PipelineMultisampleStateCreateInfo,
+        .rasterizationSamples = vkb::SampleCount::_1,
         .minSampleShading = 1.0f,
     };
 
-    vk::PipelineColorBlendAttachmentState blend_attachment{
+    vkb::PipelineColorBlendAttachmentState blend_attachment{
         .blendEnable = true,
-        .srcColorBlendFactor = vk::BlendFactor::SrcAlpha,
-        .dstColorBlendFactor = vk::BlendFactor::OneMinusSrcAlpha,
-        .colorBlendOp = vk::BlendOp::Add,
-        .srcAlphaBlendFactor = vk::BlendFactor::One,
-        .dstAlphaBlendFactor = vk::BlendFactor::Zero,
-        .alphaBlendOp = vk::BlendOp::Add,
-        .colorWriteMask = vk::ColorComponent::R | vk::ColorComponent::G | vk::ColorComponent::B | vk::ColorComponent::A,
+        .srcColorBlendFactor = vkb::BlendFactor::SrcAlpha,
+        .dstColorBlendFactor = vkb::BlendFactor::OneMinusSrcAlpha,
+        .colorBlendOp = vkb::BlendOp::Add,
+        .srcAlphaBlendFactor = vkb::BlendFactor::One,
+        .dstAlphaBlendFactor = vkb::BlendFactor::Zero,
+        .alphaBlendOp = vkb::BlendOp::Add,
+        .colorWriteMask =
+            vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
     };
-    vk::PipelineColorBlendStateCreateInfo blend_state{
-        .sType = vk::StructureType::PipelineColorBlendStateCreateInfo,
+    vkb::PipelineColorBlendStateCreateInfo blend_state{
+        .sType = vkb::StructureType::PipelineColorBlendStateCreateInfo,
         .attachmentCount = 1,
         .pAttachments = &blend_attachment,
     };
 
     Array shader_stage_cis{
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Vertex,
+        vkb::PipelineShaderStageCreateInfo{
+            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vkb::ShaderStage::Vertex,
             .module = vertex_shader,
             .pName = "main",
         },
-        vk::PipelineShaderStageCreateInfo{
-            .sType = vk::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vk::ShaderStage::Fragment,
+        vkb::PipelineShaderStageCreateInfo{
+            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
+            .stage = vkb::ShaderStage::Fragment,
             .module = fragment_shader,
             .pName = "main",
         },
     };
-    const auto colour_format = vk::Format::B8G8R8A8Unorm;
-    vk::PipelineRenderingCreateInfo rendering_create_info{
-        .sType = vk::StructureType::PipelineRenderingCreateInfo,
+    const auto colour_format = vkb::Format::B8G8R8A8Unorm;
+    vkb::PipelineRenderingCreateInfo rendering_create_info{
+        .sType = vkb::StructureType::PipelineRenderingCreateInfo,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colour_format,
     };
-    vk::GraphicsPipelineCreateInfo pipeline_ci{
-        .sType = vk::StructureType::GraphicsPipelineCreateInfo,
+    vkb::GraphicsPipelineCreateInfo pipeline_ci{
+        .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &rendering_create_info,
         .stageCount = shader_stage_cis.size(),
         .pStages = shader_stage_cis.data(),
@@ -209,18 +210,18 @@ Renderer::Renderer(const VkContext &context, const Swapchain &swapchain, vk::Sha
         .pColorBlendState = &blend_state,
         .layout = m_pipeline_layout,
     };
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &m_pipeline) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &m_pipeline) == vkb::Result::Success);
 
-    vk::DescriptorBufferInfo ui_data_buffer_info{
+    vkb::DescriptorBufferInfo ui_data_buffer_info{
         .buffer = m_ui_data_buffer,
-        .range = vk::k_whole_size,
+        .range = vkb::k_whole_size,
     };
-    vk::WriteDescriptorSet ui_data_buffer_descriptor_write{
-        .sType = vk::StructureType::WriteDescriptorSet,
+    vkb::WriteDescriptorSet ui_data_buffer_descriptor_write{
+        .sType = vkb::StructureType::WriteDescriptorSet,
         .dstSet = m_descriptor_set,
         .dstBinding = 0,
         .descriptorCount = 1,
-        .descriptorType = vk::DescriptorType::StorageBuffer,
+        .descriptorType = vkb::DescriptorType::StorageBuffer,
         .pBufferInfo = &ui_data_buffer_info,
     };
     context.vkUpdateDescriptorSets(1, &ui_data_buffer_descriptor_write, 0, nullptr);
@@ -282,16 +283,16 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
 
 void Renderer::render(const CommandBuffer &cmd_buf, uint32_t image_index) {
     *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
-    cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
-    vk::RenderingAttachmentInfo colour_write_attachment{
-        .sType = vk::StructureType::RenderingAttachmentInfo,
+    cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
+    vkb::RenderingAttachmentInfo colour_write_attachment{
+        .sType = vkb::StructureType::RenderingAttachmentInfo,
         .imageView = m_swapchain.image_view(image_index),
-        .imageLayout = vk::ImageLayout::ColorAttachmentOptimal,
-        .loadOp = vk::AttachmentLoadOp::Load,
-        .storeOp = vk::AttachmentStoreOp::Store,
+        .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+        .loadOp = vkb::AttachmentLoadOp::Load,
+        .storeOp = vkb::AttachmentStoreOp::Store,
     };
-    vk::RenderingInfo rendering_info{
-        .sType = vk::StructureType::RenderingInfo,
+    vkb::RenderingInfo rendering_info{
+        .sType = vkb::StructureType::RenderingInfo,
         .renderArea{
             .extent = m_swapchain.extent_2D(),
         },
@@ -300,7 +301,7 @@ void Renderer::render(const CommandBuffer &cmd_buf, uint32_t image_index) {
         .pColorAttachments = &colour_write_attachment,
     };
     cmd_buf.begin_rendering(rendering_info);
-    cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, m_pipeline);
+    cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
     cmd_buf.draw(6, exchange(m_object_index, 0u));
     cmd_buf.end_rendering();
 }

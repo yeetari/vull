@@ -3,7 +3,7 @@
 
 #include <vull/vulkan/Vulkan.hh>
 
-namespace vull::vk {
+namespace vull::vkb {
 
 class ContextTable {
 protected:
@@ -480,4 +480,4 @@ public:
     Result vkWaitSemaphores(const SemaphoreWaitInfo *pWaitInfo, uint64_t timeout) const; // NOLINT
 };
 
-} // namespace vull::vk
+} // namespace vull::vkb

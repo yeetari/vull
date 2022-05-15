@@ -10,12 +10,12 @@
 namespace vull {
 
 CommandPool::CommandPool(const VkContext &context, uint32_t queue_family_index) : m_context(context) {
-    vk::CommandPoolCreateInfo pool_ci{
-        .sType = vk::StructureType::CommandPoolCreateInfo,
-        .flags = vk::CommandPoolCreateFlags::Transient | vk::CommandPoolCreateFlags::ResetCommandBuffer,
+    vkb::CommandPoolCreateInfo pool_ci{
+        .sType = vkb::StructureType::CommandPoolCreateInfo,
+        .flags = vkb::CommandPoolCreateFlags::Transient | vkb::CommandPoolCreateFlags::ResetCommandBuffer,
         .queueFamilyIndex = queue_family_index,
     };
-    VULL_ENSURE(context.vkCreateCommandPool(&pool_ci, &m_command_pool) == vk::Result::Success);
+    VULL_ENSURE(context.vkCreateCommandPool(&pool_ci, &m_command_pool) == vkb::Result::Success);
 }
 
 CommandPool::CommandPool(CommandPool &&other) : m_context(other.m_context) {
@@ -32,7 +32,7 @@ CommandBuffer &CommandPool::request_cmd_buf() {
     for (auto &cmd_buf : m_command_buffers) {
         uint64_t value;
         VULL_ENSURE(m_context.vkGetSemaphoreCounterValue(cmd_buf.completion_semaphore(), &value) ==
-                    vk::Result::Success);
+                    vkb::Result::Success);
         if (value == cmd_buf.completion_value()) {
             cmd_buf.reset();
             return cmd_buf;
@@ -40,25 +40,25 @@ CommandBuffer &CommandPool::request_cmd_buf() {
     }
 
     // Else, allocate a new command buffer.
-    vk::CommandBufferAllocateInfo buffer_ai{
-        .sType = vk::StructureType::CommandBufferAllocateInfo,
+    vkb::CommandBufferAllocateInfo buffer_ai{
+        .sType = vkb::StructureType::CommandBufferAllocateInfo,
         .commandPool = m_command_pool,
-        .level = vk::CommandBufferLevel::Primary,
+        .level = vkb::CommandBufferLevel::Primary,
         .commandBufferCount = 1,
     };
-    vk::CommandBuffer buffer;
+    vkb::CommandBuffer buffer;
     const auto allocation_result = m_context.vkAllocateCommandBuffers(&buffer_ai, &buffer);
 
     // If the allocation wasn't a success (out of either host or device memory), then we must wait for and reuse an
     // existing command buffer.
-    if (allocation_result != vk::Result::Success) {
+    if (allocation_result != vkb::Result::Success) {
         // The first command buffer allocation shouldn't fail.
         VULL_ENSURE(!m_command_buffers.empty());
         auto &cmd_buf = m_command_buffers.first();
-        vk::Semaphore wait_semaphore = cmd_buf.completion_semaphore();
+        vkb::Semaphore wait_semaphore = cmd_buf.completion_semaphore();
         uint64_t wait_value = cmd_buf.completion_value();
-        vk::SemaphoreWaitInfo wait_info{
-            .sType = vk::StructureType::SemaphoreWaitInfo,
+        vkb::SemaphoreWaitInfo wait_info{
+            .sType = vkb::StructureType::SemaphoreWaitInfo,
             .semaphoreCount = 1,
             .pSemaphores = &wait_semaphore,
             .pValues = &wait_value,

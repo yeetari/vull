@@ -12,7 +12,7 @@ class VkContext;
 
 class CommandPool {
     const VkContext &m_context;
-    vk::CommandPool m_command_pool{nullptr};
+    vkb::CommandPool m_command_pool{nullptr};
     Vector<CommandBuffer> m_command_buffers;
 
 public:
