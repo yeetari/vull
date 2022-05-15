@@ -102,7 +102,7 @@ vk::Buffer Scene::load_buffer(CommandPool &cmd_pool, Queue &queue, PackReader &p
         vk::BufferCopy copy{
             .size = size,
         };
-        cmd_buf.copy_buffer(staging_buffer, buffer, {&copy, 1});
+        cmd_buf.copy_buffer(staging_buffer, buffer, copy);
     });
     memory_offset += size;
     return buffer;
@@ -169,8 +169,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
                 .layerCount = 1,
             },
         };
-        cmd_buf.pipeline_barrier(vk::PipelineStage::None, vk::PipelineStage::Transfer, {},
-                                 {&transfer_write_barrier, 1});
+        cmd_buf.pipeline_barrier(vk::PipelineStage::None, vk::PipelineStage::Transfer, {}, transfer_write_barrier);
     });
 
     uint32_t mip_width = width;
@@ -191,7 +190,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
                 },
                 .imageExtent = {mip_width, mip_height, 1},
             };
-            cmd_buf.copy_buffer_to_image(staging_buffer, image, vk::ImageLayout::TransferDstOptimal, {&copy, 1});
+            cmd_buf.copy_buffer_to_image(staging_buffer, image, vk::ImageLayout::TransferDstOptimal, copy);
         });
         mip_width /= 2;
         mip_height /= 2;
@@ -213,8 +212,7 @@ void Scene::load_image(CommandPool &cmd_pool, Queue &queue, PackReader &pack_rea
                 .layerCount = 1,
             },
         };
-        cmd_buf.pipeline_barrier(vk::PipelineStage::Transfer, vk::PipelineStage::AllCommands, {},
-                                 {&image_read_barrier, 1});
+        cmd_buf.pipeline_barrier(vk::PipelineStage::Transfer, vk::PipelineStage::AllCommands, {}, image_read_barrier);
     });
 }
 

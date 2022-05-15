@@ -12,9 +12,13 @@ class Span {
     T *m_data{nullptr};
     SizeType m_size{0};
 
+    static constexpr bool is_void = IsSame<RemoveCv<T>, void>;
+    using no_void_t = Conditional<is_void, char, T>;
+
 public:
     constexpr Span() = default;
     constexpr Span(T *data, SizeType size) : m_data(data), m_size(size) {}
+    constexpr Span(no_void_t &object) requires(!is_void) : m_data(&object), m_size(1) {}
 
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
     constexpr operator Span<void>() { return {data(), size_bytes()}; }
@@ -23,8 +27,8 @@ public:
     constexpr T *begin() const { return m_data; }
     constexpr T *end() const { return m_data + m_size; }
 
-    template <typename U = Conditional<IsSame<T, void>, char, T>>
-    constexpr U &operator[](SizeType index) const requires(!IsSame<T, void>) {
+    template <typename U = no_void_t>
+    constexpr U &operator[](SizeType index) const requires(!is_void) {
         return begin()[index];
     }
 

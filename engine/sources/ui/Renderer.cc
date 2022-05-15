@@ -282,7 +282,7 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
 
 void Renderer::render(const CommandBuffer &cmd_buf, uint32_t image_index) {
     *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
-    cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, m_pipeline_layout, {&m_descriptor_set, 1});
+    cmd_buf.bind_descriptor_sets(vk::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
     vk::RenderingAttachmentInfo colour_write_attachment{
         .sType = vk::StructureType::RenderingAttachmentInfo,
         .imageView = m_swapchain.image_view(image_index),

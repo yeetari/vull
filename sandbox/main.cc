@@ -1255,7 +1255,7 @@ void main_task(Scheduler &scheduler) {
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe,
                                  vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
-                                 {&depth_write_barrier, 1});
+                                 depth_write_barrier);
 
         Array gbuffer_write_attachments{
             vk::RenderingAttachmentInfo{
@@ -1320,7 +1320,7 @@ void main_task(Scheduler &scheduler) {
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe,
                                  vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests, {},
-                                 {&shadow_map_write_barrier, 1});
+                                 shadow_map_write_barrier);
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 1);
 
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Graphics, shadow_pass_pipeline);
@@ -1363,7 +1363,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                 vk::PipelineStage::ComputeShader, {}, {&depth_sample_barrier, 1});
+                                 vk::PipelineStage::ComputeShader, {}, depth_sample_barrier);
         cmd_buf.write_timestamp(vk::PipelineStage::AllGraphics, query_pool, 2);
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, light_cull_pipeline);
         cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
@@ -1432,7 +1432,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::TopOfPipe, vk::PipelineStage::ComputeShader, {},
-                                 {&output_image_barrier, 1});
+                                 output_image_barrier);
 
         vk::ImageMemoryBarrier shadow_map_sample_barrier{
             .sType = vk::StructureType::ImageMemoryBarrier,
@@ -1448,7 +1448,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::EarlyFragmentTests | vk::PipelineStage::LateFragmentTests,
-                                 vk::PipelineStage::ComputeShader, {}, {&shadow_map_sample_barrier, 1});
+                                 vk::PipelineStage::ComputeShader, {}, shadow_map_sample_barrier);
 
         cmd_buf.bind_pipeline(vk::PipelineBindPoint::Compute, deferred_pipeline);
         cmd_buf.dispatch(window.width() / 8, window.height() / 8, 1);
@@ -1467,7 +1467,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::ComputeShader, vk::PipelineStage::ColorAttachmentOutput, {},
-                                 {&ui_colour_write_barrier, 1});
+                                 ui_colour_write_barrier);
 
         cmd_buf.write_timestamp(vk::PipelineStage::ComputeShader, query_pool, 4);
         ui.render(cmd_buf, image_index);
@@ -1486,7 +1486,7 @@ void main_task(Scheduler &scheduler) {
             },
         };
         cmd_buf.pipeline_barrier(vk::PipelineStage::ColorAttachmentOutput, vk::PipelineStage::BottomOfPipe, {},
-                                 {&colour_present_barrier, 1});
+                                 colour_present_barrier);
 
         Array signal_semaphores{
             vk::SemaphoreSubmitInfo{
