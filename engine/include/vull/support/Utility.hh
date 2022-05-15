@@ -13,6 +13,23 @@ struct ConditionalImpl<false, T, F> {
 };
 
 template <typename T>
+struct RemoveCvImpl {
+    using type = T;
+};
+template <typename T>
+struct RemoveCvImpl<const T> {
+    using type = T;
+};
+template <typename T>
+struct RemoveCvImpl<volatile T> {
+    using type = T;
+};
+template <typename T>
+struct RemoveCvImpl<const volatile T> {
+    using type = T;
+};
+
+template <typename T>
 struct RemoveRefImpl {
     using type = T;
 };
@@ -61,6 +78,9 @@ inline constexpr bool IsTriviallyDestructible = __is_trivially_destructible(T);
 template <typename T>
 inline constexpr bool IsTriviallyDestructible = Destructible<T> &&__has_trivial_destructor(T);
 #endif
+
+template <typename T>
+using RemoveCv = typename detail::RemoveCvImpl<T>::type;
 
 template <typename T>
 using RemoveRef = typename detail::RemoveRefImpl<T>::type;
