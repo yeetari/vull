@@ -71,9 +71,9 @@ Scene::~Scene() {
 
 Mat4f Scene::get_transform_matrix(EntityId entity) {
     const auto &transform = m_world.get_component<Transform>(entity);
-    if (transform.parent() == entity) {
+    if (transform.parent() == ~vull::EntityId(0)) {
         // Root node.
-        return {1.0f};
+        return transform.matrix();
     }
     const auto parent_matrix = get_transform_matrix(transform.parent());
     return parent_matrix * transform.matrix();

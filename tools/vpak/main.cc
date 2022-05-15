@@ -399,11 +399,9 @@ int main(int argc, char **argv) {
         printf("Scene: \"%.*s\" (idx %lu)\n", static_cast<int>(scene_name.length()), scene_name.data(), scene_index);
     }
 
-    auto root_entity = world.create_entity();
-    root_entity.add<vull::Transform>(root_entity);
     if (simdjson::dom::array node_indices; scene["nodes"].get(node_indices) == simdjson::SUCCESS) {
         for (auto node_index : node_indices) {
-            traverser.traverse_node(node_index.get_uint64().value_unsafe(), root_entity, 0);
+            traverser.traverse_node(node_index.get_uint64().value_unsafe(), ~vull::EntityId(0), 0);
         }
     }
 
