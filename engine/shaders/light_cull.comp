@@ -16,7 +16,7 @@ layout (binding = 1, std430) readonly buffer Lights {
 layout (binding = 2) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (set = 1, binding = 0) uniform sampler2D g_depth_sampler;
+layout (set = 1, binding = 0) uniform texture2D g_depth_image;
 
 struct ViewFrustum {
     vec3 planes[4];
@@ -73,7 +73,7 @@ void main() {
     }
     for (uint y = 0; y < k_tile_size; y++) {
         vec2 sample_location = vec2(k_tile_size) * tile_id + vec2(gl_LocalInvocationIndex, y);
-        float depth = linearise_depth(texelFetch(g_depth_sampler, ivec2(sample_location), 0).r, g_proj);
+        float depth = linearise_depth(texelFetch(g_depth_image, ivec2(sample_location), 0).r, g_proj);
         atomicMin(g_min_depth, depth);
         atomicMax(g_max_depth, depth);
     }

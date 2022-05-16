@@ -240,19 +240,19 @@ void main_task(Scheduler &scheduler) {
     Array deferred_set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorType = vkb::DescriptorType::SampledImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 1,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorType = vkb::DescriptorType::SampledImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 2,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorType = vkb::DescriptorType::SampledImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
@@ -661,19 +661,6 @@ void main_task(Scheduler &scheduler) {
         VULL_ENSURE(context.vkCreateImageView(&view_ci, &shadow_cascade_views[i]) == vkb::Result::Success);
     }
 
-    vkb::SamplerCreateInfo depth_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Nearest,
-        .minFilter = vkb::Filter::Nearest,
-        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
-    };
-    vkb::Sampler depth_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&depth_sampler_ci, &depth_sampler) == vkb::Result::Success);
-
     vkb::SamplerCreateInfo shadow_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -722,19 +709,6 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Sampler normal_sampler;
     VULL_ENSURE(context.vkCreateSampler(&normal_sampler_ci, &normal_sampler) == vkb::Result::Success);
-
-    vkb::SamplerCreateInfo deferred_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Nearest,
-        .minFilter = vkb::Filter::Nearest,
-        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .borderColor = vkb::BorderColor::FloatTransparentBlack,
-    };
-    vkb::Sampler deferred_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&deferred_sampler_ci, &deferred_sampler) == vkb::Result::Success);
 
     struct ShadowInfo {
         Array<Mat4f, 8> cascade_matrices;
@@ -810,7 +784,7 @@ void main_task(Scheduler &scheduler) {
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::SampledImage,
-            .descriptorCount = scene.texture_count(),
+            .descriptorCount = scene.texture_count() + 3,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::UniformBuffer,
@@ -822,7 +796,7 @@ void main_task(Scheduler &scheduler) {
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 4,
+            .descriptorCount = 1,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::StorageImage,
@@ -896,18 +870,15 @@ void main_task(Scheduler &scheduler) {
     }
 
     // Deferred set.
-    vkb::DescriptorImageInfo depth_sampler_image_info{
-        .sampler = depth_sampler,
+    vkb::DescriptorImageInfo depth_image_info{
         .imageView = depth_image_view,
         .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
     };
-    vkb::DescriptorImageInfo albedo_sampler_image_info{
-        .sampler = deferred_sampler,
+    vkb::DescriptorImageInfo albedo_image_info{
         .imageView = albedo_image_view,
         .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
     };
-    vkb::DescriptorImageInfo normal_sampler_image_info{
-        .sampler = deferred_sampler,
+    vkb::DescriptorImageInfo normal_image_info{
         .imageView = normal_image_view,
         .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
     };
@@ -976,24 +947,24 @@ void main_task(Scheduler &scheduler) {
             .dstSet = deferred_set,
             .dstBinding = 0,
             .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &depth_sampler_image_info,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .pImageInfo = &depth_image_info,
         },
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
             .dstSet = deferred_set,
             .dstBinding = 1,
             .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &albedo_sampler_image_info,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .pImageInfo = &albedo_image_info,
         },
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
             .dstSet = deferred_set,
             .dstBinding = 2,
             .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &normal_sampler_image_info,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .pImageInfo = &normal_image_info,
         },
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
@@ -1525,11 +1496,9 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyBuffer(lights_buffer);
     context.vkFreeMemory(uniform_buffer_memory);
     context.vkDestroyBuffer(uniform_buffer);
-    context.vkDestroySampler(deferred_sampler);
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(shadow_sampler);
-    context.vkDestroySampler(depth_sampler);
     for (auto *cascade_view : shadow_cascade_views) {
         context.vkDestroyImageView(cascade_view);
     }

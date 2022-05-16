@@ -17,9 +17,9 @@ layout (binding = 2) readonly buffer LightVisibilities {
 };
 layout (binding = 3, rgba8) writeonly uniform image2D g_output_image;
 
-layout (set = 1, binding = 0) uniform sampler2D g_depth_sampler;
-layout (set = 1, binding = 1) uniform sampler2D g_albedo_sampler;
-layout (set = 1, binding = 2) uniform sampler2D g_normal_sampler;
+layout (set = 1, binding = 0) uniform texture2D g_depth_image;
+layout (set = 1, binding = 1) uniform texture2D g_albedo_image;
+layout (set = 1, binding = 2) uniform texture2D g_normal_image;
 layout (set = 1, binding = 3) uniform sampler2DArrayShadow g_shadow_map;
 
 const vec3 k_clear_colour = vec3(0.47f, 0.5f, 0.67f);
@@ -30,16 +30,16 @@ float compute_fog(float density, float dist) {
 }
 
 void main() {
-    vec4 albedo = texelFetch(g_albedo_sampler, ivec2(gl_GlobalInvocationID.xy), 0);
+    vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     if (albedo.a == 0.0f) {
         imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(k_clear_colour, 1.0f)));
         return;
     }
     ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
     uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
-    vec3 normal = texelFetch(g_normal_sampler, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
+    vec3 normal = texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
 
-    float depth = texelFetch(g_depth_sampler, ivec2(gl_GlobalInvocationID.xy), 0).r;
+    float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
     vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
     world_position = inverse(g_proj * g_view) * world_position;
     world_position /= world_position.w;
