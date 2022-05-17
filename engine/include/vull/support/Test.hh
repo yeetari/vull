@@ -51,5 +51,6 @@ public:
     unsigned line() const { return m_line; }
 };
 
-#define EXPECT(expr)                                                                                                   \
-    static_cast<bool>(expr) ? static_cast<void>(0) : throw TestFailure("EXPECT(" #expr ")", __FILE__, __LINE__)
+#define EXPECT(...)                                                                                                    \
+    static_cast<bool>(__VA_ARGS__) ? static_cast<void>(0)                                                              \
+                                   : throw TestFailure("EXPECT(" #__VA_ARGS__ ")", __FILE__, __LINE__)
