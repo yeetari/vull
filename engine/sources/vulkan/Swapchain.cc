@@ -1,6 +1,7 @@
 #include <vull/vulkan/Swapchain.hh>
 
 #include <vull/maths/Common.hh>
+#include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Lsan.hh>
 #include <vull/support/Span.hh>
@@ -9,8 +10,44 @@
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
+namespace {
 
-Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface)
+// LowPower     Fifo
+// Normal       Mailbox -> FifoRelaxed -> Fifo
+// NoVsync      Immediate -> Mailbox -> FifoRelaxed -> Fifo
+unsigned rate_present_mode(vkb::PresentModeKHR present_mode, SwapchainMode swapchain_mode) {
+    if (present_mode == vkb::PresentModeKHR::FifoKHR) {
+        return 1;
+    }
+    switch (swapchain_mode) {
+    case SwapchainMode::Normal:
+        switch (present_mode) {
+        case vkb::PresentModeKHR::MailboxKHR:
+            return 3;
+        case vkb::PresentModeKHR::FifoRelaxedKHR:
+            return 2;
+        default:
+            return 0;
+        }
+    case SwapchainMode::NoVsync:
+        switch (present_mode) {
+        case vkb::PresentModeKHR::ImmediateKHR:
+            return 4;
+        case vkb::PresentModeKHR::MailboxKHR:
+            return 3;
+        case vkb::PresentModeKHR::FifoRelaxedKHR:
+            return 2;
+        default:
+            return 0;
+        }
+    default:
+        return 0;
+    }
+}
+
+} // namespace
+
+Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vkb::SurfaceFormatKHR surface_format{
         .format = vkb::Format::B8G8R8A8Unorm,
@@ -18,6 +55,15 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
     };
     VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
                 vkb::Result::Success);
+
+    // Pick best present mode.
+    uint32_t present_mode_count = 0;
+    context.vkGetPhysicalDeviceSurfacePresentModesKHR(surface, &present_mode_count, nullptr);
+    Vector<vkb::PresentModeKHR> present_modes(present_mode_count);
+    context.vkGetPhysicalDeviceSurfacePresentModesKHR(surface, &present_mode_count, present_modes.data());
+    vull::sort(present_modes, [mode](vkb::PresentModeKHR lhs, vkb::PresentModeKHR rhs) {
+        return rate_present_mode(lhs, mode) < rate_present_mode(rhs, mode);
+    });
 
     vkb::SwapchainCreateInfoKHR swapchain_ci{
         .sType = vkb::StructureType::SwapchainCreateInfoKHR,
@@ -28,11 +74,11 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
         .imageColorSpace = surface_format.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,
-        .imageUsage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Storage, // TODO: Still need ColorAttachment?
+        .imageUsage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Storage,
         .imageSharingMode = vkb::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
         .compositeAlpha = vkb::CompositeAlphaFlagBitsKHR::OpaqueKHR,
-        .presentMode = vkb::PresentModeKHR::FifoKHR,
+        .presentMode = present_modes.first(),
         .clipped = true,
     };
     VULL_ENSURE(context.vkCreateSwapchainKHR(&swapchain_ci, &m_swapchain) == vkb::Result::Success);

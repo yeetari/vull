@@ -11,6 +11,12 @@ namespace vull::vk {
 
 class Context;
 
+enum class SwapchainMode {
+    LowPower,
+    Normal,
+    NoVsync,
+};
+
 class Swapchain {
     const Context &m_context;
     const vkb::Extent2D m_extent;
@@ -22,7 +28,7 @@ class Swapchain {
     vkb::Queue m_present_queue{nullptr};
 
 public:
-    Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface);
+    Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode);
     Swapchain(const Swapchain &) = delete;
     Swapchain(Swapchain &&) = delete;
     ~Swapchain();

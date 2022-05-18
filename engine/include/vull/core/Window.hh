@@ -50,7 +50,7 @@ public:
     Window &operator=(const Window &) = delete;
     Window &operator=(Window &&) = delete;
 
-    vk::Swapchain create_swapchain(const vk::Context &context);
+    vk::Swapchain create_swapchain(const vk::Context &context, vk::SwapchainMode mode);
     void close();
     void poll_events();
 

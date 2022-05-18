@@ -65,7 +65,7 @@ vkb::ShaderModule load_shader(const vk::Context &context, const char *path) {
 void main_task(Scheduler &scheduler) {
     Window window(2560, 1440, true);
     vk::Context context;
-    auto swapchain = window.create_swapchain(context);
+    auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
     const auto graphics_family_index = find_graphics_family(context);
     vk::CommandPool cmd_pool(context, graphics_family_index);
