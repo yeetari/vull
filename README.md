@@ -6,11 +6,11 @@ A vulkan rendering engine written in C++ 20.
 
 ## Dependencies
 
-* [assimp](https://github.com/assimp/assimp) (for vpak tool)
 * [freetype](https://freetype.org)
 * [harfbuzz](https://github.com/harfbuzz/harfbuzz)
 * [meshoptimizer](https://github.com/zeux/meshoptimizer) (for vpak tool)
 * [shaderc](https://github.com/google/shaderc) (for offline shader compilation step)
+* [simdjson](https://github.com/simdjson/simdjson) (for vpak tool)
 * [xcb](https://xcb.freedesktop.org)
 * [zstd](https://github.com/facebook/zstd)
 
@@ -27,7 +27,6 @@ is not currently supported.
      app-arch/zstd \
      dev-util/cmake \
      dev-util/ninja \
-     media-libs/assimp \
      media-libs/freetype \
      media-libs/harfbuzz \
      media-libs/shaderc \
@@ -36,8 +35,8 @@ is not currently supported.
      x11-libs/libxcb \
      x11-libs/xcb-util
 
-Note that meshoptimizer is always linked to via `FetchContent`. The vulkan validation layers (`vulkan-layers`) are not
-required but are extremely useful for development.
+Note that meshoptimizer and simdjson are always linked to via `FetchContent`. The vulkan validation layers
+(`vulkan-layers`) are not required but are extremely useful for development.
 
 ### Configuring CMake
 
@@ -51,12 +50,12 @@ To configure vull, use:
 
 #### Available options
 
-| Option                | Description                          | Default Value |
-|-----------------------|--------------------------------------|---------------|
-| `VULL_BUILD_SANDBOX`  | Build sandbox application            | `ON`          |
-| `VULL_BUILD_TESTS`    | Build tests                          | `OFF`         |
-| `VULL_BUILD_TOOLS`    | Build tools (vpak)                   | `OFF`         |
-| `VULL_BUILD_WARNINGS` | Build with compiler warnings enabled | `OFF`         |
+| Option                 | Description                          | Default Value |
+|------------------------|--------------------------------------|---------------|
+| `VULL_BUILD_SANDBOX`   | Build sandbox application            | `ON`          |
+| `VULL_BUILD_TESTS`     | Build tests                          | `OFF`         |
+| `VULL_BUILD_VPAK_TOOL` | Build vpak tool                      | `OFF`         |
+| `VULL_BUILD_WARNINGS`  | Build with compiler warnings enabled | `OFF`         |
 
 ### Building
 
@@ -64,8 +63,9 @@ To configure vull, use:
 
 ### Running
 
-Depending on the options passed to CMake, three executables can be produced after building:
+Depending on the options passed to CMake, four executables can be produced after building:
 
 * `./build/engine/vull-tests`
 * `./build/sandbox/vull-sandbox`
 * `./build/tools/vpak`
+* `./build/tools/vslc`
