@@ -50,6 +50,7 @@ jobs:
           -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
           -DVULL_BUILD_SANDBOX=ON
           -DVULL_BUILD_TESTS=ON
+          -DVULL_BUILD_VPAK_TOOL=ON
           -DVULL_BUILD_WARNINGS=ON
           -GNinja
       - name: Build
