@@ -16,14 +16,20 @@ def convert_type(orig):
         return 'BAD'
     if orig == 'VkBool32':
         return 'Bool'
-    if orig.endswith('Flags') or orig.endswith('FlagBits'):
+    if orig.endswith('Flags') or 'FlagBits' in orig:
         orig = orig.replace('Flags', '')
-        orig = orig.replace('FlagBits', '')
+        new_suffix = ''
+        if 'FlagBits' in orig:
+            index = orig.index('FlagBits')
+            if index + 8 < len(orig):
+                new_suffix += orig[index + 8:]
+            orig = orig[:index]
         # Hardcoded list of enum endings to omit the Flags suffix from.
         if not orig.endswith('Access') and not orig.endswith('Aspect') and not orig.endswith(
                 'Component') and not orig.endswith('Count') and not orig.endswith('Feature') and not orig.endswith(
                 'Mode') and not orig.endswith('Stage') and not orig.endswith('Usage'):
             orig += 'Flags'
+        orig += new_suffix
     return orig[2:] if orig.startswith('Vk') else orig
 
 
@@ -358,14 +364,15 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     file.write('};\n\n')
 
     # Emit bitmasks if an enum doesn't exist.
+    existing_enums = [convert_type(e.get('name')) for e in filter(lambda e: len(e.findall('enum')) != 0, registry.findall('enums'))]
     file.write('// Bitmasks.\n')
     for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'bitmask', desired_types),
                                      key=itemgetter(0)):
         if vk_type.get('alias'):
             continue
-        c_type = vk_type.findtext('type')
-        if not registry.find('.//enums[@name="{}"]'.format(type_name[:-1] + 'Bits')) or type_name == 'VkPipelineCacheCreateFlags':
-            file.write('using {} = {};\n'.format(convert_type(type_name), convert_type(c_type)))
+        converted_type_name = convert_type(type_name)
+        if converted_type_name not in existing_enums or converted_type_name == 'PipelineCacheCreateFlags':
+            file.write('using {} = {};\n'.format(converted_type_name, convert_type(vk_type.findtext('type'))))
     file.write('\n')
 
     # Emit handles.
@@ -380,9 +387,7 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
     for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'enum', desired_types),
                                      key=itemgetter(0)):
         definition = registry.find('.//enums[@name="{}"]'.format(type_name))
-        if definition is None:
-            continue
-        if len(definition.findall('enum')) == 0:
+        if definition is None or len(definition.findall('enum')) == 0:
             # Don't generate empty enums, a bitmask will already have been generated.
             continue
         converted_type_name = convert_type(type_name)
@@ -392,6 +397,15 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
         # Emit None enumerant if needed.
         if converted_type_name.endswith('Flags'):
             file.write('    None = 0,\n')
+
+        # Build a subtraction name that will be used to remove bits of the enum name from the enumerants.
+        is_extension_enum = False
+        subtraction_type_name = type_name.replace('FlagBits', '')
+        for vendor in [v.get('name') for v in registry.findall('tags/tag')]:
+            if subtraction_type_name.endswith(vendor):
+                is_extension_enum = True
+                subtraction_type_name = subtraction_type_name[:-len(vendor)]
+                break
 
         for enumerant in definition.findall('enum'):
             if enumerant.get('alias'):
@@ -404,36 +418,32 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
 
             # Convert enumerant name, from e.g. VK_FRONT_FACE_COUNTER_CLOCKWISE to CounterClockwise.
             name = enumerant.get('name').title().replace('_', '')
-            replacing_type_name = type_name.replace('FlagBits', '')
-            for tag in registry.findall('tags/tag'):
-                tag_name = tag.get('name')
-                if replacing_type_name.endswith(tag_name):
-                    replacing_type_name = replacing_type_name[:-len(tag_name)]
-                    break
-            name = name.replace(replacing_type_name, '')
+            name = name.replace(subtraction_type_name, '')
             name = name.replace('Vk', '')
             name = name.replace('Bit', '')
-            for vendor in registry.findall('tags/tag'):
-                vendor_name = vendor.get('name')
-                if name.endswith(vendor_name.title()):
-                    name = name[:name.index(vendor_name.title())] + vendor_name
+
+            for vendor in [v.get('name') for v in registry.findall('tags/tag')]:
+                if name.endswith(vendor.title()):
+                    name = name[:name.index(vendor.title())]
+                    if not is_extension_enum:
+                        name += vendor
 
             # After simplifying the name, the first character may now be a digit (for example VK_IMAGE_TYPE_1D turns
             # into 1D), which isn't a valid identifier so we prefix with an underscore.
             if name[0].isdigit():
                 name = '_' + name
-            file.write('    {} = {},\n'.format(name, value or '1{1} << {0}{1}'.format(bitpos,
-                                                                                      'ull' if bitwidth == '64' else 'u')))
+            final_value = value or '1{1} << {0}{1}'.format(bitpos, 'ull' if bitwidth == '64' else 'u')
+            file.write('    {} = {},\n'.format(name, final_value))
         file.write('};\n')
 
         # Emit operators for flags.
         if 'FlagBits' in type_name:
-            file.write('inline constexpr {0} operator&({0} a, {0} b) {{\n'.format(converted_type_name))
-            file.write('    return static_cast<{}>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));\n'.format(
+            file.write('inline constexpr {0} operator&({0} lhs, {0} rhs) {{\n'.format(converted_type_name))
+            file.write('    return static_cast<{}>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));\n'.format(
                 converted_type_name))
             file.write('}\n')
-            file.write('inline constexpr {0} operator|({0} a, {0} b) {{\n'.format(converted_type_name))
-            file.write('    return static_cast<{}>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));\n'.format(
+            file.write('inline constexpr {0} operator|({0} lhs, {0} rhs) {{\n'.format(converted_type_name))
+            file.write('    return static_cast<{}>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));\n'.format(
                 converted_type_name))
             file.write('}\n')
         file.write('\n')

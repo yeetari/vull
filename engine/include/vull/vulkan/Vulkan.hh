@@ -54,7 +54,6 @@ public:
 using AccessFlags2 = Flags64;
 using BufferViewCreateFlags = Flags;
 using CommandPoolTrimFlags = Flags;
-using CompositeAlphaFlagsKHR = Flags;
 using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
@@ -82,8 +81,6 @@ using SamplerCreateFlags = Flags;
 using SemaphoreCreateFlags = Flags;
 using ShaderModuleCreateFlags = Flags;
 using SubpassDescriptionFlags = Flags;
-using SurfaceTransformFlagsKHR = Flags;
-using SwapchainCreateFlagsKHR = Flags;
 using XcbSurfaceCreateFlagsKHR = Flags;
 
 // Handles.
@@ -139,14 +136,14 @@ enum class Access {
     MemoryWrite = 1u << 16u,
     None = 0,
 };
-inline constexpr Access operator&(Access a, Access b) {
-    return static_cast<Access>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr Access operator&(Access lhs, Access rhs) {
+    return static_cast<Access>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr Access operator|(Access a, Access b) {
-    return static_cast<Access>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr Access operator|(Access lhs, Access rhs) {
+    return static_cast<Access>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
-enum class AccessFlagBits2 : uint64_t {
+enum class Access2 : uint64_t {
     None = 0,
     IndirectCommandRead = 1ull << 0ull,
     IndexRead = 1ull << 1ull,
@@ -169,22 +166,22 @@ enum class AccessFlagBits2 : uint64_t {
     ShaderStorageRead = 1ull << 33ull,
     ShaderStorageWrite = 1ull << 34ull,
 };
-inline constexpr AccessFlagBits2 operator&(AccessFlagBits2 a, AccessFlagBits2 b) {
-    return static_cast<AccessFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr Access2 operator&(Access2 lhs, Access2 rhs) {
+    return static_cast<Access2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr AccessFlagBits2 operator|(AccessFlagBits2 a, AccessFlagBits2 b) {
-    return static_cast<AccessFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr Access2 operator|(Access2 lhs, Access2 rhs) {
+    return static_cast<Access2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class AttachmentDescriptionFlags {
     None = 0,
     MayAlias = 1u << 0u,
 };
-inline constexpr AttachmentDescriptionFlags operator&(AttachmentDescriptionFlags a, AttachmentDescriptionFlags b) {
-    return static_cast<AttachmentDescriptionFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr AttachmentDescriptionFlags operator&(AttachmentDescriptionFlags lhs, AttachmentDescriptionFlags rhs) {
+    return static_cast<AttachmentDescriptionFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr AttachmentDescriptionFlags operator|(AttachmentDescriptionFlags a, AttachmentDescriptionFlags b) {
-    return static_cast<AttachmentDescriptionFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr AttachmentDescriptionFlags operator|(AttachmentDescriptionFlags lhs, AttachmentDescriptionFlags rhs) {
+    return static_cast<AttachmentDescriptionFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class AttachmentLoadOp {
@@ -246,11 +243,11 @@ enum class BufferCreateFlags {
     Protected = 1u << 3u,
     DeviceAddressCaptureReplay = 1u << 4u,
 };
-inline constexpr BufferCreateFlags operator&(BufferCreateFlags a, BufferCreateFlags b) {
-    return static_cast<BufferCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr BufferCreateFlags operator&(BufferCreateFlags lhs, BufferCreateFlags rhs) {
+    return static_cast<BufferCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr BufferCreateFlags operator|(BufferCreateFlags a, BufferCreateFlags b) {
-    return static_cast<BufferCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr BufferCreateFlags operator|(BufferCreateFlags lhs, BufferCreateFlags rhs) {
+    return static_cast<BufferCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class BufferUsage {
@@ -265,11 +262,11 @@ enum class BufferUsage {
     IndirectBuffer = 1u << 8u,
     ShaderDeviceAddress = 1u << 17u,
 };
-inline constexpr BufferUsage operator&(BufferUsage a, BufferUsage b) {
-    return static_cast<BufferUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr BufferUsage operator&(BufferUsage lhs, BufferUsage rhs) {
+    return static_cast<BufferUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr BufferUsage operator|(BufferUsage a, BufferUsage b) {
-    return static_cast<BufferUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr BufferUsage operator|(BufferUsage lhs, BufferUsage rhs) {
+    return static_cast<BufferUsage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ChromaLocation {
@@ -283,15 +280,15 @@ enum class ColorComponent {
     B = 1u << 2u,
     A = 1u << 3u,
 };
-inline constexpr ColorComponent operator&(ColorComponent a, ColorComponent b) {
-    return static_cast<ColorComponent>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ColorComponent operator&(ColorComponent lhs, ColorComponent rhs) {
+    return static_cast<ColorComponent>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ColorComponent operator|(ColorComponent a, ColorComponent b) {
-    return static_cast<ColorComponent>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ColorComponent operator|(ColorComponent lhs, ColorComponent rhs) {
+    return static_cast<ColorComponent>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ColorSpaceKHR {
-    SrgbNonlinearKHR = 0,
+    SrgbNonlinear = 0,
 };
 
 enum class CommandBufferLevel {
@@ -303,11 +300,11 @@ enum class CommandBufferResetFlags {
     None = 0,
     ReleaseResources = 1u << 0u,
 };
-inline constexpr CommandBufferResetFlags operator&(CommandBufferResetFlags a, CommandBufferResetFlags b) {
-    return static_cast<CommandBufferResetFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CommandBufferResetFlags operator&(CommandBufferResetFlags lhs, CommandBufferResetFlags rhs) {
+    return static_cast<CommandBufferResetFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CommandBufferResetFlags operator|(CommandBufferResetFlags a, CommandBufferResetFlags b) {
-    return static_cast<CommandBufferResetFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CommandBufferResetFlags operator|(CommandBufferResetFlags lhs, CommandBufferResetFlags rhs) {
+    return static_cast<CommandBufferResetFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class CommandBufferUsage {
@@ -315,11 +312,11 @@ enum class CommandBufferUsage {
     RenderPassContinue = 1u << 1u,
     SimultaneousUse = 1u << 2u,
 };
-inline constexpr CommandBufferUsage operator&(CommandBufferUsage a, CommandBufferUsage b) {
-    return static_cast<CommandBufferUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CommandBufferUsage operator&(CommandBufferUsage lhs, CommandBufferUsage rhs) {
+    return static_cast<CommandBufferUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CommandBufferUsage operator|(CommandBufferUsage a, CommandBufferUsage b) {
-    return static_cast<CommandBufferUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CommandBufferUsage operator|(CommandBufferUsage lhs, CommandBufferUsage rhs) {
+    return static_cast<CommandBufferUsage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class CommandPoolCreateFlags {
@@ -328,22 +325,22 @@ enum class CommandPoolCreateFlags {
     ResetCommandBuffer = 1u << 1u,
     Protected = 1u << 2u,
 };
-inline constexpr CommandPoolCreateFlags operator&(CommandPoolCreateFlags a, CommandPoolCreateFlags b) {
-    return static_cast<CommandPoolCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CommandPoolCreateFlags operator&(CommandPoolCreateFlags lhs, CommandPoolCreateFlags rhs) {
+    return static_cast<CommandPoolCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CommandPoolCreateFlags operator|(CommandPoolCreateFlags a, CommandPoolCreateFlags b) {
-    return static_cast<CommandPoolCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CommandPoolCreateFlags operator|(CommandPoolCreateFlags lhs, CommandPoolCreateFlags rhs) {
+    return static_cast<CommandPoolCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class CommandPoolResetFlags {
     None = 0,
     ReleaseResources = 1u << 0u,
 };
-inline constexpr CommandPoolResetFlags operator&(CommandPoolResetFlags a, CommandPoolResetFlags b) {
-    return static_cast<CommandPoolResetFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CommandPoolResetFlags operator&(CommandPoolResetFlags lhs, CommandPoolResetFlags rhs) {
+    return static_cast<CommandPoolResetFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CommandPoolResetFlags operator|(CommandPoolResetFlags a, CommandPoolResetFlags b) {
-    return static_cast<CommandPoolResetFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CommandPoolResetFlags operator|(CommandPoolResetFlags lhs, CommandPoolResetFlags rhs) {
+    return static_cast<CommandPoolResetFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class CompareOp {
@@ -367,17 +364,17 @@ enum class ComponentSwizzle {
     A = 6,
 };
 
-enum class CompositeAlphaFlagBitsKHR {
-    OpaqueKHR = 1u << 0u,
-    PreMultipliedKHR = 1u << 1u,
-    PostMultipliedKHR = 1u << 2u,
-    InheritKHR = 1u << 3u,
+enum class CompositeAlphaFlagsKHR {
+    Opaque = 1u << 0u,
+    PreMultiplied = 1u << 1u,
+    PostMultiplied = 1u << 2u,
+    Inherit = 1u << 3u,
 };
-inline constexpr CompositeAlphaFlagBitsKHR operator&(CompositeAlphaFlagBitsKHR a, CompositeAlphaFlagBitsKHR b) {
-    return static_cast<CompositeAlphaFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CompositeAlphaFlagsKHR operator&(CompositeAlphaFlagsKHR lhs, CompositeAlphaFlagsKHR rhs) {
+    return static_cast<CompositeAlphaFlagsKHR>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CompositeAlphaFlagBitsKHR operator|(CompositeAlphaFlagBitsKHR a, CompositeAlphaFlagBitsKHR b) {
-    return static_cast<CompositeAlphaFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CompositeAlphaFlagsKHR operator|(CompositeAlphaFlagsKHR lhs, CompositeAlphaFlagsKHR rhs) {
+    return static_cast<CompositeAlphaFlagsKHR>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class CullMode {
@@ -386,11 +383,11 @@ enum class CullMode {
     Back = 1u << 1u,
     FrontAndBack = 0x00000003,
 };
-inline constexpr CullMode operator&(CullMode a, CullMode b) {
-    return static_cast<CullMode>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr CullMode operator&(CullMode lhs, CullMode rhs) {
+    return static_cast<CullMode>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr CullMode operator|(CullMode a, CullMode b) {
-    return static_cast<CullMode>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr CullMode operator|(CullMode lhs, CullMode rhs) {
+    return static_cast<CullMode>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DependencyFlags {
@@ -399,11 +396,11 @@ enum class DependencyFlags {
     DeviceGroup = 1u << 2u,
     ViewLocal = 1u << 1u,
 };
-inline constexpr DependencyFlags operator&(DependencyFlags a, DependencyFlags b) {
-    return static_cast<DependencyFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DependencyFlags operator&(DependencyFlags lhs, DependencyFlags rhs) {
+    return static_cast<DependencyFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DependencyFlags operator|(DependencyFlags a, DependencyFlags b) {
-    return static_cast<DependencyFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DependencyFlags operator|(DependencyFlags lhs, DependencyFlags rhs) {
+    return static_cast<DependencyFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DescriptorBindingFlags {
@@ -413,11 +410,11 @@ enum class DescriptorBindingFlags {
     PartiallyBound = 1u << 2u,
     VariableDescriptorCount = 1u << 3u,
 };
-inline constexpr DescriptorBindingFlags operator&(DescriptorBindingFlags a, DescriptorBindingFlags b) {
-    return static_cast<DescriptorBindingFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DescriptorBindingFlags operator&(DescriptorBindingFlags lhs, DescriptorBindingFlags rhs) {
+    return static_cast<DescriptorBindingFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DescriptorBindingFlags operator|(DescriptorBindingFlags a, DescriptorBindingFlags b) {
-    return static_cast<DescriptorBindingFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DescriptorBindingFlags operator|(DescriptorBindingFlags lhs, DescriptorBindingFlags rhs) {
+    return static_cast<DescriptorBindingFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DescriptorPoolCreateFlags {
@@ -425,22 +422,22 @@ enum class DescriptorPoolCreateFlags {
     FreeDescriptorSet = 1u << 0u,
     UpdateAfterBind = 1u << 1u,
 };
-inline constexpr DescriptorPoolCreateFlags operator&(DescriptorPoolCreateFlags a, DescriptorPoolCreateFlags b) {
-    return static_cast<DescriptorPoolCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DescriptorPoolCreateFlags operator&(DescriptorPoolCreateFlags lhs, DescriptorPoolCreateFlags rhs) {
+    return static_cast<DescriptorPoolCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DescriptorPoolCreateFlags operator|(DescriptorPoolCreateFlags a, DescriptorPoolCreateFlags b) {
-    return static_cast<DescriptorPoolCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DescriptorPoolCreateFlags operator|(DescriptorPoolCreateFlags lhs, DescriptorPoolCreateFlags rhs) {
+    return static_cast<DescriptorPoolCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DescriptorSetLayoutCreateFlags {
     None = 0,
     UpdateAfterBindPool = 1u << 1u,
 };
-inline constexpr DescriptorSetLayoutCreateFlags operator&(DescriptorSetLayoutCreateFlags a, DescriptorSetLayoutCreateFlags b) {
-    return static_cast<DescriptorSetLayoutCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DescriptorSetLayoutCreateFlags operator&(DescriptorSetLayoutCreateFlags lhs, DescriptorSetLayoutCreateFlags rhs) {
+    return static_cast<DescriptorSetLayoutCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DescriptorSetLayoutCreateFlags operator|(DescriptorSetLayoutCreateFlags a, DescriptorSetLayoutCreateFlags b) {
-    return static_cast<DescriptorSetLayoutCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DescriptorSetLayoutCreateFlags operator|(DescriptorSetLayoutCreateFlags lhs, DescriptorSetLayoutCreateFlags rhs) {
+    return static_cast<DescriptorSetLayoutCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DescriptorType {
@@ -462,28 +459,28 @@ enum class DescriptorUpdateTemplateType {
     DescriptorSet = 0,
 };
 
-enum class DeviceGroupPresentModeFlagBitsKHR {
-    LocalKHR = 1u << 0u,
-    RemoteKHR = 1u << 1u,
-    SumKHR = 1u << 2u,
-    LocalMultiDeviceKHR = 1u << 3u,
+enum class DeviceGroupPresentModeKHR {
+    Local = 1u << 0u,
+    Remote = 1u << 1u,
+    Sum = 1u << 2u,
+    LocalMultiDevice = 1u << 3u,
 };
-inline constexpr DeviceGroupPresentModeFlagBitsKHR operator&(DeviceGroupPresentModeFlagBitsKHR a, DeviceGroupPresentModeFlagBitsKHR b) {
-    return static_cast<DeviceGroupPresentModeFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DeviceGroupPresentModeKHR operator&(DeviceGroupPresentModeKHR lhs, DeviceGroupPresentModeKHR rhs) {
+    return static_cast<DeviceGroupPresentModeKHR>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DeviceGroupPresentModeFlagBitsKHR operator|(DeviceGroupPresentModeFlagBitsKHR a, DeviceGroupPresentModeFlagBitsKHR b) {
-    return static_cast<DeviceGroupPresentModeFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DeviceGroupPresentModeKHR operator|(DeviceGroupPresentModeKHR lhs, DeviceGroupPresentModeKHR rhs) {
+    return static_cast<DeviceGroupPresentModeKHR>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DeviceQueueCreateFlags {
     None = 0,
     Protected = 1u << 0u,
 };
-inline constexpr DeviceQueueCreateFlags operator&(DeviceQueueCreateFlags a, DeviceQueueCreateFlags b) {
-    return static_cast<DeviceQueueCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr DeviceQueueCreateFlags operator&(DeviceQueueCreateFlags lhs, DeviceQueueCreateFlags rhs) {
+    return static_cast<DeviceQueueCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr DeviceQueueCreateFlags operator|(DeviceQueueCreateFlags a, DeviceQueueCreateFlags b) {
-    return static_cast<DeviceQueueCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr DeviceQueueCreateFlags operator|(DeviceQueueCreateFlags lhs, DeviceQueueCreateFlags rhs) {
+    return static_cast<DeviceQueueCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DriverId {
@@ -542,22 +539,22 @@ enum class EventCreateFlags {
     None = 0,
     DeviceOnly = 1u << 0u,
 };
-inline constexpr EventCreateFlags operator&(EventCreateFlags a, EventCreateFlags b) {
-    return static_cast<EventCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr EventCreateFlags operator&(EventCreateFlags lhs, EventCreateFlags rhs) {
+    return static_cast<EventCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr EventCreateFlags operator|(EventCreateFlags a, EventCreateFlags b) {
-    return static_cast<EventCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr EventCreateFlags operator|(EventCreateFlags lhs, EventCreateFlags rhs) {
+    return static_cast<EventCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalFenceFeature {
     Exportable = 1u << 0u,
     Importable = 1u << 1u,
 };
-inline constexpr ExternalFenceFeature operator&(ExternalFenceFeature a, ExternalFenceFeature b) {
-    return static_cast<ExternalFenceFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalFenceFeature operator&(ExternalFenceFeature lhs, ExternalFenceFeature rhs) {
+    return static_cast<ExternalFenceFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalFenceFeature operator|(ExternalFenceFeature a, ExternalFenceFeature b) {
-    return static_cast<ExternalFenceFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalFenceFeature operator|(ExternalFenceFeature lhs, ExternalFenceFeature rhs) {
+    return static_cast<ExternalFenceFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalFenceHandleTypeFlags {
@@ -567,11 +564,11 @@ enum class ExternalFenceHandleTypeFlags {
     OpaqueWin32Kmt = 1u << 2u,
     SyncFd = 1u << 3u,
 };
-inline constexpr ExternalFenceHandleTypeFlags operator&(ExternalFenceHandleTypeFlags a, ExternalFenceHandleTypeFlags b) {
-    return static_cast<ExternalFenceHandleTypeFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalFenceHandleTypeFlags operator&(ExternalFenceHandleTypeFlags lhs, ExternalFenceHandleTypeFlags rhs) {
+    return static_cast<ExternalFenceHandleTypeFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalFenceHandleTypeFlags operator|(ExternalFenceHandleTypeFlags a, ExternalFenceHandleTypeFlags b) {
-    return static_cast<ExternalFenceHandleTypeFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalFenceHandleTypeFlags operator|(ExternalFenceHandleTypeFlags lhs, ExternalFenceHandleTypeFlags rhs) {
+    return static_cast<ExternalFenceHandleTypeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalMemoryFeature {
@@ -579,11 +576,11 @@ enum class ExternalMemoryFeature {
     Exportable = 1u << 1u,
     Importable = 1u << 2u,
 };
-inline constexpr ExternalMemoryFeature operator&(ExternalMemoryFeature a, ExternalMemoryFeature b) {
-    return static_cast<ExternalMemoryFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalMemoryFeature operator&(ExternalMemoryFeature lhs, ExternalMemoryFeature rhs) {
+    return static_cast<ExternalMemoryFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalMemoryFeature operator|(ExternalMemoryFeature a, ExternalMemoryFeature b) {
-    return static_cast<ExternalMemoryFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalMemoryFeature operator|(ExternalMemoryFeature lhs, ExternalMemoryFeature rhs) {
+    return static_cast<ExternalMemoryFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalMemoryHandleTypeFlags {
@@ -596,22 +593,22 @@ enum class ExternalMemoryHandleTypeFlags {
     D3D12Heap = 1u << 5u,
     D3D12Resource = 1u << 6u,
 };
-inline constexpr ExternalMemoryHandleTypeFlags operator&(ExternalMemoryHandleTypeFlags a, ExternalMemoryHandleTypeFlags b) {
-    return static_cast<ExternalMemoryHandleTypeFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalMemoryHandleTypeFlags operator&(ExternalMemoryHandleTypeFlags lhs, ExternalMemoryHandleTypeFlags rhs) {
+    return static_cast<ExternalMemoryHandleTypeFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalMemoryHandleTypeFlags operator|(ExternalMemoryHandleTypeFlags a, ExternalMemoryHandleTypeFlags b) {
-    return static_cast<ExternalMemoryHandleTypeFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalMemoryHandleTypeFlags operator|(ExternalMemoryHandleTypeFlags lhs, ExternalMemoryHandleTypeFlags rhs) {
+    return static_cast<ExternalMemoryHandleTypeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalSemaphoreFeature {
     Exportable = 1u << 0u,
     Importable = 1u << 1u,
 };
-inline constexpr ExternalSemaphoreFeature operator&(ExternalSemaphoreFeature a, ExternalSemaphoreFeature b) {
-    return static_cast<ExternalSemaphoreFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalSemaphoreFeature operator&(ExternalSemaphoreFeature lhs, ExternalSemaphoreFeature rhs) {
+    return static_cast<ExternalSemaphoreFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalSemaphoreFeature operator|(ExternalSemaphoreFeature a, ExternalSemaphoreFeature b) {
-    return static_cast<ExternalSemaphoreFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalSemaphoreFeature operator|(ExternalSemaphoreFeature lhs, ExternalSemaphoreFeature rhs) {
+    return static_cast<ExternalSemaphoreFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ExternalSemaphoreHandleTypeFlags {
@@ -622,33 +619,33 @@ enum class ExternalSemaphoreHandleTypeFlags {
     D3D12Fence = 1u << 3u,
     SyncFd = 1u << 4u,
 };
-inline constexpr ExternalSemaphoreHandleTypeFlags operator&(ExternalSemaphoreHandleTypeFlags a, ExternalSemaphoreHandleTypeFlags b) {
-    return static_cast<ExternalSemaphoreHandleTypeFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ExternalSemaphoreHandleTypeFlags operator&(ExternalSemaphoreHandleTypeFlags lhs, ExternalSemaphoreHandleTypeFlags rhs) {
+    return static_cast<ExternalSemaphoreHandleTypeFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ExternalSemaphoreHandleTypeFlags operator|(ExternalSemaphoreHandleTypeFlags a, ExternalSemaphoreHandleTypeFlags b) {
-    return static_cast<ExternalSemaphoreHandleTypeFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ExternalSemaphoreHandleTypeFlags operator|(ExternalSemaphoreHandleTypeFlags lhs, ExternalSemaphoreHandleTypeFlags rhs) {
+    return static_cast<ExternalSemaphoreHandleTypeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class FenceCreateFlags {
     None = 0,
     Signaled = 1u << 0u,
 };
-inline constexpr FenceCreateFlags operator&(FenceCreateFlags a, FenceCreateFlags b) {
-    return static_cast<FenceCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr FenceCreateFlags operator&(FenceCreateFlags lhs, FenceCreateFlags rhs) {
+    return static_cast<FenceCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr FenceCreateFlags operator|(FenceCreateFlags a, FenceCreateFlags b) {
-    return static_cast<FenceCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr FenceCreateFlags operator|(FenceCreateFlags lhs, FenceCreateFlags rhs) {
+    return static_cast<FenceCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class FenceImportFlags {
     None = 0,
     Temporary = 1u << 0u,
 };
-inline constexpr FenceImportFlags operator&(FenceImportFlags a, FenceImportFlags b) {
-    return static_cast<FenceImportFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr FenceImportFlags operator&(FenceImportFlags lhs, FenceImportFlags rhs) {
+    return static_cast<FenceImportFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr FenceImportFlags operator|(FenceImportFlags a, FenceImportFlags b) {
-    return static_cast<FenceImportFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr FenceImportFlags operator|(FenceImportFlags lhs, FenceImportFlags rhs) {
+    return static_cast<FenceImportFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class Filter {
@@ -923,14 +920,14 @@ enum class FormatFeature {
     CositedChromaSamples = 1u << 23u,
     SampledImageFilterMinmax = 1u << 16u,
 };
-inline constexpr FormatFeature operator&(FormatFeature a, FormatFeature b) {
-    return static_cast<FormatFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr FormatFeature operator&(FormatFeature lhs, FormatFeature rhs) {
+    return static_cast<FormatFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr FormatFeature operator|(FormatFeature a, FormatFeature b) {
-    return static_cast<FormatFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr FormatFeature operator|(FormatFeature lhs, FormatFeature rhs) {
+    return static_cast<FormatFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
-enum class FormatFeatureFlagBits2 : uint64_t {
+enum class FormatFeature2 : uint64_t {
     SampledImage = 1ull << 0ull,
     StorageImage = 1ull << 1ull,
     StorageImageAtomic = 1ull << 2ull,
@@ -959,22 +956,22 @@ enum class FormatFeatureFlagBits2 : uint64_t {
     StorageWriteWithoutFormat = 1ull << 32ull,
     SampledImageDepthComparison = 1ull << 33ull,
 };
-inline constexpr FormatFeatureFlagBits2 operator&(FormatFeatureFlagBits2 a, FormatFeatureFlagBits2 b) {
-    return static_cast<FormatFeatureFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr FormatFeature2 operator&(FormatFeature2 lhs, FormatFeature2 rhs) {
+    return static_cast<FormatFeature2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr FormatFeatureFlagBits2 operator|(FormatFeatureFlagBits2 a, FormatFeatureFlagBits2 b) {
-    return static_cast<FormatFeatureFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr FormatFeature2 operator|(FormatFeature2 lhs, FormatFeature2 rhs) {
+    return static_cast<FormatFeature2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class FramebufferCreateFlags {
     None = 0,
     Imageless = 1u << 0u,
 };
-inline constexpr FramebufferCreateFlags operator&(FramebufferCreateFlags a, FramebufferCreateFlags b) {
-    return static_cast<FramebufferCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr FramebufferCreateFlags operator&(FramebufferCreateFlags lhs, FramebufferCreateFlags rhs) {
+    return static_cast<FramebufferCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr FramebufferCreateFlags operator|(FramebufferCreateFlags a, FramebufferCreateFlags b) {
-    return static_cast<FramebufferCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr FramebufferCreateFlags operator|(FramebufferCreateFlags lhs, FramebufferCreateFlags rhs) {
+    return static_cast<FramebufferCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class FrontFace {
@@ -992,11 +989,11 @@ enum class ImageAspect {
     Plane2 = 1u << 6u,
     None = 0,
 };
-inline constexpr ImageAspect operator&(ImageAspect a, ImageAspect b) {
-    return static_cast<ImageAspect>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ImageAspect operator&(ImageAspect lhs, ImageAspect rhs) {
+    return static_cast<ImageAspect>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ImageAspect operator|(ImageAspect a, ImageAspect b) {
-    return static_cast<ImageAspect>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ImageAspect operator|(ImageAspect lhs, ImageAspect rhs) {
+    return static_cast<ImageAspect>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ImageCreateFlags {
@@ -1014,11 +1011,11 @@ enum class ImageCreateFlags {
     Protected = 1u << 11u,
     Disjoint = 1u << 9u,
 };
-inline constexpr ImageCreateFlags operator&(ImageCreateFlags a, ImageCreateFlags b) {
-    return static_cast<ImageCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ImageCreateFlags operator&(ImageCreateFlags lhs, ImageCreateFlags rhs) {
+    return static_cast<ImageCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ImageCreateFlags operator|(ImageCreateFlags a, ImageCreateFlags b) {
-    return static_cast<ImageCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ImageCreateFlags operator|(ImageCreateFlags lhs, ImageCreateFlags rhs) {
+    return static_cast<ImageCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ImageLayout {
@@ -1063,11 +1060,11 @@ enum class ImageUsage {
     TransientAttachment = 1u << 6u,
     InputAttachment = 1u << 7u,
 };
-inline constexpr ImageUsage operator&(ImageUsage a, ImageUsage b) {
-    return static_cast<ImageUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ImageUsage operator&(ImageUsage lhs, ImageUsage rhs) {
+    return static_cast<ImageUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ImageUsage operator|(ImageUsage a, ImageUsage b) {
-    return static_cast<ImageUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ImageUsage operator|(ImageUsage lhs, ImageUsage rhs) {
+    return static_cast<ImageUsage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ImageViewType {
@@ -1114,11 +1111,11 @@ enum class MemoryAllocateFlags {
     DeviceAddress = 1u << 1u,
     DeviceAddressCaptureReplay = 1u << 2u,
 };
-inline constexpr MemoryAllocateFlags operator&(MemoryAllocateFlags a, MemoryAllocateFlags b) {
-    return static_cast<MemoryAllocateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr MemoryAllocateFlags operator&(MemoryAllocateFlags lhs, MemoryAllocateFlags rhs) {
+    return static_cast<MemoryAllocateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr MemoryAllocateFlags operator|(MemoryAllocateFlags a, MemoryAllocateFlags b) {
-    return static_cast<MemoryAllocateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr MemoryAllocateFlags operator|(MemoryAllocateFlags lhs, MemoryAllocateFlags rhs) {
+    return static_cast<MemoryAllocateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class MemoryHeapFlags {
@@ -1126,11 +1123,11 @@ enum class MemoryHeapFlags {
     DeviceLocal = 1u << 0u,
     MultiInstance = 1u << 1u,
 };
-inline constexpr MemoryHeapFlags operator&(MemoryHeapFlags a, MemoryHeapFlags b) {
-    return static_cast<MemoryHeapFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr MemoryHeapFlags operator&(MemoryHeapFlags lhs, MemoryHeapFlags rhs) {
+    return static_cast<MemoryHeapFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr MemoryHeapFlags operator|(MemoryHeapFlags a, MemoryHeapFlags b) {
-    return static_cast<MemoryHeapFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr MemoryHeapFlags operator|(MemoryHeapFlags lhs, MemoryHeapFlags rhs) {
+    return static_cast<MemoryHeapFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class MemoryPropertyFlags {
@@ -1142,11 +1139,11 @@ enum class MemoryPropertyFlags {
     LazilyAllocated = 1u << 4u,
     Protected = 1u << 5u,
 };
-inline constexpr MemoryPropertyFlags operator&(MemoryPropertyFlags a, MemoryPropertyFlags b) {
-    return static_cast<MemoryPropertyFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr MemoryPropertyFlags operator&(MemoryPropertyFlags lhs, MemoryPropertyFlags rhs) {
+    return static_cast<MemoryPropertyFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr MemoryPropertyFlags operator|(MemoryPropertyFlags a, MemoryPropertyFlags b) {
-    return static_cast<MemoryPropertyFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr MemoryPropertyFlags operator|(MemoryPropertyFlags lhs, MemoryPropertyFlags rhs) {
+    return static_cast<MemoryPropertyFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ObjectType {
@@ -1189,11 +1186,11 @@ enum class PeerMemoryFeature {
     GenericSrc = 1u << 2u,
     GenericDst = 1u << 3u,
 };
-inline constexpr PeerMemoryFeature operator&(PeerMemoryFeature a, PeerMemoryFeature b) {
-    return static_cast<PeerMemoryFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PeerMemoryFeature operator&(PeerMemoryFeature lhs, PeerMemoryFeature rhs) {
+    return static_cast<PeerMemoryFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PeerMemoryFeature operator|(PeerMemoryFeature a, PeerMemoryFeature b) {
-    return static_cast<PeerMemoryFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PeerMemoryFeature operator|(PeerMemoryFeature lhs, PeerMemoryFeature rhs) {
+    return static_cast<PeerMemoryFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class PhysicalDeviceType {
@@ -1223,11 +1220,11 @@ enum class PipelineCreateFlags {
     FailOnPipelineCompileRequired = 1u << 8u,
     EarlyReturnOnFailure = 1u << 9u,
 };
-inline constexpr PipelineCreateFlags operator&(PipelineCreateFlags a, PipelineCreateFlags b) {
-    return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineCreateFlags operator&(PipelineCreateFlags lhs, PipelineCreateFlags rhs) {
+    return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PipelineCreateFlags operator|(PipelineCreateFlags a, PipelineCreateFlags b) {
-    return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineCreateFlags operator|(PipelineCreateFlags lhs, PipelineCreateFlags rhs) {
+    return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class PipelineCreationFeedbackFlags {
@@ -1236,11 +1233,11 @@ enum class PipelineCreationFeedbackFlags {
     ApplicationPipelineCacheHit = 1u << 1u,
     BasePipelineAcceleration = 1u << 2u,
 };
-inline constexpr PipelineCreationFeedbackFlags operator&(PipelineCreationFeedbackFlags a, PipelineCreationFeedbackFlags b) {
-    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineCreationFeedbackFlags operator&(PipelineCreationFeedbackFlags lhs, PipelineCreationFeedbackFlags rhs) {
+    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PipelineCreationFeedbackFlags operator|(PipelineCreationFeedbackFlags a, PipelineCreationFeedbackFlags b) {
-    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineCreationFeedbackFlags operator|(PipelineCreationFeedbackFlags lhs, PipelineCreationFeedbackFlags rhs) {
+    return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class PipelineShaderStageCreateFlags {
@@ -1248,11 +1245,11 @@ enum class PipelineShaderStageCreateFlags {
     AllowVaryingSubgroupSize = 1u << 0u,
     RequireFullSubgroups = 1u << 1u,
 };
-inline constexpr PipelineShaderStageCreateFlags operator&(PipelineShaderStageCreateFlags a, PipelineShaderStageCreateFlags b) {
-    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineShaderStageCreateFlags operator&(PipelineShaderStageCreateFlags lhs, PipelineShaderStageCreateFlags rhs) {
+    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PipelineShaderStageCreateFlags operator|(PipelineShaderStageCreateFlags a, PipelineShaderStageCreateFlags b) {
-    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineShaderStageCreateFlags operator|(PipelineShaderStageCreateFlags lhs, PipelineShaderStageCreateFlags rhs) {
+    return static_cast<PipelineShaderStageCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class PipelineStage {
@@ -1275,14 +1272,14 @@ enum class PipelineStage {
     AllCommands = 1u << 16u,
     None = 0,
 };
-inline constexpr PipelineStage operator&(PipelineStage a, PipelineStage b) {
-    return static_cast<PipelineStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineStage operator&(PipelineStage lhs, PipelineStage rhs) {
+    return static_cast<PipelineStage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PipelineStage operator|(PipelineStage a, PipelineStage b) {
-    return static_cast<PipelineStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineStage operator|(PipelineStage lhs, PipelineStage rhs) {
+    return static_cast<PipelineStage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
-enum class PipelineStageFlagBits2 : uint64_t {
+enum class PipelineStage2 : uint64_t {
     None = 0,
     TopOfPipe = 1ull << 0ull,
     DrawIndirect = 1ull << 1ull,
@@ -1309,11 +1306,11 @@ enum class PipelineStageFlagBits2 : uint64_t {
     VertexAttributeInput = 1ull << 37ull,
     PreRasterizationShaders = 1ull << 38ull,
 };
-inline constexpr PipelineStageFlagBits2 operator&(PipelineStageFlagBits2 a, PipelineStageFlagBits2 b) {
-    return static_cast<PipelineStageFlagBits2>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr PipelineStage2 operator&(PipelineStage2 lhs, PipelineStage2 rhs) {
+    return static_cast<PipelineStage2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr PipelineStageFlagBits2 operator|(PipelineStageFlagBits2 a, PipelineStageFlagBits2 b) {
-    return static_cast<PipelineStageFlagBits2>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr PipelineStage2 operator|(PipelineStage2 lhs, PipelineStage2 rhs) {
+    return static_cast<PipelineStage2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class PointClippingBehavior {
@@ -1328,10 +1325,10 @@ enum class PolygonMode {
 };
 
 enum class PresentModeKHR {
-    ImmediateKHR = 0,
-    MailboxKHR = 1,
-    FifoKHR = 2,
-    FifoRelaxedKHR = 3,
+    Immediate = 0,
+    Mailbox = 1,
+    Fifo = 2,
+    FifoRelaxed = 3,
 };
 
 enum class PrimitiveTopology {
@@ -1352,11 +1349,11 @@ enum class QueryControlFlags {
     None = 0,
     Precise = 1u << 0u,
 };
-inline constexpr QueryControlFlags operator&(QueryControlFlags a, QueryControlFlags b) {
-    return static_cast<QueryControlFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr QueryControlFlags operator&(QueryControlFlags lhs, QueryControlFlags rhs) {
+    return static_cast<QueryControlFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr QueryControlFlags operator|(QueryControlFlags a, QueryControlFlags b) {
-    return static_cast<QueryControlFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr QueryControlFlags operator|(QueryControlFlags lhs, QueryControlFlags rhs) {
+    return static_cast<QueryControlFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class QueryPipelineStatisticFlags {
@@ -1373,11 +1370,11 @@ enum class QueryPipelineStatisticFlags {
     TessellationEvaluationShaderInvocations = 1u << 9u,
     ComputeShaderInvocations = 1u << 10u,
 };
-inline constexpr QueryPipelineStatisticFlags operator&(QueryPipelineStatisticFlags a, QueryPipelineStatisticFlags b) {
-    return static_cast<QueryPipelineStatisticFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr QueryPipelineStatisticFlags operator&(QueryPipelineStatisticFlags lhs, QueryPipelineStatisticFlags rhs) {
+    return static_cast<QueryPipelineStatisticFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr QueryPipelineStatisticFlags operator|(QueryPipelineStatisticFlags a, QueryPipelineStatisticFlags b) {
-    return static_cast<QueryPipelineStatisticFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr QueryPipelineStatisticFlags operator|(QueryPipelineStatisticFlags lhs, QueryPipelineStatisticFlags rhs) {
+    return static_cast<QueryPipelineStatisticFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class QueryResultFlags {
@@ -1387,11 +1384,11 @@ enum class QueryResultFlags {
     WithAvailability = 1u << 2u,
     Partial = 1u << 3u,
 };
-inline constexpr QueryResultFlags operator&(QueryResultFlags a, QueryResultFlags b) {
-    return static_cast<QueryResultFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr QueryResultFlags operator&(QueryResultFlags lhs, QueryResultFlags rhs) {
+    return static_cast<QueryResultFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr QueryResultFlags operator|(QueryResultFlags a, QueryResultFlags b) {
-    return static_cast<QueryResultFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr QueryResultFlags operator|(QueryResultFlags lhs, QueryResultFlags rhs) {
+    return static_cast<QueryResultFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class QueryType {
@@ -1408,11 +1405,11 @@ enum class QueueFlags {
     SparseBinding = 1u << 3u,
     Protected = 1u << 4u,
 };
-inline constexpr QueueFlags operator&(QueueFlags a, QueueFlags b) {
-    return static_cast<QueueFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr QueueFlags operator&(QueueFlags lhs, QueueFlags rhs) {
+    return static_cast<QueueFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr QueueFlags operator|(QueueFlags a, QueueFlags b) {
-    return static_cast<QueueFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr QueueFlags operator|(QueueFlags lhs, QueueFlags rhs) {
+    return static_cast<QueueFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class RenderingFlags {
@@ -1421,11 +1418,11 @@ enum class RenderingFlags {
     Suspending = 1u << 1u,
     Resuming = 1u << 2u,
 };
-inline constexpr RenderingFlags operator&(RenderingFlags a, RenderingFlags b) {
-    return static_cast<RenderingFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr RenderingFlags operator&(RenderingFlags lhs, RenderingFlags rhs) {
+    return static_cast<RenderingFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr RenderingFlags operator|(RenderingFlags a, RenderingFlags b) {
-    return static_cast<RenderingFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr RenderingFlags operator|(RenderingFlags lhs, RenderingFlags rhs) {
+    return static_cast<RenderingFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ResolveMode {
@@ -1435,11 +1432,11 @@ enum class ResolveMode {
     Min = 1u << 2u,
     Max = 1u << 3u,
 };
-inline constexpr ResolveMode operator&(ResolveMode a, ResolveMode b) {
-    return static_cast<ResolveMode>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ResolveMode operator&(ResolveMode lhs, ResolveMode rhs) {
+    return static_cast<ResolveMode>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ResolveMode operator|(ResolveMode a, ResolveMode b) {
-    return static_cast<ResolveMode>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ResolveMode operator|(ResolveMode lhs, ResolveMode rhs) {
+    return static_cast<ResolveMode>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class Result {
@@ -1482,11 +1479,11 @@ enum class SampleCount {
     _32 = 1u << 5u,
     _64 = 1u << 6u,
 };
-inline constexpr SampleCount operator&(SampleCount a, SampleCount b) {
-    return static_cast<SampleCount>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SampleCount operator&(SampleCount lhs, SampleCount rhs) {
+    return static_cast<SampleCount>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SampleCount operator|(SampleCount a, SampleCount b) {
-    return static_cast<SampleCount>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SampleCount operator|(SampleCount lhs, SampleCount rhs) {
+    return static_cast<SampleCount>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SamplerAddressMode {
@@ -1525,11 +1522,11 @@ enum class SemaphoreImportFlags {
     None = 0,
     Temporary = 1u << 0u,
 };
-inline constexpr SemaphoreImportFlags operator&(SemaphoreImportFlags a, SemaphoreImportFlags b) {
-    return static_cast<SemaphoreImportFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SemaphoreImportFlags operator&(SemaphoreImportFlags lhs, SemaphoreImportFlags rhs) {
+    return static_cast<SemaphoreImportFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SemaphoreImportFlags operator|(SemaphoreImportFlags a, SemaphoreImportFlags b) {
-    return static_cast<SemaphoreImportFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SemaphoreImportFlags operator|(SemaphoreImportFlags lhs, SemaphoreImportFlags rhs) {
+    return static_cast<SemaphoreImportFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SemaphoreType {
@@ -1541,11 +1538,11 @@ enum class SemaphoreWaitFlags {
     None = 0,
     Any = 1u << 0u,
 };
-inline constexpr SemaphoreWaitFlags operator&(SemaphoreWaitFlags a, SemaphoreWaitFlags b) {
-    return static_cast<SemaphoreWaitFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SemaphoreWaitFlags operator&(SemaphoreWaitFlags lhs, SemaphoreWaitFlags rhs) {
+    return static_cast<SemaphoreWaitFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SemaphoreWaitFlags operator|(SemaphoreWaitFlags a, SemaphoreWaitFlags b) {
-    return static_cast<SemaphoreWaitFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SemaphoreWaitFlags operator|(SemaphoreWaitFlags lhs, SemaphoreWaitFlags rhs) {
+    return static_cast<SemaphoreWaitFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ShaderFloatControlsIndependence {
@@ -1564,11 +1561,11 @@ enum class ShaderStage {
     AllGraphics = 0x0000001F,
     All = 0x7FFFFFFF,
 };
-inline constexpr ShaderStage operator&(ShaderStage a, ShaderStage b) {
-    return static_cast<ShaderStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ShaderStage operator&(ShaderStage lhs, ShaderStage rhs) {
+    return static_cast<ShaderStage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ShaderStage operator|(ShaderStage a, ShaderStage b) {
-    return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ShaderStage operator|(ShaderStage lhs, ShaderStage rhs) {
+    return static_cast<ShaderStage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SharingMode {
@@ -1582,22 +1579,22 @@ enum class SparseImageFormatFlags {
     AlignedMipSize = 1u << 1u,
     NonstandardBlockSize = 1u << 2u,
 };
-inline constexpr SparseImageFormatFlags operator&(SparseImageFormatFlags a, SparseImageFormatFlags b) {
-    return static_cast<SparseImageFormatFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SparseImageFormatFlags operator&(SparseImageFormatFlags lhs, SparseImageFormatFlags rhs) {
+    return static_cast<SparseImageFormatFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SparseImageFormatFlags operator|(SparseImageFormatFlags a, SparseImageFormatFlags b) {
-    return static_cast<SparseImageFormatFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SparseImageFormatFlags operator|(SparseImageFormatFlags lhs, SparseImageFormatFlags rhs) {
+    return static_cast<SparseImageFormatFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SparseMemoryBindFlags {
     None = 0,
     Metadata = 1u << 0u,
 };
-inline constexpr SparseMemoryBindFlags operator&(SparseMemoryBindFlags a, SparseMemoryBindFlags b) {
-    return static_cast<SparseMemoryBindFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SparseMemoryBindFlags operator&(SparseMemoryBindFlags lhs, SparseMemoryBindFlags rhs) {
+    return static_cast<SparseMemoryBindFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SparseMemoryBindFlags operator|(SparseMemoryBindFlags a, SparseMemoryBindFlags b) {
-    return static_cast<SparseMemoryBindFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SparseMemoryBindFlags operator|(SparseMemoryBindFlags lhs, SparseMemoryBindFlags rhs) {
+    return static_cast<SparseMemoryBindFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class StencilFaceFlags {
@@ -1606,11 +1603,11 @@ enum class StencilFaceFlags {
     Back = 1u << 1u,
     FrontAndBack = 0x00000003,
 };
-inline constexpr StencilFaceFlags operator&(StencilFaceFlags a, StencilFaceFlags b) {
-    return static_cast<StencilFaceFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr StencilFaceFlags operator&(StencilFaceFlags lhs, StencilFaceFlags rhs) {
+    return static_cast<StencilFaceFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr StencilFaceFlags operator|(StencilFaceFlags a, StencilFaceFlags b) {
-    return static_cast<StencilFaceFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr StencilFaceFlags operator|(StencilFaceFlags lhs, StencilFaceFlags rhs) {
+    return static_cast<StencilFaceFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class StencilOp {
@@ -1864,22 +1861,22 @@ enum class SubgroupFeature {
     Clustered = 1u << 6u,
     Quad = 1u << 7u,
 };
-inline constexpr SubgroupFeature operator&(SubgroupFeature a, SubgroupFeature b) {
-    return static_cast<SubgroupFeature>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SubgroupFeature operator&(SubgroupFeature lhs, SubgroupFeature rhs) {
+    return static_cast<SubgroupFeature>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SubgroupFeature operator|(SubgroupFeature a, SubgroupFeature b) {
-    return static_cast<SubgroupFeature>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SubgroupFeature operator|(SubgroupFeature lhs, SubgroupFeature rhs) {
+    return static_cast<SubgroupFeature>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SubmitFlags {
     None = 0,
     Protected = 1u << 0u,
 };
-inline constexpr SubmitFlags operator&(SubmitFlags a, SubmitFlags b) {
-    return static_cast<SubmitFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SubmitFlags operator&(SubmitFlags lhs, SubmitFlags rhs) {
+    return static_cast<SubmitFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SubmitFlags operator|(SubmitFlags a, SubmitFlags b) {
-    return static_cast<SubmitFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SubmitFlags operator|(SubmitFlags lhs, SubmitFlags rhs) {
+    return static_cast<SubmitFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SubpassContents {
@@ -1887,33 +1884,33 @@ enum class SubpassContents {
     SecondaryCommandBuffers = 1,
 };
 
-enum class SurfaceTransformFlagBitsKHR {
-    IdentityKHR = 1u << 0u,
-    Rotate90KHR = 1u << 1u,
-    Rotate180KHR = 1u << 2u,
-    Rotate270KHR = 1u << 3u,
-    HorizontalMirrorKHR = 1u << 4u,
-    HorizontalMirrorRotate90KHR = 1u << 5u,
-    HorizontalMirrorRotate180KHR = 1u << 6u,
-    HorizontalMirrorRotate270KHR = 1u << 7u,
-    InheritKHR = 1u << 8u,
+enum class SurfaceTransformFlagsKHR {
+    Identity = 1u << 0u,
+    Rotate90 = 1u << 1u,
+    Rotate180 = 1u << 2u,
+    Rotate270 = 1u << 3u,
+    HorizontalMirror = 1u << 4u,
+    HorizontalMirrorRotate90 = 1u << 5u,
+    HorizontalMirrorRotate180 = 1u << 6u,
+    HorizontalMirrorRotate270 = 1u << 7u,
+    Inherit = 1u << 8u,
 };
-inline constexpr SurfaceTransformFlagBitsKHR operator&(SurfaceTransformFlagBitsKHR a, SurfaceTransformFlagBitsKHR b) {
-    return static_cast<SurfaceTransformFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SurfaceTransformFlagsKHR operator&(SurfaceTransformFlagsKHR lhs, SurfaceTransformFlagsKHR rhs) {
+    return static_cast<SurfaceTransformFlagsKHR>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SurfaceTransformFlagBitsKHR operator|(SurfaceTransformFlagBitsKHR a, SurfaceTransformFlagBitsKHR b) {
-    return static_cast<SurfaceTransformFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SurfaceTransformFlagsKHR operator|(SurfaceTransformFlagsKHR lhs, SurfaceTransformFlagsKHR rhs) {
+    return static_cast<SurfaceTransformFlagsKHR>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
-enum class SwapchainCreateFlagBitsKHR {
-    SplitInstanceBindRegionsKHR = 1u << 0u,
-    ProtectedKHR = 1u << 1u,
+enum class SwapchainCreateFlagsKHR {
+    SplitInstanceBindRegions = 1u << 0u,
+    Protected = 1u << 1u,
 };
-inline constexpr SwapchainCreateFlagBitsKHR operator&(SwapchainCreateFlagBitsKHR a, SwapchainCreateFlagBitsKHR b) {
-    return static_cast<SwapchainCreateFlagBitsKHR>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr SwapchainCreateFlagsKHR operator&(SwapchainCreateFlagsKHR lhs, SwapchainCreateFlagsKHR rhs) {
+    return static_cast<SwapchainCreateFlagsKHR>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr SwapchainCreateFlagBitsKHR operator|(SwapchainCreateFlagBitsKHR a, SwapchainCreateFlagBitsKHR b) {
-    return static_cast<SwapchainCreateFlagBitsKHR>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr SwapchainCreateFlagsKHR operator|(SwapchainCreateFlagsKHR lhs, SwapchainCreateFlagsKHR rhs) {
+    return static_cast<SwapchainCreateFlagsKHR>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class SystemAllocationScope {
@@ -1937,11 +1934,11 @@ enum class ToolPurposeFlags {
     AdditionalFeatures = 1u << 3u,
     ModifyingFeatures = 1u << 4u,
 };
-inline constexpr ToolPurposeFlags operator&(ToolPurposeFlags a, ToolPurposeFlags b) {
-    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+inline constexpr ToolPurposeFlags operator&(ToolPurposeFlags lhs, ToolPurposeFlags rhs) {
+    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
-inline constexpr ToolPurposeFlags operator|(ToolPurposeFlags a, ToolPurposeFlags b) {
-    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+inline constexpr ToolPurposeFlags operator|(ToolPurposeFlags lhs, ToolPurposeFlags rhs) {
+    return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class VendorId {
@@ -4719,7 +4716,7 @@ struct SurfaceCapabilitiesKHR {
     Extent2D maxImageExtent;
     uint32_t maxImageArrayLayers;
     SurfaceTransformFlagsKHR supportedTransforms;
-    SurfaceTransformFlagBitsKHR currentTransform;
+    SurfaceTransformFlagsKHR currentTransform;
     CompositeAlphaFlagsKHR supportedCompositeAlpha;
     ImageUsage supportedUsage;
 };
@@ -4743,8 +4740,8 @@ struct SwapchainCreateInfoKHR {
     SharingMode imageSharingMode;
     uint32_t queueFamilyIndexCount;
     const uint32_t *pQueueFamilyIndices;
-    SurfaceTransformFlagBitsKHR preTransform;
-    CompositeAlphaFlagBitsKHR compositeAlpha;
+    SurfaceTransformFlagsKHR preTransform;
+    CompositeAlphaFlagsKHR compositeAlpha;
     PresentModeKHR presentMode;
     Bool clipped;
     SwapchainKHR oldSwapchain;
@@ -4797,7 +4794,7 @@ struct DeviceGroupPresentInfoKHR {
     const void *pNext;
     uint32_t swapchainCount;
     const uint32_t *pDeviceMasks;
-    DeviceGroupPresentModeFlagBitsKHR mode;
+    DeviceGroupPresentModeKHR mode;
 };
 
 struct DeviceGroupSwapchainCreateInfoKHR {

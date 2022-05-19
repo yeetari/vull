@@ -16,26 +16,26 @@ namespace {
 // Normal       Mailbox -> FifoRelaxed -> Fifo
 // NoVsync      Immediate -> Mailbox -> FifoRelaxed -> Fifo
 unsigned rate_present_mode(vkb::PresentModeKHR present_mode, SwapchainMode swapchain_mode) {
-    if (present_mode == vkb::PresentModeKHR::FifoKHR) {
+    if (present_mode == vkb::PresentModeKHR::Fifo) {
         return 1;
     }
     switch (swapchain_mode) {
     case SwapchainMode::Normal:
         switch (present_mode) {
-        case vkb::PresentModeKHR::MailboxKHR:
+        case vkb::PresentModeKHR::Mailbox:
             return 3;
-        case vkb::PresentModeKHR::FifoRelaxedKHR:
+        case vkb::PresentModeKHR::FifoRelaxed:
             return 2;
         default:
             return 0;
         }
     case SwapchainMode::NoVsync:
         switch (present_mode) {
-        case vkb::PresentModeKHR::ImmediateKHR:
+        case vkb::PresentModeKHR::Immediate:
             return 4;
-        case vkb::PresentModeKHR::MailboxKHR:
+        case vkb::PresentModeKHR::Mailbox:
             return 3;
-        case vkb::PresentModeKHR::FifoRelaxedKHR:
+        case vkb::PresentModeKHR::FifoRelaxed:
             return 2;
         default:
             return 0;
@@ -51,7 +51,7 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
     : m_context(context), m_extent(extent), m_surface(surface) {
     vkb::SurfaceFormatKHR surface_format{
         .format = vkb::Format::B8G8R8A8Unorm,
-        .colorSpace = vkb::ColorSpaceKHR::SrgbNonlinearKHR,
+        .colorSpace = vkb::ColorSpaceKHR::SrgbNonlinear,
     };
     VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
                 vkb::Result::Success);
@@ -77,7 +77,7 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
         .imageUsage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Storage,
         .imageSharingMode = vkb::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
-        .compositeAlpha = vkb::CompositeAlphaFlagBitsKHR::OpaqueKHR,
+        .compositeAlpha = vkb::CompositeAlphaFlagsKHR::Opaque,
         .presentMode = present_modes.first(),
         .clipped = true,
     };
