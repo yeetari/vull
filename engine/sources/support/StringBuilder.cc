@@ -41,6 +41,10 @@ void StringBuilder::append_single(StringView arg, const char *) {
     m_buffer.extend(arg);
 }
 
+void StringBuilder::append(char ch) {
+    m_buffer.push(ch);
+}
+
 String StringBuilder::build() {
     m_buffer.push('\0');
     auto buffer = m_buffer.take_all();

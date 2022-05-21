@@ -32,6 +32,7 @@ class StringBuilder {
 public:
     template <typename... Args>
     void append(const char *fmt, const Args &...args);
+    void append(char ch);
 
     String build();
     String build_copy() const;
