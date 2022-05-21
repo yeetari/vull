@@ -60,4 +60,6 @@ if(VULL_BUILD_WARNINGS)
             -Wno-switch
             -Wno-unknown-pragmas)
     endif()
+else()
+    target_compile_options(vull PRIVATE -w)
 endif()
