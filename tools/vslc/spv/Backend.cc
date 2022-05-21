@@ -27,6 +27,8 @@ Op binary_op(ast::BinaryOp op) {
         return Op::MatrixTimesVector;
     case ast::BinaryOp::MatrixTimesMatrix:
         return Op::MatrixTimesMatrix;
+    default:
+        VULL_ENSURE_NOT_REACHED();
     }
 }
 
@@ -35,6 +37,7 @@ Op unary_op(ast::UnaryOp op) {
     case ast::UnaryOp::Negate:
         return Op::FNegate;
     }
+    VULL_ENSURE_NOT_REACHED();
 }
 
 } // namespace

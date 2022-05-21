@@ -212,7 +212,7 @@ void Traverser::traverse_node(uint64_t node_index, vull::EntityId parent_id, int
     VULL_ENSURE(m_document["nodes"].at(node_index).get(node) == simdjson::SUCCESS);
 
     std::string_view node_name = "<unnamed>";
-    static_cast<void>(node["name"].get(node_name));
+    VULL_IGNORE(node["name"].get(node_name));
     printf("%*s%.*s\n", indentation, "", static_cast<int>(node_name.length()), node_name.data());
 
     vull::Vec<double, 3> position(0.0);
@@ -254,7 +254,7 @@ void Traverser::traverse_node(uint64_t node_index, vull::EntityId parent_id, int
             entity.add<vull::Transform>(container_entity);
             entity.add<vull::Mesh>(mesh_array_index, mesh_info.index_count);
             uint64_t material_index = 0;
-            static_cast<void>(primitive["material"].get(material_index));
+            VULL_IGNORE(primitive["material"].get(material_index));
             entity.add<vull::Material>(m_materials[static_cast<uint32_t>(material_index)]);
         }
     }
@@ -388,7 +388,7 @@ int main(int argc, char **argv) {
 
     // The scene property may not be present, so we assume the first one if not.
     uint64_t scene_index = 0;
-    static_cast<void>(document["scene"].get(scene_index));
+    VULL_IGNORE(document["scene"].get(scene_index));
 
     simdjson::dom::object scene;
     if (auto error = document["scenes"].at(scene_index).get(scene)) {

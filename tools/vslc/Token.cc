@@ -43,6 +43,8 @@ vull::StringView Token::kind_string(TokenKind kind) {
         return "';'";
     case TokenKind::Slash:
         return "'/'";
+    default:
+        VULL_ENSURE_NOT_REACHED();
     }
 }
 
