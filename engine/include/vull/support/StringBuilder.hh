@@ -1,10 +1,12 @@
 #pragma once
 
+#include <vull/support/Array.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 
 #include <stddef.h>
+#include <stdint.h>
 
 // TODO: Testing and benchmarking.
 // TODO: Compile time format strings + checking?
@@ -14,9 +16,9 @@ namespace vull {
 class StringBuilder {
     LargeVector<char> m_buffer;
 
-    void append_single(float arg);
-    void append_single(size_t arg);
-    void append_single(StringView arg);
+    void append_single(float, const char *);
+    void append_single(size_t, const char *);
+    void append_single(StringView, const char *);
 
     template <typename T>
     void append_part(const char *&fmt, const T &arg);
@@ -35,10 +37,15 @@ void StringBuilder::append_part(const char *&fmt, const T &arg) {
     while (*fmt != '\0' && *fmt != '{') {
         m_buffer.push(*fmt++);
     }
-    if (*fmt++ != '{' || *fmt++ != '}') {
+    if (*fmt++ != '{') {
         return;
     }
-    append_single(arg);
+    Array<char, 4> opts{};
+    for (uint32_t i = 0; i < opts.size() && *fmt != '}';) {
+        opts[i++] = *fmt++;
+    }
+    append_single(arg, opts.data());
+    fmt++;
 }
 
 template <typename... Args>
