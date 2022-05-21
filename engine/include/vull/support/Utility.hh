@@ -1,5 +1,23 @@
 #pragma once
 
+#if defined(__GNUC__) && !defined(__clang__)
+#define VULL_IGNORE(expr)                                                                                              \
+    {                                                                                                                  \
+        auto unused_result = (expr);                                                                                   \
+        static_cast<void>(unused_result);                                                                              \
+    }
+#else
+#define VULL_IGNORE(expr) static_cast<void>(expr)
+#endif
+
+#if defined(__clang__)
+#define VULL_GLOBAL(def)                                                                                               \
+    _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wexit-time-destructors\"")                   \
+        _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"") def _Pragma("clang diagnostic pop")
+#else
+#define VULL_GLOBAL(def) def
+#endif
+
 namespace vull {
 namespace detail {
 

@@ -17,7 +17,7 @@ namespace vull {
 
 class Semaphore;
 class TaskletQueue : public WorkStealingQueue<Tasklet> {};
-static thread_local TaskletQueue *s_queue = nullptr;
+VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 
 void schedule(Tasklet &&tasklet, Optional<Semaphore &> semaphore) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
