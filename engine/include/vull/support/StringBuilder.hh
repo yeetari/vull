@@ -21,6 +21,12 @@ class StringBuilder {
     void append_single(StringView, const char *);
 
     template <typename T>
+    void append_single(T arg,
+                       const char *opts) requires(IsSame<T, uint8_t> || IsSame<T, uint16_t> || IsSame<T, uint32_t>) {
+        append_single(static_cast<size_t>(arg), opts);
+    }
+
+    template <typename T>
     void append_part(const char *&fmt, const T &arg);
 
 public:
