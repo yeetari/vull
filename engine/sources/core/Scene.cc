@@ -1,5 +1,6 @@
 #include <vull/core/Scene.hh>
 
+#include <vull/core/Log.hh>
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
@@ -18,8 +19,6 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
-
-#include <stdio.h>
 
 // IWYU pragma: no_forward_declare vull::vkb::Image_T
 
@@ -119,7 +118,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &
     // TODO: What's the best thing to do if this happens?
     uint32_t expected_mip_count = 32u - vull::clz(vull::max(width, height));
     if (mip_count != expected_mip_count) {
-        fprintf(stderr, "warning: expected %u mips, but got %u\n", expected_mip_count, mip_count);
+        vull::warn("[scene] Expected {} mips, but got {}", expected_mip_count, mip_count);
     }
 
     vkb::ImageCreateInfo image_ci{

@@ -1,5 +1,6 @@
 #include <vull/vpak/PackReader.hh>
 
+#include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
@@ -73,7 +74,7 @@ void PackReader::read(Span<void> data) {
         };
         size_t ret = ZSTD_decompressStream(m_dctx, &output, &input);
         if (ZSTD_isError(ret) == 1) {
-            fprintf(stderr, "%s\n", ZSTD_getErrorName(ret));
+            vull::error("[vpak] ZSTD error: '{}'", ZSTD_getErrorName(ret));
             VULL_ENSURE_NOT_REACHED();
         }
         memcpy(static_cast<uint8_t *>(data.data()) + bytes_written, m_buffer, output.pos);

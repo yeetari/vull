@@ -1,5 +1,6 @@
 #include <vull/tasklet/Scheduler.hh>
 
+#include <vull/core/Log.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Optional.hh>
@@ -48,6 +49,7 @@ Scheduler::Scheduler(uint32_t thread_count) {
         worker->rng_state = static_cast<uint32_t>(time(nullptr));
         worker->running.store(true, MemoryOrder::Relaxed);
     }
+    vull::info("[tasklet] Created {} threads", thread_count);
 }
 
 Scheduler::~Scheduler() {

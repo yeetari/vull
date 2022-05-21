@@ -1,15 +1,17 @@
 #include <vull/vulkan/Context.hh>
 
+#include <vull/core/Log.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Lsan.hh>
+#include <vull/support/StringBuilder.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 namespace vull::vk {
@@ -29,6 +31,21 @@ vkb::MemoryPropertyFlags memory_flags(MemoryType type) {
         return vkb::MemoryPropertyFlags::HostVisible | vkb::MemoryPropertyFlags::HostCoherent;
     }
     VULL_ENSURE_NOT_REACHED();
+}
+
+const char *queue_flag_string(uint32_t bit) {
+    switch (static_cast<vkb::QueueFlags>(bit)) {
+    case vkb::QueueFlags::Graphics:
+        return "G";
+    case vkb::QueueFlags::Compute:
+        return "C";
+    case vkb::QueueFlags::Transfer:
+        return "T";
+    case vkb::QueueFlags::SparseBinding:
+        return "SB";
+    default:
+        return "?";
+    }
 }
 
 } // namespace
@@ -78,7 +95,7 @@ Context::Context() : ContextTable{} {
         instance_ci.enabledLayerCount = 1;
         instance_ci.ppEnabledLayerNames = &validation_layer_name;
     } else {
-        fputs("Validation layer not present!", stderr);
+        vull::warn("[vulkan] Validation layer not present");
     }
 #endif
     VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
@@ -88,6 +105,10 @@ Context::Context() : ContextTable{} {
     vkb::Result enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
     VULL_ENSURE(enumeration_result == vkb::Result::Success || enumeration_result == vkb::Result::Incomplete);
     VULL_ENSURE(physical_device_count == 1);
+
+    vkb::PhysicalDeviceProperties device_properties{};
+    vkGetPhysicalDeviceProperties(&device_properties);
+    vull::info("[vulkan] Creating device from {}", device_properties.deviceName);
 
     vkb::PhysicalDeviceMemoryProperties memory_properties{};
     vkGetPhysicalDeviceMemoryProperties(&memory_properties);
@@ -99,6 +120,7 @@ Context::Context() : ContextTable{} {
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, nullptr);
     m_queue_families.ensure_size(queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, m_queue_families.data());
+    vull::debug("[vulkan] Device has {} queue families", m_queue_families.size());
 
     Vector<vkb::DeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0f;
@@ -109,6 +131,19 @@ Context::Context() : ContextTable{} {
             .queueCount = 1,
             .pQueuePriorities = &queue_priority,
         });
+
+        StringBuilder flags_string;
+        bool first = true;
+        for (uint32_t bit = 0; bit < 32; bit++) {
+            if ((static_cast<uint32_t>(m_queue_families[i].queueFlags) & (1u << bit)) == 0u) {
+                continue;
+            }
+            if (!vull::exchange(first, false)) {
+                flags_string.append('/');
+            }
+            flags_string.append("{}", queue_flag_string(1u << bit));
+        }
+        vull::debug("[vulkan]  - {} queues capable of {}", m_queue_families[i].queueCount, flags_string.build());
     }
 
     vkb::PhysicalDeviceFeatures device_features{
