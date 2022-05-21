@@ -19,6 +19,10 @@ float Timer::elapsed() const {
     return static_cast<float>(monotonic_time() - m_epoch) / 1000000000.0f;
 }
 
+uint64_t Timer::elapsed_ns() const {
+    return monotonic_time() - m_epoch;
+}
+
 void Timer::reset() {
     m_epoch = monotonic_time();
 }

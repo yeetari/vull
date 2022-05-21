@@ -11,6 +11,7 @@ public:
     Timer();
 
     float elapsed() const;
+    uint64_t elapsed_ns() const;
     void reset();
 };
 
