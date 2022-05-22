@@ -60,6 +60,19 @@ struct RemoveRefImpl<T &&> {
     using type = T;
 };
 
+template <typename>
+struct IsRefCheck {
+    static constexpr bool value = false;
+};
+template <typename T>
+struct IsRefCheck<T &> {
+    static constexpr bool value = true;
+};
+template <typename T>
+struct IsRefCheck<T &&> {
+    static constexpr bool value = true;
+};
+
 template <typename, typename>
 struct IsSameCheck {
     static constexpr bool value = false;
@@ -73,6 +86,9 @@ struct IsSameCheck<T, T> {
 
 template <bool B, typename T, typename F>
 using Conditional = typename detail::ConditionalImpl<B, T, F>::type;
+
+template <typename T>
+inline constexpr bool IsRef = detail::IsRefCheck<T>::value;
 
 template <typename T, typename U>
 inline constexpr bool IsSame = detail::IsSameCheck<T, U>::value;

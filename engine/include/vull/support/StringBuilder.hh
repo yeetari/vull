@@ -51,7 +51,7 @@ void StringBuilder::append_part(const char *&fmt, const T &arg) {
     for (uint32_t i = 0; i < opts.size() && *fmt != '}';) {
         opts[i++] = *fmt++;
     }
-    append_single(arg, opts.data());
+    append_single(arg, opts.data()); // NOLINT
     fmt++;
 }
 

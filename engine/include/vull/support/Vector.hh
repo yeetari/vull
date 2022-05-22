@@ -13,7 +13,15 @@ namespace vull {
 
 template <typename T, typename SizeType = uint32_t>
 class Vector {
-    T *m_data{nullptr};
+    using BaseType = RemoveRef<T>;
+    struct RefWrapper {
+        BaseType *ptr;
+        // When T is a reference T is the same as BaseType &.
+        operator T() const { return *ptr; }
+    };
+    using StorageType = Conditional<IsRef<T>, RefWrapper, T>;
+
+    StorageType *m_data{nullptr};
     SizeType m_capacity{0};
     SizeType m_size{0};
 
@@ -35,36 +43,37 @@ public:
     void reallocate(SizeType capacity);
 
     template <typename... Args>
-    T &emplace(Args &&...args);
+    T &emplace(Args &&...args) requires(!IsRef<T>);
     template <typename Container>
     void extend(const Container &container);
-    void push(const T &elem);
+    void push(const T &elem) requires(!IsRef<T>);
     void push(T &&elem);
     void pop();
 
-    Span<T, SizeType> span() { return {m_data, m_size}; }
-    Span<const T, SizeType> span() const { return {m_data, m_size}; }
-    Span<T, SizeType> take_all();
+    // TODO: Would it be better to add Span<T &> support?
+    Span<StorageType, SizeType> span() { return {m_data, m_size}; }
+    Span<const StorageType, SizeType> span() const { return {m_data, m_size}; }
+    Span<StorageType, SizeType> take_all();
     T take_last();
 
-    T *begin() { return m_data; }
-    T *end() { return m_data + m_size; }
-    const T *begin() const { return m_data; }
-    const T *end() const { return m_data + m_size; }
+    StorageType *begin() { return m_data; }
+    StorageType *end() { return m_data + m_size; }
+    const StorageType *begin() const { return m_data; }
+    const StorageType *end() const { return m_data + m_size; }
 
-    T &operator[](SizeType index);
-    const T &operator[](SizeType index) const;
+    BaseType &operator[](SizeType index);
+    const BaseType &operator[](SizeType index) const;
 
-    T &first() { return begin()[0]; }
-    const T &first() const { return begin()[0]; }
-    T &last() { return end()[-1]; }
-    const T &last() const { return end()[-1]; }
+    BaseType &first() { return begin()[0]; }
+    const BaseType &first() const { return begin()[0]; }
+    BaseType &last() { return end()[-1]; }
+    const BaseType &last() const { return end()[-1]; }
 
     bool empty() const { return m_size == 0; }
-    T *data() const { return m_data; }
+    StorageType *data() const { return m_data; }
     SizeType capacity() const { return m_capacity; }
     SizeType size() const { return m_size; }
-    SizeType size_bytes() const { return m_size * sizeof(T); }
+    SizeType size_bytes() const { return m_size * sizeof(StorageType); }
 };
 
 template <typename T>
@@ -101,9 +110,9 @@ Vector<T, SizeType> &Vector<T, SizeType>::operator=(Vector &&other) {
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::clear() {
-    if constexpr (!IsTriviallyDestructible<T>) {
+    if constexpr (!IsTriviallyDestructible<StorageType>) {
         for (auto *elem = end(); elem != begin();) {
-            (--elem)->~T();
+            (--elem)->~StorageType();
         }
     }
     m_size = 0;
@@ -126,11 +135,12 @@ void Vector<T, SizeType>::ensure_size(SizeType size, Args &&...args) {
     }
     ensure_capacity(size);
     if constexpr (!IsTriviallyConstructible<T> || sizeof...(Args) != 0) {
+        static_assert(!IsRef<T>);
         for (SizeType i = m_size; i < size; i++) {
             new (begin() + i) T(forward<Args>(args)...);
         }
     } else {
-        memset(begin() + m_size, 0, size * sizeof(T) - m_size * sizeof(T));
+        memset(begin() + m_size, 0, size * sizeof(StorageType) - m_size * sizeof(StorageType));
     }
     m_size = size;
 }
@@ -138,13 +148,14 @@ void Vector<T, SizeType>::ensure_size(SizeType size, Args &&...args) {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::reallocate(SizeType capacity) {
     VULL_ASSERT(capacity >= m_size);
-    T *new_data = reinterpret_cast<T *>(new uint8_t[capacity * sizeof(T)]);
-    if constexpr (!IsTriviallyCopyable<T>) {
+    auto *new_data = reinterpret_cast<StorageType *>(new uint8_t[capacity * sizeof(StorageType)]);
+    if constexpr (!IsTriviallyCopyable<StorageType>) {
+        static_assert(!IsRef<T>);
         for (auto *data = new_data; auto &elem : *this) {
-            new (data++) T(move(elem));
+            new (data++) StorageType(move(elem));
         }
         for (auto *elem = end(); elem != begin();) {
-            (--elem)->~T();
+            (--elem)->~StorageType();
         }
     } else if (m_size != 0) {
         memcpy(new_data, m_data, size_bytes());
@@ -156,7 +167,7 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
 
 template <typename T, typename SizeType>
 template <typename... Args>
-T &Vector<T, SizeType>::emplace(Args &&...args) {
+T &Vector<T, SizeType>::emplace(Args &&...args) requires(!IsRef<T>) {
     ensure_capacity(m_size + 1);
     new (end()) T(forward<Args>(args)...);
     return (*this)[m_size++];
@@ -169,7 +180,7 @@ void Vector<T, SizeType>::extend(const Container &container) {
         return;
     }
     ensure_capacity(m_size + container.size());
-    if constexpr (IsTriviallyCopyable<T>) {
+    if constexpr (IsTriviallyCopyable<StorageType>) {
         memcpy(end(), container.data(), container.size_bytes());
         m_size += container.size();
     } else {
@@ -180,12 +191,12 @@ void Vector<T, SizeType>::extend(const Container &container) {
 }
 
 template <typename T, typename SizeType>
-void Vector<T, SizeType>::push(const T &elem) {
+void Vector<T, SizeType>::push(const T &elem) requires(!IsRef<T>) {
     ensure_capacity(m_size + 1);
     if constexpr (IsTriviallyCopyable<T>) {
         memcpy(end(), &elem, sizeof(T));
     } else {
-        new (end()) T(elem);
+        new (end()) StorageType(elem);
     }
     m_size++;
 }
@@ -193,7 +204,11 @@ void Vector<T, SizeType>::push(const T &elem) {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(T &&elem) {
     ensure_capacity(m_size + 1);
-    new (end()) T(move(elem));
+    if constexpr (IsRef<T>) {
+        new (end()) StorageType{&elem};
+    } else {
+        new (end()) StorageType(move(elem));
+    }
     m_size++;
 }
 
@@ -201,11 +216,11 @@ template <typename T, typename SizeType>
 void Vector<T, SizeType>::pop() {
     VULL_ASSERT(!empty());
     m_size--;
-    end()->~T();
+    end()->~StorageType();
 }
 
 template <typename T, typename SizeType>
-Span<T, SizeType> Vector<T, SizeType>::take_all() {
+Span<typename Vector<T, SizeType>::StorageType, SizeType> Vector<T, SizeType>::take_all() {
     m_capacity = 0u;
     return {exchange(m_data, nullptr), exchange(m_size, 0u)};
 }
@@ -214,17 +229,23 @@ template <typename T, typename SizeType>
 T Vector<T, SizeType>::take_last() {
     VULL_ASSERT(!empty());
     m_size--;
-    return move(*end());
+    auto value = move(*end());
+    if constexpr (!IsRef<T>) {
+        end()->~T();
+        return value;
+    } else {
+        return *value;
+    }
 }
 
 template <typename T, typename SizeType>
-T &Vector<T, SizeType>::operator[](SizeType index) {
+typename Vector<T, SizeType>::BaseType &Vector<T, SizeType>::operator[](SizeType index) {
     VULL_ASSERT(index < m_size);
     return begin()[index];
 }
 
 template <typename T, typename SizeType>
-const T &Vector<T, SizeType>::operator[](SizeType index) const {
+const typename Vector<T, SizeType>::BaseType &Vector<T, SizeType>::operator[](SizeType index) const {
     VULL_ASSERT(index < m_size);
     return begin()[index];
 }
