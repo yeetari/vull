@@ -458,7 +458,7 @@ void ContextTable::vkCmdResetEvent(CommandBuffer commandBuffer, Event event, Pip
     return m_vkCmdResetEvent(commandBuffer, event, stageMask);
 }
 
-void ContextTable::vkCmdResetEvent2(CommandBuffer commandBuffer, Event event, PipelineStageFlags2 stageMask) const {
+void ContextTable::vkCmdResetEvent2(CommandBuffer commandBuffer, Event event, PipelineStage2 stageMask) const {
     return m_vkCmdResetEvent2(commandBuffer, event, stageMask);
 }
 
@@ -594,7 +594,7 @@ void ContextTable::vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStag
     return m_vkCmdWriteTimestamp(commandBuffer, pipelineStage, queryPool, query);
 }
 
-void ContextTable::vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStageFlags2 stage, QueryPool queryPool, uint32_t query) const {
+void ContextTable::vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStage2 stage, QueryPool queryPool, uint32_t query) const {
     return m_vkCmdWriteTimestamp2(commandBuffer, stage, queryPool, query);
 }
 
@@ -890,7 +890,7 @@ Result ContextTable::vkGetDeviceGroupPresentCapabilitiesKHR(DeviceGroupPresentCa
     return m_vkGetDeviceGroupPresentCapabilitiesKHR(m_device, pDeviceGroupPresentCapabilities);
 }
 
-Result ContextTable::vkGetDeviceGroupSurfacePresentModesKHR(SurfaceKHR surface, DeviceGroupPresentModeFlagsKHR *pModes) const {
+Result ContextTable::vkGetDeviceGroupSurfacePresentModesKHR(SurfaceKHR surface, DeviceGroupPresentModeKHR *pModes) const {
     return m_vkGetDeviceGroupSurfacePresentModesKHR(m_device, surface, pModes);
 }
 

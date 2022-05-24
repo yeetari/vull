@@ -51,14 +51,11 @@ public:
 };
 
 // Bitmasks.
-using AccessFlags2 = Flags64;
 using BufferViewCreateFlags = Flags;
 using CommandPoolTrimFlags = Flags;
 using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
-using DeviceGroupPresentModeFlagsKHR = Flags;
-using FormatFeatureFlags2 = Flags64;
 using ImageViewCreateFlags = Flags;
 using InstanceCreateFlags = Flags;
 using MemoryMapFlags = Flags;
@@ -70,7 +67,6 @@ using PipelineInputAssemblyStateCreateFlags = Flags;
 using PipelineLayoutCreateFlags = Flags;
 using PipelineMultisampleStateCreateFlags = Flags;
 using PipelineRasterizationStateCreateFlags = Flags;
-using PipelineStageFlags2 = Flags64;
 using PipelineTessellationStateCreateFlags = Flags;
 using PipelineVertexInputStateCreateFlags = Flags;
 using PipelineViewportStateCreateFlags = Flags;
@@ -4290,19 +4286,19 @@ struct PhysicalDevicePipelineCreationCacheControlFeatures {
 struct MemoryBarrier2 {
     StructureType sType;
     const void *pNext;
-    PipelineStageFlags2 srcStageMask;
-    AccessFlags2 srcAccessMask;
-    PipelineStageFlags2 dstStageMask;
-    AccessFlags2 dstAccessMask;
+    PipelineStage2 srcStageMask;
+    Access2 srcAccessMask;
+    PipelineStage2 dstStageMask;
+    Access2 dstAccessMask;
 };
 
 struct BufferMemoryBarrier2 {
     StructureType sType;
     const void *pNext;
-    PipelineStageFlags2 srcStageMask;
-    AccessFlags2 srcAccessMask;
-    PipelineStageFlags2 dstStageMask;
-    AccessFlags2 dstAccessMask;
+    PipelineStage2 srcStageMask;
+    Access2 srcAccessMask;
+    PipelineStage2 dstStageMask;
+    Access2 dstAccessMask;
     uint32_t srcQueueFamilyIndex;
     uint32_t dstQueueFamilyIndex;
     Buffer buffer;
@@ -4313,10 +4309,10 @@ struct BufferMemoryBarrier2 {
 struct ImageMemoryBarrier2 {
     StructureType sType;
     const void *pNext;
-    PipelineStageFlags2 srcStageMask;
-    AccessFlags2 srcAccessMask;
-    PipelineStageFlags2 dstStageMask;
-    AccessFlags2 dstAccessMask;
+    PipelineStage2 srcStageMask;
+    Access2 srcAccessMask;
+    PipelineStage2 dstStageMask;
+    Access2 dstAccessMask;
     ImageLayout oldLayout;
     ImageLayout newLayout;
     uint32_t srcQueueFamilyIndex;
@@ -4342,7 +4338,7 @@ struct SemaphoreSubmitInfo {
     const void *pNext;
     Semaphore semaphore;
     uint64_t value;
-    PipelineStageFlags2 stageMask;
+    PipelineStage2 stageMask;
     uint32_t deviceIndex;
 };
 
@@ -4661,9 +4657,9 @@ struct PhysicalDeviceTexelBufferAlignmentProperties {
 struct FormatProperties3 {
     StructureType sType;
     void *pNext;
-    FormatFeatureFlags2 linearTilingFeatures;
-    FormatFeatureFlags2 optimalTilingFeatures;
-    FormatFeatureFlags2 bufferFeatures;
+    FormatFeature2 linearTilingFeatures;
+    FormatFeature2 optimalTilingFeatures;
+    FormatFeature2 bufferFeatures;
 };
 
 struct PhysicalDeviceMaintenance4Features {
@@ -4786,7 +4782,7 @@ struct DeviceGroupPresentCapabilitiesKHR {
     void *pNext;
     // NOLINTNEXTLINE
     uint32_t presentMask [k_max_device_group_size ];
-    DeviceGroupPresentModeFlagsKHR modes;
+    DeviceGroupPresentModeKHR modes;
 };
 
 struct DeviceGroupPresentInfoKHR {
@@ -4800,7 +4796,7 @@ struct DeviceGroupPresentInfoKHR {
 struct DeviceGroupSwapchainCreateInfoKHR {
     StructureType sType;
     const void *pNext;
-    DeviceGroupPresentModeFlagsKHR modes;
+    DeviceGroupPresentModeKHR modes;
 };
 
 struct XcbSurfaceCreateInfoKHR {
@@ -4883,7 +4879,7 @@ using PFN_vkCmdPipelineBarrier = void (*)(CommandBuffer commandBuffer, PipelineS
 using PFN_vkCmdPipelineBarrier2 = void (*)(CommandBuffer commandBuffer, const DependencyInfo *pDependencyInfo); // NOLINT
 using PFN_vkCmdPushConstants = void (*)(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues); // NOLINT
 using PFN_vkCmdResetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask); // NOLINT
-using PFN_vkCmdResetEvent2 = void (*)(CommandBuffer commandBuffer, Event event, PipelineStageFlags2 stageMask); // NOLINT
+using PFN_vkCmdResetEvent2 = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage2 stageMask); // NOLINT
 using PFN_vkCmdResetQueryPool = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount); // NOLINT
 using PFN_vkCmdResolveImage = void (*)(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageResolve *pRegions); // NOLINT
 using PFN_vkCmdResolveImage2 = void (*)(CommandBuffer commandBuffer, const ResolveImageInfo2 *pResolveImageInfo); // NOLINT
@@ -4917,7 +4913,7 @@ using PFN_vkCmdUpdateBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBu
 using PFN_vkCmdWaitEvents = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers); // NOLINT
 using PFN_vkCmdWaitEvents2 = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos); // NOLINT
 using PFN_vkCmdWriteTimestamp = void (*)(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query); // NOLINT
-using PFN_vkCmdWriteTimestamp2 = void (*)(CommandBuffer commandBuffer, PipelineStageFlags2 stage, QueryPool queryPool, uint32_t query); // NOLINT
+using PFN_vkCmdWriteTimestamp2 = void (*)(CommandBuffer commandBuffer, PipelineStage2 stage, QueryPool queryPool, uint32_t query); // NOLINT
 using PFN_vkCreateBuffer = Result (*)(Device device, const BufferCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Buffer *pBuffer); // NOLINT
 using PFN_vkCreateBufferView = Result (*)(Device device, const BufferViewCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, BufferView *pView); // NOLINT
 using PFN_vkCreateCommandPool = Result (*)(Device device, const CommandPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, CommandPool *pCommandPool); // NOLINT
@@ -4991,7 +4987,7 @@ using PFN_vkGetDescriptorSetLayoutSupport = void (*)(Device device, const Descri
 using PFN_vkGetDeviceBufferMemoryRequirements = void (*)(Device device, const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements); // NOLINT
 using PFN_vkGetDeviceGroupPeerMemoryFeatures = void (*)(Device device, uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures); // NOLINT
 using PFN_vkGetDeviceGroupPresentCapabilitiesKHR = Result (*)(Device device, DeviceGroupPresentCapabilitiesKHR *pDeviceGroupPresentCapabilities); // NOLINT
-using PFN_vkGetDeviceGroupSurfacePresentModesKHR = Result (*)(Device device, SurfaceKHR surface, DeviceGroupPresentModeFlagsKHR *pModes); // NOLINT
+using PFN_vkGetDeviceGroupSurfacePresentModesKHR = Result (*)(Device device, SurfaceKHR surface, DeviceGroupPresentModeKHR *pModes); // NOLINT
 using PFN_vkGetDeviceImageMemoryRequirements = void (*)(Device device, const DeviceImageMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements); // NOLINT
 using PFN_vkGetDeviceImageSparseMemoryRequirements = void (*)(Device device, const DeviceImageMemoryRequirements *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements); // NOLINT
 using PFN_vkGetDeviceMemoryCommitment = void (*)(Device device, DeviceMemory memory, DeviceSize *pCommittedMemoryInBytes); // NOLINT

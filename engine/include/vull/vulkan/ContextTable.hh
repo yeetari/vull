@@ -302,7 +302,7 @@ public:
     void vkCmdPipelineBarrier2(CommandBuffer commandBuffer, const DependencyInfo *pDependencyInfo) const; // NOLINT
     void vkCmdPushConstants(CommandBuffer commandBuffer, PipelineLayout layout, ShaderStage stageFlags, uint32_t offset, uint32_t size, const void *pValues) const; // NOLINT
     void vkCmdResetEvent(CommandBuffer commandBuffer, Event event, PipelineStage stageMask) const; // NOLINT
-    void vkCmdResetEvent2(CommandBuffer commandBuffer, Event event, PipelineStageFlags2 stageMask) const; // NOLINT
+    void vkCmdResetEvent2(CommandBuffer commandBuffer, Event event, PipelineStage2 stageMask) const; // NOLINT
     void vkCmdResetQueryPool(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount) const; // NOLINT
     void vkCmdResolveImage(CommandBuffer commandBuffer, Image srcImage, ImageLayout srcImageLayout, Image dstImage, ImageLayout dstImageLayout, uint32_t regionCount, const ImageResolve *pRegions) const; // NOLINT
     void vkCmdResolveImage2(CommandBuffer commandBuffer, const ResolveImageInfo2 *pResolveImageInfo) const; // NOLINT
@@ -336,7 +336,7 @@ public:
     void vkCmdWaitEvents(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers) const; // NOLINT
     void vkCmdWaitEvents2(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos) const; // NOLINT
     void vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query) const; // NOLINT
-    void vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStageFlags2 stage, QueryPool queryPool, uint32_t query) const; // NOLINT
+    void vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStage2 stage, QueryPool queryPool, uint32_t query) const; // NOLINT
     Result vkCreateBuffer(const BufferCreateInfo *pCreateInfo, Buffer *pBuffer) const; // NOLINT
     Result vkCreateBufferView(const BufferViewCreateInfo *pCreateInfo, BufferView *pView) const; // NOLINT
     Result vkCreateCommandPool(const CommandPoolCreateInfo *pCreateInfo, CommandPool *pCommandPool) const; // NOLINT
@@ -410,7 +410,7 @@ public:
     void vkGetDeviceBufferMemoryRequirements(const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements) const; // NOLINT
     void vkGetDeviceGroupPeerMemoryFeatures(uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures) const; // NOLINT
     Result vkGetDeviceGroupPresentCapabilitiesKHR(DeviceGroupPresentCapabilitiesKHR *pDeviceGroupPresentCapabilities) const; // NOLINT
-    Result vkGetDeviceGroupSurfacePresentModesKHR(SurfaceKHR surface, DeviceGroupPresentModeFlagsKHR *pModes) const; // NOLINT
+    Result vkGetDeviceGroupSurfacePresentModesKHR(SurfaceKHR surface, DeviceGroupPresentModeKHR *pModes) const; // NOLINT
     void vkGetDeviceImageMemoryRequirements(const DeviceImageMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements) const; // NOLINT
     void vkGetDeviceImageSparseMemoryRequirements(const DeviceImageMemoryRequirements *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements) const; // NOLINT
     void vkGetDeviceMemoryCommitment(DeviceMemory memory, DeviceSize *pCommittedMemoryInBytes) const; // NOLINT

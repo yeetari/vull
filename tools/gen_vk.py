@@ -16,9 +16,13 @@ def convert_type(orig):
         return 'BAD'
     if orig == 'VkBool32':
         return 'Bool'
-    if orig.endswith('Flags') or 'FlagBits' in orig:
-        orig = orig.replace('Flags', '')
+    if 'Flags' in orig or 'FlagBits' in orig:
         new_suffix = ''
+        if 'Flags' in orig:
+            index = orig.index('Flags')
+            if index + 5 < len(orig):
+                new_suffix += orig[index + 5:]
+            orig = orig[:index]
         if 'FlagBits' in orig:
             index = orig.index('FlagBits')
             if index + 8 < len(orig):

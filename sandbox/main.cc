@@ -1472,7 +1472,7 @@ void main_task(Scheduler &scheduler) {
             vkb::SemaphoreSubmitInfo{
                 .sType = vkb::StructureType::SemaphoreSubmitInfo,
                 .semaphore = image_available_semaphore,
-                .stageMask = static_cast<vkb::PipelineStageFlags2>(vkb::PipelineStage::ColorAttachmentOutput),
+                .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
             },
         };
         queue.submit(cmd_buf, fence, signal_semaphores.span(), wait_semaphores.span());
