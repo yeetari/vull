@@ -61,13 +61,13 @@ public:
     const StorageType *begin() const { return m_data; }
     const StorageType *end() const { return m_data + m_size; }
 
-    BaseType &operator[](SizeType index);
-    const BaseType &operator[](SizeType index) const;
+    StorageType &operator[](SizeType index);
+    const StorageType &operator[](SizeType index) const;
 
-    BaseType &first() { return begin()[0]; }
-    const BaseType &first() const { return begin()[0]; }
-    BaseType &last() { return end()[-1]; }
-    const BaseType &last() const { return end()[-1]; }
+    StorageType &first() { return begin()[0]; }
+    const StorageType &first() const { return begin()[0]; }
+    StorageType &last() { return end()[-1]; }
+    const StorageType &last() const { return end()[-1]; }
 
     bool empty() const { return m_size == 0; }
     StorageType *data() const { return m_data; }
@@ -239,13 +239,13 @@ T Vector<T, SizeType>::take_last() {
 }
 
 template <typename T, typename SizeType>
-typename Vector<T, SizeType>::BaseType &Vector<T, SizeType>::operator[](SizeType index) {
+typename Vector<T, SizeType>::StorageType &Vector<T, SizeType>::operator[](SizeType index) {
     VULL_ASSERT(index < m_size);
     return begin()[index];
 }
 
 template <typename T, typename SizeType>
-const typename Vector<T, SizeType>::BaseType &Vector<T, SizeType>::operator[](SizeType index) const {
+const typename Vector<T, SizeType>::StorageType &Vector<T, SizeType>::operator[](SizeType index) const {
     VULL_ASSERT(index < m_size);
     return begin()[index];
 }
