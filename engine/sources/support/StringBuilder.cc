@@ -1,5 +1,6 @@
 #include <vull/support/StringBuilder.hh>
 
+#include <vull/maths/Common.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
@@ -15,7 +16,7 @@ void StringBuilder::append_single(float arg, const char *) {
     // TODO: Own implementation.
     Array<char, 20> buf{};
     int length = snprintf(buf.data(), buf.size(), "%f", arg); // NOLINT
-    m_buffer.extend(StringView(buf.data(), static_cast<size_t>(length)));
+    m_buffer.extend(StringView(buf.data(), vull::min(buf.size(), static_cast<uint32_t>(length))));
 }
 
 void StringBuilder::append_single(size_t arg, const char *opts) {
