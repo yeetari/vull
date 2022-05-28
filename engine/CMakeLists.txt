@@ -40,8 +40,10 @@ if(VULL_BUILD_WARNINGS)
             -Wno-covered-switch-default
             -Wno-double-promotion
             -Wno-error=deprecated-declarations
+            -Wno-gnu-anonymous-struct
             # Disabling this should be fine as it's now allowed in C++ 20.
             -Wno-gnu-zero-variadic-macro-arguments
+            -Wno-nested-anon-types
             -Wno-non-virtual-dtor
             -Wno-padded
             -Wno-shadow-uncaptured-local
