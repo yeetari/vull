@@ -12,8 +12,9 @@ using FT_Library = struct FT_LibraryRec_ *;
 
 namespace vull::vk {
 
-class CommandBuffer;
 class Context;
+class ImageResource;
+class RenderGraph;
 class Swapchain;
 
 } // namespace vull::vk
@@ -52,8 +53,8 @@ class Renderer {
     uint32_t m_object_index{0};
 
 public:
-    Renderer(const vk::Context &context, const vk::Swapchain &swapchain, vkb::ShaderModule vertex_shader,
-             vkb::ShaderModule fragment_shader);
+    Renderer(const vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
+             vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader, vkb::ShaderModule fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();
@@ -66,7 +67,6 @@ public:
 
     void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale);
     void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
-    void render(const vk::CommandBuffer &cmd_buf, uint32_t image_index);
 };
 
 } // namespace vull::ui

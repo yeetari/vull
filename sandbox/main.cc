@@ -21,6 +21,7 @@
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Queue.hh>
+#include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -440,7 +441,6 @@ void main_task(Scheduler &scheduler) {
         .colorAttachmentCount = gbuffer_formats.size(),
         .pColorAttachmentFormats = gbuffer_formats.data(),
         .depthAttachmentFormat = depth_format,
-        .stencilAttachmentFormat = depth_format,
     };
     vkb::GraphicsPipelineCreateInfo geometry_pass_pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
@@ -463,7 +463,6 @@ void main_task(Scheduler &scheduler) {
     vkb::PipelineRenderingCreateInfo shadow_pass_rendering_create_info{
         .sType = vkb::StructureType::PipelineRenderingCreateInfo,
         .depthAttachmentFormat = vkb::Format::D32Sfloat,
-        .stencilAttachmentFormat = vkb::Format::D32Sfloat,
     };
     vkb::GraphicsPipelineCreateInfo shadow_pass_pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
@@ -865,27 +864,27 @@ void main_task(Scheduler &scheduler) {
     for (auto *image_view : scene.texture_views()) {
         texture_image_infos.push(vkb::DescriptorImageInfo{
             .imageView = image_view,
-            .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+            .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
         });
     }
 
     // Deferred set.
     vkb::DescriptorImageInfo depth_image_info{
         .imageView = depth_image_view,
-        .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo albedo_image_info{
         .imageView = albedo_image_view,
-        .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo normal_image_info{
         .imageView = normal_image_view,
-        .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo shadow_map_image_info{
         .sampler = shadow_sampler,
         .imageView = shadow_map_view,
-        .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
 
     Array descriptor_writes{
@@ -1097,11 +1096,148 @@ void main_task(Scheduler &scheduler) {
     vkb::QueryPool query_pool;
     context.vkCreateQueryPool(&query_pool_ci, &query_pool);
 
-    ui::Renderer ui(context, swapchain, ui_vertex_shader, ui_fragment_shader);
+    vk::RenderGraph render_graph;
+
+    // GBuffer resources.
+    auto &albedo_image_resource = render_graph.add_image("GBuffer albedo");
+    auto &normal_image_resource = render_graph.add_image("GBuffer normal");
+    auto &depth_image_resource = render_graph.add_image("GBuffer depth");
+    albedo_image_resource.set_image(albedo_image, albedo_image_view, albedo_image_view_ci.subresourceRange);
+    normal_image_resource.set_image(normal_image, normal_image_view, normal_image_view_ci.subresourceRange);
+    depth_image_resource.set_image(depth_image, depth_image_view, depth_image_view_ci.subresourceRange);
+
+    auto &shadow_map_resource = render_graph.add_image("Shadow map");
+    shadow_map_resource.set_image(shadow_map, shadow_map_view, shadow_map_view_ci.subresourceRange);
+
+    auto &swapchain_resource = render_graph.add_image("Swapchain");
+    swapchain_resource.set_image(nullptr, nullptr,
+                                 {
+                                     .aspectMask = vkb::ImageAspect::Color,
+                                     .levelCount = 1,
+                                     .layerCount = 1,
+                                 });
+
+    auto &global_ubo_resource = render_graph.add_uniform_buffer("Global UBO");
+    auto &light_data_resource = render_graph.add_storage_buffer("Light data");
+    auto &light_visibility_data_resource = render_graph.add_storage_buffer("Light visibility data");
+    global_ubo_resource.set_buffer(uniform_buffer);
+    light_data_resource.set_buffer(lights_buffer);
+    light_visibility_data_resource.set_buffer(light_visibilities_buffer);
+
+    auto &geometry_pass = render_graph.add_graphics_pass("Geometry pass");
+    geometry_pass.reads_from(global_ubo_resource);
+    geometry_pass.writes_to(albedo_image_resource);
+    geometry_pass.writes_to(normal_image_resource);
+    geometry_pass.writes_to(depth_image_resource);
+    geometry_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+        Array colour_write_attachments{
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = albedo_image_view,
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = normal_image_view,
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+        };
+        vkb::RenderingAttachmentInfo depth_write_attachment{
+            .sType = vkb::StructureType::RenderingAttachmentInfo,
+            .imageView = depth_image_view,
+            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
+            .loadOp = vkb::AttachmentLoadOp::Clear,
+            .storeOp = vkb::AttachmentStoreOp::Store,
+            .clearValue{
+                .depthStencil{0.0f, 0},
+            },
+        };
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = swapchain.extent_2D(),
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = colour_write_attachments.size(),
+            .pColorAttachments = colour_write_attachments.data(),
+            .pDepthAttachment = &depth_write_attachment,
+        };
+        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, geometry_pass_pipeline);
+        cmd_buf.begin_rendering(rendering_info);
+        scene.render(cmd_buf, geometry_pipeline_layout, 0);
+        cmd_buf.end_rendering();
+    });
+
+    auto &shadow_pass = render_graph.add_graphics_pass("Shadow pass");
+    shadow_pass.reads_from(global_ubo_resource);
+    shadow_pass.writes_to(shadow_map_resource);
+    shadow_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, shadow_pass_pipeline);
+        for (uint32_t i = 0; i < shadow_cascade_count; i++) {
+            vkb::RenderingAttachmentInfo shadow_map_write_attachment{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = shadow_cascade_views[i],
+                .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .depthStencil{1.0f, 0},
+                },
+            };
+            vkb::RenderingInfo rendering_info{
+                .sType = vkb::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = {shadow_resolution, shadow_resolution},
+                },
+                .layerCount = 1,
+                .pDepthAttachment = &shadow_map_write_attachment,
+            };
+            cmd_buf.begin_rendering(rendering_info);
+            scene.render(cmd_buf, geometry_pipeline_layout, i);
+            cmd_buf.end_rendering();
+        }
+    });
+
+    auto &light_cull_pass = render_graph.add_compute_pass("Light cull");
+    light_cull_pass.reads_from(global_ubo_resource);
+    light_cull_pass.reads_from(depth_image_resource);
+    light_cull_pass.reads_from(light_data_resource);
+    light_cull_pass.writes_to(light_visibility_data_resource);
+    light_cull_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, light_cull_pipeline);
+        cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
+    });
+
+    auto &deferred_pass = render_graph.add_compute_pass("Deferred pass");
+    deferred_pass.reads_from(global_ubo_resource);
+    deferred_pass.reads_from(albedo_image_resource);
+    deferred_pass.reads_from(normal_image_resource);
+    deferred_pass.reads_from(depth_image_resource);
+    deferred_pass.reads_from(shadow_map_resource);
+    deferred_pass.reads_from(light_data_resource);
+    deferred_pass.reads_from(light_visibility_data_resource);
+    deferred_pass.writes_to(swapchain_resource);
+    deferred_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, deferred_pipeline);
+        cmd_buf.dispatch(window.width() / 8, window.height() / 8, 1);
+    });
+
+    ui::Renderer ui(context, render_graph, swapchain, swapchain_resource, ui_vertex_shader, ui_fragment_shader);
     ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.6f, 0.7f, 0.8f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
+    render_graph.compile(swapchain_resource);
 
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
@@ -1186,281 +1322,21 @@ void main_task(Scheduler &scheduler) {
         Array graphics_sets{global_set, geometry_set};
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, geometry_pipeline_layout, graphics_sets.span());
 
-        Array gbuffer_write_barriers{
-            vkb::ImageMemoryBarrier{
-                .sType = vkb::StructureType::ImageMemoryBarrier,
-                .dstAccessMask = vkb::Access::ColorAttachmentWrite,
-                .oldLayout = vkb::ImageLayout::Undefined,
-                .newLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .image = albedo_image,
-                .subresourceRange{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .levelCount = 1,
-                    .layerCount = 1,
-                },
-            },
-            vkb::ImageMemoryBarrier{
-                .sType = vkb::StructureType::ImageMemoryBarrier,
-                .dstAccessMask = vkb::Access::ColorAttachmentWrite,
-                .oldLayout = vkb::ImageLayout::Undefined,
-                .newLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .image = normal_image,
-                .subresourceRange{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .levelCount = 1,
-                    .layerCount = 1,
-                },
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::TopOfPipe, vkb::PipelineStage::ColorAttachmentOutput, {},
-                                 gbuffer_write_barriers.span());
+        vkb::Image swapchain_image = swapchain.image(image_index);
+        vkb::ImageView swapchain_view = swapchain.image_view(image_index);
+        swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
+        render_graph.record(cmd_buf, query_pool);
 
-        vkb::ImageMemoryBarrier depth_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .dstAccessMask = vkb::Access::DepthStencilAttachmentWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .image = depth_image,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Depth,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::TopOfPipe,
-                                 vkb::PipelineStage::EarlyFragmentTests | vkb::PipelineStage::LateFragmentTests, {},
-                                 depth_write_barrier);
-
-        Array gbuffer_write_attachments{
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = albedo_image_view,
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = normal_image_view,
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-        };
-        vkb::RenderingAttachmentInfo depth_write_attachment{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = depth_image_view,
-            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Clear,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-            .clearValue{
-                .depthStencil{0.0f, 0},
-            },
-        };
-        vkb::RenderingInfo geometry_pass_rendering_info{
-            .sType = vkb::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = swapchain.extent_2D(),
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = gbuffer_write_attachments.size(),
-            .pColorAttachments = gbuffer_write_attachments.data(),
-            .pDepthAttachment = &depth_write_attachment,
-            .pStencilAttachment = &depth_write_attachment,
-        };
-        cmd_buf.write_timestamp(vkb::PipelineStage::TopOfPipe, query_pool, 0);
-        cmd_buf.begin_rendering(geometry_pass_rendering_info);
-        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, geometry_pass_pipeline);
-        scene.render(cmd_buf, geometry_pipeline_layout, 0);
-        cmd_buf.end_rendering();
-
-        vkb::ImageMemoryBarrier shadow_map_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .dstAccessMask = vkb::Access::DepthStencilAttachmentWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .image = shadow_map,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Depth,
-                .levelCount = 1,
-                .layerCount = shadow_cascade_count,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::TopOfPipe,
-                                 vkb::PipelineStage::EarlyFragmentTests | vkb::PipelineStage::LateFragmentTests, {},
-                                 shadow_map_write_barrier);
-        cmd_buf.write_timestamp(vkb::PipelineStage::AllGraphics, query_pool, 1);
-
-        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, shadow_pass_pipeline);
-        for (uint32_t i = 0; i < shadow_cascade_count; i++) {
-            vkb::RenderingAttachmentInfo shadow_map_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = shadow_cascade_views[i],
-                .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .depthStencil{1.0f, 0},
-                },
-            };
-            vkb::RenderingInfo shadow_map_rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {shadow_resolution, shadow_resolution},
-                },
-                .layerCount = 1,
-                .pDepthAttachment = &shadow_map_write_attachment,
-                .pStencilAttachment = &shadow_map_write_attachment,
-            };
-            cmd_buf.begin_rendering(shadow_map_rendering_info);
-            scene.render(cmd_buf, geometry_pipeline_layout, i);
-            cmd_buf.end_rendering();
-        }
-
-        vkb::ImageMemoryBarrier depth_sample_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vkb::Access::DepthStencilAttachmentWrite,
-            .dstAccessMask = vkb::Access::ShaderRead,
-            .oldLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-            .image = depth_image,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Depth,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::EarlyFragmentTests | vkb::PipelineStage::LateFragmentTests,
-                                 vkb::PipelineStage::ComputeShader, {}, depth_sample_barrier);
-        cmd_buf.write_timestamp(vkb::PipelineStage::AllGraphics, query_pool, 2);
-        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, light_cull_pipeline);
-        cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
-
-        Array deferred_pass_buffer_barriers{
-            vkb::BufferMemoryBarrier{
-                .sType = vkb::StructureType::BufferMemoryBarrier,
-                .srcAccessMask = vkb::Access::ShaderWrite,
-                .dstAccessMask = vkb::Access::ShaderRead,
-                .buffer = lights_buffer,
-                .size = lights_buffer_size,
-            },
-            vkb::BufferMemoryBarrier{
-                .sType = vkb::StructureType::BufferMemoryBarrier,
-                .srcAccessMask = vkb::Access::ShaderWrite,
-                .dstAccessMask = vkb::Access::ShaderRead,
-                .buffer = light_visibilities_buffer,
-                .size = light_visibilities_buffer_size,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::ComputeShader, vkb::PipelineStage::ComputeShader,
-                                 deferred_pass_buffer_barriers.span(), {});
-        cmd_buf.write_timestamp(vkb::PipelineStage::ComputeShader, query_pool, 3);
-
-        Array gbuffer_sample_barriers{
-            vkb::ImageMemoryBarrier{
-                .sType = vkb::StructureType::ImageMemoryBarrier,
-                .srcAccessMask = vkb::Access::ColorAttachmentWrite,
-                .dstAccessMask = vkb::Access::ShaderRead,
-                .oldLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-                .image = albedo_image,
-                .subresourceRange{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .levelCount = 1,
-                    .layerCount = 1,
-                },
-            },
-            vkb::ImageMemoryBarrier{
-                .sType = vkb::StructureType::ImageMemoryBarrier,
-                .srcAccessMask = vkb::Access::ColorAttachmentWrite,
-                .dstAccessMask = vkb::Access::ShaderRead,
-                .oldLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-                .image = normal_image,
-                .subresourceRange{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .levelCount = 1,
-                    .layerCount = 1,
-                },
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::ColorAttachmentOutput, vkb::PipelineStage::ComputeShader, {},
-                                 gbuffer_sample_barriers.span());
-
-        vkb::ImageMemoryBarrier output_image_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .dstAccessMask = vkb::Access::ShaderWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::General,
-            .image = swapchain.image(image_index),
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::TopOfPipe, vkb::PipelineStage::ComputeShader, {},
-                                 output_image_barrier);
-
-        vkb::ImageMemoryBarrier shadow_map_sample_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vkb::Access::DepthStencilAttachmentWrite,
-            .dstAccessMask = vkb::Access::ShaderRead,
-            .oldLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-            .image = shadow_map,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Depth,
-                .levelCount = 1,
-                .layerCount = shadow_cascade_count,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::EarlyFragmentTests | vkb::PipelineStage::LateFragmentTests,
-                                 vkb::PipelineStage::ComputeShader, {}, shadow_map_sample_barrier);
-
-        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, deferred_pipeline);
-        cmd_buf.dispatch(window.width() / 8, window.height() / 8, 1);
-
-        vkb::ImageMemoryBarrier ui_colour_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vkb::Access::ShaderWrite,
-            .dstAccessMask = vkb::Access::ColorAttachmentRead,
-            .oldLayout = vkb::ImageLayout::General,
-            .newLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-            .image = swapchain.image(image_index),
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::ComputeShader, vkb::PipelineStage::ColorAttachmentOutput, {},
-                                 ui_colour_write_barrier);
-
-        cmd_buf.write_timestamp(vkb::PipelineStage::ComputeShader, query_pool, 4);
-        ui.render(cmd_buf, image_index);
-        cmd_buf.write_timestamp(vkb::PipelineStage::AllGraphics, query_pool, 5);
-
-        vkb::ImageMemoryBarrier colour_present_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vkb::Access::ColorAttachmentWrite,
-            .oldLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+        vkb::ImageMemoryBarrier2 swapchain_present_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+            .srcAccessMask = vkb::Access2::ColorAttachmentWrite,
+            .oldLayout = vkb::ImageLayout::AttachmentOptimal,
             .newLayout = vkb::ImageLayout::PresentSrcKHR,
-            .image = swapchain.image(image_index),
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = 1,
-                .layerCount = 1,
-            },
+            .image = swapchain_image,
+            .subresourceRange = swapchain_resource.full_range(),
         };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::ColorAttachmentOutput, vkb::PipelineStage::BottomOfPipe, {},
-                                 colour_present_barrier);
+        cmd_buf.image_barrier(swapchain_present_barrier);
 
         Array signal_semaphores{
             vkb::SemaphoreSubmitInfo{

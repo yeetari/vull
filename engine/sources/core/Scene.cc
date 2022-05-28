@@ -157,9 +157,10 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
     queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier transfer_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .dstAccessMask = vkb::Access::TransferWrite,
+        vkb::ImageMemoryBarrier2 transfer_write_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstAccessMask = vkb::Access2::TransferWrite,
             .oldLayout = vkb::ImageLayout::Undefined,
             .newLayout = vkb::ImageLayout::TransferDstOptimal,
             .image = image,
@@ -169,7 +170,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &
                 .layerCount = 1,
             },
         };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::None, vkb::PipelineStage::Transfer, {}, transfer_write_barrier);
+        cmd_buf.image_barrier(transfer_write_barrier);
     });
 
     uint32_t mip_width = width;
@@ -199,10 +200,12 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &
 
     // Transition the whole image to ShaderReadOnlyOptimal.
     queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier image_read_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier,
-            .srcAccessMask = vkb::Access::TransferWrite,
-            .dstAccessMask = vkb::Access::ShaderRead,
+        vkb::ImageMemoryBarrier2 image_read_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::ShaderRead,
             .oldLayout = vkb::ImageLayout::TransferDstOptimal,
             .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
             .image = image,
@@ -212,7 +215,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, PackReader &
                 .layerCount = 1,
             },
         };
-        cmd_buf.pipeline_barrier(vkb::PipelineStage::Transfer, vkb::PipelineStage::AllCommands, {}, image_read_barrier);
+        cmd_buf.image_barrier(image_read_barrier);
     });
 }
 

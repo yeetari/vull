@@ -10,6 +10,7 @@
 #include <vull/ui/GpuFont.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -21,7 +22,8 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(const vk::Context &context, const vk::Swapchain &swapchain, vkb::ShaderModule vertex_shader,
+Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
+                   vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader,
                    vkb::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
@@ -225,6 +227,36 @@ Renderer::Renderer(const vk::Context &context, const vk::Swapchain &swapchain, v
         .pBufferInfo = &ui_data_buffer_info,
     };
     context.vkUpdateDescriptorSets(1, &ui_data_buffer_descriptor_write, 0, nullptr);
+
+    auto &ui_data_resource = render_graph.add_storage_buffer("UI data");
+    ui_data_resource.set_buffer(m_ui_data_buffer);
+    auto &ui_pass = render_graph.add_graphics_pass("UI pass");
+    ui_pass.reads_from(ui_data_resource);
+    ui_pass.writes_to(swapchain_resource);
+    ui_pass.set_on_record([this, &swapchain_resource](const vk::CommandBuffer &cmd_buf) {
+        *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
+        cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
+        vkb::RenderingAttachmentInfo colour_write_attachment{
+            .sType = vkb::StructureType::RenderingAttachmentInfo,
+            .imageView = swapchain_resource.view(),
+            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+            .loadOp = vkb::AttachmentLoadOp::Load,
+            .storeOp = vkb::AttachmentStoreOp::Store,
+        };
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = m_swapchain.extent_2D(),
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colour_write_attachment,
+        };
+        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
+        cmd_buf.begin_rendering(rendering_info);
+        cmd_buf.draw(6, exchange(m_object_index, 0u));
+        cmd_buf.end_rendering();
+    });
 }
 
 Renderer::~Renderer() {
@@ -279,31 +311,6 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
         cursor_x += static_cast<float>(x_advance) / 64.0f;
         cursor_y += static_cast<float>(y_advance) / 64.0f;
     }
-}
-
-void Renderer::render(const vk::CommandBuffer &cmd_buf, uint32_t image_index) {
-    *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
-    cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
-    vkb::RenderingAttachmentInfo colour_write_attachment{
-        .sType = vkb::StructureType::RenderingAttachmentInfo,
-        .imageView = m_swapchain.image_view(image_index),
-        .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-        .loadOp = vkb::AttachmentLoadOp::Load,
-        .storeOp = vkb::AttachmentStoreOp::Store,
-    };
-    vkb::RenderingInfo rendering_info{
-        .sType = vkb::StructureType::RenderingInfo,
-        .renderArea{
-            .extent = m_swapchain.extent_2D(),
-        },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &colour_write_attachment,
-    };
-    cmd_buf.begin_rendering(rendering_info);
-    cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
-    cmd_buf.draw(6, exchange(m_object_index, 0u));
-    cmd_buf.end_rendering();
 }
 
 } // namespace vull::ui

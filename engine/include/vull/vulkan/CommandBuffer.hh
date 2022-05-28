@@ -48,11 +48,10 @@ public:
     void draw(uint32_t vertex_count, uint32_t instance_count) const;
     void draw_indexed(uint32_t index_count, uint32_t instance_count) const;
 
-    void pipeline_barrier(vkb::PipelineStage src_stage, vkb::PipelineStage dst_stage,
-                          Span<vkb::BufferMemoryBarrier> buffer_barriers,
-                          Span<vkb::ImageMemoryBarrier> image_barriers) const;
+    void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
+    void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;
     void reset_query_pool(vkb::QueryPool query_pool, uint32_t query_count) const;
-    void write_timestamp(vkb::PipelineStage stage, vkb::QueryPool query_pool, uint32_t query) const;
+    void write_timestamp(vkb::PipelineStage2 stage, vkb::QueryPool query_pool, uint32_t query) const;
 
     vkb::CommandBuffer operator*() const { return m_cmd_buf; }
     vkb::Semaphore completion_semaphore() const { return m_completion_semaphore; }

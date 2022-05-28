@@ -27,4 +27,5 @@ target_sources(vull PRIVATE
     vulkan/Context.cc
     vulkan/ContextTable.cc
     vulkan/Queue.cc
+    vulkan/RenderGraph.cc
     vulkan/Swapchain.cc)

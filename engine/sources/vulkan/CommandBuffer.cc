@@ -110,20 +110,28 @@ void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) 
     m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, 0, 0, 0);
 }
 
-void CommandBuffer::pipeline_barrier(vkb::PipelineStage src_stage, vkb::PipelineStage dst_stage,
-                                     Span<vkb::BufferMemoryBarrier> buffer_barriers,
-                                     Span<vkb::ImageMemoryBarrier> image_barriers) const {
-    m_context.vkCmdPipelineBarrier(m_cmd_buf, src_stage, dst_stage, vkb::DependencyFlags::None, 0, nullptr,
-                                   buffer_barriers.size(), buffer_barriers.data(), image_barriers.size(),
-                                   image_barriers.data());
+void CommandBuffer::image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const {
+    pipeline_barrier({
+        .sType = vkb::StructureType::DependencyInfo,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier,
+    });
+}
+
+void CommandBuffer::pipeline_barrier(const vkb::DependencyInfo &dependency_info) const {
+    m_context.vkCmdPipelineBarrier2(m_cmd_buf, &dependency_info);
 }
 
 void CommandBuffer::reset_query_pool(vkb::QueryPool query_pool, uint32_t query_count) const {
     m_context.vkCmdResetQueryPool(m_cmd_buf, query_pool, 0, query_count);
 }
 
-void CommandBuffer::write_timestamp(vkb::PipelineStage stage, vkb::QueryPool query_pool, uint32_t query) const {
-    m_context.vkCmdWriteTimestamp(m_cmd_buf, stage, query_pool, query);
+void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, vkb::QueryPool query_pool, uint32_t query) const {
+    // TODO: Neither amdvlk nor radv seem to handle None.
+    if (stage == vkb::PipelineStage2::None) {
+        stage = vkb::PipelineStage2::TopOfPipe;
+    }
+    m_context.vkCmdWriteTimestamp2(m_cmd_buf, stage, query_pool, query);
 }
 
 } // namespace vull::vk
