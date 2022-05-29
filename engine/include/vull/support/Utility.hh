@@ -11,11 +11,11 @@
 #endif
 
 #if defined(__clang__)
-#define VULL_GLOBAL(def)                                                                                               \
+#define VULL_GLOBAL(...)                                                                                               \
     _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wexit-time-destructors\"")                   \
-        _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"") def _Pragma("clang diagnostic pop")
+        _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"") __VA_ARGS__ _Pragma("clang diagnostic pop")
 #else
-#define VULL_GLOBAL(def) def
+#define VULL_GLOBAL(...) __VA_ARGS__
 #endif
 
 namespace vull {
