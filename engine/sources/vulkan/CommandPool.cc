@@ -19,8 +19,8 @@ CommandPool::CommandPool(const Context &context, uint32_t queue_family_index) : 
 }
 
 CommandPool::CommandPool(CommandPool &&other) : m_context(other.m_context) {
-    m_command_pool = exchange(other.m_command_pool, nullptr);
-    m_command_buffers = move(other.m_command_buffers);
+    m_command_pool = vull::exchange(other.m_command_pool, nullptr);
+    m_command_buffers = vull::move(other.m_command_buffers);
 }
 
 CommandPool::~CommandPool() {

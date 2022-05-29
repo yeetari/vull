@@ -12,7 +12,7 @@ using namespace vull;
 TEST_SUITE(WorkStealingQueue, {
     ;
     TEST_CASE(EnqueueDequeue) {
-        auto wsq = make_unique<WorkStealingQueue<unsigned>>();
+        auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
         EXPECT(wsq->empty());
         for (unsigned i = 0; i < 512; i++) {
             EXPECT(wsq->enqueue(unsigned(i)));
@@ -29,7 +29,7 @@ TEST_SUITE(WorkStealingQueue, {
     }
 
     TEST_CASE(EnqueueSteal) {
-        auto wsq = make_unique<WorkStealingQueue<unsigned>>();
+        auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
         for (unsigned i = 0; i < 512; i++) {
             EXPECT(wsq->enqueue(unsigned(i)));
         }
@@ -44,7 +44,7 @@ TEST_SUITE(WorkStealingQueue, {
     }
 
     TEST_CASE(OverCapacity) {
-        auto wsq = make_unique<WorkStealingQueue<unsigned, 1>>();
+        auto wsq = vull::make_unique<WorkStealingQueue<unsigned, 1>>();
         for (unsigned i = 0; i < 2; i++) {
             EXPECT(wsq->enqueue(0u));
         }
@@ -52,7 +52,7 @@ TEST_SUITE(WorkStealingQueue, {
     }
 
     TEST_CASE(Threaded) {
-        auto wsq = make_unique<WorkStealingQueue<unsigned>>();
+        auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
         Vector<pthread_t> consumer_threads(4);
         Vector<Vector<unsigned>> consumer_popped(consumer_threads.size());
         Atomic<uint32_t> popped_count;
@@ -120,7 +120,7 @@ TEST_SUITE(WorkStealingQueue, {
         }
         EXPECT(all_popped.size() == 1024);
 
-        sort(all_popped, [](unsigned a, unsigned b) {
+        vull::sort(all_popped, [](unsigned a, unsigned b) {
             return a > b;
         });
         for (unsigned i = 0; i < all_popped.size(); i++) {

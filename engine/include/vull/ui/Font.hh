@@ -78,7 +78,8 @@ class Font {
 public:
     explicit Font(FT_Face face);
     Font(const Font &) = delete;
-    Font(Font &&other) : m_hb_font(exchange(other.m_hb_font, nullptr)), m_glyph_cache(move(other.m_glyph_cache)) {}
+    Font(Font &&other)
+        : m_hb_font(vull::exchange(other.m_hb_font, nullptr)), m_glyph_cache(vull::move(other.m_glyph_cache)) {}
     ~Font();
 
     Font &operator=(const Font &) = delete;

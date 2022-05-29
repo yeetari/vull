@@ -70,7 +70,7 @@ void PackReader::read(Span<void> data) {
         // Use a temporary buffer to avoid reading back from uncached vulkan memory.
         ZSTD_outBuffer output{
             .dst = m_buffer,
-            .size = min(data.size(), static_cast<uint32_t>(ZSTD_DStreamOutSize())),
+            .size = vull::min(data.size(), static_cast<uint32_t>(ZSTD_DStreamOutSize())),
         };
         size_t ret = ZSTD_decompressStream(m_dctx, &output, &input);
         if (ZSTD_isError(ret) == 1) {

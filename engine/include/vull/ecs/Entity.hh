@@ -128,7 +128,7 @@ public:
 
 template <typename C, typename... Args>
 void Entity::add(Args &&...args) {
-    m_manager->add_component<C>(m_id, forward<Args>(args)...);
+    m_manager->add_component<C>(m_id, vull::forward<Args>(args)...);
 }
 
 template <typename C>
@@ -211,7 +211,7 @@ void EntityManager::register_component() {
 
 template <typename C, typename... Args>
 void EntityManager::add_component(EntityId id, Args &&...args) {
-    m_component_sets[C::k_component_id].template emplace<C>(entity_index(id), forward<Args>(args)...);
+    m_component_sets[C::k_component_id].template emplace<C>(entity_index(id), vull::forward<Args>(args)...);
 }
 
 template <typename C>

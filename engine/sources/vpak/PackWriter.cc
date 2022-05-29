@@ -77,7 +77,7 @@ float PackWriter::end_entry() {
         };
         if (output.size == 0) {
             // Flush full write buffer.
-            m_compressed_size += fwrite(m_buffer, 1, exchange(*m_compress_head, 0ul), m_file);
+            m_compressed_size += fwrite(m_buffer, 1, vull::exchange(*m_compress_head, 0ul), m_file);
         }
         remaining = ZSTD_compressStream2(m_cctx, &output, &input, ZSTD_e_end);
         *m_compress_head += output.pos;
@@ -99,7 +99,7 @@ void PackWriter::write(Span<const void> data) {
     for (size_t bytes_written = 0; bytes_written < data.size();) {
         ZSTD_inBuffer input{
             .src = static_cast<const uint8_t *>(data.data()) + bytes_written,
-            .size = min(data.size() - bytes_written, ZSTD_CStreamInSize()),
+            .size = vull::min(data.size() - bytes_written, ZSTD_CStreamInSize()),
         };
         do {
             ZSTD_outBuffer output{
@@ -108,7 +108,7 @@ void PackWriter::write(Span<const void> data) {
             };
             if (output.size == 0) {
                 // Flush full write buffer.
-                m_compressed_size += fwrite(m_buffer, 1, exchange(*m_compress_head, 0ul), m_file);
+                m_compressed_size += fwrite(m_buffer, 1, vull::exchange(*m_compress_head, 0ul), m_file);
             }
             ZSTD_compressStream2(m_cctx, &output, &input, ZSTD_e_continue);
             *m_compress_head += output.pos;

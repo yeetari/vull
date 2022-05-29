@@ -50,7 +50,7 @@ void Font::rasterise(Span<float> buffer, uint32_t glyph_index) const {
         .disp_x = 0.0f,
         .disp_y = 0.0f,
     });
-    schedule(
+    vull::schedule(
         [this, buffer, glyph_index] {
             auto *face = hb_ft_font_get_face(m_hb_font);
             if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {

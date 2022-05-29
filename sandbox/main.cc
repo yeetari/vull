@@ -1271,7 +1271,7 @@ void main_task(Scheduler &scheduler) {
         gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
                                             device_properties.limits.timestampPeriod) /
                                                1000000000.0f});
-        gpu_time_graph.add_bar(move(gpu_frame_bar));
+        gpu_time_graph.add_bar(vull::move(gpu_frame_bar));
 
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
@@ -1350,7 +1350,7 @@ void main_task(Scheduler &scheduler) {
         Array present_wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, present_wait_semaphores.span());
         window.poll_events();
-        cpu_time_graph.add_bar(move(cpu_frame_bar));
+        cpu_time_graph.add_bar(vull::move(cpu_frame_bar));
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();

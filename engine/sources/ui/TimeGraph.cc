@@ -31,10 +31,10 @@ Vec4f TimeGraph::colour_for_section(uint32_t section_index) {
 }
 
 void TimeGraph::add_bar(Bar &&bar) {
-    sort(bar.sections, [](const auto &lhs, const auto &rhs) {
+    vull::sort(bar.sections, [](const auto &lhs, const auto &rhs) {
         return lhs.duration < rhs.duration;
     });
-    m_bars.enqueue(move(bar));
+    m_bars.enqueue(vull::move(bar));
 }
 
 void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font, StringView title) {
@@ -48,7 +48,7 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont
         for (const auto &section : bar.sections) {
             total_time += section.duration;
         }
-        max_total_time = max(max_total_time, total_time);
+        max_total_time = vull::max(max_total_time, total_time);
     }
 
     // Draw bars.
@@ -70,14 +70,14 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont
     }
 
     if (!title.empty()) {
-        auto title_string = format("{}: {} ms", title, max_total_time * 1000.0f);
+        auto title_string = vull::format("{}: {} ms", title, max_total_time * 1000.0f);
         renderer.draw_text(*font, Vec3f(1.0f), position - Vec2f(0.0f, 20.0f), title_string);
     }
 
     // Draw legend.
     const auto &latest_bar = m_bars[m_bars.size() - 1];
     uint32_t section_index = latest_bar.sections.size();
-    for (float y_offset = position.y() + 10.0f; const auto &section : reverse_view(latest_bar.sections)) {
+    for (float y_offset = position.y() + 10.0f; const auto &section : vull::reverse_view(latest_bar.sections)) {
         const auto &colour = colour_for_section(--section_index);
         const auto text = format("{}: {} ms", section.name, section.duration * 1000.0f);
         renderer.draw_text(*font, Vec3f(colour.x(), colour.y(), colour.z()),

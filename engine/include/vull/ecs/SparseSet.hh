@@ -53,12 +53,12 @@ public:
 };
 
 template <typename I>
-SparseSet<I>::SparseSet(SparseSet &&other) : m_dense(move(other.m_dense)), m_sparse(move(other.m_sparse)) {
-    m_data = exchange(other.m_data, nullptr);
-    m_destruct = exchange(other.m_destruct, nullptr);
-    m_swap = exchange(other.m_swap, nullptr);
-    m_object_size = exchange(other.m_object_size, 0u);
-    m_capacity = exchange(other.m_capacity, 0u);
+SparseSet<I>::SparseSet(SparseSet &&other) : m_dense(vull::move(other.m_dense)), m_sparse(vull::move(other.m_sparse)) {
+    m_data = vull::exchange(other.m_data, nullptr);
+    m_destruct = vull::exchange(other.m_destruct, nullptr);
+    m_swap = vull::exchange(other.m_swap, nullptr);
+    m_object_size = vull::exchange(other.m_object_size, 0u);
+    m_capacity = vull::exchange(other.m_capacity, 0u);
 }
 
 template <typename I>
@@ -76,7 +76,7 @@ void SparseSet<I>::initialise() {
         static_cast<T *>(ptr)->~T();
     };
     m_swap = +[](void *lhs, void *rhs) {
-        swap(*static_cast<T *>(lhs), *static_cast<T *>(rhs));
+        vull::swap(*static_cast<T *>(lhs), *static_cast<T *>(rhs));
     };
     m_object_size = static_cast<uint32_t>(sizeof(T));
 }
@@ -110,11 +110,11 @@ void SparseSet<I>::emplace(I index, Args &&...args) {
     m_sparse[index] = m_dense.size();
 
     if (auto new_capacity = m_dense.size() + 1; new_capacity > m_capacity) {
-        new_capacity = max(m_capacity * 2 + 1, new_capacity);
+        new_capacity = vull::max(m_capacity * 2 + 1, new_capacity);
         auto *new_data = new uint8_t[new_capacity * sizeof(T)];
         if constexpr (!IsTriviallyCopyable<T>) {
             for (I i = 0; i < m_dense.size(); i++) {
-                new (new_data + i * sizeof(T)) T(move(storage_begin<T>()[i]));
+                new (new_data + i * sizeof(T)) T(vull::move(storage_begin<T>()[i]));
             }
             for (I i = m_dense.size(); i > 0; i--) {
                 storage_begin<T>()[i - 1].~T();
@@ -126,7 +126,7 @@ void SparseSet<I>::emplace(I index, Args &&...args) {
         m_data = new_data;
         m_capacity = new_capacity;
     }
-    new (&reinterpret_cast<T *>(m_data)[m_dense.size()]) T(forward<Args>(args)...);
+    new (&reinterpret_cast<T *>(m_data)[m_dense.size()]) T(vull::forward<Args>(args)...);
     m_dense.push(index);
 }
 
@@ -136,7 +136,7 @@ void SparseSet<I>::remove(I index) {
     VULL_ASSERT(contains(index));
     if (const I &dense_index = m_sparse[index]; m_dense[dense_index] != m_dense.last()) {
         m_sparse[m_dense.last()] = dense_index;
-        swap(m_dense[dense_index], m_dense.last());
+        vull::swap(m_dense[dense_index], m_dense.last());
         m_swap(m_data + dense_index * m_object_size, m_data + (m_dense.size() - 1) * m_object_size);
     }
     m_dense.pop();
@@ -159,7 +159,7 @@ void *SparseSet<I>::raw_push(I index) {
 
     // TODO: Doesn't correctly handle non-trivially copyable types.
     if (auto new_capacity = m_dense.size() + 1; new_capacity > m_capacity) {
-        new_capacity = max(m_capacity * 2 + 1, new_capacity);
+        new_capacity = vull::max(m_capacity * 2 + 1, new_capacity);
         auto *new_data = new uint8_t[new_capacity * m_object_size];
         if (!m_dense.empty()) {
             memcpy(new_data, m_data, m_dense.size() * m_object_size);

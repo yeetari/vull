@@ -45,7 +45,7 @@ Scheduler::Scheduler(uint32_t thread_count) {
     }
     for (uint32_t i = 0; i < thread_count; i++) {
         auto &worker = m_workers.emplace(new Worker{.scheduler = *this});
-        worker->queue = make_unique<TaskletQueue>();
+        worker->queue = vull::make_unique<TaskletQueue>();
         worker->rng_state = static_cast<uint32_t>(time(nullptr));
         worker->running.store(true, MemoryOrder::Relaxed);
     }
@@ -62,7 +62,7 @@ bool Scheduler::start(Tasklet &&tasklet) {
     if (m_workers.empty()) {
         return false;
     }
-    if (!m_workers[0]->queue->enqueue(move(tasklet))) {
+    if (!m_workers[0]->queue->enqueue(vull::move(tasklet))) {
         return false;
     }
     for (auto &worker : m_workers) {

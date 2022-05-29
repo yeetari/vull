@@ -58,9 +58,9 @@ template <typename F>
 // NOLINTNEXTLINE: this constructor does not shadow the move constructor
 Tasklet::Tasklet(F &&callable) requires(!IsSame<F, Tasklet>) : TaskletBase<Tasklet>(&invoke_helper<F>) {
     if constexpr (sizeof(F) <= k_inline_capacity) {
-        new (m_inline_storage.data()) F(forward<F>(callable));
+        new (m_inline_storage.data()) F(vull::forward<F>(callable));
     } else {
-        new (m_inline_storage.data()) F *(new F(forward<F>(callable)));
+        new (m_inline_storage.data()) F *(new F(vull::forward<F>(callable)));
     }
 }
 
