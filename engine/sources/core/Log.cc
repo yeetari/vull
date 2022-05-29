@@ -144,7 +144,7 @@ void *sink_loop(void *mutex) {
 
 } // namespace
 
-VULL_GLOBAL(Timer s_log_timer);
+VULL_GLOBAL(Timer g_log_timer);
 
 void log_raw(String &&message) {
     if (s_queue == nullptr) {

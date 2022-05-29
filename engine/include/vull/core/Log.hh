@@ -11,7 +11,7 @@ namespace vull {
 
 class String;
 
-extern Timer s_log_timer;
+extern Timer g_log_timer;
 
 enum class LogLevel {
     Trace,
@@ -32,7 +32,7 @@ void log_close();
     template <typename... Args>                                                                                        \
     void fn(const char *fmt, Args &&...args) {                                                                         \
         StringBuilder sb;                                                                                              \
-        const uint64_t time = s_log_timer.elapsed_ns() / 1000000u;                                                     \
+        const uint64_t time = g_log_timer.elapsed_ns() / 1000000u;                                                     \
         sb.append("[{d5 }.{d3}] ", time / 1000u, time % 1000u);                                                        \
         sb.append(k_level_strings[static_cast<uint32_t>(lvl)]);                                                        \
         sb.append(fmt, vull::forward<Args>(args)...);                                                                  \
