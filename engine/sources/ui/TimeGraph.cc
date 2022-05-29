@@ -1,6 +1,7 @@
 #include <vull/ui/TimeGraph.hh>
 
 #include <vull/maths/Common.hh>
+#include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Format.hh>
@@ -11,8 +12,6 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/ui/Renderer.hh>
-
-#include <stdlib.h>
 
 namespace vull::ui {
 
@@ -25,10 +24,7 @@ Vec4f TimeGraph::colour_for_section(uint32_t section_index) {
         return m_section_colours[section_index];
     }
     m_section_colours.ensure_size(section_index + 1);
-    auto rand_float = [] {
-        return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-    };
-    Vec3f random_colour(rand_float(), rand_float(), rand_float());
+    auto random_colour = vull::linear_rand(Vec3f(0.1f), Vec3f(1.0f));
     random_colour += m_base_colour;
     random_colour *= 0.5f;
     return (m_section_colours[section_index] = {random_colour.x(), random_colour.y(), random_colour.z(), 1.0f});

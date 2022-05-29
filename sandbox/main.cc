@@ -5,6 +5,7 @@
 #include <vull/core/Window.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -29,7 +30,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 using namespace vull;
@@ -991,18 +991,11 @@ void main_task(Scheduler &scheduler) {
     VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &image_available_semaphore) == vkb::Result::Success);
     VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &rendering_finished_semaphore) == vkb::Result::Success);
 
-    srand(0);
-    auto rand_float = [](float min, float max) {
-        return min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX) / (max - min));
-    };
-
     Vector<PointLight> lights(50);
     for (auto &light : lights) {
-        light.colour = {rand_float(0.1f, 1.0f), rand_float(0.1f, 1.0f), rand_float(0.1f, 1.0f)};
-        light.radius = rand_float(2.5f, 15.0f);
-        light.position[0] = rand_float(-50.0f, 100.0f);
-        light.position[1] = rand_float(2.0f, 30.0f);
-        light.position[2] = rand_float(-70.0f, 50.0f);
+        light.colour = vull::linear_rand(Vec3f(0.1f), Vec3f(1.0f));
+        light.radius = vull::linear_rand(2.5f, 15.0f);
+        light.position = vull::linear_rand(Vec3f(-50.0f, 2.0f, -70.0f), Vec3f(100.0f, 30.0f, 50.0f));
     }
 
     Camera camera;
