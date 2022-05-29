@@ -5,6 +5,7 @@ target_sources(vull PRIVATE
     core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
+    maths/Random.cc
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc
