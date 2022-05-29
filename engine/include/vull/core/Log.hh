@@ -26,6 +26,7 @@ constexpr Array k_level_strings{
 };
 
 void log_raw(String &&message);
+void log_close();
 
 #define DEFINE_LOG_LEVEL(fn, lvl)                                                                                      \
     template <typename... Args>                                                                                        \

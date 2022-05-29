@@ -75,6 +75,7 @@ public:
     auto end() const { return m_queues.end(); }
 
     void add_queue(LogQueue *);
+    void close();
     void post();
     bool wait();
 };
@@ -90,9 +91,7 @@ GlobalState::GlobalState() {
 }
 
 GlobalState::~GlobalState() {
-    m_running.store(false, MemoryOrder::Relaxed);
-    sem_post(&m_semaphore);
-    pthread_join(m_sink_thread, nullptr);
+    close();
     sem_destroy(&m_semaphore);
     pthread_mutex_destroy(&m_queues_mutex);
     for (auto *queue : m_queues) {
@@ -104,6 +103,12 @@ void GlobalState::add_queue(LogQueue *queue) {
     pthread_mutex_lock(&m_queues_mutex);
     m_queues.push(queue);
     pthread_mutex_unlock(&m_queues_mutex);
+}
+
+void GlobalState::close() {
+    m_running.store(false, MemoryOrder::Relaxed);
+    sem_post(&m_semaphore);
+    pthread_join(m_sink_thread, nullptr);
 }
 
 void GlobalState::post() {
@@ -148,6 +153,10 @@ void log_raw(String &&message) {
     }
     s_queue->enqueue(vull::move(message));
     s_state.post();
+}
+
+void log_close() {
+    s_state.close();
 }
 
 } // namespace vull

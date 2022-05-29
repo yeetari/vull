@@ -1,17 +1,17 @@
 #include <vull/support/Assert.hh>
 
-#include <stdio.h>
+#include <vull/core/Log.hh>
+
 #include <stdlib.h>
 
 namespace vull {
 
 [[noreturn]] void fatal_error(const char *error, const char *note) {
-    // NOLINTNEXTLINE
-    fprintf(stderr, "%s\n", error);
+    vull::error("{}", error);
     if (note != nullptr) {
-        // NOLINTNEXTLINE
-        fprintf(stderr, "=> %s\n", note);
+        vull::error("=> {}", note);
     }
+    vull::log_close();
     abort();
 }
 
