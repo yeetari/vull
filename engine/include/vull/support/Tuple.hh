@@ -37,6 +37,7 @@ class TupleElem {
 public:
     static T elem_type(TupleTag<I>);
 
+    constexpr TupleElem() : m_value{} {}
     constexpr TupleElem(T &&value) : m_value(forward<T &&>(value)) {}
     constexpr decltype(auto) operator[](TupleTag<I>) { return (m_value); }
 };
