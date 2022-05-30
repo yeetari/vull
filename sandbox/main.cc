@@ -12,6 +12,7 @@
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
@@ -174,8 +175,7 @@ void main_task(Scheduler &scheduler) {
         .pName = "main",
         .pSpecializationInfo = &specialisation_info,
     };
-
-    Array global_set_bindings{
+    Array frame_set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vkb::DescriptorType::UniformBuffer,
@@ -201,13 +201,13 @@ void main_task(Scheduler &scheduler) {
             .stageFlags = vkb::ShaderStage::Compute,
         },
     };
-    vkb::DescriptorSetLayoutCreateInfo global_set_layout_ci{
+    vkb::DescriptorSetLayoutCreateInfo frame_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = global_set_bindings.size(),
-        .pBindings = global_set_bindings.data(),
+        .bindingCount = frame_set_bindings.size(),
+        .pBindings = frame_set_bindings.data(),
     };
-    vkb::DescriptorSetLayout global_set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&global_set_layout_ci, &global_set_layout) == vkb::Result::Success);
+    vkb::DescriptorSetLayout frame_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&frame_set_layout_ci, &frame_set_layout) == vkb::Result::Success);
 
     Array geometry_set_bindings{
         vkb::DescriptorSetLayoutBinding{
@@ -278,7 +278,7 @@ void main_task(Scheduler &scheduler) {
         .size = sizeof(PushConstantBlock),
     };
     Array geometry_set_layouts{
-        global_set_layout,
+        frame_set_layout,
         geometry_set_layout,
     };
     vkb::PipelineLayoutCreateInfo geometry_pipeline_layout_ci{
@@ -293,7 +293,7 @@ void main_task(Scheduler &scheduler) {
                 vkb::Result::Success);
 
     Array compute_set_layouts{
-        global_set_layout,
+        frame_set_layout,
         deferred_set_layout,
     };
     vkb::PipelineLayoutCreateInfo compute_pipeline_layout_ci{
@@ -725,14 +725,14 @@ void main_task(Scheduler &scheduler) {
         .usage = vkb::BufferUsage::UniformBuffer,
         .sharingMode = vkb::SharingMode::Exclusive,
     };
-    vkb::Buffer uniform_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &uniform_buffer) == vkb::Result::Success);
-
-    vkb::MemoryRequirements uniform_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(uniform_buffer, &uniform_buffer_requirements);
-    vkb::DeviceMemory uniform_buffer_memory =
-        context.allocate_memory(uniform_buffer_requirements, vk::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(uniform_buffer, uniform_buffer_memory, 0) == vkb::Result::Success);
+    Array<Tuple<vkb::Buffer, vkb::DeviceMemory>, 2> uniform_buffers;
+    for (auto &[buffer, memory] : uniform_buffers) {
+        VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &buffer) == vkb::Result::Success);
+        vkb::MemoryRequirements memory_requirements{};
+        context.vkGetBufferMemoryRequirements(buffer, &memory_requirements);
+        memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
+        VULL_ENSURE(context.vkBindBufferMemory(buffer, memory, 0) == vkb::Result::Success);
+    }
 
     struct PointLight {
         Vec3f position;
@@ -744,20 +744,20 @@ void main_task(Scheduler &scheduler) {
     vkb::DeviceSize light_visibility_size = (specialisation_data.tile_max_light_count + 1) * sizeof(uint32_t);
     vkb::DeviceSize light_visibilities_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
 
-    vkb::BufferCreateInfo lights_buffer_ci{
+    vkb::BufferCreateInfo light_buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
         .size = lights_buffer_size,
         .usage = vkb::BufferUsage::StorageBuffer,
         .sharingMode = vkb::SharingMode::Exclusive,
     };
-    vkb::Buffer lights_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&lights_buffer_ci, &lights_buffer) == vkb::Result::Success);
-
-    vkb::MemoryRequirements lights_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(lights_buffer, &lights_buffer_requirements);
-    vkb::DeviceMemory lights_buffer_memory =
-        context.allocate_memory(lights_buffer_requirements, vk::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(lights_buffer, lights_buffer_memory, 0) == vkb::Result::Success);
+    Array<Tuple<vkb::Buffer, vkb::DeviceMemory>, 2> light_buffers;
+    for (auto &[buffer, memory] : light_buffers) {
+        VULL_ENSURE(context.vkCreateBuffer(&light_buffer_ci, &buffer) == vkb::Result::Success);
+        vkb::MemoryRequirements memory_requirements{};
+        context.vkGetBufferMemoryRequirements(buffer, &memory_requirements);
+        memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
+        VULL_ENSURE(context.vkBindBufferMemory(buffer, memory, 0) == vkb::Result::Success);
+    }
 
     vkb::BufferCreateInfo light_visibilities_buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
@@ -787,11 +787,11 @@ void main_task(Scheduler &scheduler) {
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::UniformBuffer,
-            .descriptorCount = 1,
+            .descriptorCount = 2,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 2,
+            .descriptorCount = 4,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::CombinedImageSampler,
@@ -799,26 +799,27 @@ void main_task(Scheduler &scheduler) {
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::StorageImage,
-            .descriptorCount = 1,
+            .descriptorCount = 2,
         },
     };
     vkb::DescriptorPoolCreateInfo descriptor_pool_ci{
         .sType = vkb::StructureType::DescriptorPoolCreateInfo,
-        .maxSets = 3,
+        .maxSets = 4,
         .poolSizeCount = descriptor_pool_sizes.size(),
         .pPoolSizes = descriptor_pool_sizes.data(),
     };
     vkb::DescriptorPool descriptor_pool;
     VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &descriptor_pool) == vkb::Result::Success);
 
-    vkb::DescriptorSetAllocateInfo global_set_ai{
+    Array<vkb::DescriptorSet, 2> frame_sets;
+    Array frame_set_layouts{frame_set_layout, frame_set_layout};
+    vkb::DescriptorSetAllocateInfo frame_set_ai{
         .sType = vkb::StructureType::DescriptorSetAllocateInfo,
         .descriptorPool = descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &global_set_layout,
+        .descriptorSetCount = frame_sets.size(),
+        .pSetLayouts = frame_set_layouts.data(),
     };
-    vkb::DescriptorSet global_set;
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&global_set_ai, &global_set) == vkb::Result::Success);
+    VULL_ENSURE(context.vkAllocateDescriptorSets(&frame_set_ai, frame_sets.data()) == vkb::Result::Success);
 
     vkb::DescriptorSetAllocateInfo geometry_set_ai{
         .sType = vkb::StructureType::DescriptorSetAllocateInfo,
@@ -838,14 +839,26 @@ void main_task(Scheduler &scheduler) {
     vkb::DescriptorSet deferred_set;
     VULL_ENSURE(context.vkAllocateDescriptorSets(&deferred_set_ai, &deferred_set) == vkb::Result::Success);
 
-    // Global set.
-    vkb::DescriptorBufferInfo uniform_buffer_info{
-        .buffer = uniform_buffer,
-        .range = vkb::k_whole_size,
+    // Frame set.
+    Array<vkb::DescriptorBufferInfo, 2> uniform_buffer_infos{
+        vkb::DescriptorBufferInfo{
+            .buffer = vull::get<0>(uniform_buffers[0]),
+            .range = vkb::k_whole_size,
+        },
+        vkb::DescriptorBufferInfo{
+            .buffer = vull::get<0>(uniform_buffers[1]),
+            .range = vkb::k_whole_size,
+        },
     };
-    vkb::DescriptorBufferInfo lights_buffer_info{
-        .buffer = lights_buffer,
-        .range = vkb::k_whole_size,
+    Array<vkb::DescriptorBufferInfo, 2> light_buffer_infos{
+        vkb::DescriptorBufferInfo{
+            .buffer = vull::get<0>(light_buffers[0]),
+            .range = vkb::k_whole_size,
+        },
+        vkb::DescriptorBufferInfo{
+            .buffer = vull::get<0>(light_buffers[1]),
+            .range = vkb::k_whole_size,
+        },
     };
     vkb::DescriptorBufferInfo light_visibilities_buffer_info{
         .buffer = light_visibilities_buffer,
@@ -888,26 +901,52 @@ void main_task(Scheduler &scheduler) {
     };
 
     Array descriptor_writes{
-        // Global set.
+        // First frame set.
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = global_set,
+            .dstSet = frame_sets[0],
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vkb::DescriptorType::UniformBuffer,
-            .pBufferInfo = &uniform_buffer_info,
+            .pBufferInfo = &uniform_buffer_infos[0],
         },
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = global_set,
+            .dstSet = frame_sets[0],
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .pBufferInfo = &lights_buffer_info,
+            .pBufferInfo = &light_buffer_infos[0],
         },
         vkb::WriteDescriptorSet{
             .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = global_set,
+            .dstSet = frame_sets[0],
+            .dstBinding = 2,
+            .descriptorCount = 1,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .pBufferInfo = &light_visibilities_buffer_info,
+        },
+
+        // Second frame set.
+        vkb::WriteDescriptorSet{
+            .sType = vkb::StructureType::WriteDescriptorSet,
+            .dstSet = frame_sets[1],
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vkb::DescriptorType::UniformBuffer,
+            .pBufferInfo = &uniform_buffer_infos[1],
+        },
+        vkb::WriteDescriptorSet{
+            .sType = vkb::StructureType::WriteDescriptorSet,
+            .dstSet = frame_sets[1],
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .pBufferInfo = &light_buffer_infos[1],
+        },
+        vkb::WriteDescriptorSet{
+            .sType = vkb::StructureType::WriteDescriptorSet,
+            .dstSet = frame_sets[1],
             .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
@@ -975,21 +1014,6 @@ void main_task(Scheduler &scheduler) {
         },
     };
     context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
-
-    vkb::FenceCreateInfo fence_ci{
-        .sType = vkb::StructureType::FenceCreateInfo,
-        .flags = vkb::FenceCreateFlags::Signaled,
-    };
-    vkb::Fence fence;
-    VULL_ENSURE(context.vkCreateFence(&fence_ci, &fence) == vkb::Result::Success);
-
-    vkb::SemaphoreCreateInfo semaphore_ci{
-        .sType = vkb::StructureType::SemaphoreCreateInfo,
-    };
-    vkb::Semaphore image_available_semaphore;
-    vkb::Semaphore rendering_finished_semaphore;
-    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &image_available_semaphore) == vkb::Result::Success);
-    VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &rendering_finished_semaphore) == vkb::Result::Success);
 
     Vector<PointLight> lights(50);
     for (auto &light : lights) {
@@ -1076,18 +1100,21 @@ void main_task(Scheduler &scheduler) {
         }
     };
 
-    void *lights_data;
-    void *ubo_data;
-    context.vkMapMemory(lights_buffer_memory, 0, vkb::k_whole_size, 0, &lights_data);
-    context.vkMapMemory(uniform_buffer_memory, 0, vkb::k_whole_size, 0, &ubo_data);
+    Array<void *, 2> light_data_ptrs;
+    Array<void *, 2> ubo_data_ptrs;
+    context.vkMapMemory(vull::get<1>(light_buffers[0]), 0, vkb::k_whole_size, 0, &light_data_ptrs[0]);
+    context.vkMapMemory(vull::get<1>(light_buffers[1]), 0, vkb::k_whole_size, 0, &light_data_ptrs[1]);
+    context.vkMapMemory(vull::get<1>(uniform_buffers[0]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[0]);
+    context.vkMapMemory(vull::get<1>(uniform_buffers[1]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[1]);
 
     vkb::QueryPoolCreateInfo query_pool_ci{
         .sType = vkb::StructureType::QueryPoolCreateInfo,
         .queryType = vkb::QueryType::Timestamp,
         .queryCount = 6,
     };
-    vkb::QueryPool query_pool;
-    context.vkCreateQueryPool(&query_pool_ci, &query_pool);
+    Array<vkb::QueryPool, 2> timestamp_pools;
+    context.vkCreateQueryPool(&query_pool_ci, &timestamp_pools[0]);
+    context.vkCreateQueryPool(&query_pool_ci, &timestamp_pools[1]);
 
     vk::RenderGraph render_graph;
 
@@ -1113,8 +1140,6 @@ void main_task(Scheduler &scheduler) {
     auto &global_ubo_resource = render_graph.add_uniform_buffer("Global UBO");
     auto &light_data_resource = render_graph.add_storage_buffer("Light data");
     auto &light_visibility_data_resource = render_graph.add_storage_buffer("Light visibility data");
-    global_ubo_resource.set_buffer(uniform_buffer);
-    light_data_resource.set_buffer(lights_buffer);
     light_visibility_data_resource.set_buffer(light_visibilities_buffer);
 
     auto &geometry_pass = render_graph.add_graphics_pass("Geometry pass");
@@ -1232,13 +1257,38 @@ void main_task(Scheduler &scheduler) {
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
     render_graph.compile(swapchain_resource);
 
+    vkb::FenceCreateInfo fence_ci{
+        .sType = vkb::StructureType::FenceCreateInfo,
+        .flags = vkb::FenceCreateFlags::Signaled,
+    };
+    Array<vkb::Fence, 2> frame_fences;
+    VULL_ENSURE(context.vkCreateFence(&fence_ci, &frame_fences[0]) == vkb::Result::Success);
+    VULL_ENSURE(context.vkCreateFence(&fence_ci, &frame_fences[1]) == vkb::Result::Success);
+
+    vkb::SemaphoreCreateInfo semaphore_ci{
+        .sType = vkb::StructureType::SemaphoreCreateInfo,
+    };
+    Array<vkb::Semaphore, 4> frame_semaphores;
+    for (auto &semaphore : frame_semaphores) {
+        VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &semaphore) == vkb::Result::Success);
+    }
+
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
+    uint32_t frame_index = 0;
     Timer frame_timer;
     while (!window.should_close()) {
         float dt = frame_timer.elapsed();
         frame_timer.reset();
+
+        vkb::DescriptorSet frame_set = frame_sets[frame_index];
+        vkb::Fence frame_fence = frame_fences[frame_index];
+        vkb::Semaphore image_available_semaphore = frame_semaphores[frame_index * 2];
+        vkb::Semaphore rendering_finished_semaphore = frame_semaphores[frame_index * 2 + 1];
+        vkb::QueryPool timestamp_pool = timestamp_pools[frame_index];
+        void *light_data = light_data_ptrs[frame_index];
+        void *ubo_data = ubo_data_ptrs[frame_index];
 
         ui::TimeGraph::Bar cpu_frame_bar;
 
@@ -1247,12 +1297,12 @@ void main_task(Scheduler &scheduler) {
         cpu_frame_bar.sections.push({"Acquire swapchain", acquire_timer.elapsed()});
 
         Timer wait_fence_timer;
-        context.vkWaitForFences(1, &fence, true, ~0ul);
-        context.vkResetFences(1, &fence);
+        context.vkWaitForFences(1, &frame_fence, true, ~0ul);
+        context.vkResetFences(1, &frame_fence);
         cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
 
         Array<uint64_t, 6> timestamp_data{};
-        context.vkGetQueryPoolResults(query_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
+        context.vkGetQueryPoolResults(timestamp_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
                                       timestamp_data.data(), sizeof(uint64_t), vkb::QueryResultFlags::_64);
 
         ui::TimeGraph::Bar gpu_frame_bar;
@@ -1287,8 +1337,8 @@ void main_task(Scheduler &scheduler) {
         update_cascades();
 
         uint32_t light_count = lights.size();
-        memcpy(lights_data, &light_count, sizeof(uint32_t));
-        memcpy(reinterpret_cast<char *>(lights_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
+        memcpy(light_data, &light_count, sizeof(uint32_t));
+        memcpy(reinterpret_cast<char *>(light_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
         vkb::DescriptorImageInfo output_image_info{
@@ -1297,7 +1347,7 @@ void main_task(Scheduler &scheduler) {
         };
         vkb::WriteDescriptorSet output_image_write{
             .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = global_set,
+            .dstSet = frame_set,
             .dstBinding = 3,
             .descriptorCount = 1,
             .descriptorType = vkb::DescriptorType::StorageImage,
@@ -1307,18 +1357,20 @@ void main_task(Scheduler &scheduler) {
 
         Timer record_timer;
         const auto &cmd_buf = cmd_pool.request_cmd_buf();
-        cmd_buf.reset_query_pool(query_pool, query_pool_ci.queryCount);
+        cmd_buf.reset_query_pool(timestamp_pool, query_pool_ci.queryCount);
 
-        Array compute_sets{global_set, deferred_set};
+        Array compute_sets{frame_set, deferred_set};
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Compute, compute_pipeline_layout, compute_sets.span());
 
-        Array graphics_sets{global_set, geometry_set};
+        Array graphics_sets{frame_set, geometry_set};
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, geometry_pipeline_layout, graphics_sets.span());
 
         vkb::Image swapchain_image = swapchain.image(image_index);
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
+        global_ubo_resource.set_buffer(vull::get<0>(uniform_buffers[frame_index]));
+        light_data_resource.set_buffer(vull::get<0>(light_buffers[frame_index]));
         swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
-        render_graph.record(cmd_buf, query_pool);
+        render_graph.record(cmd_buf, timestamp_pool);
 
         vkb::ImageMemoryBarrier2 swapchain_present_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
@@ -1344,27 +1396,37 @@ void main_task(Scheduler &scheduler) {
                 .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
             },
         };
-        queue.submit(cmd_buf, fence, signal_semaphores.span(), wait_semaphores.span());
+        queue.submit(cmd_buf, frame_fence, signal_semaphores.span(), wait_semaphores.span());
         cpu_frame_bar.sections.push({"Record", record_timer.elapsed()});
 
         Array present_wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, present_wait_semaphores.span());
         window.poll_events();
         cpu_time_graph.add_bar(vull::move(cpu_frame_bar));
+        frame_index = (frame_index + 1) % 2;
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();
-    context.vkDestroyQueryPool(query_pool);
-    context.vkDestroySemaphore(rendering_finished_semaphore);
-    context.vkDestroySemaphore(image_available_semaphore);
-    context.vkDestroyFence(fence);
+    for (auto *timestamp_pool : timestamp_pools) {
+        context.vkDestroyQueryPool(timestamp_pool);
+    }
+    for (auto *semaphore : frame_semaphores) {
+        context.vkDestroySemaphore(semaphore);
+    }
+    for (auto *fence : frame_fences) {
+        context.vkDestroyFence(fence);
+    }
     context.vkDestroyDescriptorPool(descriptor_pool);
     context.vkFreeMemory(light_visibilities_buffer_memory);
     context.vkDestroyBuffer(light_visibilities_buffer);
-    context.vkFreeMemory(lights_buffer_memory);
-    context.vkDestroyBuffer(lights_buffer);
-    context.vkFreeMemory(uniform_buffer_memory);
-    context.vkDestroyBuffer(uniform_buffer);
+    for (auto &[buffer, memory] : light_buffers) {
+        context.vkDestroyBuffer(buffer);
+        context.vkFreeMemory(memory);
+    }
+    for (auto &[buffer, memory] : uniform_buffers) {
+        context.vkDestroyBuffer(buffer);
+        context.vkFreeMemory(memory);
+    }
     context.vkDestroySampler(normal_sampler);
     context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(shadow_sampler);
@@ -1391,7 +1453,7 @@ void main_task(Scheduler &scheduler) {
     context.vkDestroyPipelineLayout(geometry_pipeline_layout);
     context.vkDestroyDescriptorSetLayout(deferred_set_layout);
     context.vkDestroyDescriptorSetLayout(geometry_set_layout);
-    context.vkDestroyDescriptorSetLayout(global_set_layout);
+    context.vkDestroyDescriptorSetLayout(frame_set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
     context.vkDestroyShaderModule(shadow_shader);

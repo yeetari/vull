@@ -91,6 +91,8 @@ void GpuFont::rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set,
         .descriptorType = vkb::DescriptorType::CombinedImageSampler,
         .pImageInfo = &image_info,
     };
+    // TODO: Device wait idle hack to avoid updating in-use descriptor set.
+    m_context.vkDeviceWaitIdle();
     m_context.vkUpdateDescriptorSets(1, &descriptor_write, 0, nullptr);
 }
 
