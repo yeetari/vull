@@ -27,7 +27,6 @@
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -79,8 +78,8 @@ void main_task(Scheduler &scheduler) {
     fclose(pack_file);
 
     constexpr uint32_t tile_size = 32;
-    uint32_t row_tile_count = (window.width() + (window.width() % tile_size)) / tile_size;
-    uint32_t col_tile_count = (window.height() + (window.height() % tile_size)) / tile_size;
+    uint32_t row_tile_count = vull::ceil_div(window.width(), tile_size);
+    uint32_t col_tile_count = vull::ceil_div(window.height(), tile_size);
 
     struct SpecialisationData {
         uint32_t viewport_width;
@@ -1079,7 +1078,7 @@ void main_task(Scheduler &scheduler) {
                 float distance = vull::magnitude(corner - frustum_center);
                 radius = vull::max(radius, distance);
             }
-            radius = ceilf(radius * 16.0f) / 16.0f;
+            radius = vull::ceil(radius * 16.0f) / 16.0f;
 
             // TODO: direction duplicated in shader.
             constexpr Vec3f direction(0.6f, 0.6f, -0.6f);
@@ -1090,7 +1089,7 @@ void main_task(Scheduler &scheduler) {
             // Apply a small correction factor to the projection matrix to snap texels and avoid shimmering around the
             // edges of shadows.
             Vec4f origin = (proj * view * Vec4f(0.0f, 0.0f, 0.0f, 1.0f)) * (shadow_resolution / 2.0f);
-            Vec2f rounded_origin(roundf(origin.x()), roundf(origin.y()));
+            Vec2f rounded_origin(vull::round(origin.x()), vull::round(origin.y()));
             Vec2f round_offset = (rounded_origin - origin) * (2.0f / shadow_resolution);
             proj[3] += Vec4f(round_offset, 0.0f, 0.0f);
 
@@ -1247,7 +1246,7 @@ void main_task(Scheduler &scheduler) {
     deferred_pass.writes_to(swapchain_resource);
     deferred_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, deferred_pipeline);
-        cmd_buf.dispatch(window.width() / 8, window.height() / 8, 1);
+        cmd_buf.dispatch(vull::ceil_div(window.width(), 8u), vull::ceil_div(window.height(), 8u), 1);
     });
 
     ui::Renderer ui(context, render_graph, swapchain, swapchain_resource, ui_vertex_shader, ui_fragment_shader);
