@@ -16,6 +16,11 @@ constexpr T abs(T x) {
 }
 
 template <typename T>
+constexpr T ceil_div(T x, T y) {
+    return x / y + T(x % y != 0);
+}
+
+template <typename T>
 constexpr T lerp(T a, T b, T x) {
     return x * (a - b) + b;
 }
@@ -60,6 +65,18 @@ constexpr float cos(float angle) {
 
 constexpr float tan(float angle) {
     return ::tanf(angle);
+}
+
+constexpr float ceil(float x) {
+    return ::ceilf(x);
+}
+
+constexpr float floor(float x) {
+    return ::floorf(x);
+}
+
+constexpr float round(float x) {
+    return ::roundf(x);
 }
 
 constexpr float sqrt(float x) {
