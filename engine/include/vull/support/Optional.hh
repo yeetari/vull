@@ -42,11 +42,11 @@ class Optional<T &> {
 public:
     constexpr Optional() = default;
     Optional(T &ref) : m_ptr(&ref) {}
-    Optional(const Optional &) = delete;
+    Optional(const Optional &) = default;
     Optional(Optional &&other) : m_ptr(exchange(other.m_ptr, nullptr)) {}
     ~Optional() = default;
 
-    Optional &operator=(const Optional &) = delete;
+    Optional &operator=(const Optional &) = default;
     Optional &operator=(Optional &&);
 
     explicit operator bool() const { return m_ptr != nullptr; }
