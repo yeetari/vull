@@ -6,6 +6,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/QueryPool.hh> // IWYU pragma: keep
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -14,6 +15,7 @@ namespace vull::vk {
 
 class BufferResource;
 class CommandBuffer;
+class Context;
 class ImageResource;
 class RenderGraph;
 class Pass;
@@ -123,7 +125,7 @@ private:
     uint32_t m_order_index{~0u};
 
     bool does_write_to(Resource &resource);
-    void record(const CommandBuffer &cmd_buf, vkb::QueryPool timestamp_pool);
+    void record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool);
     void set_order_index(uint32_t order_index) { m_order_index = order_index; }
 
 public:
@@ -152,7 +154,8 @@ public:
     BufferResource &add_storage_buffer(String name);
     BufferResource &add_uniform_buffer(String name);
     void compile(Resource &target);
-    void record(const CommandBuffer &cmd_buf, vkb::QueryPool timestamp_pool) const;
+    Vector<QueryPool> create_timestamp_pools(const Context &context, uint32_t count) const;
+    void record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool = {}) const;
     String to_dot() const;
 
     const Vector<UniquePtr<Pass>> &passes() const { return m_passes; }

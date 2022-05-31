@@ -4,6 +4,7 @@
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
@@ -122,16 +123,16 @@ void CommandBuffer::pipeline_barrier(const vkb::DependencyInfo &dependency_info)
     m_context.vkCmdPipelineBarrier2(m_cmd_buf, &dependency_info);
 }
 
-void CommandBuffer::reset_query_pool(vkb::QueryPool query_pool, uint32_t query_count) const {
-    m_context.vkCmdResetQueryPool(m_cmd_buf, query_pool, 0, query_count);
+void CommandBuffer::reset_query_pool(const vk::QueryPool &query_pool) const {
+    m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, 0, query_pool.count());
 }
 
-void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, vkb::QueryPool query_pool, uint32_t query) const {
+void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const {
     // TODO: Neither amdvlk nor radv seem to handle None.
     if (stage == vkb::PipelineStage2::None) {
         stage = vkb::PipelineStage2::TopOfPipe;
     }
-    m_context.vkCmdWriteTimestamp2(m_cmd_buf, stage, query_pool, query);
+    m_context.vkCmdWriteTimestamp2(m_cmd_buf, stage, *query_pool, query);
 }
 
 } // namespace vull::vk

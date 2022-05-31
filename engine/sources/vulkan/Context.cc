@@ -186,6 +186,7 @@ Context::Context() : ContextTable{} {
     };
     VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vkb::Result::Success);
     load_device();
+    vkGetPhysicalDeviceProperties(&m_properties);
 }
 
 Context::~Context() {
@@ -216,6 +217,10 @@ vkb::DeviceMemory Context::allocate_memory(const vkb::MemoryRequirements &requir
     vkb::DeviceMemory memory;
     VULL_ENSURE(vkAllocateMemory(&memory_ai, &memory) == vkb::Result::Success);
     return memory;
+}
+
+float Context::timestamp_ms(uint64_t start, uint64_t end) const {
+    return (static_cast<float>(end - start) * m_properties.limits.timestampPeriod) / 1000000000.0f;
 }
 
 } // namespace vull::vk

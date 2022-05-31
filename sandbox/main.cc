@@ -22,6 +22,7 @@
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Swapchain.hh>
@@ -1106,15 +1107,6 @@ void main_task(Scheduler &scheduler) {
     context.vkMapMemory(vull::get<1>(uniform_buffers[0]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[0]);
     context.vkMapMemory(vull::get<1>(uniform_buffers[1]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[1]);
 
-    vkb::QueryPoolCreateInfo query_pool_ci{
-        .sType = vkb::StructureType::QueryPoolCreateInfo,
-        .queryType = vkb::QueryType::Timestamp,
-        .queryCount = 6,
-    };
-    Array<vkb::QueryPool, 2> timestamp_pools;
-    context.vkCreateQueryPool(&query_pool_ci, &timestamp_pools[0]);
-    context.vkCreateQueryPool(&query_pool_ci, &timestamp_pools[1]);
-
     vk::RenderGraph render_graph;
 
     // GBuffer resources.
@@ -1256,6 +1248,8 @@ void main_task(Scheduler &scheduler) {
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
     render_graph.compile(swapchain_resource);
 
+    auto timestamp_pools = render_graph.create_timestamp_pools(context, 2);
+
     vkb::FenceCreateInfo fence_ci{
         .sType = vkb::StructureType::FenceCreateInfo,
         .flags = vkb::FenceCreateFlags::Signaled,
@@ -1285,7 +1279,7 @@ void main_task(Scheduler &scheduler) {
         vkb::Fence frame_fence = frame_fences[frame_index];
         vkb::Semaphore image_available_semaphore = frame_semaphores[frame_index * 2];
         vkb::Semaphore rendering_finished_semaphore = frame_semaphores[frame_index * 2 + 1];
-        vkb::QueryPool timestamp_pool = timestamp_pools[frame_index];
+        vk::QueryPool &timestamp_pool = timestamp_pools[frame_index];
         void *light_data = light_data_ptrs[frame_index];
         void *ubo_data = ubo_data_ptrs[frame_index];
 
@@ -1301,25 +1295,14 @@ void main_task(Scheduler &scheduler) {
         cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
 
         Array<uint64_t, 6> timestamp_data{};
-        context.vkGetQueryPoolResults(timestamp_pool, 0, timestamp_data.size(), timestamp_data.size_bytes(),
-                                      timestamp_data.data(), sizeof(uint64_t), vkb::QueryResultFlags::_64);
+        timestamp_pool.read_host(timestamp_data.span());
 
         ui::TimeGraph::Bar gpu_frame_bar;
-        gpu_frame_bar.sections.push({"Geometry pass", (static_cast<float>((timestamp_data[1] - timestamp_data[0])) *
-                                                       device_properties.limits.timestampPeriod) /
-                                                          1000000000.0f});
-        gpu_frame_bar.sections.push({"Shadow pass", (static_cast<float>((timestamp_data[2] - timestamp_data[1])) *
-                                                     device_properties.limits.timestampPeriod) /
-                                                        1000000000.0f});
-        gpu_frame_bar.sections.push({"Light cull", (static_cast<float>((timestamp_data[3] - timestamp_data[2])) *
-                                                    device_properties.limits.timestampPeriod) /
-                                                       1000000000.0f});
-        gpu_frame_bar.sections.push({"Deferred pass", (static_cast<float>((timestamp_data[4] - timestamp_data[3])) *
-                                                       device_properties.limits.timestampPeriod) /
-                                                          1000000000.0f});
-        gpu_frame_bar.sections.push({"UI", (static_cast<float>((timestamp_data[5] - timestamp_data[4])) *
-                                            device_properties.limits.timestampPeriod) /
-                                               1000000000.0f});
+        gpu_frame_bar.sections.push({"Geometry pass", context.timestamp_ms(timestamp_data[0], timestamp_data[1])});
+        gpu_frame_bar.sections.push({"Shadow pass", context.timestamp_ms(timestamp_data[1], timestamp_data[2])});
+        gpu_frame_bar.sections.push({"Light cull", context.timestamp_ms(timestamp_data[2], timestamp_data[3])});
+        gpu_frame_bar.sections.push({"Deferred pass", context.timestamp_ms(timestamp_data[3], timestamp_data[4])});
+        gpu_frame_bar.sections.push({"UI", context.timestamp_ms(timestamp_data[4], timestamp_data[5])});
         gpu_time_graph.add_bar(vull::move(gpu_frame_bar));
 
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
@@ -1356,7 +1339,6 @@ void main_task(Scheduler &scheduler) {
 
         Timer record_timer;
         const auto &cmd_buf = cmd_pool.request_cmd_buf();
-        cmd_buf.reset_query_pool(timestamp_pool, query_pool_ci.queryCount);
 
         Array compute_sets{frame_set, deferred_set};
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Compute, compute_pipeline_layout, compute_sets.span());
@@ -1406,9 +1388,6 @@ void main_task(Scheduler &scheduler) {
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();
-    for (auto *timestamp_pool : timestamp_pools) {
-        context.vkDestroyQueryPool(timestamp_pool);
-    }
     for (auto *semaphore : frame_semaphores) {
         context.vkDestroySemaphore(semaphore);
     }

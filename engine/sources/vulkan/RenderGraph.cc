@@ -12,6 +12,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
+#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
@@ -157,7 +158,7 @@ bool Pass::does_write_to(Resource &resource) {
     return false;
 }
 
-void Pass::record(const CommandBuffer &cmd_buf, vkb::QueryPool timestamp_pool) {
+void Pass::record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool) {
     Vector<vkb::BufferMemoryBarrier2> buffer_barriers;
     Vector<vkb::ImageMemoryBarrier2> image_barriers;
     auto add_barriers = [&](const Vector<ResourceUse> &uses) {
@@ -183,8 +184,8 @@ void Pass::record(const CommandBuffer &cmd_buf, vkb::QueryPool timestamp_pool) {
         .pImageMemoryBarriers = image_barriers.data(),
     };
     cmd_buf.pipeline_barrier(dependency_info);
-    if (m_order_index != 0) {
-        cmd_buf.write_timestamp(vkb::PipelineStage2::AllCommands, timestamp_pool, m_order_index);
+    if (m_order_index != 0 && timestamp_pool) {
+        cmd_buf.write_timestamp(vkb::PipelineStage2::AllCommands, *timestamp_pool, m_order_index);
     }
     if (m_on_record) {
         m_on_record(cmd_buf);
@@ -312,12 +313,21 @@ void RenderGraph::compile(Resource &target) {
     }
 }
 
-void RenderGraph::record(const CommandBuffer &cmd_buf, vkb::QueryPool timestamp_pool) const {
-    cmd_buf.write_timestamp(vkb::PipelineStage2::None, timestamp_pool, 0);
+Vector<QueryPool> RenderGraph::create_timestamp_pools(const Context &context, uint32_t count) const {
+    return Vector<QueryPool>(count, context, m_pass_order.size() + 1, vkb::QueryType::Timestamp);
+}
+
+void RenderGraph::record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool) const {
+    if (timestamp_pool) {
+        cmd_buf.reset_query_pool(*timestamp_pool);
+        cmd_buf.write_timestamp(vkb::PipelineStage2::None, *timestamp_pool, 0);
+    }
     for (Pass &pass : m_pass_order) {
         pass.record(cmd_buf, timestamp_pool);
     }
-    cmd_buf.write_timestamp(vkb::PipelineStage2::AllCommands, timestamp_pool, m_pass_order.size());
+    if (timestamp_pool) {
+        cmd_buf.write_timestamp(vkb::PipelineStage2::AllCommands, *timestamp_pool, m_pass_order.size());
+    }
 }
 
 template <typename T>

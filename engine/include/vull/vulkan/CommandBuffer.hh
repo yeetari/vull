@@ -9,6 +9,7 @@ namespace vull::vk {
 
 class CommandPool;
 class Context;
+class QueryPool;
 
 class CommandBuffer {
     friend CommandPool;
@@ -50,8 +51,8 @@ public:
 
     void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
     void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;
-    void reset_query_pool(vkb::QueryPool query_pool, uint32_t query_count) const;
-    void write_timestamp(vkb::PipelineStage2 stage, vkb::QueryPool query_pool, uint32_t query) const;
+    void reset_query_pool(const QueryPool &query_pool) const;
+    void write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const;
 
     vkb::CommandBuffer operator*() const { return m_cmd_buf; }
     vkb::Semaphore completion_semaphore() const { return m_completion_semaphore; }
