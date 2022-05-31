@@ -13,7 +13,6 @@
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
-#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
@@ -1269,8 +1268,11 @@ void main_task(Scheduler &scheduler) {
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
+    vull::seed_rand(3);
+
     uint32_t frame_index = 0;
     Timer frame_timer;
+    cpu_time_graph.new_bar();
     while (!window.should_close()) {
         float dt = frame_timer.elapsed();
         frame_timer.reset();
@@ -1283,27 +1285,25 @@ void main_task(Scheduler &scheduler) {
         void *light_data = light_data_ptrs[frame_index];
         void *ubo_data = ubo_data_ptrs[frame_index];
 
-        ui::TimeGraph::Bar cpu_frame_bar;
+        gpu_time_graph.new_bar();
 
         Timer acquire_timer;
         uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
-        cpu_frame_bar.sections.push({"Acquire swapchain", acquire_timer.elapsed()});
+        cpu_time_graph.push_section("Acquire swapchain", acquire_timer.elapsed());
 
         Timer wait_fence_timer;
         context.vkWaitForFences(1, &frame_fence, true, ~0ul);
         context.vkResetFences(1, &frame_fence);
-        cpu_frame_bar.sections.push({"Wait fence", wait_fence_timer.elapsed()});
+        cpu_time_graph.push_section("Wait fence", wait_fence_timer.elapsed());
 
+        // Previous frame N's timestamp data.
         Array<uint64_t, 6> timestamp_data{};
         timestamp_pool.read_host(timestamp_data.span());
-
-        ui::TimeGraph::Bar gpu_frame_bar;
-        gpu_frame_bar.sections.push({"Geometry pass", context.timestamp_ms(timestamp_data[0], timestamp_data[1])});
-        gpu_frame_bar.sections.push({"Shadow pass", context.timestamp_ms(timestamp_data[1], timestamp_data[2])});
-        gpu_frame_bar.sections.push({"Light cull", context.timestamp_ms(timestamp_data[2], timestamp_data[3])});
-        gpu_frame_bar.sections.push({"Deferred pass", context.timestamp_ms(timestamp_data[3], timestamp_data[4])});
-        gpu_frame_bar.sections.push({"UI", context.timestamp_ms(timestamp_data[4], timestamp_data[5])});
-        gpu_time_graph.add_bar(vull::move(gpu_frame_bar));
+        gpu_time_graph.push_section("Geometry pass", context.timestamp_elapsed(timestamp_data[0], timestamp_data[1]));
+        gpu_time_graph.push_section("Shadow pass", context.timestamp_elapsed(timestamp_data[1], timestamp_data[2]));
+        gpu_time_graph.push_section("Light cull", context.timestamp_elapsed(timestamp_data[2], timestamp_data[3]));
+        gpu_time_graph.push_section("Deferred pass", context.timestamp_elapsed(timestamp_data[3], timestamp_data[4]));
+        gpu_time_graph.push_section("UI", context.timestamp_elapsed(timestamp_data[4], timestamp_data[5]));
 
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
@@ -1378,12 +1378,12 @@ void main_task(Scheduler &scheduler) {
             },
         };
         queue.submit(cmd_buf, frame_fence, signal_semaphores.span(), wait_semaphores.span());
-        cpu_frame_bar.sections.push({"Record", record_timer.elapsed()});
+        cpu_time_graph.new_bar();
+        cpu_time_graph.push_section("Record", record_timer.elapsed());
 
         Array present_wait_semaphores{rendering_finished_semaphore};
         swapchain.present(image_index, present_wait_semaphores.span());
         window.poll_events();
-        cpu_time_graph.add_bar(vull::move(cpu_frame_bar));
         frame_index = (frame_index + 1) % 2;
     }
     scheduler.stop();

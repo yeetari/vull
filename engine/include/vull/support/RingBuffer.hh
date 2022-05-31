@@ -23,6 +23,8 @@ public:
     RingBuffer &operator=(RingBuffer &&) = delete;
 
     void enqueue(T &&elem);
+    template <typename... Args>
+    T &emplace(Args &&...args);
 
     T *begin() { return m_data; }
     T *end() { return m_data + m_size; }
@@ -56,6 +58,16 @@ void RingBuffer<T, SizeType>::enqueue(T &&elem) {
     slot.~T();
     slot = forward<T>(elem);
     m_head = (m_head + 1) % m_size;
+}
+
+template <typename T, typename SizeType>
+template <typename... Args>
+T &RingBuffer<T, SizeType>::emplace(Args &&...args) {
+    auto &slot = m_data[(m_head + m_size) % m_size];
+    slot.~T();
+    new (&slot) T(forward<Args>(args)...);
+    m_head = (m_head + 1) % m_size;
+    return slot;
 }
 
 } // namespace vull

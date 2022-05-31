@@ -27,14 +27,7 @@ Vec4f TimeGraph::colour_for_section(uint32_t section_index) {
     auto random_colour = vull::linear_rand(Vec3f(0.1f), Vec3f(1.0f));
     random_colour += m_base_colour;
     random_colour *= 0.5f;
-    return (m_section_colours[section_index] = {random_colour.x(), random_colour.y(), random_colour.z(), 1.0f});
-}
-
-void TimeGraph::add_bar(Bar &&bar) {
-    vull::sort(bar.sections, [](const auto &lhs, const auto &rhs) {
-        return lhs.duration < rhs.duration;
-    });
-    m_bars.enqueue(vull::move(bar));
+    return (m_section_colours[section_index] = {random_colour, 1.0f});
 }
 
 void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font, StringView title) {
@@ -84,6 +77,17 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont
                            Vec2f(position.x() + m_size.x() + 10.0f, y_offset), text);
         y_offset += 30.0f;
     }
+}
+
+void TimeGraph::new_bar() {
+    m_current_bar = m_bars.emplace();
+}
+
+void TimeGraph::push_section(String name, float duration) {
+    m_current_bar->sections.push({vull::move(name), duration});
+    vull::sort(m_current_bar->sections, [](const auto &lhs, const auto &rhs) {
+        return lhs.duration < rhs.duration;
+    });
 }
 
 } // namespace vull::ui

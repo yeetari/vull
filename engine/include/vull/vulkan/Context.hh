@@ -31,7 +31,7 @@ public:
     Context &operator=(Context &&) = delete;
 
     vkb::DeviceMemory allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const;
-    float timestamp_ms(uint64_t start, uint64_t end) const;
+    float timestamp_elapsed(uint64_t start, uint64_t end) const;
     const Vector<vkb::QueueFamilyProperties> &queue_families() const { return m_queue_families; }
 };
 

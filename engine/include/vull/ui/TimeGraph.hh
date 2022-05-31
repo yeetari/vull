@@ -31,14 +31,16 @@ private:
     const float m_bar_spacing;
     RingBuffer<Bar> m_bars;
     Vector<Vec4f> m_section_colours;
+    Optional<Bar &> m_current_bar;
 
     Vec4f colour_for_section(uint32_t section_index);
 
 public:
     TimeGraph(const Vec2f &size, const Vec3f &base_colour, float bar_width = 3.0f, float bar_spacing = 0.0f);
 
-    void add_bar(Bar &&bar);
     void draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font = {}, StringView title = {});
+    void new_bar();
+    void push_section(String name, float duration);
 };
 
 } // namespace vull::ui

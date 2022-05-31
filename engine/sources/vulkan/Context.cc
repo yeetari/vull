@@ -219,7 +219,7 @@ vkb::DeviceMemory Context::allocate_memory(const vkb::MemoryRequirements &requir
     return memory;
 }
 
-float Context::timestamp_ms(uint64_t start, uint64_t end) const {
+float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {
     return (static_cast<float>(end - start) * m_properties.limits.timestampPeriod) / 1000000000.0f;
 }
 
