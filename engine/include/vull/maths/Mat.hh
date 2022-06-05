@@ -170,4 +170,48 @@ Mat<T, 4, 4> perspective(T aspect_ratio, T fov, T near, T far) {
     return ret;
 }
 
+template <typename T>
+Mat<T, 4, 4> rotation_x(T angle) {
+    Mat<T, 4, 4> ret(T(1));
+    ret[1][1] = ret[2][2] = cos(angle);
+    ret[2][1] = -(ret[1][2] = sin(angle));
+    return  ret;
+}
+
+template <typename T>
+Mat<T, 4, 4> rotation_y(T angle) {
+    Mat<T, 4, 4> ret(T(1));
+    ret[0][0] = ret[2][2] = cos(angle);
+    ret[0][2] = -(ret[2][0] = sin(angle));
+    return ret;
+}
+
+template <typename T>
+Mat<T, 4, 4> rotation_z(T angle) {
+    Mat<T, 4, 4> ret(T(1));
+    ret[0][0] = ret[1][1] = cos(angle);
+    ret[1][0] = -(ret[0][1] = sin(angle));
+    return ret;
+}
+
+template <typename T>
+Mat<T, 4, 4> rotation(T angle, const Vec<T, 3> &axis) {
+    T cos_angle = cos(angle);
+    T sin_angle = sin(angle);
+
+    Vec<T, 3> axis_cos = axis * (T(1) - cos_angle);
+    Vec<T, 3> axis_sin = axis * sin_angle;
+    Mat<T, 4, 4> ret(T(1));
+    ret[0][0] = cos_angle + axis.x() * axis_cos.x();
+    ret[0][1] = axis.y() * axis_cos.x() + axis_sin.z();
+    ret[0][2] = axis.z() * axis_cos.x() - axis_sin.y();
+    ret[1][0] = axis.x() * axis_cos.y() - axis_sin.z();
+    ret[1][1] = cos_angle + axis.y() * axis_cos.y();
+    ret[1][2] = axis.z() * axis_cos.y() + axis_sin.x();
+    ret[2][0] = axis.x() * axis_cos.z() + axis_sin.y();
+    ret[2][1] = axis.y() * axis_cos.z() - axis_sin.x();
+    ret[2][2] = cos_angle + axis.z() * axis_cos.z();
+    return ret;
+}
+
 } // namespace vull
