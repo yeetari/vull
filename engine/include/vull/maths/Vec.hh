@@ -133,13 +133,13 @@ constexpr Vec<T, 3> cross(const Vec<T, 3> &lhs, const Vec<T, 3> &rhs) {
 }
 
 template <typename T, unsigned L>
-constexpr float distance(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {
+constexpr T distance(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {
     return magnitude(rhs - lhs);
 }
 
 template <typename T, unsigned L>
-constexpr float dot(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {
-    float ret = 0.0f;
+constexpr T dot(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {
+    T ret = T(0);
     for (unsigned i = 0; i < L; i++) {
         ret += lhs[i] * rhs[i];
     }
@@ -147,7 +147,7 @@ constexpr float dot(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {
 }
 
 template <typename T, unsigned L>
-constexpr float magnitude(const Vec<T, L> &vec) {
+constexpr T magnitude(const Vec<T, L> &vec) {
     return sqrt(square_magnitude(vec));
 }
 
@@ -157,7 +157,7 @@ constexpr Vec<T, L> normalise(const Vec<T, L> &vec) {
 }
 
 template <typename T, unsigned L>
-constexpr float square_magnitude(const Vec<T, L> &vec) {
+constexpr T square_magnitude(const Vec<T, L> &vec) {
     return dot(vec, vec);
 }
 
