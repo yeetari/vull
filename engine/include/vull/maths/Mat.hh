@@ -175,7 +175,7 @@ Mat<T, 4, 4> rotation_x(T angle) {
     Mat<T, 4, 4> ret(T(1));
     ret[1][1] = ret[2][2] = cos(angle);
     ret[2][1] = -(ret[1][2] = sin(angle));
-    return  ret;
+    return ret;
 }
 
 template <typename T>

@@ -26,6 +26,11 @@ constexpr T lerp(T a, T b, T x) {
 }
 
 template <typename T>
+constexpr T sign(T x) {
+    return T(T(0) < x) - T(x < T(0));
+}
+
+template <typename T>
 constexpr T min(T a, T b) {
     return b < a ? b : a;
 }

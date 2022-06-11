@@ -157,6 +157,15 @@ constexpr Vec<T, L> normalise(const Vec<T, L> &vec) {
 }
 
 template <typename T, unsigned L>
+constexpr Vec<T, L> sign(const Vec<T, L> &vec) {
+    Vec<T, L> ret;
+    for (unsigned i = 0; i < L; i++) {
+        ret[i] = sign(vec[i]);
+    }
+    return ret;
+}
+
+template <typename T, unsigned L>
 constexpr T square_magnitude(const Vec<T, L> &vec) {
     return dot(vec, vec);
 }
