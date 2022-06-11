@@ -115,6 +115,15 @@ constexpr Vec<T, L>::Vec(const Vec<T, L1> &vec) requires(L1 > L) {
 }
 
 template <typename T, unsigned L>
+constexpr Vec<T, L> operator-(const Vec<T, L> &vec) {
+    Vec<T, L> ret;
+    for (unsigned i = 0; i < L; i++) {
+        ret[i] = -vec[i];
+    }
+    return ret;
+}
+
+template <typename T, unsigned L>
 constexpr Vec<T, L> abs(const Vec<T, L> &vec) {
     Vec<T, L> ret;
     for (unsigned i = 0; i < L; i++) {
