@@ -1,18 +1,29 @@
-#include "Camera.hh"
+#include "FreeCamera.hh"
+#include "OrbitCamera.hh"
 
+#include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
 #include <vull/core/Vertex.hh>
 #include <vull/core/Window.hh>
+#include <vull/ecs/Entity.hh>
+#include <vull/ecs/EntityId.hh>
+#include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/maths/Quat.hh>
 #include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/physics/Collider.hh>
+#include <vull/physics/PhysicsEngine.hh>
+#include <vull/physics/RigidBody.hh>
+#include <vull/physics/Shape.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
@@ -31,6 +42,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <vull/core/Material.hh>
+#include <vull/core/Transform.hh>
 
 using namespace vull;
 
@@ -1021,10 +1034,11 @@ void main_task(Scheduler &scheduler) {
         light.position = vull::linear_rand(Vec3f(-50.0f, 2.0f, -70.0f), Vec3f(100.0f, 30.0f, 50.0f));
     }
 
-    Camera camera;
-    camera.set_position({20.0f, 15.0f, -20.0f});
-    camera.set_pitch(-0.3f);
-    camera.set_yaw(2.4f);
+    FreeCamera free_camera;
+    OrbitCamera orbit_camera;
+    free_camera.set_position({20.0f, 15.0f, -20.0f});
+    free_camera.set_pitch(-0.3f);
+    free_camera.set_yaw(2.4f);
 
     const float near_plane = 0.1f;
     UniformBuffer ubo{
@@ -1268,6 +1282,30 @@ void main_task(Scheduler &scheduler) {
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
+    auto &world = scene.world();
+    world.register_component<RigidBody>();
+    world.register_component<Collider>();
+
+    for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
+        if (mesh.index_count() != 36u) {
+            continue;
+        }
+        world.add_component<Collider>(
+            transform.parent(),
+            vull::make_unique<BoxShape>(world.get_component<Transform>(transform.parent()).scale()));
+    }
+
+    auto player = world.create_entity();
+    player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
+    player.add<Mesh>(0u, 36u);
+    player.add<Material>(0u, 1u);
+    player.add<RigidBody>(1.0f);
+    player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
+    player.get<RigidBody>().set_shape(player.get<Collider>().shape());
+
+    PhysicsEngine physics_engine;
+    bool free_camera_active = false;
+    bool free_camera_active_key_pressed = false;
     vull::seed_rand(3);
 
     uint32_t frame_index = 0;
@@ -1276,6 +1314,12 @@ void main_task(Scheduler &scheduler) {
     while (!window.should_close()) {
         float dt = frame_timer.elapsed();
         frame_timer.reset();
+
+        Timer physics_timer;
+        if (!window.is_key_down(Key::P)) {
+            physics_engine.step(world, dt);
+        }
+        cpu_time_graph.push_section("Physics", physics_timer.elapsed());
 
         vkb::DescriptorSet frame_set = frame_sets[frame_index];
         vkb::Fence frame_fence = frame_fences[frame_index];
@@ -1313,9 +1357,42 @@ void main_task(Scheduler &scheduler) {
                      vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
                                   ubo.camera_position.z()));
 
-        camera.update(window, dt);
-        ubo.camera_position = camera.position();
-        ubo.view = camera.view_matrix();
+        if (window.is_key_down(Key::F) && !free_camera_active_key_pressed) {
+            free_camera_active = !free_camera_active;
+            free_camera_active_key_pressed = true;
+        } else if (!window.is_key_down(Key::F)) {
+            free_camera_active_key_pressed = false;
+        }
+
+        if (!free_camera_active) {
+            auto &player_body = player.get<RigidBody>();
+            auto &player_transform = player.get<Transform>();
+            auto camera_forward = vull::normalise(player_transform.position() - orbit_camera.translated());
+            auto camera_right = vull::normalise(vull::cross(camera_forward, Vec3f(0.0f, 1.0f, 0.0f)));
+
+            const float speed = window.is_key_down(Key::Shift) ? 50.0f : 10.0f;
+            if (window.is_key_down(Key::W)) {
+                player_body.apply_central_force(camera_forward * speed);
+            }
+            if (window.is_key_down(Key::S)) {
+                player_body.apply_central_force(camera_forward * -speed);
+            }
+            if (window.is_key_down(Key::A)) {
+                player_body.apply_central_force(camera_right * -speed);
+            }
+            if (window.is_key_down(Key::D)) {
+                player_body.apply_central_force(camera_right * speed);
+            }
+            orbit_camera.set_position(player_transform.position() + Vec3f(8.0f, 3.0f, 0.0f));
+            orbit_camera.set_pivot(player_transform.position());
+            orbit_camera.update(window, dt);
+            ubo.camera_position = orbit_camera.translated();
+            ubo.view = orbit_camera.view_matrix();
+        } else {
+            free_camera.update(window, dt);
+            ubo.camera_position = free_camera.position();
+            ubo.view = free_camera.view_matrix();
+        }
         update_cascades();
 
         uint32_t light_count = lights.size();

@@ -6,6 +6,10 @@ target_sources(vull PRIVATE
     ecs/Entity.cc
     ecs/World.cc
     maths/Random.cc
+    physics/Mpr.cc
+    physics/PhysicsEngine.cc
+    physics/RigidBody.cc
+    physics/Shape.cc
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc
