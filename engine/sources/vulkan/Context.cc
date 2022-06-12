@@ -164,20 +164,13 @@ Context::Context() : ContextTable{} {
         .synchronization2 = true,
         .dynamicRendering = true,
     };
-    vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
-        .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
-        .pNext = &device_13_features,
-        .shaderSharedFloat32AtomicMinMax = true,
-    };
 
     Array enabled_device_extensions{
-        "VK_EXT_shader_atomic_float",
-        "VK_EXT_shader_atomic_float2",
         "VK_KHR_swapchain",
     };
     vkb::DeviceCreateInfo device_ci{
         .sType = vkb::StructureType::DeviceCreateInfo,
-        .pNext = &atomic_float_min_max_features,
+        .pNext = &device_13_features,
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = enabled_device_extensions.size(),

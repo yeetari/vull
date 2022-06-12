@@ -4,8 +4,6 @@
 #include "lib/lighting.glsl"
 #include "lib/ubo.glsl"
 
-#extension GL_EXT_shader_atomic_float2 : enable
-
 layout (local_size_x_id = 2) in;
 
 DECLARE_UBO(0);
@@ -22,8 +20,8 @@ struct ViewFrustum {
     vec3 planes[4];
 };
 
-shared float g_min_depth;
-shared float g_max_depth;
+shared uint g_min_depth;
+shared uint g_max_depth;
 shared uint g_tile_light_count;
 shared ViewFrustum g_frustum;
 
@@ -53,7 +51,7 @@ bool is_light_visible(PointLight light) {
             return false;
         }
     }
-    if (position.z + g_max_depth < -light.radius || position.z + g_min_depth > light.radius) {
+    if (position.z + uintBitsToFloat(g_max_depth) < -light.radius || position.z + uintBitsToFloat(g_min_depth) > light.radius) {
         return false;
     }
     return true;
@@ -63,8 +61,8 @@ void main() {
     ivec2 tile_id = ivec2(gl_WorkGroupID.xy);
     uint tile_index = tile_id.y * gl_NumWorkGroups.x + tile_id.x;
     if (gl_LocalInvocationIndex == 0) {
-        g_min_depth = 1.0f / 0.0f;
-        g_max_depth = 0.0f;
+        g_min_depth = 2147483648;
+        g_max_depth = 0;
         g_tile_light_count = 0;
     }
     barrier();
@@ -74,8 +72,8 @@ void main() {
     for (uint y = 0; y < k_tile_size; y++) {
         vec2 sample_location = vec2(k_tile_size) * tile_id + vec2(gl_LocalInvocationIndex, y);
         float depth = linearise_depth(texelFetch(g_depth_image, ivec2(sample_location), 0).r, g_proj);
-        atomicMin(g_min_depth, depth);
-        atomicMax(g_max_depth, depth);
+        atomicMin(g_min_depth, floatBitsToUint(depth));
+        atomicMax(g_max_depth, floatBitsToUint(depth));
     }
     barrier();
     for (uint i = gl_LocalInvocationIndex; i < g_light_count; i += k_tile_size) {
