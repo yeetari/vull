@@ -1,4 +1,4 @@
-#include "Camera.hh"
+#include "FreeCamera.hh"
 
 #include <vull/core/Window.hh>
 #include <vull/maths/Common.hh>
@@ -12,7 +12,7 @@ constexpr vull::Vec3f k_world_up(0.0f, 1.0f, 0.0f);
 
 } // namespace
 
-void Camera::update(const vull::Window &window, float dt) {
+void FreeCamera::update(const vull::Window &window, float dt) {
     // Handle any mouse movement.
     m_yaw += window.delta_x() * dt * k_mouse_sensitivity;
     m_pitch -= window.delta_y() * dt * k_mouse_sensitivity;
@@ -41,6 +41,6 @@ void Camera::update(const vull::Window &window, float dt) {
     }
 }
 
-vull::Mat4f Camera::view_matrix() {
+vull::Mat4f FreeCamera::view_matrix() {
     return vull::look_at(m_position, m_position + m_forward, k_world_up);
 }

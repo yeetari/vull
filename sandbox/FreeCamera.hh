@@ -9,7 +9,7 @@ class Window;
 
 } // namespace vull
 
-class Camera {
+class FreeCamera {
     vull::Vec3f m_position;
     vull::Vec3f m_forward;
     vull::Vec3f m_right;
