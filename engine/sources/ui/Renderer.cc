@@ -43,7 +43,7 @@ Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, co
     // TODO: Dynamic resizing.
     vkb::BufferCreateInfo ui_data_buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
-        .size = sizeof(Vec2f) + sizeof(Object) * 2000,
+        .size = sizeof(Vec2f) + sizeof(Object) * 4096,
         .usage = vkb::BufferUsage::StorageBuffer,
         .sharingMode = vkb::SharingMode::Exclusive,
     };
