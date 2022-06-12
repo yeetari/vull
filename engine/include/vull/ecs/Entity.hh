@@ -2,6 +2,7 @@
 
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
@@ -25,6 +26,8 @@ public:
     bool has();
     template <typename C>
     void remove();
+    template <typename C>
+    Optional<C &> try_get();
 
     void destroy();
     operator EntityId() const { return m_id; }
@@ -144,6 +147,11 @@ bool Entity::has() {
 template <typename C>
 void Entity::remove() {
     m_manager->remove_component<C>(m_id);
+}
+
+template <typename C>
+Optional<C &> Entity::try_get() {
+    return has<C>() ? get<C>() : Optional<C &>();
 }
 
 inline void Entity::destroy() {
