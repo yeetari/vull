@@ -14,6 +14,8 @@ public:
     explicit UniquePtr(T *ptr) : m_ptr(ptr) {}
     UniquePtr(const UniquePtr &) = delete;
     UniquePtr(UniquePtr &&other) : m_ptr(other.disown()) {}
+    template <typename U>
+    UniquePtr(UniquePtr<U> &&other) : m_ptr(other.disown()) {}
     ~UniquePtr() { clear(); }
 
     UniquePtr &operator=(const UniquePtr &) = delete;
