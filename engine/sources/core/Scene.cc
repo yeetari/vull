@@ -266,7 +266,6 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, FILE *pack_file) {
             load_image(cmd_pool, queue, pack_reader, staging_buffer, staging_data, memory_offset);
             break;
         case PackEntryType::WorldData:
-            m_world.deserialise(pack_reader);
             break;
         }
     }

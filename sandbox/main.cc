@@ -373,7 +373,7 @@ void main_task(Scheduler &scheduler) {
         .pScissors = &scissor,
     };
 
-    constexpr uint32_t shadow_resolution = 2048;
+    constexpr uint32_t shadow_resolution = 8192;
     vkb::Rect2D shadow_scissor{
         .extent = {shadow_resolution, shadow_resolution},
     };
@@ -1286,21 +1286,29 @@ void main_task(Scheduler &scheduler) {
     world.register_component<RigidBody>();
     world.register_component<Collider>();
 
-    for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
-        if (mesh.index_count() != 36u) {
-            continue;
-        }
-        world.add_component<Collider>(
-            transform.parent(),
-            vull::make_unique<BoxShape>(world.get_component<Transform>(transform.parent()).scale()));
+    auto ground = world.create_entity();
+    ground.add<Transform>(~EntityId(0), Vec3f(0.0f, 0.0f, 0.0f), Quatf(), Vec3f(30.0f, 0.2f, 30.0f));
+    ground.add<Mesh>(0u, 36u);
+    ground.add<Material>(0u, 1u);
+    ground.add<Collider>(vull::make_unique<BoxShape>(Vec3f(30.0f, 0.2f, 30.0f)));
+
+    for (unsigned i = 0; i < 100; i++) {
+        auto box = world.create_entity();
+        box.add<Transform>(~EntityId(0), vull::linear_rand(Vec3f(-25.0f, 1.0f, -25.0f), Vec3f(25.0f, 20.0f, 25.0f)),
+                           Quatf(), Vec3f(0.5f));
+        box.add<Mesh>(0u, 36u);
+        box.add<Material>(0u, 1u);
+        box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.5f)));
+        box.add<RigidBody>(0.5f);
+        box.get<RigidBody>().set_shape(box.get<Collider>().shape());
     }
 
     auto player = world.create_entity();
-    player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
+    player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(10.0f, 0.5f, 0.5f));
     player.add<Mesh>(0u, 36u);
     player.add<Material>(0u, 1u);
-    player.add<RigidBody>(1.0f);
-    player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
+    player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(10.0f, 0.5f, 0.5f)));
+    player.add<RigidBody>(10.0f);
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
 
     PhysicsEngine physics_engine;
@@ -1362,6 +1370,11 @@ void main_task(Scheduler &scheduler) {
             free_camera_active_key_pressed = true;
         } else if (!window.is_key_down(Key::F)) {
             free_camera_active_key_pressed = false;
+        }
+
+        if (window.is_key_down(Key::C)) {
+            player.get<RigidBody>().apply_force(Vec3f(0.0f, 0.0f, 50.0f), Vec3f(5.0f, 0.0f, 0.0f));
+            player.get<RigidBody>().apply_force(Vec3f(0.0f, 0.0f, -50.0f), Vec3f(-5.0f, 0.0f, 0.0f));
         }
 
         if (!free_camera_active) {
