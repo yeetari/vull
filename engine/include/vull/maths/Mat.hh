@@ -113,6 +113,17 @@ Mat<T, 4, 4> inverse(const Mat<T, 4, 4> &mat) {
     return inverse * (T(1) / dot1);
 }
 
+template <typename T, unsigned C, unsigned R>
+Mat<T, R, C> transpose(const Mat<T, C, R> &lhs) {
+    Mat<T, R, C> ret;
+    for (unsigned i = 0; i < C; i++) {
+        for (unsigned j = 0; j < R; j++) {
+            ret[i][j] = lhs[j][i];
+        }
+    }
+    return ret;
+}
+
 template <typename T>
 Mat<T, 4, 4> look_at(const Vec<T, 3> &camera, const Vec<T, 3> &center, const Vec<T, 3> &up) {
     const auto f = normalise(center - camera);
