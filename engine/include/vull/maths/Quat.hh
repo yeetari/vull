@@ -5,15 +5,122 @@
 
 namespace vull {
 
-// TODO: Inherting from Vec whilst useful for the constructors, getters and setters is unsafe for the operation
-//       functions.
 template <typename T>
-struct Quat : Vec<T, 4> {
-    using Vec<T, 4>::Vec;
-    Quat() : Vec<T, 4>(T(0), T(0), T(0), T(1)) {}
+class Quat {
+    T m_x{T(0)};
+    T m_y{T(0)};
+    T m_z{T(0)};
+    T m_w{T(1)};
+
+public:
+    Quat() = default;
+    template <typename U>
+    Quat(U x, U y, U z, U w) : m_x(T(x)), m_y(T(y)), m_z(T(z)), m_w(T(w)) {}
+    Quat(const Vec<T, 3> &xyz, T w) : m_x(xyz.x()), m_y(xyz.y()), m_z(xyz.z()), m_w(w) {}
+
+    void set_x(T x) { m_x = x; }
+    void set_y(T y) { m_y = y; }
+    void set_z(T z) { m_z = z; }
+    void set_w(T w) { m_w = w; }
+
+    T &operator[](unsigned elem);
+    T x() const { return m_x; }
+    T y() const { return m_y; }
+    T z() const { return m_z; }
+    T w() const { return m_w; }
 };
 
 using Quatf = Quat<float>;
+
+template <typename T>
+T &Quat<T>::operator[](unsigned int elem) {
+    switch (elem) {
+    case 0:
+        return m_x;
+    case 1:
+        return m_y;
+    case 2:
+        return m_z;
+    case 3:
+        return m_w;
+    default:
+        __builtin_unreachable();
+    }
+}
+
+template <typename T>
+Quat<T> operator+(const Quat<T> &lhs, const Quat<T> &rhs) {
+    return Quat<T>(lhs.x() + rhs.x(), lhs.y() + rhs.y(), lhs.z() + rhs.z(), lhs.w() + rhs.w());
+}
+
+template <typename T>
+Quat<T> operator*(const Quat<T> &lhs, T rhs) {
+    return Quat<T>(lhs.x() * rhs, lhs.y() * rhs, lhs.z() * rhs, lhs.w() * rhs);
+}
+
+template <typename T>
+Quat<T> operator/(const Quat<T> &lhs, T rhs) {
+    return Quat<T>(lhs.x() / rhs, lhs.y() / rhs, lhs.z() / rhs, lhs.w() / rhs);
+}
+
+template <typename T>
+Quat<T> operator*(const Quat<T> &lhs, const Quat<T> &rhs) {
+    return {
+        lhs.w() * rhs.x() + lhs.x() * rhs.w() + lhs.y() * rhs.z() - lhs.z() * rhs.y(),
+        lhs.w() * rhs.y() + lhs.y() * rhs.w() + lhs.z() * rhs.x() - lhs.x() * rhs.z(),
+        lhs.w() * rhs.z() + lhs.z() * rhs.w() + lhs.x() * rhs.y() - lhs.y() * rhs.x(),
+        lhs.w() * rhs.w() - lhs.x() * rhs.x() - lhs.y() * rhs.y() - lhs.z() * rhs.z(),
+    };
+}
+
+template <typename T>
+Quat<T> angle_axis(T angle, const Vec<T, 3> &axis) {
+    T half_angle = angle * T(0.5);
+    return Quat<T>(axis * sin(half_angle), cos(half_angle));
+}
+
+template <typename T>
+Quat<T> conjugate(const Quat<T> &quat) {
+    return Quat<T>(-quat.x(), -quat.y(), -quat.z(), quat.w());
+}
+
+template <typename T>
+T dot(const Quat<T> &lhs, const Quat<T> &rhs) {
+    return lhs.x() * rhs.x() + lhs.y() * rhs.y() + lhs.z() * rhs.z() + lhs.w() * rhs.w();
+}
+
+template <typename T>
+Quat<T> inverse(const Quat<T> &quat) {
+    return conjugate(quat) / square_magnitude(quat);
+}
+
+template <typename T>
+T magnitude(const Quat<T> &quat) {
+    return sqrt(square_magnitude(quat));
+}
+
+template <typename T>
+Quat<T> normalise(const Quat<T> &quat) {
+    T mag = magnitude(quat);
+    if (mag <= T(0)) {
+        return {};
+    }
+    return quat / mag;
+}
+
+// Faster quaternion-vector rotation from
+// https://blog.molecular-matters.com/2013/05/24/a-faster-quaternion-vector-multiplication/
+template <typename T>
+Vec<T, 3> rotate(const Quat<T> &quat, const Vec<T, 3> &vec) {
+    Vec<T, 3> quat_vec(quat.x(), quat.y(), quat.z());
+    auto t = cross(quat_vec, vec) * T(2);
+    return vec + t * quat.w() + cross(quat_vec, t);
+}
+
+template <typename T>
+T square_magnitude(const Quat<T> &quat) {
+    return dot(quat, quat);
+}
 
 template <typename T>
 Mat<T, 3, 3> to_mat3(const Quat<T> &quat) {
