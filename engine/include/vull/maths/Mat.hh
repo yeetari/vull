@@ -60,6 +60,36 @@ Vec<T, C> operator*(const Mat<T, C, C> &lhs, const Vec<T, C> &rhs) {
     return ret;
 }
 
+template <typename T, unsigned R>
+Vec<T, R> operator*(const Vec<T, R> &lhs, const Mat<T, R, R> &rhs) {
+    Vec<T, R> ret;
+    for (unsigned i = 0; i < R; i++) {
+        for (unsigned j = 0; j < R; j++) {
+            ret[i] += lhs[j] * rhs[i][j];
+        }
+    }
+    return ret;
+}
+
+template <typename T>
+Mat<T, 3, 3> inverse(const Mat<T, 3, 3> &mat) {
+    T one_over_det = T(1) / (mat[0][0] * (mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) -
+                             mat[1][0] * (mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2]) +
+                             mat[2][0] * (mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]));
+
+    Mat<T, 3, 3> ret;
+    ret[0][0] = +(mat[1][1] * mat[2][2] - mat[2][1] * mat[1][2]) * one_over_det;
+    ret[1][0] = -(mat[1][0] * mat[2][2] - mat[2][0] * mat[1][2]) * one_over_det;
+    ret[2][0] = +(mat[1][0] * mat[2][1] - mat[2][0] * mat[1][1]) * one_over_det;
+    ret[0][1] = -(mat[0][1] * mat[2][2] - mat[2][1] * mat[0][2]) * one_over_det;
+    ret[1][1] = +(mat[0][0] * mat[2][2] - mat[2][0] * mat[0][2]) * one_over_det;
+    ret[2][1] = -(mat[0][0] * mat[2][1] - mat[2][0] * mat[0][1]) * one_over_det;
+    ret[0][2] = +(mat[0][1] * mat[1][2] - mat[1][1] * mat[0][2]) * one_over_det;
+    ret[1][2] = -(mat[0][0] * mat[1][2] - mat[1][0] * mat[0][2]) * one_over_det;
+    ret[2][2] = +(mat[0][0] * mat[1][1] - mat[1][0] * mat[0][1]) * one_over_det;
+    return ret;
+}
+
 template <typename T>
 Mat<T, 4, 4> inverse(const Mat<T, 4, 4> &mat) {
     T coef00 = mat[2][2] * mat[3][3] - mat[3][2] * mat[2][3];
