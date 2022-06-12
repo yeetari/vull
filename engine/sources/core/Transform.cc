@@ -6,6 +6,18 @@
 
 namespace vull {
 
+Vec3f Transform::forward() const {
+    return vull::rotate(m_rotation, Vec3f(0.0f, 0.0f, 1.0f));
+}
+
+Vec3f Transform::right() const {
+    return vull::rotate(m_rotation, Vec3f(1.0f, 0.0f, 0.0f));
+}
+
+Vec3f Transform::up() const {
+    return vull::rotate(m_rotation, Vec3f(0.0f, 1.0f, 0.0f));
+}
+
 Mat4f Transform::matrix() const {
     Mat4f ret(1.0f);
     ret[3] = Vec4f(m_position, 1.0f);

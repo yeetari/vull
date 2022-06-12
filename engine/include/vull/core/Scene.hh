@@ -55,6 +55,7 @@ public:
     void load(vk::CommandPool &cmd_pool, vk::Queue &queue, FILE *pack_file);
     void render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index);
 
+    World &world() { return m_world; }
     uint32_t texture_count() const { return m_texture_images.size(); }
     const Vector<vkb::ImageView> &texture_views() const { return m_texture_views; }
 };
