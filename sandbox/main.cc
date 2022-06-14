@@ -1428,6 +1428,19 @@ void main_task(Scheduler &scheduler) {
         global_ubo_resource.set_buffer(vull::get<0>(uniform_buffers[frame_index]));
         light_data_resource.set_buffer(vull::get<0>(light_buffers[frame_index]));
         swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
+
+        vkb::MemoryBarrier2 memory_barrier{
+            .sType = vkb::StructureType::MemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+            .srcAccessMask = vkb::Access2::ColorAttachmentWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::MemoryRead,
+        };
+        cmd_buf.pipeline_barrier(vkb::DependencyInfo{
+            .sType = vkb::StructureType::DependencyInfo,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memory_barrier,
+        });
         render_graph.record(cmd_buf, timestamp_pool);
 
         vkb::ImageMemoryBarrier2 swapchain_present_barrier{
