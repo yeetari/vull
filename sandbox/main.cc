@@ -1299,7 +1299,7 @@ void main_task(Scheduler &scheduler) {
     player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
     player.add<Mesh>(0u, 36u);
     player.add<Material>(0u, 1u);
-    player.add<RigidBody>(1.0f);
+    player.add<RigidBody>(250.0f);
     player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
 
@@ -1370,7 +1370,7 @@ void main_task(Scheduler &scheduler) {
             auto camera_forward = vull::normalise(player_transform.position() - orbit_camera.translated());
             auto camera_right = vull::normalise(vull::cross(camera_forward, Vec3f(0.0f, 1.0f, 0.0f)));
 
-            const float speed = window.is_key_down(Key::Shift) ? 50.0f : 10.0f;
+            const float speed = window.is_key_down(Key::Shift) ? 6250.0f : 1250.0f;
             if (window.is_key_down(Key::W)) {
                 player_body.apply_central_force(camera_forward * speed);
             }
@@ -1394,6 +1394,30 @@ void main_task(Scheduler &scheduler) {
             ubo.view = free_camera.view_matrix();
         }
         update_cascades();
+
+        if (window.is_key_down(Key::L)) {
+            const auto &player_transform = player.get<Transform>();
+            const auto position = player_transform.position() + player_transform.forward() * 2.0f;
+            const auto force = player_transform.forward() * 2000.0f;
+            auto box = world.create_entity();
+            box.add<Transform>(~EntityId(0), position, Quatf(), Vec3f(0.2f));
+            box.add<Mesh>(4u, 2904u);
+            box.add<Material>(0u, 1u);
+            box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.2f)));
+            box.add<RigidBody>(0.2f);
+            box.get<RigidBody>().set_shape(box.get<Collider>().shape());
+            box.get<RigidBody>().apply_central_force(force);
+            player.get<RigidBody>().apply_central_force(-force);
+        }
+
+        for (auto [entity, body, transform] : world.view<RigidBody, Transform>()) {
+            if (entity == player) {
+                continue;
+            }
+            if (vull::distance(transform.position(), player.get<Transform>().position()) >= 100.0f) {
+                entity.destroy();
+            }
+        }
 
         uint32_t light_count = lights.size();
         memcpy(light_data, &light_count, sizeof(uint32_t));
