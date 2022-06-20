@@ -5,24 +5,30 @@
 
 namespace vull {
 
-#define DEFINE_OP(op, ope)                                                                                             \
-    constexpr Vec operator op(T rhs) const { return Vec(*this) ope rhs; }                                              \
-    constexpr Vec operator op(const Vec &rhs) const { return Vec(*this) ope rhs; }                                     \
-    constexpr Vec &operator ope(T rhs) {                                                                               \
-        for (unsigned i = 0; i < L; i++) {                                                                             \
-            m_elems[i] ope rhs;                                                                                        \
-        }                                                                                                              \
-        return *this;                                                                                                  \
-    }                                                                                                                  \
-    constexpr Vec &operator ope(const Vec &rhs) {                                                                      \
-        for (unsigned i = 0; i < L; i++) {                                                                             \
-            m_elems[i] ope rhs.m_elems[i];                                                                             \
-        }                                                                                                              \
-        return *this;                                                                                                  \
+#define ENUMERATE_OPS(O)                                                                                               \
+    O(+, +=)                                                                                                           \
+    O(-, -=)                                                                                                           \
+    O(*, *=)                                                                                                           \
+    O(/, /=)                                                                                                           \
+    O(%, %=)                                                                                                           \
+    O(&, &=)                                                                                                           \
+    O(|, |=)                                                                                                           \
+    O(^, ^=)                                                                                                           \
+    O(<<, <<=)                                                                                                         \
+    O(>>, >>=)
+
+template <typename Derived>
+struct VecBase {
+#define ENUMERATE_OP(op, ope)                                                                                          \
+    constexpr Derived operator op(const Derived &rhs) const {                                                          \
+        return Derived(static_cast<const Derived &>(*this)) ope rhs;                                                   \
     }
+    ENUMERATE_OPS(ENUMERATE_OP)
+#undef ENUMERATE_OP
+};
 
 template <typename T, unsigned L>
-class Vec {
+class Vec : public VecBase<Vec<T, L>> {
     Array<T, L> m_elems;
 
 public:
@@ -47,24 +53,29 @@ public:
     template <unsigned L1>
     constexpr Vec(const Vec<T, L1> &vec) requires(L1 > L);
 
-    DEFINE_OP(+, +=)
-    DEFINE_OP(-, -=)
-    DEFINE_OP(*, *=)
-    DEFINE_OP(/, /=)
-    DEFINE_OP(%, %=)
-    DEFINE_OP(&, &=)
-    DEFINE_OP(|, |=)
-    DEFINE_OP(^, ^=)
-    DEFINE_OP(<<, <<=)
-    DEFINE_OP(>>, >>=)
+#define ENUMERATE_OP(op, ope)                                                                                          \
+    constexpr Vec &operator ope(T rhs) {                                                                               \
+        for (unsigned i = 0; i < L; i++) {                                                                             \
+            m_elems[i] ope rhs;                                                                                        \
+        }                                                                                                              \
+        return *this;                                                                                                  \
+    }                                                                                                                  \
+    constexpr Vec &operator ope(const Vec &rhs) {                                                                      \
+        for (unsigned i = 0; i < L; i++) {                                                                             \
+            m_elems[i] ope rhs.m_elems[i];                                                                             \
+        }                                                                                                              \
+        return *this;                                                                                                  \
+    }
+    ENUMERATE_OPS(ENUMERATE_OP)
+#undef ENUMERATE_OP
 
     void set_x(T x) requires(L >= 1) { m_elems[0] = x; }
     void set_y(T y) requires(L >= 2) { m_elems[1] = y; }
     void set_z(T z) requires(L >= 3) { m_elems[2] = z; }
     void set_w(T w) requires(L >= 4) { m_elems[3] = w; }
 
-    constexpr T &operator[](unsigned elem) { return m_elems[elem]; }
-    constexpr T operator[](unsigned elem) const { return m_elems[elem]; }
+    constexpr T &operator[](unsigned index) { return m_elems[index]; }
+    constexpr T operator[](unsigned index) const { return m_elems[index]; }
     constexpr T x() const requires(L >= 1) { return m_elems[0]; }
     constexpr T y() const requires(L >= 2) { return m_elems[1]; }
     constexpr T z() const requires(L >= 3) { return m_elems[2]; }
@@ -178,5 +189,8 @@ template <typename T, unsigned L>
 constexpr T square_magnitude(const Vec<T, L> &vec) {
     return dot(vec, vec);
 }
+
+#include "VecSimd.in"
+#undef ENUMERATE_OPS
 
 } // namespace vull

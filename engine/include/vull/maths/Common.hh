@@ -1,6 +1,9 @@
 #pragma once
 
 #include <math.h>
+#ifdef __SSE__
+#include <xmmintrin.h> // IWYU pragma: export
+#endif
 
 namespace vull {
 
