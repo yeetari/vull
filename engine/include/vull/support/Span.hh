@@ -20,9 +20,14 @@ public:
     constexpr Span(T *data, SizeType size) : m_data(data), m_size(size) {}
     constexpr Span(no_void_t &object) requires(!is_void) : m_data(&object), m_size(1) {}
 
+    template <typename U>
+    constexpr Span<U, SizeType> as() {
+        return {static_cast<U *>(m_data), m_size};
+    }
+
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
-    constexpr operator Span<void>() { return {data(), size_bytes()}; }
-    constexpr operator Span<const void>() const { return {data(), size_bytes()}; }
+    constexpr operator Span<void, SizeType>() { return {data(), size_bytes()}; }
+    constexpr operator Span<const void, SizeType>() const { return {data(), size_bytes()}; }
 
     constexpr T *begin() const { return m_data; }
     constexpr T *end() const { return m_data + m_size; }
