@@ -1,6 +1,8 @@
 #include <vull/support/String.hh>
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Hash.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 
 #include <string.h>
@@ -34,6 +36,22 @@ String &String::operator=(String &&other) {
     m_data = exchange(other.m_data, nullptr);
     m_length = exchange(other.m_length, 0u);
     return *this;
+}
+
+bool String::operator==(const String &other) const {
+    return StringView(m_data, m_length) == StringView(other.m_data, other.m_length);
+}
+
+hash_t Hash<String>::operator()(const String &string, hash_t hash) const {
+    for (char ch : string) {
+        hash += hash_t(ch);
+        hash += hash << 10u;
+        hash ^= hash >> 6u;
+    }
+    hash += hash << 3u;
+    hash ^= hash >> 11u;
+    hash += hash << 15u;
+    return hash;
 }
 
 } // namespace vull
