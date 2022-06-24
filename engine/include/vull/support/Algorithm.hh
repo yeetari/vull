@@ -61,6 +61,16 @@ auto reverse_view(Container &container) {
     return ViewAdapter{ReverseIterator(container.end()), ReverseIterator(container.begin())};
 }
 
+template <typename Container, typename T>
+constexpr bool contains(const Container &container, const T &value) {
+    for (const auto &elem : container) {
+        if (elem == value) {
+            return true;
+        }
+    }
+    return false;
+}
+
 template <typename Container, typename GreaterThan, typename SizeType = decltype(declval<Container>().size())>
 constexpr void sort(Container &container, GreaterThan gt) {
     if (container.size() == 0) {
