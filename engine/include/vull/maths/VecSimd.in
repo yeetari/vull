@@ -20,31 +20,13 @@ public:
     ENUMERATE_OPS(ENUMERATE_OP)
 #undef ENUMERATE_OP
 
-    struct FakeRef {
-        Vec *vec;
-        unsigned index;
-
-        FakeRef &operator=(float);
-        operator float() const;
-    };
-    FakeRef operator[](unsigned index) { return {this, index}; }
-
+    float &operator[](unsigned index);
     float operator[](unsigned index) const;
     float x() const { return elem_at<0>(); }
     float y() const { return elem_at<1>(); }
     float z() const { return elem_at<2>(); }
     float w() const { return elem_at<3>(); }
 };
-
-inline Vec<float, 4>::FakeRef &Vec<float, 4>::FakeRef::operator=(float f) {
-    vec->m_data = _mm_set_ps(index == 3 ? f : vec->w(), index == 2 ? f : vec->z(), index == 1 ? f : vec->y(),
-                             index == 0 ? f : vec->x());
-    return *this;
-}
-
-inline Vec<float, 4>::FakeRef::operator float() const {
-    return (static_cast<const Vec &>(*vec))[index];
-}
 
 inline Vec<float, 4> &Vec<float, 4>::operator+=(const Vec<float, 4> &rhs) {
     m_data = _mm_add_ps(m_data, rhs.m_data);
@@ -66,7 +48,11 @@ inline Vec<float, 4> &Vec<float, 4>::operator/=(const Vec<float, 4> &rhs) {
     return *this;
 }
 
-inline float Vec<float, 4>::operator[](unsigned int index) const {
+inline float &Vec<float, 4>::operator[](unsigned index) {
+    return reinterpret_cast<float *>(__builtin_assume_aligned(&m_data, 4))[index];
+}
+
+inline float Vec<float, 4>::operator[](unsigned index) const {
     switch (index) {
     case 0:
         return elem_at<0>();
