@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Run include-what-you-use
         run: |
-          find engine/sources sandbox \
+          find engine/sources engine/tests sandbox \
             -name '*.cc' \
             -and -not -name 'ContextTable.cc' \
             -print0 |
@@ -70,7 +70,7 @@ jobs:
               -isystem/usr/include/freetype2 \
               -isystem/usr/include/harfbuzz \
               -Iengine/include -Ibuild/engine/include \
-              -fno-exceptions -fno-rtti -nostdinc++ \
+              -fno-rtti -nostdinc++ \
               -w \
               {} 2>&1 |
           grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | tee output
