@@ -1,6 +1,13 @@
 #include <vull/support/PerfectMap.hh>
 
+#include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/PerfectHasher.hh>
+#include <vull/support/String.hh>
 #include <vull/support/Test.hh>
+#include <vull/support/Vector.hh>
+
+#include <stddef.h>
 
 using namespace vull;
 

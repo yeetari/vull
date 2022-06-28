@@ -1,11 +1,16 @@
 #include <vull/support/WorkStealingQueue.hh>
 
 #include <vull/support/Algorithm.hh>
+#include <vull/support/Assert.hh>
+#include <vull/support/Atomic.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/UniquePtr.hh>
+#include <vull/support/Vector.hh>
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace vull;
 

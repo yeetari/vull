@@ -1,7 +1,9 @@
 #include <vull/ecs/Entity.hh>
 
 #include <vull/ecs/Component.hh>
+#include <vull/ecs/EntityId.hh>
 #include <vull/support/Test.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/Vector.hh>
 
 using namespace vull;

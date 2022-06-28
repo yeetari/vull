@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/support/Array.hh>
-#include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
