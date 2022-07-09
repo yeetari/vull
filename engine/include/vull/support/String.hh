@@ -33,9 +33,13 @@ public:
 
     char *data() { return m_data; }
     const char *data() const { return m_data; }
-    operator StringView() const { return {m_data, m_length}; }
-    bool operator==(const String &other) const;
 
+    operator StringView() const { return view(); }
+    StringView view() const { return {m_data, m_length}; }
+
+    char *disown() { return exchange(m_data, nullptr); }
+
+    bool operator==(const String &other) const;
     bool empty() const { return m_length == 0; }
     size_t length() const { return m_length; }
 };
