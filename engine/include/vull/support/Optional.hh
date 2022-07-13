@@ -15,6 +15,9 @@ public:
     constexpr Optional() = default;
     Optional(const T &value) : m_present(true) { new (m_data.data()) T(value); }
     Optional(T &&value) : m_present(true) { new (m_data.data()) T(move(value)); }
+    // clang-format off
+    Optional(const Optional &) requires IsTriviallyCopyable<T> = default;
+    // clang-format on
     Optional(const Optional &);
     Optional(Optional &&);
     ~Optional() { clear(); }
