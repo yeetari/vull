@@ -161,4 +161,16 @@ TEST_SUITE(Entity, {
             }
         }
     }
+
+    TEST_CASE(ViewNoFirstMatch) {
+        EntityManager manager;
+        manager.register_component<Foo>();
+        manager.register_component<Bar>();
+
+        auto entity = manager.create_entity();
+        entity.add<Foo>();
+
+        auto view = manager.view<Foo, Bar>();
+        EXPECT(!(view.begin() != view.end()));
+    }
 })

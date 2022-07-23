@@ -179,7 +179,12 @@ template <typename C, typename... Comps>
 // NOLINTNEXTLINE: clang-tidy for some reason thinks that current_id can be const.
 EntityIterator<C, Comps...>::EntityIterator(EntityManager *manager, EntityId *current_id, C *current_component)
     : EntityIterator<C>(manager, current_id, current_component),
-      m_end_id(manager->m_component_sets[C::k_component_id].dense_end()) {}
+      m_end_id(manager->m_component_sets[C::k_component_id].dense_end()) {
+    while (EntityIterator<C>::m_current_id < m_end_id &&
+           !EntityIterator<C>::m_manager->template has_component<Comps...>(*EntityIterator<C>::m_current_id)) {
+        EntityIterator<C>::operator++();
+    }
+}
 
 template <typename C, typename... Comps>
 EntityIterator<C, Comps...> &EntityIterator<C, Comps...>::operator++() {
