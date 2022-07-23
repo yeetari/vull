@@ -168,5 +168,7 @@ FormatStyle: file
 CheckOptions:
   - key: bugprone-assert-side-effect.AssertMacros
     value: VULL_ASSERT,VULL_ASSERT_PEDANTIC
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: Optional
   - key: readability-uppercase-literal-suffix.NewSuffixes
     value: f;u;l;ul;ull
