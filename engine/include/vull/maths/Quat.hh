@@ -19,13 +19,14 @@ public:
     template <typename U>
     Quat(U x, U y, U z, U w) : m_x(T(x)), m_y(T(y)), m_z(T(z)), m_w(T(w)) {}
     Quat(const Vec<T, 3> &xyz, T w) : m_x(xyz.x()), m_y(xyz.y()), m_z(xyz.z()), m_w(w) {}
+    Quat(const Vec<T, 4> &xyzw) : m_x(xyzw.x()), m_y(xyzw.y()), m_z(xyzw.z()), m_w(xyzw.w()) {}
 
     void set_x(T x) { m_x = x; }
     void set_y(T y) { m_y = y; }
     void set_z(T z) { m_z = z; }
     void set_w(T w) { m_w = w; }
 
-    T &operator[](unsigned elem);
+    T &operator[](unsigned index);
     T x() const { return m_x; }
     T y() const { return m_y; }
     T z() const { return m_z; }
@@ -35,8 +36,8 @@ public:
 using Quatf = Quat<float>;
 
 template <typename T>
-T &Quat<T>::operator[](unsigned int elem) {
-    switch (elem) {
+T &Quat<T>::operator[](unsigned index) {
+    switch (index) {
     case 0:
         return m_x;
     case 1:
