@@ -29,6 +29,8 @@ public:
     constexpr Vector() = default;
     template <typename... Args>
     explicit Vector(SizeType size, Args &&...args);
+    template <typename It>
+    Vector(It first, It last);
     Vector(const Vector &) = delete;
     Vector(Vector &&);
     ~Vector();
@@ -83,6 +85,14 @@ template <typename T, typename SizeType>
 template <typename... Args>
 Vector<T, SizeType>::Vector(SizeType size, Args &&...args) {
     ensure_size(size, forward<Args>(args)...);
+}
+
+template <typename T, typename SizeType>
+template <typename It>
+Vector<T, SizeType>::Vector(It first, It last) {
+    for (; first != last; ++first) {
+        emplace(*first);
+    }
 }
 
 template <typename T, typename SizeType>
