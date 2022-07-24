@@ -30,6 +30,15 @@ struct ConditionalImpl<false, T, F> {
     using type = F;
 };
 
+template <typename, typename U>
+struct CopyConstImpl {
+    using type = U;
+};
+template <typename T, typename U>
+struct CopyConstImpl<const T, U> {
+    using type = const U;
+};
+
 template <typename T>
 struct RemoveCvImpl {
     using type = T;
@@ -60,6 +69,15 @@ struct RemoveRefImpl<T &&> {
     using type = T;
 };
 
+template <typename T>
+struct IsConstCheck {
+    static constexpr bool value = false;
+};
+template <typename T>
+struct IsConstCheck<const T> {
+    static constexpr bool value = true;
+};
+
 template <typename>
 struct IsRefCheck {
     static constexpr bool value = false;
@@ -86,6 +104,12 @@ struct IsSameCheck<T, T> {
 
 template <bool B, typename T, typename F>
 using Conditional = typename detail::ConditionalImpl<B, T, F>::type;
+
+template <typename T, typename U>
+using CopyConst = typename detail::CopyConstImpl<T, U>::type;
+
+template <typename T>
+inline constexpr bool IsConst = detail::IsConstCheck<T>::value;
 
 template <typename T>
 inline constexpr bool IsRef = detail::IsRefCheck<T>::value;
