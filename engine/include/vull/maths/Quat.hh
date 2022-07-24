@@ -13,6 +13,8 @@ class Quat {
     T m_w{T(1)};
 
 public:
+    static constexpr unsigned length = 4;
+
     Quat() = default;
     template <typename U>
     Quat(U x, U y, U z, U w) : m_x(T(x)), m_y(T(y)), m_z(T(z)), m_w(T(w)) {}

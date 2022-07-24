@@ -32,6 +32,8 @@ class Vec : public VecBase<Vec<T, L>> {
     Array<T, L> m_elems;
 
 public:
+    static constexpr unsigned length = L;
+
     constexpr Vec() : Vec(T(0)) {}
 
     // Duplication construction, e.g. Vec3f(1.0f) == Vec3f(1.0f, 1.0f, 1.0f)
