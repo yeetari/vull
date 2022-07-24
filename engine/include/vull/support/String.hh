@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Hash.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 // IWYU pragma: no_forward_declare vull::Hash
@@ -46,7 +47,7 @@ public:
 
 template <>
 struct Hash<String> {
-    hash_t operator()(const String &string, hash_t = 0) const;
+    hash_t operator()(const String &string, hash_t seed) const { return hash_of(string.view(), seed); }
 };
 
 } // namespace vull

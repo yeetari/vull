@@ -14,10 +14,16 @@ class PerfectHasher {
     Vector<int32_t> m_seeds;
 
 public:
+    PerfectHasher() = default;
+    PerfectHasher(Vector<int32_t> &&seeds) : m_seeds(move(seeds)) {}
+
     template <typename T>
     void build(const Vector<T> &keys);
     template <typename T>
     uint32_t hash(const T &key) const;
+
+    Vector<int32_t> &seeds() { return m_seeds; }
+    const Vector<int32_t> &seeds() const { return m_seeds; }
 };
 
 template <typename T>
@@ -33,7 +39,7 @@ void PerfectHasher::build(const Vector<T> &keys) {
     }
 
     for (const auto &key : keys) {
-        const auto hash = Hash<T>{}(key) % buckets.size();
+        const auto hash = hash_of(key) % buckets.size();
         buckets[hash].push(key);
     }
 
@@ -58,7 +64,7 @@ void PerfectHasher::build(const Vector<T> &keys) {
             bool bucket_complete = true;
             Vector<uint32_t> occupied_bucket;
             for (const auto &key : bucket) {
-                const auto hash = Hash<T>{}(key, seed) % buckets.size();
+                const auto hash = hash_of<T>(key, seed) % buckets.size();
                 if (occupied[hash] || vull::contains(occupied_bucket, hash)) {
                     bucket_complete = false;
                     break;
@@ -92,12 +98,12 @@ void PerfectHasher::build(const Vector<T> &keys) {
 
 template <typename T>
 uint32_t PerfectHasher::hash(const T &key) const {
-    const auto seed = m_seeds[Hash<T>{}(key) % m_seeds.size()];
+    const auto seed = m_seeds[hash_of(key) % m_seeds.size()];
     if (seed < 0) {
         VULL_ASSERT(-seed - 1 >= 0);
         return static_cast<uint32_t>(-seed - 1);
     }
-    return Hash<T>{}(key, static_cast<uint32_t>(seed)) % m_seeds.size();
+    return hash_of(key, static_cast<uint32_t>(seed)) % m_seeds.size();
 }
 
 } // namespace vull
