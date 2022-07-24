@@ -53,6 +53,7 @@ public:
     T fetch_sub(T value, MemoryOrder order) volatile;
     T load(MemoryOrder order) const volatile;
     void store(T value, MemoryOrder order) volatile;
+    T *raw_ptr() { return &m_value; }
 };
 
 template <SimpleAtomic T>
