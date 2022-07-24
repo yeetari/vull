@@ -20,18 +20,24 @@ void StringBuilder::append_single(float arg, const char *) {
 }
 
 void StringBuilder::append_single(size_t arg, const char *opts) {
+    const size_t base = opts[0] == 'h' ? 16 : 10;
     Array<char, 30> buf{};
     uint8_t len = 0;
     do {
-        auto digit = static_cast<char>(arg % 10);
-        buf[len++] = '0' + digit; // NOLINT
-        arg /= 10;
+        auto digit = static_cast<char>(arg % base);
+        buf[len++] = digit < 10 ? '0' + digit : 'a' + digit - 10; // NOLINT
+        arg /= base;
     } while (arg > 0);
+
     if (const char pad = opts[1]; pad != '\0') {
         const char pad_char = opts[2] != '\0' ? opts[2] : '0';
         for (uint8_t i = len; i < pad - '0'; i++) {
             buf[len++] = pad_char;
         }
+    }
+    if (opts[0] == 'h') {
+        buf[len++] = 'x';
+        buf[len++] = '0';
     }
     for (uint8_t i = len; i > 0; i--) {
         m_buffer.push(buf[i - 1]);
