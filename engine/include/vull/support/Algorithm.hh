@@ -58,7 +58,29 @@ auto &ReverseIterator<It>::operator*() const {
 
 template <typename Container>
 auto reverse_view(Container &container) {
-    return ViewAdapter{ReverseIterator(container.end()), ReverseIterator(container.begin())};
+    return ViewAdapter(ReverseIterator(container.end()), ReverseIterator(container.begin()));
+}
+
+template <typename Container, typename SizeType>
+auto slice(Container &container, SizeType first, SizeType last = 0) {
+    last = last != 0 ? last : container.size();
+    if constexpr (requires(decltype(container.begin()) it) {
+                      it + 0;
+                      it - 0;
+                  }) {
+        return ViewAdapter(container.begin() + first, container.end() - (container.size() - last));
+    }
+
+    auto begin = container.begin();
+    for (SizeType i = 0; i < first; i++) {
+        ++begin;
+    }
+
+    auto end = container.end();
+    for (SizeType i = 0; i < container.size() - last; i++) {
+        --end;
+    }
+    return ViewAdapter(begin, end);
 }
 
 template <typename Container, typename T>

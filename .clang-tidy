@@ -163,7 +163,6 @@ Checks: >
   readability-suspicious-call-argument,
   readability-uniqueptr-delete-release,
   readability-uppercase-literal-suffix,
-  readability-use-anyofallof,
 FormatStyle: file
 CheckOptions:
   - key: bugprone-assert-side-effect.AssertMacros
