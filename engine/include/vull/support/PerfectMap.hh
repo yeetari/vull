@@ -1,16 +1,11 @@
 #pragma once
 
+#include <vull/support/MapEntry.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/Vector.hh>
 
 namespace vull {
-
-template <typename K, typename V>
-struct MapEntry {
-    K key;
-    V value;
-};
 
 // A minimal perfect hash function, read-only hash map.
 template <typename K, typename V>
