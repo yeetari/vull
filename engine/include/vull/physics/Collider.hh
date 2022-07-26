@@ -14,6 +14,13 @@ private:
     UniquePtr<Shape> m_shape;
 
 public:
+    [[noreturn]] static Collider deserialise(const Function<uint8_t()> &) {
+        VULL_ENSURE_NOT_REACHED("TODO: Implement Collider serialisation");
+    }
+    [[noreturn]] static void serialise(Collider &, const Function<void(uint8_t)> &) {
+        VULL_ENSURE_NOT_REACHED("TODO: Implement Collider serialisation");
+    }
+
     Collider(UniquePtr<Shape> &&shape);
     Collider(const Collider &) = delete;
     Collider(Collider &&) = default;

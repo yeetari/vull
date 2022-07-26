@@ -2,15 +2,19 @@
 
 #include <vull/ecs/Entity.hh>
 
-namespace vull {
+namespace vull::vpak {
 
-class PackReader;
-class PackWriter;
+class Reader;
+class Writer;
+
+} // namespace vull::vpak
+
+namespace vull {
 
 class World : public EntityManager {
 public:
-    void deserialise(PackReader &pack_reader);
-    float serialise(PackWriter &pack_writer);
+    void deserialise(vpak::Reader &pack_reader);
+    float serialise(vpak::Writer &pack_writer);
 };
 
 } // namespace vull

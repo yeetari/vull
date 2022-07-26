@@ -1,18 +1,30 @@
 #pragma once
 
+#include <vull/support/String.hh>
+
 #include <stdint.h>
+#include <sys/types.h>
 
 /*
- * struct Header {
+ * struct {
  *     u8 magic[] {'V', 'P', 'A', 'K'};
- *     Entry entries[]; // until EOF
+ *     u32 entry_count;
+ *     u64 entry_table_offset;
+ *     u8 block_data[];
+ *     EntryTable entry_table;
  * };
  *
- * struct Entry {
- *     u1 compressed;
- *     PackEntryType(u7) type;
- *     u32 size; // uncompressed size in bytes
- *     u8 data[];
+ * struct EntryHeader {
+ *     EntryType(u8) type;
+ *     u8 name_length;
+ *     u8 name[name_length];
+ *     varint size; // uncompressed size in bytes
+ *     varint first_block;
+ * };
+ *
+ * struct EntryTable {
+ *     u32 hash_seeds[entry_count];
+ *     EntryHeader entries[entry_count];
  * };
  *
  * struct VertexData(type: 0) {
@@ -24,7 +36,7 @@
  * };
  *
  * struct ImageData(type: 2) {
- *     PackImageFormat(u8) format;
+ *     ImageFormat(u8) format;
  *     varint width;
  *     varint height;
  *     varint mip_count;
@@ -46,16 +58,16 @@
  * };
  */
 
-namespace vull {
+namespace vull::vpak {
 
-enum class PackEntryType : uint8_t {
+enum class EntryType : uint8_t {
     VertexData = 0,
     IndexData = 1,
     ImageData = 2,
     WorldData = 3,
 };
 
-enum class PackImageFormat : uint8_t {
+enum class ImageFormat : uint8_t {
     Bc1Srgb = 0,
     Bc3Srgb = 1,
     Bc5Unorm = 2,
@@ -63,4 +75,12 @@ enum class PackImageFormat : uint8_t {
     RgbaUnorm = 4,
 };
 
-} // namespace vull
+// Struct to represent an entry in memory, note not the same representation on disk.
+struct Entry {
+    String name;
+    off64_t first_block;
+    uint32_t size;
+    EntryType type;
+};
+
+} // namespace vull::vpak

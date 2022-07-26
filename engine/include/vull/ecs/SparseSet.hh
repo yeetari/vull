@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Function.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
@@ -15,7 +16,9 @@ class SparseSet {
 
     void (*m_destruct)(void *){nullptr};
     void (*m_swap)(void *, void *){nullptr};
-    uint32_t m_object_size{0};
+    void (*m_deserialise)(void *, const Function<uint8_t()> &){nullptr};
+    void (*m_serialise)(void *, const Function<void(uint8_t)> &){nullptr};
+    I m_object_size{0};
     I m_capacity{0};
 
 public:
@@ -29,6 +32,9 @@ public:
 
     template <typename T>
     void initialise();
+    void deserialise(I count, Function<uint8_t()> read_byte);
+    void raw_ensure_index(I index);
+    void serialise(Function<void(uint8_t)> write_byte);
 
     template <typename T>
     T &at(I index);
@@ -36,9 +42,6 @@ public:
     template <typename T, typename... Args>
     void emplace(I index, Args &&...args);
     void remove(I index);
-
-    void *raw_at(I index);
-    void *raw_push(I index);
 
     auto dense_begin() { return m_dense.begin(); }
     auto dense_end() { return m_dense.end(); }
@@ -48,7 +51,8 @@ public:
     T *storage_end();
 
     bool empty() const { return !m_dense.empty(); }
-    uint32_t size() const { return m_dense.size(); }
+    bool initialised() const { return m_destruct != nullptr; }
+    I size() const { return m_dense.size(); }
     uint32_t object_size() const { return m_object_size; }
 };
 
@@ -57,6 +61,8 @@ SparseSet<I>::SparseSet(SparseSet &&other) : m_dense(vull::move(other.m_dense)),
     m_data = vull::exchange(other.m_data, nullptr);
     m_destruct = vull::exchange(other.m_destruct, nullptr);
     m_swap = vull::exchange(other.m_swap, nullptr);
+    m_deserialise = vull::exchange(other.m_deserialise, nullptr);
+    m_serialise = vull::exchange(other.m_serialise, nullptr);
     m_object_size = vull::exchange(other.m_object_size, 0u);
     m_capacity = vull::exchange(other.m_capacity, 0u);
 }
@@ -78,7 +84,56 @@ void SparseSet<I>::initialise() {
     m_swap = +[](void *lhs, void *rhs) {
         vull::swap(*static_cast<T *>(lhs), *static_cast<T *>(rhs));
     };
-    m_object_size = static_cast<uint32_t>(sizeof(T));
+    m_deserialise = +[](void *ptr, const Function<uint8_t()> &read_byte) {
+        if constexpr (!requires(T) { T::deserialise(read_byte); }) {
+            if constexpr (!IsTriviallyCopyable<T>) {
+                static_assert(!IsSame<T, T>, "T has no defined deserialise function but is also not a trivial type");
+            }
+            // TODO(stream-api)
+            for (uint8_t &byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
+                byte = read_byte();
+            }
+        } else {
+            new (ptr) T(T::deserialise(read_byte));
+        }
+    };
+    m_serialise = +[](void *ptr, const Function<void(uint8_t)> &write_byte) {
+        if constexpr (!requires(T t) { T::serialise(t, write_byte); }) {
+            if constexpr (!IsTriviallyCopyable<T>) {
+                static_assert(!IsSame<T, T>, "T has no defined serialise function but is also not a trivial type");
+            }
+            // TODO(stream-api)
+            for (uint8_t byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
+                write_byte(byte);
+            }
+        } else {
+            T::serialise(*static_cast<T *>(ptr), write_byte);
+        }
+    };
+    m_object_size = static_cast<I>(sizeof(T));
+}
+
+template <typename I>
+void SparseSet<I>::deserialise(I count, Function<uint8_t()> read_byte) {
+    m_capacity = count;
+    m_data = new uint8_t[m_capacity * m_object_size];
+    for (I i = 0; i < count; i++) {
+        m_deserialise(m_data + i * m_object_size, read_byte);
+    }
+}
+
+template <typename I>
+void SparseSet<I>::raw_ensure_index(I index) {
+    m_sparse.ensure_size(index + 1);
+    m_sparse[index] = m_dense.size();
+    m_dense.push(index);
+}
+
+template <typename I>
+void SparseSet<I>::serialise(Function<void(uint8_t)> write_byte) {
+    for (I i = 0; i < m_dense.size(); i++) {
+        m_serialise(m_data + i * m_object_size, write_byte);
+    }
 }
 
 template <typename I>
@@ -126,6 +181,7 @@ void SparseSet<I>::emplace(I index, Args &&...args) {
         m_data = new_data;
         m_capacity = new_capacity;
     }
+    // NOLINTNEXTLINE
     new (&reinterpret_cast<T *>(m_data)[m_dense.size()]) T(vull::forward<Args>(args)...);
     m_dense.push(index);
 }
@@ -141,35 +197,6 @@ void SparseSet<I>::remove(I index) {
     }
     m_dense.pop();
     m_destruct(m_data + m_dense.size() * m_object_size);
-}
-
-template <typename I>
-void *SparseSet<I>::raw_at(I index) {
-    VULL_ASSERT(contains(index));
-    return m_data + m_sparse[index] * m_object_size;
-}
-
-template <typename I>
-void *SparseSet<I>::raw_push(I index) {
-    // TODO: Somewhat duplicated with emplace, need a common path that can efficiently handle both sizeof(T) and
-    //       m_object_size.
-    VULL_ASSERT(!contains(index));
-    m_sparse.ensure_size(index + 1);
-    m_sparse[index] = m_dense.size();
-
-    // TODO: Doesn't correctly handle non-trivially copyable types.
-    if (auto new_capacity = m_dense.size() + 1; new_capacity > m_capacity) {
-        new_capacity = vull::max(m_capacity * 2 + 1, new_capacity);
-        auto *new_data = new uint8_t[new_capacity * m_object_size];
-        if (!m_dense.empty()) {
-            memcpy(new_data, m_data, m_dense.size() * m_object_size);
-        }
-        delete[] m_data;
-        m_data = new_data;
-        m_capacity = new_capacity;
-    }
-    m_dense.push(index);
-    return m_data + (m_dense.size() - 1) * m_object_size;
 }
 
 template <typename I>

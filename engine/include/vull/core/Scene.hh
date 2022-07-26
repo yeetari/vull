@@ -3,11 +3,13 @@
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
-#include <stdio.h>
 
 namespace vull::vk {
 
@@ -18,9 +20,13 @@ class Queue;
 
 } // namespace vull::vk
 
-namespace vull {
+namespace vull::vpak {
 
-class PackReader;
+class ReadStream;
+
+} // namespace vull::vpak
+
+namespace vull {
 
 struct PushConstantBlock {
     Mat4f transform;
@@ -33,14 +39,15 @@ class Scene {
     vk::Context &m_context;
     World m_world;
     vkb::DeviceMemory m_memory{nullptr};
-    Vector<vkb::Buffer> m_vertex_buffers;
-    Vector<vkb::Buffer> m_index_buffers;
+    HashMap<String, vkb::Buffer> m_vertex_buffers;
+    HashMap<String, vkb::Buffer> m_index_buffers;
+    HashMap<String, uint32_t> m_index_counts;
     Vector<vkb::Image> m_texture_images;
     Vector<vkb::ImageView> m_texture_views;
 
-    vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, PackReader &, vkb::Buffer, void *, vkb::DeviceSize &,
+    vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, vkb::DeviceSize &,
                             uint32_t, vkb::BufferUsage);
-    void load_image(vk::CommandPool &, vk::Queue &, PackReader &, vkb::Buffer, void *, vkb::DeviceSize &);
+    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, vkb::DeviceSize &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}
@@ -52,7 +59,7 @@ public:
     Scene &operator=(Scene &&) = delete;
 
     Mat4f get_transform_matrix(EntityId entity);
-    void load(vk::CommandPool &cmd_pool, vk::Queue &queue, FILE *pack_file);
+    void load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path);
     void render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index);
 
     World &world() { return m_world; }

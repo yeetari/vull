@@ -20,7 +20,9 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
@@ -85,10 +87,8 @@ void main_task(Scheduler &scheduler) {
     vk::CommandPool cmd_pool(context, graphics_family_index);
     vk::Queue queue(context, graphics_family_index);
 
-    auto *pack_file = fopen("scene.vpak", "rb");
     Scene scene(context);
-    scene.load(cmd_pool, queue, pack_file);
-    fclose(pack_file);
+    scene.load(cmd_pool, queue, "scene.vpak");
 
     constexpr uint32_t tile_size = 32;
     uint32_t row_tile_count = vull::ceil_div(window.width(), tile_size);
@@ -1287,17 +1287,15 @@ void main_task(Scheduler &scheduler) {
     world.register_component<Collider>();
 
     for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
-        if (mesh.index_count() != 36u) {
+        if (strstr(mesh.vertex_data_name().data(), "Cube") == nullptr) {
             continue;
         }
-        world.add_component<Collider>(
-            transform.parent(),
-            vull::make_unique<BoxShape>(world.get_component<Transform>(transform.parent()).scale()));
+        entity.add<Collider>(vull::make_unique<BoxShape>(transform.scale()));
     }
 
     auto player = world.create_entity();
     player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
-    player.add<Mesh>(0u, 36u);
+    player.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
     player.add<Material>(0u, 1u);
     player.add<RigidBody>(250.0f);
     player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
@@ -1401,7 +1399,7 @@ void main_task(Scheduler &scheduler) {
             const auto force = player_transform.forward() * 2000.0f;
             auto box = world.create_entity();
             box.add<Transform>(~EntityId(0), position, Quatf(), Vec3f(0.2f));
-            box.add<Mesh>(4u, 2904u);
+            box.add<Mesh>("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index");
             box.add<Material>(0u, 1u);
             box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.2f)));
             box.add<RigidBody>(0.2f);

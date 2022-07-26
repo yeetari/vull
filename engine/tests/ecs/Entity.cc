@@ -2,11 +2,21 @@
 
 #include <vull/ecs/Component.hh>
 #include <vull/ecs/EntityId.hh>
+#include <vull/support/Assert.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Vector.hh>
 
+#include <stdint.h>
+
 using namespace vull;
+
+namespace vull {
+
+template <typename>
+class Function;
+
+} // namespace vull
 
 namespace {
 
@@ -14,6 +24,8 @@ class BaseComp {
     int *m_destruct_count{nullptr};
 
 public:
+    static void serialise(BaseComp &, const Function<void(uint8_t)> &) {}
+
     BaseComp() = default;
     explicit BaseComp(int &destruct_count) : m_destruct_count(&destruct_count) {}
     BaseComp(const BaseComp &) = default;
@@ -31,11 +43,13 @@ public:
 struct Foo : BaseComp {
     VULL_DECLARE_COMPONENT(0);
     using BaseComp::BaseComp;
+    static Foo deserialise(const Function<uint8_t()> &) { VULL_ENSURE_NOT_REACHED(); }
 };
 
 struct Bar : BaseComp {
     VULL_DECLARE_COMPONENT(1);
     using BaseComp::BaseComp;
+    static Bar deserialise(const Function<uint8_t()> &) { VULL_ENSURE_NOT_REACHED(); }
 };
 
 template <typename... Comps>

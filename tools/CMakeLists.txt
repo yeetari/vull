@@ -19,7 +19,9 @@ if(VULL_BUILD_VPAK_TOOL)
     get_target_property(simdjson_iid simdjson INTERFACE_INCLUDE_DIRECTORIES)
     set_target_properties(simdjson PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${simdjson_iid}")
 
-    add_executable(vpak vpak/main.cc)
+    add_executable(vpak
+        vpak/GltfParser.cc
+        vpak/main.cc)
     target_compile_features(vpak PRIVATE cxx_std_20)
     target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
     target_link_libraries(vpak PRIVATE meshoptimizer simdjson vull)

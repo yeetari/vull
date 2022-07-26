@@ -25,8 +25,8 @@ target_sources(vull PRIVATE
     ui/GpuFont.cc
     ui/Renderer.cc
     ui/TimeGraph.cc
-    vpak/PackReader.cc
-    vpak/PackWriter.cc
+    vpak/Reader.cc
+    vpak/Writer.cc
     vulkan/CommandBuffer.cc
     vulkan/CommandPool.cc
     vulkan/Context.cc
