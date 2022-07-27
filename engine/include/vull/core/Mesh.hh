@@ -25,8 +25,8 @@ public:
     Mesh(String &&vertex_data_name, String &&index_data_name)
         : m_vertex_data_name(vull::move(vertex_data_name)), m_index_data_name(vull::move(index_data_name)) {}
 
-    StringView vertex_data_name() const { return m_vertex_data_name; }
-    StringView index_data_name() const { return m_index_data_name; }
+    const String &vertex_data_name() const { return m_vertex_data_name; }
+    const String &index_data_name() const { return m_index_data_name; }
 };
 
 inline Mesh Mesh::deserialise(const Function<uint8_t()> &read_byte) {

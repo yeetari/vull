@@ -254,9 +254,11 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     void *staging_data;
     VULL_ENSURE(m_context.vkMapMemory(staging_memory, 0, vkb::k_whole_size, 0, &staging_data) == vkb::Result::Success);
 
+    // Load world.
+    m_world.deserialise(pack_reader);
+
     // Preload all meshes.
     vkb::DeviceSize memory_offset = 0;
-    m_world.deserialise(pack_reader);
     for (auto [entity, mesh] : m_world.view<Mesh>()) {
         if (auto name = mesh.vertex_data_name(); !m_vertex_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
@@ -280,6 +282,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
         switch (entry.type) {
         case vpak::EntryType::ImageData:
             auto stream = pack_reader.open(entry.name);
+            m_texture_indices.set(entry.name, m_texture_images.size());
             load_image(cmd_pool, queue, *stream, staging_buffer, staging_data, memory_offset);
             break;
         }
@@ -297,10 +300,16 @@ void Scene::render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipelin
             continue;
         }
 
+        auto albedo_index = m_texture_indices.get(material.albedo_name());
+        auto normal_index = m_texture_indices.get(material.normal_name());
+        if (!albedo_index || !normal_index) {
+            continue;
+        }
+
         PushConstantBlock push_constant_block{
             .transform = get_transform_matrix(entity),
-            .albedo_index = material.albedo_index(),
-            .normal_index = material.normal_index(),
+            .albedo_index = *albedo_index,
+            .normal_index = *normal_index,
             .cascade_index = cascade_index,
         };
         cmd_buf.bind_vertex_buffer(*vertex_buffer);

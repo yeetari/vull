@@ -242,6 +242,9 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
     simdjson::dom::object node;
     EXPECT_SUCCESS(m_document["nodes"].at(index).get(node), "Failed to index node array")
 
+    // TODO: Handle this.
+    VULL_ENSURE(node["matrix"].error() == simdjson::error_code::NO_SUCH_FIELD);
+
     vull::Vec3f position;
     if (simdjson::dom::array position_array; node["translation"].get(position_array) == simdjson::SUCCESS) {
         if (!array_to_vec(position_array, position)) {
@@ -276,14 +279,14 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
         if (primitives.size() == 1) {
             entity.add<vull::Mesh>(vull::format("/meshes/{}.0/vertex", mesh_name),
                                    vull::format("/meshes/{}.0/index", mesh_name));
-            entity.add<vull::Material>(0u, 1u);
+            entity.add<vull::Material>("/default_albedo", "/default_normal");
         } else {
             for (size_t i = 0; i < primitives.size(); i++) {
                 auto sub_entity = m_world.create_entity();
                 sub_entity.add<vull::Transform>(entity);
                 sub_entity.add<vull::Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, i),
                                            vull::format("/meshes/{}.{}/index", mesh_name, i));
-                sub_entity.add<vull::Material>(0u, 1u);
+                sub_entity.add<vull::Material>("/default_albedo", "/default_normal");
             }
         }
     }

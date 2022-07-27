@@ -42,6 +42,7 @@ class Scene {
     HashMap<String, vkb::Buffer> m_vertex_buffers;
     HashMap<String, vkb::Buffer> m_index_buffers;
     HashMap<String, uint32_t> m_index_counts;
+    HashMap<String, uint32_t> m_texture_indices;
     Vector<vkb::Image> m_texture_images;
     Vector<vkb::ImageView> m_texture_views;
 

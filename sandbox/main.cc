@@ -1296,7 +1296,7 @@ void main_task(Scheduler &scheduler) {
     auto player = world.create_entity();
     player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
     player.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
-    player.add<Material>(0u, 1u);
+    player.add<Material>("/default_albedo", "/default_normal");
     player.add<RigidBody>(250.0f);
     player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
@@ -1400,7 +1400,7 @@ void main_task(Scheduler &scheduler) {
             auto box = world.create_entity();
             box.add<Transform>(~EntityId(0), position, Quatf(), Vec3f(0.2f));
             box.add<Mesh>("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index");
-            box.add<Material>(0u, 1u);
+            box.add<Material>("/default_albedo", "/default_normal");
             box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.2f)));
             box.add<RigidBody>(0.2f);
             box.get<RigidBody>().set_shape(box.get<Collider>().shape());
