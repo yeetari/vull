@@ -28,6 +28,7 @@ struct Array {
     constexpr T &last() { return end()[-1]; }
     constexpr const T &last() const { return end()[-1]; }
 
+    constexpr bool empty() const { return N == 0; }
     constexpr T *data() { return static_cast<T *>(m_data); }
     constexpr const T *data() const { return static_cast<const T *>(m_data); }
     constexpr uint32_t size() const { return N; }
