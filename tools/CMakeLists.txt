@@ -8,6 +8,8 @@ if(VULL_BUILD_VPAK_TOOL)
     get_target_property(meshoptimizer_iid meshoptimizer INTERFACE_INCLUDE_DIRECTORIES)
     set_target_properties(meshoptimizer PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${meshoptimizer_iid}")
 
+    find_package(PNG REQUIRED)
+
     set(SIMDJSON_DISABLE_DEPRECATED_API TRUE CACHE BOOL "" FORCE)
     set(SIMDJSON_ENABLE_THREADS FALSE CACHE BOOL "" FORCE)
     set(SIMDJSON_EXCEPTIONS OFF CACHE BOOL "" FORCE)
@@ -24,7 +26,8 @@ if(VULL_BUILD_VPAK_TOOL)
         vpak/main.cc)
     target_compile_features(vpak PRIVATE cxx_std_20)
     target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
-    target_link_libraries(vpak PRIVATE meshoptimizer simdjson vull)
+    target_include_directories(vpak SYSTEM PRIVATE vpak/stb)
+    target_link_libraries(vpak PRIVATE meshoptimizer PNG::PNG simdjson vull)
 endif()
 
 add_executable(vslc

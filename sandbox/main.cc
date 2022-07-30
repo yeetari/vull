@@ -22,7 +22,6 @@
 #include <vull/support/Format.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
-#include <vull/support/StringView.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>

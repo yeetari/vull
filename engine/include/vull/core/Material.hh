@@ -20,6 +20,8 @@ public:
     static Material deserialise(const Function<uint8_t()> &read_byte);
     static void serialise(Material &material, const Function<void(uint8_t)> &write_byte);
 
+    Material(const String &albedo_name, const String &normal_name)
+        : m_albedo_name(albedo_name), m_normal_name(normal_name) {}
     Material(String &&albedo_name, String &&normal_name)
         : m_albedo_name(vull::move(albedo_name)), m_normal_name(vull::move(normal_name)) {}
 

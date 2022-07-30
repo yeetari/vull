@@ -10,7 +10,9 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/HashMap.hh>
 #include <vull/support/PerfectMap.hh>
+#include <vull/support/ScopeGuard.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
@@ -18,9 +20,14 @@
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Writer.hh>
 
+#define STB_DXT_IMPLEMENTATION
+#define STBD_FABS vull::abs
 #include <linux/futex.h>
 #include <meshoptimizer.h>
+#include <png.h>
+#include <pthread.h>
 #include <simdjson.h>
+#include <stb_dxt.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -38,18 +45,33 @@
 
 namespace {
 
+enum class TextureType {
+    Albedo,
+    Normal,
+};
+
 class Converter {
     const uint8_t *const m_binary_blob;
     vull::vpak::Writer &m_pack_writer;
     simdjson::dom::element &m_document;
     vull::World &m_world;
 
+    vull::HashMap<uint64_t, vull::String> m_albedo_paths;
+    vull::HashMap<uint64_t, vull::String> m_normal_paths;
+    pthread_mutex_t m_material_map_mutex;
+
+    vull::Material make_material(simdjson::simdjson_result<simdjson::dom::element> primitive);
+
 public:
     Converter(const uint8_t *binary_blob, vull::vpak::Writer &pack_writer, simdjson::dom::element &document,
               vull::World &world)
-        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world) {}
+        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world) {
+        pthread_mutex_init(&m_material_map_mutex, nullptr);
+    }
 
     bool convert(vull::Atomic<uint32_t> &latch);
+    void process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type);
+    bool process_material(const simdjson::dom::element &material, uint64_t index);
     bool process_primitive(const simdjson::dom::object &primitive, vull::StringView name);
     bool visit_node(uint64_t index, vull::EntityId parent_id);
 };
@@ -82,12 +104,28 @@ bool Converter::convert(vull::Atomic<uint32_t> &latch) {
     // Process meshes.
     simdjson::dom::array meshes;
     EXPECT_SUCCESS(m_document["meshes"].get(meshes), "Missing \"meshes\" property")
+
+    simdjson::dom::array materials;
+    EXPECT_SUCCESS(m_document["materials"].get(materials), "Missing \"materials\" property")
+
+    latch.fetch_add(static_cast<uint32_t>(materials.size()), vull::MemoryOrder::Relaxed);
     for (auto mesh : meshes) {
         simdjson::dom::array primitives;
         EXPECT_SUCCESS(mesh["primitives"].get(primitives), "Missing \"primitives\" property")
         latch.fetch_add(static_cast<uint32_t>(primitives.size()), vull::MemoryOrder::Relaxed);
     }
+
+    // Initial value of 1 can now safely be decremented.
     latch.fetch_sub(1, vull::MemoryOrder::Relaxed);
+
+    for (uint64_t i = 0; auto material : materials) {
+        vull::schedule([this, material, &latch, index = i++] {
+            process_material(material, index);
+            if (latch.fetch_sub(1, vull::MemoryOrder::Relaxed) == 1) {
+                syscall(SYS_futex, latch.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+            }
+        });
+    }
 
     for (auto mesh : meshes) {
         std::string_view mesh_name_;
@@ -107,6 +145,269 @@ bool Converter::convert(vull::Atomic<uint32_t> &latch) {
             });
         }
     }
+    return true;
+}
+
+struct PngStream {
+    const uint8_t *blob;
+    size_t position;
+};
+
+void png_read_fn(png_structp png_ptr, png_bytep out_data, size_t size) {
+    png_voidp io_ptr = png_get_io_ptr(png_ptr);
+    VULL_ASSERT(io_ptr != nullptr);
+
+    auto &stream = *static_cast<PngStream *>(io_ptr);
+    memcpy(out_data, &stream.blob[stream.position], size);
+    stream.position += size;
+}
+
+void Converter::process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type) {
+    simdjson::dom::object texture;
+    if (auto error = m_document["textures"].at(index).get(texture)) {
+        vull::error("[gltf] Failed to get texture at index {}: {}", index, simdjson::error_message(error));
+        return;
+    }
+
+    // TODO: Look at sampler property.
+    uint64_t image_index;
+    if (texture["source"].get(image_index) != simdjson::SUCCESS) {
+        // No source texture, use default error texture.
+        return;
+    }
+
+    simdjson::dom::object image;
+    if (auto error = m_document["images"].at(image_index).get(image)) {
+        vull::error("[gltf] Failed to get image at index {}: {}", image_index, simdjson::error_message(error));
+        return;
+    }
+
+    std::string_view image_name_ = "?";
+    VULL_IGNORE(image["name"].get(image_name_));
+    vull::StringView image_name(image_name_.data(), image_name_.length());
+
+    uint64_t buffer_view_index;
+    if (image["bufferView"].get(buffer_view_index) != simdjson::SUCCESS) {
+        vull::warn("[gltf] Couldn't load image '{}', data not stored in GLB", image_name);
+        return;
+    }
+
+    std::string_view mime_type;
+    if (image["mimeType"].get(mime_type) != simdjson::SUCCESS) {
+        vull::error("[gltf] Image '{}' missing mime type", image_name);
+        return;
+    }
+
+    if (mime_type != "image/png") {
+        vull::warn("[gltf] Image '{}' has unsupported mime type {}", image_name,
+                   vull::StringView(mime_type.data(), mime_type.length()));
+        return;
+    }
+
+    simdjson::dom::object buffer_view;
+    if (auto error = m_document["bufferViews"].at(buffer_view_index).get(buffer_view)) {
+        vull::error("[gltf] Failed to get buffer view at index {}: {}", buffer_view_index,
+                    simdjson::error_message(error));
+        return;
+    }
+
+    uint64_t byte_offset;
+    if (buffer_view["byteOffset"].get(byte_offset) != simdjson::SUCCESS) {
+        vull::error("[gltf] Missing byte offset");
+        return;
+    }
+    uint64_t byte_length;
+    if (buffer_view["byteLength"].get(byte_length) != simdjson::SUCCESS) {
+        vull::error("[gltf] Missing byte length");
+        return;
+    }
+
+    if (png_sig_cmp(&m_binary_blob[byte_offset], 0, 8) != 0) {
+        vull::error("[gltf] Image '{}' failed PNG signature check", image_name);
+        return;
+    }
+
+    auto *png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (png_ptr == nullptr) {
+        vull::error("[gltf] Couldn't allocate PNG read struct for image '{}'", image_name);
+        return;
+    }
+    vull::ScopeGuard read_struct_free_guard([&] {
+        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+    });
+
+    auto *info_ptr = png_create_info_struct(png_ptr);
+    if (info_ptr == nullptr) {
+        vull::error("[gltf] Couldn't allocate PNG info struct for image '{}'", image_name);
+        return;
+    }
+    vull::ScopeGuard info_struct_free_guard([&] {
+        png_destroy_info_struct(png_ptr, &info_ptr);
+    });
+
+    PngStream stream{&m_binary_blob[byte_offset], 0};
+    png_set_read_fn(png_ptr, &stream, &png_read_fn);
+    png_read_info(png_ptr, info_ptr);
+
+    uint32_t width;
+    uint32_t height;
+    if (png_get_IHDR(png_ptr, info_ptr, &width, &height, nullptr, nullptr, nullptr, nullptr, nullptr) != 1) {
+        vull::error("[gltf] Failed to get PNG IHDR for image '{}'", image_name);
+        return;
+    }
+
+    const auto row_byte_count = static_cast<uint32_t>(png_get_rowbytes(png_ptr, info_ptr));
+    const auto pixel_byte_count = row_byte_count / width;
+    if (pixel_byte_count != 3 && pixel_byte_count != 4) {
+        vull::error("[gltf] Image '{}' has a pixel byte count of {}", image_name, pixel_byte_count);
+        return;
+    }
+
+    vull::vpak::ImageFormat format;
+    switch (type) {
+    case TextureType::Albedo:
+        format = pixel_byte_count == 4 ? vull::vpak::ImageFormat::Bc3Srgba : vull::vpak::ImageFormat::Bc1Srgb;
+        break;
+    case TextureType::Normal:
+        format = vull::vpak::ImageFormat::Bc5Unorm;
+        break;
+    }
+
+    auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
+    entry.write_byte(uint8_t(format));
+    entry.write_varint(width);
+    entry.write_varint(height);
+    entry.write_varint(1);
+
+    const auto remainder = width % 4;
+    const auto padding = remainder != 0 ? 4 - remainder : 0;
+    vull::Array<vull::Vector<uint8_t>, 4> row_buffers;
+    for (auto &buffer : row_buffers) {
+        buffer.ensure_size(row_byte_count + padding * pixel_byte_count);
+    }
+
+    for (uint32_t block_y = 0; block_y < height; block_y += 4) {
+        for (uint32_t i = 0; i < 4; i++) {
+            if (block_y + i >= height) [[unlikely]] {
+                break;
+            }
+            png_read_row(png_ptr, row_buffers[i].data(), nullptr);
+        }
+        for (uint32_t block_x = 0; block_x < width; block_x += 4) {
+            switch (format) {
+            case vull::vpak::ImageFormat::Bc1Srgb: {
+                // 64-bit compressed block.
+                vull::Array<uint8_t, 8> compressed_block;
+
+                // 64-byte (4x4 * 4 bytes per pixel (alpha padded)) input.
+                vull::Array<uint8_t, 64> source_block{};
+
+                // = 16 bytes per row.
+                for (uint32_t y = 0; y < 4; y++) {
+                    const auto &row = row_buffers[y];
+                    for (uint32_t x = 0; x < 4; x++) {
+                        memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 3);
+                    }
+                }
+                stb_compress_dxt_block(compressed_block.data(), source_block.data(), 0, STB_DXT_HIGHQUAL);
+                entry.write(compressed_block.span());
+                break;
+            }
+            case vull::vpak::ImageFormat::Bc3Srgba: {
+                // 128-bit compressed block.
+                vull::Array<uint8_t, 16> compressed_block;
+
+                // 64-byte (4x4 * 4 bytes per pixel) input.
+                vull::Array<uint8_t, 64> source_block;
+
+                // = 16 bytes per row.
+                for (uint32_t y = 0; y < 4; y++) {
+                    const auto &row = row_buffers[y];
+                    for (uint32_t x = 0; x < 4; x++) {
+                        memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 4);
+                    }
+                }
+                stb_compress_dxt_block(compressed_block.data(), source_block.data(), 1, STB_DXT_HIGHQUAL);
+                entry.write(compressed_block.span());
+                break;
+            }
+            case vull::vpak::ImageFormat::Bc5Unorm: {
+                // 128-bit compressed block.
+                vull::Array<uint8_t, 16> compressed_block;
+
+                // 32-byte (4x4 * 2 bytes per pixel) input.
+                vull::Array<uint8_t, 32> source_block;
+
+                // = 8 bytes per row.
+                for (uint32_t y = 0; y < 4; y++) {
+                    const auto &row = row_buffers[y];
+                    for (uint32_t x = 0; x < 4; x++) {
+                        memcpy(&source_block[y * 8 + x * 2], &row[(block_x + x) * pixel_byte_count], 2);
+                    }
+                }
+                stb_compress_bc5_block(compressed_block.data(), source_block.data());
+                entry.write(compressed_block.span());
+                break;
+            }
+            }
+        }
+    }
+    entry.finish();
+}
+
+bool Converter::process_material(const simdjson::dom::element &material, uint64_t index) {
+    std::string_view name_;
+    EXPECT_SUCCESS(material["name"].get(name_), "Missing material name")
+    vull::StringView name(name_.data(), name_.length());
+
+    if (material["occlusionTexture"].error() == simdjson::SUCCESS) {
+        vull::warn("[gltf] Material '{}' has an occlusion texture, which is unimplemented", name);
+    }
+    if (material["emissiveTexture"].error() == simdjson::SUCCESS ||
+        material["emissiveFactor"].error() == simdjson::SUCCESS) {
+        vull::warn("[gltf] Material '{}' has emissive properties, which is unimplemented", name);
+    }
+    if (material["doubleSided"].error() == simdjson::SUCCESS) {
+        vull::warn("[gltf] Material '{}' is double sided, which is unsupported", name);
+    }
+
+    std::string_view alpha_mode = "OPAQUE";
+    VULL_IGNORE(material["alphaMode"].get(alpha_mode));
+    if (alpha_mode != "OPAQUE") {
+        vull::StringView mode(alpha_mode.data(), alpha_mode.length());
+        vull::warn("[gltf] Material '{}' has unsupported alpha mode {}", name, mode);
+    }
+
+    auto pbr_info = material["pbrMetallicRoughness"];
+    auto normal_info = material["normalTexture"];
+
+    if (pbr_info["baseColorFactor"].error() == simdjson::SUCCESS) {
+        // TODO: If both factors and textures are present, the factor value acts as a linear multiplier for the
+        //       corresponding texture values.
+        // TODO: In addition to the material properties, if a primitive specifies a vertex color using the attribute
+        //       semantic property COLOR_0, then this value acts as an additional linear multiplier to base color.
+        vull::warn("[gltf] Ignoring baseColorFactor on material '{}'", name);
+    }
+    double normal_scale = 1.0;
+    VULL_IGNORE(normal_info["scale"].get(normal_scale));
+    if (normal_scale != 1.0) {
+        vull::warn("[gltf] Ignoring non-one normal map scale on material '{}'", name);
+    }
+
+    // TODO: Would it be worth submitting invidual texture load tasklets?
+    vull::String albedo_path = "/default_albedo";
+    vull::String normal_path = "/default_normal";
+    if (std::uint64_t albedo_index; pbr_info["baseColorTexture"]["index"].get(albedo_index) == simdjson::SUCCESS) {
+        process_texture(albedo_index, albedo_path, vull::format("/materials/{}/albedo", name), TextureType::Albedo);
+    }
+    if (std::uint64_t normal_index; normal_info["index"].get(normal_index) == simdjson::SUCCESS) {
+        process_texture(normal_index, normal_path, vull::format("/materials/{}/normal", name), TextureType::Normal);
+    }
+
+    pthread_mutex_lock(&m_material_map_mutex);
+    m_albedo_paths.set(index, albedo_path);
+    m_normal_paths.set(index, normal_path);
+    pthread_mutex_unlock(&m_material_map_mutex);
     return true;
 }
 
@@ -238,6 +539,24 @@ bool array_to_vec(const simdjson::dom::array &array, auto &vec) {
     return true;
 }
 
+vull::Material Converter::make_material(simdjson::simdjson_result<simdjson::dom::element> primitive) {
+    uint64_t index;
+    if (primitive["material"].get(index) != simdjson::SUCCESS) {
+        return {"/default_albedo", "/default_normal"};
+    }
+
+    vull::String albedo_path = "/default_albedo";
+    if (auto path = m_albedo_paths.get(index)) {
+        albedo_path = vull::String(*path);
+    }
+
+    vull::String normal_path = "/default_normal";
+    if (auto path = m_normal_paths.get(index)) {
+        normal_path = vull::String(*path);
+    }
+    return {vull::move(albedo_path), vull::move(normal_path)};
+}
+
 bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
     simdjson::dom::object node;
     EXPECT_SUCCESS(m_document["nodes"].at(index).get(node), "Failed to index node array")
@@ -279,14 +598,14 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
         if (primitives.size() == 1) {
             entity.add<vull::Mesh>(vull::format("/meshes/{}.0/vertex", mesh_name),
                                    vull::format("/meshes/{}.0/index", mesh_name));
-            entity.add<vull::Material>("/default_albedo", "/default_normal");
+            entity.add<vull::Material>(make_material(primitives.at(0)));
         } else {
-            for (size_t i = 0; i < primitives.size(); i++) {
+            for (uint64_t i = 0; i < primitives.size(); i++) {
                 auto sub_entity = m_world.create_entity();
                 sub_entity.add<vull::Transform>(entity);
                 sub_entity.add<vull::Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, i),
                                            vull::format("/meshes/{}.{}/index", mesh_name, i));
-                sub_entity.add<vull::Material>("/default_albedo", "/default_normal");
+                sub_entity.add<vull::Material>(make_material(primitives.at(i)));
             }
         }
     }
@@ -404,6 +723,8 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool reproducible) {
         vull::info("[gltf] Generator: {}", vull::StringView(generator.data(), generator.length()));
     }
 
+    // TODO: Ensure only one buffer.
+
     vull::World world;
     world.register_component<vull::Transform>();
     world.register_component<vull::Mesh>();
@@ -435,7 +756,8 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool reproducible) {
         return false;
     }
     if (std::string_view scene_name; scene["name"].get(scene_name) == simdjson::SUCCESS) {
-        vull::info("[gltf] Scene: {} (idx {})", vull::StringView(scene_name.data(), scene_name.length()), scene_index);
+        vull::info("[gltf] Scene: '{}' (idx {})", vull::StringView(scene_name.data(), scene_name.length()),
+                   scene_index);
     }
 
     if (simdjson::dom::array root_nodes; scene["nodes"].get(root_nodes) == simdjson::SUCCESS) {

@@ -30,7 +30,7 @@
 namespace vull {
 namespace {
 
-constexpr auto k_staging_buffer_size = 1024ul * 1024ul * 4ul;
+constexpr auto k_staging_buffer_size = 1024ul * 1024ul * 16ul;
 
 struct FormatInfo {
     vkb::Format format;
@@ -41,8 +41,8 @@ struct FormatInfo {
 FormatInfo parse_format(uint8_t pack_format) {
     switch (vpak::ImageFormat(pack_format)) {
     case vpak::ImageFormat::Bc1Srgb:
-        return {vkb::Format::Bc1RgbaSrgbBlock, 8u, true};
-    case vpak::ImageFormat::Bc3Srgb:
+        return {vkb::Format::Bc1RgbSrgbBlock, 8u, true};
+    case vpak::ImageFormat::Bc3Srgba:
         return {vkb::Format::Bc3SrgbBlock, 16u, true};
     case vpak::ImageFormat::Bc5Unorm:
         return {vkb::Format::Bc5UnormBlock, 16u, true};
