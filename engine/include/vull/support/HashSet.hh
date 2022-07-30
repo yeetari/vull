@@ -177,13 +177,13 @@ Optional<T &> HashSet<T>::add(T &&elem) {
     if (!empty()) {
         bucket = &m_buckets[hash_of(elem) % m_capacity];
         while (true) {
-            if (elem == bucket->elem()) {
-                return bucket->elem();
-            }
             if (bucket->next == nullptr) {
                 break;
             }
             bucket = bucket->next;
+            if (elem == bucket->elem()) {
+                return bucket->elem();
+            }
         }
     }
     if (ensure_capacity(m_size + 1)) {
