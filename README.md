@@ -8,9 +8,11 @@ A vulkan rendering engine written in C++ 20.
 
 * [freetype](https://freetype.org)
 * [harfbuzz](https://github.com/harfbuzz/harfbuzz)
+* [libpng](https://github.com/glennrp/libpng) (for vpak tool)
 * [meshoptimizer](https://github.com/zeux/meshoptimizer) (for vpak tool)
 * [shaderc](https://github.com/google/shaderc) (for offline shader compilation step)
 * [simdjson](https://github.com/simdjson/simdjson) (for vpak tool)
+* [stb_dxt](https://github.com/nothings/stb) (for vpak tool)
 * [xcb](https://xcb.freedesktop.org)
 * [zstd](https://github.com/facebook/zstd)
 
@@ -29,14 +31,15 @@ is not currently supported.
      dev-util/ninja \
      media-libs/freetype \
      media-libs/harfbuzz \
+     media-libs/libpng \
      media-libs/shaderc \
      media-libs/vulkan-layers \
      media-libs/vulkan-loader \
      x11-libs/libxcb \
      x11-libs/xcb-util
 
-Note that meshoptimizer and simdjson are always linked to via `FetchContent`. The vulkan validation layers
-(`vulkan-layers`) are not required but are extremely useful for development.
+Note that meshoptimizer and simdjson are always linked to via `FetchContent`, and `std_dxt` is vendored. The vulkan
+validation layers (`vulkan-layers`) are not required but are extremely useful for development.
 
 ### Configuring CMake
 
