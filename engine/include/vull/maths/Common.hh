@@ -23,9 +23,9 @@ constexpr T ceil_div(T x, T y) {
     return x / y + T(x % y != 0);
 }
 
-template <typename T>
-constexpr T lerp(T a, T b, T x) {
-    return x * (a - b) + b;
+template <typename T, typename U>
+constexpr T lerp(T a, T b, U x) {
+    return (b - a) * x + a;
 }
 
 template <typename T>
