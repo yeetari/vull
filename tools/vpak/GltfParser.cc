@@ -17,6 +17,9 @@
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>
+#include <vull/thread/Latch.hh>
+#include <vull/thread/Mutex.hh>
+#include <vull/thread/ScopedLocker.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Writer.hh>
 
@@ -25,7 +28,6 @@
 #include <linux/futex.h>
 #include <meshoptimizer.h>
 #include <png.h>
-#include <pthread.h>
 #include <simdjson.h>
 #include <stb_dxt.h>
 #include <stdio.h>
@@ -58,25 +60,23 @@ class Converter {
 
     vull::HashMap<uint64_t, vull::String> m_albedo_paths;
     vull::HashMap<uint64_t, vull::String> m_normal_paths;
-    pthread_mutex_t m_material_map_mutex;
+    vull::Mutex m_material_map_mutex;
 
     vull::Material make_material(simdjson::simdjson_result<simdjson::dom::element> primitive);
 
 public:
     Converter(const uint8_t *binary_blob, vull::vpak::Writer &pack_writer, simdjson::dom::element &document,
               vull::World &world)
-        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world) {
-        pthread_mutex_init(&m_material_map_mutex, nullptr);
-    }
+        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world) {}
 
-    bool convert(vull::Atomic<uint32_t> &latch);
+    bool convert(vull::Latch &latch);
     void process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type);
     bool process_material(const simdjson::dom::element &material, uint64_t index);
     bool process_primitive(const simdjson::dom::object &primitive, vull::StringView name);
     bool visit_node(uint64_t index, vull::EntityId parent_id);
 };
 
-bool Converter::convert(vull::Atomic<uint32_t> &latch) {
+bool Converter::convert(vull::Latch &latch) {
     // Emit default albedo texture.
     auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vull::vpak::EntryType::ImageData);
     albedo_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgbaUnorm));
@@ -108,22 +108,20 @@ bool Converter::convert(vull::Atomic<uint32_t> &latch) {
     simdjson::dom::array materials;
     EXPECT_SUCCESS(m_document["materials"].get(materials), "Missing \"materials\" property")
 
-    latch.fetch_add(static_cast<uint32_t>(materials.size()), vull::MemoryOrder::Relaxed);
+    latch.increment(static_cast<uint32_t>(materials.size()));
     for (auto mesh : meshes) {
         simdjson::dom::array primitives;
         EXPECT_SUCCESS(mesh["primitives"].get(primitives), "Missing \"primitives\" property")
-        latch.fetch_add(static_cast<uint32_t>(primitives.size()), vull::MemoryOrder::Relaxed);
+        latch.increment(static_cast<uint32_t>(primitives.size()));
     }
 
     // Initial value of 1 can now safely be decremented.
-    latch.fetch_sub(1, vull::MemoryOrder::Relaxed);
+    latch.count_down();
 
     for (uint64_t i = 0; auto material : materials) {
         vull::schedule([this, material, &latch, index = i++] {
             process_material(material, index);
-            if (latch.fetch_sub(1, vull::MemoryOrder::Relaxed) == 1) {
-                syscall(SYS_futex, latch.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
-            }
+            latch.count_down();
         });
     }
 
@@ -139,9 +137,7 @@ bool Converter::convert(vull::Atomic<uint32_t> &latch) {
             EXPECT_SUCCESS(primitives.at(i).get(primitive), "Element in \"primitives\" array is not an object")
             vull::schedule([this, primitive, &latch, name = vull::format("{}.{}", mesh_name, i)] {
                 process_primitive(primitive, name);
-                if (latch.fetch_sub(1, vull::MemoryOrder::Relaxed) == 1) {
-                    syscall(SYS_futex, latch.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
-                }
+                latch.count_down();
             });
         }
     }
@@ -404,10 +400,9 @@ bool Converter::process_material(const simdjson::dom::element &material, uint64_
         process_texture(normal_index, normal_path, vull::format("/materials/{}/normal", name), TextureType::Normal);
     }
 
-    pthread_mutex_lock(&m_material_map_mutex);
+    vull::ScopedLocker locker(m_material_map_mutex);
     m_albedo_paths.set(index, albedo_path);
     m_normal_paths.set(index, normal_path);
-    pthread_mutex_unlock(&m_material_map_mutex);
     return true;
 }
 
@@ -732,14 +727,12 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool reproducible) {
 
     Converter converter(m_binary_blob, pack_writer, document, world);
     vull::Scheduler scheduler(reproducible ? 1 : 0);
-    vull::Atomic<uint32_t> latch(1);
+    vull::Latch latch;
     vull::Atomic<bool> success = true;
     scheduler.start([&] {
         success.store(converter.convert(latch), vull::MemoryOrder::Relaxed);
     });
-    do {
-        syscall(SYS_futex, latch.raw_ptr(), FUTEX_WAIT_PRIVATE, 1, nullptr, nullptr, 0);
-    } while (latch.load(vull::MemoryOrder::Relaxed) != 0);
+    latch.wait();
     scheduler.stop();
 
     if (!success.load(vull::MemoryOrder::Relaxed)) {

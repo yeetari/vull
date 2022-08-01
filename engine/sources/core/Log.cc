@@ -8,6 +8,8 @@
 #include <vull/support/Timer.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/thread/Mutex.hh>
+#include <vull/thread/ScopedLocker.hh>
 
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
 #include <errno.h>
@@ -62,7 +64,7 @@ Optional<String> LogQueue::dequeue() {
 
 class GlobalState {
     Vector<LogQueue *> m_queues;
-    pthread_mutex_t m_queues_mutex;
+    Mutex m_queues_mutex;
     sem_t m_semaphore;
     pthread_t m_sink_thread;
     Atomic<bool> m_running{true};
@@ -89,7 +91,6 @@ void *sink_loop(void *);
 
 GlobalState::GlobalState() {
     sched_param param{};
-    pthread_mutex_init(&m_queues_mutex, nullptr);
     sem_init(&m_semaphore, 0, 0);
     pthread_create(&m_sink_thread, nullptr, &sink_loop, &m_queues_mutex);
     pthread_setschedparam(m_sink_thread, SCHED_IDLE, &param);
@@ -98,16 +99,14 @@ GlobalState::GlobalState() {
 GlobalState::~GlobalState() {
     close();
     sem_destroy(&m_semaphore);
-    pthread_mutex_destroy(&m_queues_mutex);
     for (auto *queue : m_queues) {
         delete queue;
     }
 }
 
 void GlobalState::add_queue(LogQueue *queue) {
-    pthread_mutex_lock(&m_queues_mutex);
+    ScopedLocker locker(m_queues_mutex);
     m_queues.push(queue);
-    pthread_mutex_unlock(&m_queues_mutex);
 }
 
 void GlobalState::close() {
@@ -121,18 +120,18 @@ void GlobalState::post() {
 }
 
 bool GlobalState::wait() {
-    pthread_mutex_unlock(&m_queues_mutex);
+    m_queues_mutex.unlock();
     if (!m_running.load(MemoryOrder::Relaxed)) {
         if (sem_trywait(&m_semaphore) == 0) {
             // Still messages queued.
-            pthread_mutex_lock(&m_queues_mutex);
+            m_queues_mutex.lock();
             return true;
         }
         VULL_ASSERT(errno == EAGAIN);
         return false;
     }
     sem_wait(&m_semaphore);
-    pthread_mutex_lock(&m_queues_mutex);
+    m_queues_mutex.lock();
     return true;
 }
 
@@ -140,7 +139,7 @@ VULL_GLOBAL(thread_local LogQueue *s_queue = nullptr);
 VULL_GLOBAL(GlobalState s_state);
 
 void *sink_loop(void *mutex) {
-    pthread_mutex_lock(static_cast<pthread_mutex_t *>(mutex));
+    static_cast<Mutex *>(mutex)->lock();
     while (s_state.wait()) {
         // TODO: Sort messages by timestamp.
         for (auto *queue : s_state) {

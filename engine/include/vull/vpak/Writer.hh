@@ -5,9 +5,9 @@
 #include <vull/support/String.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
+#include <vull/thread/Mutex.hh>
 #include <vull/vpak/PackFile.hh>
 
-#include <pthread.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -52,7 +52,7 @@ private:
     const int m_fd;
     const CompressionLevel m_clevel;
     Vector<UniquePtr<Entry>> m_entries;
-    pthread_mutex_t m_mutex;
+    Mutex m_mutex;
 
     off64_t allocate(off64_t size);
     void write_entry_table();

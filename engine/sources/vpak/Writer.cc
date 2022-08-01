@@ -14,6 +14,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/thread/ScopedLocker.hh>
 #include <vull/vpak/PackFile.hh>
 
 #include <fcntl.h>
@@ -166,8 +167,6 @@ void WriteStream::write_varint(uint64_t value) {
 
 Writer::Writer(const String &path, CompressionLevel clevel) : m_fd(creat(path.data(), 0666)), m_clevel(clevel) {
     VULL_ENSURE(m_fd >= 0);
-    pthread_mutex_init(&m_mutex, nullptr);
-
     Array magic_bytes{'V', 'P', 'A', 'K'};
     write_raw(magic_bytes.span());
 
@@ -177,7 +176,6 @@ Writer::Writer(const String &path, CompressionLevel clevel) : m_fd(creat(path.da
 
 Writer::~Writer() {
     close(m_fd);
-    pthread_mutex_destroy(&m_mutex);
 }
 
 uint64_t Writer::finish() {
@@ -186,19 +184,17 @@ uint64_t Writer::finish() {
 }
 
 WriteStream Writer::start_entry(String name, EntryType type) {
-    pthread_mutex_lock(&m_mutex);
+    ScopedLocker locker(m_mutex);
     auto &entry = *m_entries.emplace(new Entry{
         .name = vull::move(name),
         .type = type,
     });
-    pthread_mutex_unlock(&m_mutex);
     return {*this, entry};
 }
 
 off64_t Writer::allocate(off64_t size) {
-    pthread_mutex_lock(&m_mutex);
+    ScopedLocker locker(m_mutex);
     off64_t offset = lseek64(m_fd, size, SEEK_CUR) - size;
-    pthread_mutex_unlock(&m_mutex);
     return offset;
 }
 

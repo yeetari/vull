@@ -21,6 +21,7 @@ target_sources(vull PRIVATE
     terrain/Noise.cc
     terrain/QuadTree.cc
     terrain/Terrain.cc
+    thread/Linux.cc
     ui/Font.cc
     ui/GpuFont.cc
     ui/Renderer.cc
