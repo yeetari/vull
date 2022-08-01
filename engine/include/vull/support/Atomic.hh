@@ -29,17 +29,30 @@ void atomic_store(T &ptr, T &&val, MemoryOrder order = MemoryOrder::Relaxed) {
 }
 
 template <typename T>
-concept SimpleAtomic = requires(T t) {
+struct AtomicStorageType {
+    using type = T;
+};
+template <Enum T>
+struct AtomicStorageType<T> {
+    using type = __underlying_type(T);
+};
+
+template <typename T>
+using atomic_storage_t = typename AtomicStorageType<T>::type;
+
+template <typename T>
+concept SimpleAtomic = requires(atomic_storage_t<T> t) {
     __atomic_load_n(&t, __ATOMIC_RELAXED);
 };
 
 template <SimpleAtomic T>
 class Atomic {
-    T m_value{};
+    using storage_t = atomic_storage_t<T>;
+    storage_t m_value{};
 
 public:
     Atomic() = default;
-    Atomic(T value) : m_value(value) {}
+    Atomic(T value) : m_value(storage_t(value)) {}
     Atomic(const Atomic &) = delete;
     Atomic(Atomic &&) = delete;
     ~Atomic() = default;
@@ -47,25 +60,37 @@ public:
     Atomic &operator=(const Atomic &) = delete;
     Atomic &operator=(Atomic &&) = delete;
 
+    T cmpxchg(T expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile;
     bool compare_exchange(T &expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile;
     T exchange(T desired, MemoryOrder order) volatile;
     T fetch_add(T value, MemoryOrder order) volatile;
     T fetch_sub(T value, MemoryOrder order) volatile;
     T load(MemoryOrder order) const volatile;
     void store(T value, MemoryOrder order) volatile;
-    T *raw_ptr() { return &m_value; }
+    storage_t *raw_ptr() { return &m_value; }
 };
+
+template <SimpleAtomic T>
+T Atomic<T>::cmpxchg(T expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile {
+    auto exp = storage_t(expected);
+    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false, static_cast<int>(success_order),
+                                static_cast<int>(failure_order));
+    return T(exp);
+}
 
 template <SimpleAtomic T>
 bool Atomic<T>::compare_exchange(T &expected, T desired, MemoryOrder success_order,
                                  MemoryOrder failure_order) volatile {
-    return __atomic_compare_exchange_n(&m_value, &expected, desired, false, static_cast<int>(success_order),
-                                       static_cast<int>(failure_order));
+    auto exp = storage_t(expected);
+    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false,
+                                               static_cast<int>(success_order), static_cast<int>(failure_order));
+    expected = T(exp);
+    return success;
 }
 
 template <SimpleAtomic T>
 T Atomic<T>::exchange(T desired, MemoryOrder order) volatile {
-    return __atomic_exchange_n(&m_value, desired, static_cast<int>(order));
+    return T(__atomic_exchange_n(&m_value, storage_t(desired), static_cast<int>(order)));
 }
 
 template <SimpleAtomic T>
@@ -80,12 +105,12 @@ T Atomic<T>::fetch_sub(T value, MemoryOrder order) volatile {
 
 template <SimpleAtomic T>
 T Atomic<T>::load(MemoryOrder order) const volatile {
-    return __atomic_load_n(&m_value, static_cast<int>(order));
+    return T(__atomic_load_n(&m_value, static_cast<int>(order)));
 }
 
 template <SimpleAtomic T>
 void Atomic<T>::store(T value, MemoryOrder order) volatile {
-    __atomic_store_n(&m_value, value, static_cast<int>(order));
+    __atomic_store_n(&m_value, storage_t(value), static_cast<int>(order));
 }
 
 } // namespace vull

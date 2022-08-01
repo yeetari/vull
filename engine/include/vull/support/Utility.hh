@@ -112,6 +112,9 @@ template <typename T>
 inline constexpr bool IsConst = detail::IsConstCheck<T>::value;
 
 template <typename T>
+inline constexpr bool IsEnum = __is_enum(T);
+
+template <typename T>
 inline constexpr bool IsRef = detail::IsRefCheck<T>::value;
 
 template <typename T, typename U>
@@ -127,6 +130,9 @@ template <typename T>
 concept Destructible = requires(T t) {
     t.~T();
 };
+
+template <typename T>
+concept Enum = IsEnum<T>;
 
 #if defined(__clang__) || defined(_MSC_VER)
 template <typename T>
