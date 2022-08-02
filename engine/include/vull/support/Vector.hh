@@ -43,6 +43,7 @@ public:
     template <typename... Args>
     void ensure_size(SizeType size, Args &&...args);
     void reallocate(SizeType capacity);
+    void resize_unsafe(SizeType capacity);
 
     template <typename... Args>
     T &emplace(Args &&...args) requires(!IsRef<T>);
@@ -173,6 +174,12 @@ void Vector<T, SizeType>::reallocate(SizeType capacity) {
     delete[] reinterpret_cast<uint8_t *>(m_data);
     m_data = new_data;
     m_capacity = capacity;
+}
+
+template <typename T, typename SizeType>
+void Vector<T, SizeType>::resize_unsafe(SizeType capacity) {
+    reallocate(capacity);
+    m_size = capacity;
 }
 
 template <typename T, typename SizeType>
