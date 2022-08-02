@@ -15,6 +15,8 @@ public:
     Vec(float x, float y, float z, float w) : m_data(_mm_set_ps(w, z, y, x)) {}
     Vec(const Vec2f &xy, float z, float w) : Vec(xy.x(), xy.y(), z, w) {}
     Vec(const Vec3f &xyz, float w) : Vec(xyz.x(), xyz.y(), xyz.z(), w) {}
+    template <typename T>
+    Vec(const Vec<T, 4> &vec) : Vec(float(vec.x()), float(vec.y()), float(vec.z()), float(vec.w())) {}
 
 #define ENUMERATE_OP(op, ope) Vec &operator ope(const Vec &rhs);
     ENUMERATE_OPS(ENUMERATE_OP)
