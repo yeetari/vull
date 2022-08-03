@@ -22,17 +22,18 @@ void print_usage(vull::StringView executable) {
     vull::StringBuilder sb;
     sb.append("usage:\n");
     sb.append("  {} <command> [<args>]\n", executable);
-    sb.append("  {} convert-gltf [--dump-json] [--fast|--ultra] [--reproducible]\n", executable);
-    sb.append("  {}              <input-gltf> [output-vpak]\n", whitespace);
+    sb.append("  {} convert-gltf [--dump-json] [--fast|--ultra] [--max-resolution]\n", executable);
+    sb.append("  {}              [--reproducible] <input-gltf> [output-vpak]\n", whitespace);
     sb.append("  {} help\n", executable);
     sb.append("  {} ls <vpak>\n", executable);
     sb.append("  {} stat <vpak> <name>\n", executable);
     sb.append("\narguments:\n");
-    sb.append("  [output-vpak]  The vpak file to be written (default: scene.vpak)\n");
-    sb.append("  --dump-json    Dump the JSON scene data contained in the glTF\n");
-    sb.append("  --fast         Use the lowest Zstd compression level (negative)\n");
-    sb.append("  --reproducible Limit the writer to one thread\n");
-    sb.append("  --ultra        Use the highest Zstd compression level (warning: will increase memory usage)\n");
+    sb.append("  [output-vpak]    The vpak file to be written (default: scene.vpak)\n");
+    sb.append("  --dump-json      Dump the JSON scene data contained in the glTF\n");
+    sb.append("  --fast           Use the lowest Zstd compression level (negative)\n");
+    sb.append("  --max-resolution Don't discard the top mip for textures >1K\n");
+    sb.append("  --reproducible   Limit the writer to one thread\n");
+    sb.append("  --ultra          Use the highest Zstd compression level (warning: will increase memory usage)\n");
     sb.append("\nexamples:\n");
     sb.append("  {} convert-gltf --fast sponza.glb\n", executable);
     sb.append("  {} ls scene.vpak\n", executable);
@@ -43,6 +44,7 @@ void print_usage(vull::StringView executable) {
 int convert_gltf(const vull::Vector<vull::StringView> &args) {
     bool dump_json = false;
     bool fast = false;
+    bool max_resolution = false;
     bool reproducible = false;
     bool ultra = false;
     vull::StringView input_path;
@@ -52,6 +54,8 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
             dump_json = true;
         } else if (arg == "--fast") {
             fast = true;
+        } else if (arg == "--max-resolution") {
+            max_resolution = true;
         } else if (arg == "--reproducible") {
             reproducible = true;
         } else if (arg == "--ultra") {
@@ -99,7 +103,7 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
     }
 
     vull::vpak::Writer pack_writer(output_path, compression_level);
-    if (!gltf_parser.convert(pack_writer, reproducible)) {
+    if (!gltf_parser.convert(pack_writer, max_resolution, reproducible)) {
         return EXIT_FAILURE;
     }
 

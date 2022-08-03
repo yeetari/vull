@@ -30,7 +30,7 @@ class GltfParser {
 
 public:
     bool parse_glb(vull::StringView input_path);
-    bool convert(vull::vpak::Writer &pack_writer, bool reproducible);
+    bool convert(vull::vpak::Writer &pack_writer, bool max_resolution, bool reproducible);
 
     vull::StringView json() const { return m_json; }
 };

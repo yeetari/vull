@@ -57,6 +57,7 @@ class Converter {
     vull::vpak::Writer &m_pack_writer;
     simdjson::dom::element &m_document;
     vull::World &m_world;
+    const bool m_max_resolution;
 
     vull::HashMap<uint64_t, vull::String> m_albedo_paths;
     vull::HashMap<uint64_t, vull::String> m_normal_paths;
@@ -66,8 +67,9 @@ class Converter {
 
 public:
     Converter(const uint8_t *binary_blob, vull::vpak::Writer &pack_writer, simdjson::dom::element &document,
-              vull::World &world)
-        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world) {}
+              vull::World &world, bool max_resolution)
+        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world),
+          m_max_resolution(max_resolution) {}
 
     bool convert(vull::Latch &latch);
     void process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type);
@@ -326,13 +328,22 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         source_size >>= 1;
     }
 
+    constexpr uint32_t log_threshold_resolution = 11u;
+    uint32_t mip_offset = 0;
+    if (!m_max_resolution && width == height && mip_count > log_threshold_resolution) {
+        // Drop first mip.
+        width >>= 1;
+        height >>= 1;
+        mip_offset++;
+    }
+
     auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
     entry.write_byte(uint8_t(format));
     entry.write_varint(width);
     entry.write_varint(height);
-    entry.write_varint(mip_count);
+    entry.write_varint(mip_count - mip_offset);
 
-    for (uint32_t i = 0; i < mip_count; i++) {
+    for (uint32_t i = mip_offset; i < mip_count; i++) {
         for (uint32_t block_y = 0; block_y < height; block_y += 4) {
             for (uint32_t block_x = 0; block_x < width; block_x += 4) {
                 // TODO: These cases can probably be unified into one path.
@@ -750,7 +761,7 @@ bool GltfParser::parse_glb(vull::StringView input_path) {
     return true;
 }
 
-bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool reproducible) {
+bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, bool reproducible) {
     simdjson::dom::parser parser;
     simdjson::dom::element document;
     if (auto error = parser.parse(m_json.data(), m_json.length(), false).get(document)) {
@@ -774,7 +785,7 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool reproducible) {
     world.register_component<vull::Mesh>();
     world.register_component<vull::Material>();
 
-    Converter converter(m_binary_blob, pack_writer, document, world);
+    Converter converter(m_binary_blob, pack_writer, document, world, max_resolution);
     vull::Scheduler scheduler(reproducible ? 1 : 0);
     vull::Latch latch;
     vull::Atomic<bool> success = true;
