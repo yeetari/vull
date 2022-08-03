@@ -127,20 +127,41 @@ constexpr Vec<T, L>::Vec(const Vec<T, L1> &vec) requires(L1 > L) {
     }
 }
 
+#define DEFINE_CWISE_BINARY(name)                                                                                      \
+    template <typename T, unsigned L>                                                                                  \
+    constexpr Vec<T, L> name(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {                                             \
+        Vec<T, L> ret;                                                                                                 \
+        for (unsigned i = 0; i < L; i++) {                                                                             \
+            ret[i] = name(lhs[i], rhs[i]);                                                                             \
+        }                                                                                                              \
+        return ret;                                                                                                    \
+    }
+#define DEFINE_CWISE_UNARY(name)                                                                                       \
+    template <typename T, unsigned L>                                                                                  \
+    constexpr Vec<T, L> name(const Vec<T, L> &vec) {                                                                   \
+        Vec<T, L> ret;                                                                                                 \
+        for (unsigned i = 0; i < L; i++) {                                                                             \
+            ret[i] = name(vec[i]);                                                                                     \
+        }                                                                                                              \
+        return ret;                                                                                                    \
+    }
+
+DEFINE_CWISE_BINARY(min)
+DEFINE_CWISE_BINARY(max)
+DEFINE_CWISE_BINARY(pow)
+DEFINE_CWISE_UNARY(abs)
+DEFINE_CWISE_UNARY(ceil)
+DEFINE_CWISE_UNARY(floor)
+DEFINE_CWISE_UNARY(round)
+DEFINE_CWISE_UNARY(sign)
+#undef DEFINE_CWISE_BINARY
+#undef DEFINE_CWISE_UNARY
+
 template <typename T, unsigned L>
 constexpr Vec<T, L> operator-(const Vec<T, L> &vec) {
     Vec<T, L> ret;
     for (unsigned i = 0; i < L; i++) {
         ret[i] = -vec[i];
-    }
-    return ret;
-}
-
-template <typename T, unsigned L>
-constexpr Vec<T, L> abs(const Vec<T, L> &vec) {
-    Vec<T, L> ret;
-    for (unsigned i = 0; i < L; i++) {
-        ret[i] = abs(vec[i]);
     }
     return ret;
 }
@@ -176,15 +197,6 @@ constexpr T magnitude(const Vec<T, L> &vec) {
 template <typename T, unsigned L>
 constexpr Vec<T, L> normalise(const Vec<T, L> &vec) {
     return vec / magnitude(vec);
-}
-
-template <typename T, unsigned L>
-constexpr Vec<T, L> sign(const Vec<T, L> &vec) {
-    Vec<T, L> ret;
-    for (unsigned i = 0; i < L; i++) {
-        ret[i] = sign(vec[i]);
-    }
-    return ret;
 }
 
 template <typename T, unsigned L>
