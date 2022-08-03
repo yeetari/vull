@@ -218,6 +218,11 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         return;
     }
 
+    if (byte_length > 0x100000000) {
+        vull::error("[gltf] Image '{}' larger than 4 GiB", image_name);
+        return;
+    }
+
     if (png_sig_cmp(&m_binary_blob[byte_offset], 0, 8) != 0) {
         vull::error("[gltf] Image '{}' failed PNG signature check", image_name);
         return;
@@ -269,84 +274,128 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         break;
     }
 
+    const auto mip_count = 32u - vull::clz(vull::max(width, height));
+    vull::Vector<vull::Vector<uint8_t>> mip_buffers(mip_count);
+
+    mip_buffers[0].resize_unsafe(width * height * pixel_byte_count);
+    for (uint32_t y = 0; y < height; y++) {
+        png_read_row(png_ptr, &mip_buffers[0][y * row_byte_count], nullptr);
+    }
+
+    vull::Vec2u source_size(width, height);
+    for (uint32_t i = 1; i < mip_count; i++) {
+        const auto mip_size = source_size >> 1;
+        mip_buffers[i].resize_unsafe(mip_size.x() * mip_size.y() * pixel_byte_count);
+
+        const auto scale = vull::Vec2f(1.0f) / vull::max(mip_size - 1, vull::Vec2u(1u));
+        const auto *source = mip_buffers[i - 1].data();
+        for (uint32_t y = 0; y < mip_size.y(); y++) {
+            for (uint32_t x = 0; x < mip_size.x(); x++) {
+                const auto sample_position = vull::Vec2f(x, y) * scale;
+                const auto scaled_coord = sample_position * (source_size - 1);
+                const auto scaled_floor = vull::floor(scaled_coord);
+                const auto scaled_ceil = vull::ceil(scaled_coord);
+                const auto lerp_factor = scaled_coord - scaled_floor;
+
+                const auto sample_source = [&](const vull::Vec2u &position) {
+                    const auto *pixel = &source[(position.y() * source_size.x() + position.x()) * pixel_byte_count];
+                    vull::Vec4f texel(pixel[0], pixel[1], pixel[2], 0.0f);
+                    if (pixel_byte_count == 4) {
+                        texel[3] = pixel[3];
+                    }
+                    return texel;
+                };
+                const auto t0 = sample_source(scaled_floor);
+                const auto t1 = sample_source({scaled_ceil.x(), scaled_floor.y()});
+                const auto t2 = sample_source(scaled_ceil);
+                const auto t3 = sample_source({scaled_floor.x(), scaled_ceil.y()});
+
+                const auto l0 = vull::lerp(t0, t1, lerp_factor.x());
+                const auto l1 = vull::lerp(t2, t3, lerp_factor.x());
+                const auto l2 = vull::lerp(l0, l1, lerp_factor.y());
+
+                auto *pixel = &mip_buffers[i][(y * mip_size.x() + x) * pixel_byte_count];
+                pixel[0] = static_cast<uint8_t>(l2[0]);
+                pixel[1] = static_cast<uint8_t>(l2[1]);
+                pixel[2] = static_cast<uint8_t>(l2[2]);
+                if (pixel_byte_count == 4) {
+                    pixel[3] = static_cast<uint8_t>(l2[3]);
+                }
+            }
+        }
+        source_size >>= 1;
+    }
+
     auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
     entry.write_byte(uint8_t(format));
     entry.write_varint(width);
     entry.write_varint(height);
-    entry.write_varint(1);
+    entry.write_varint(mip_count);
 
-    const auto remainder = width % 4;
-    const auto padding = remainder != 0 ? 4 - remainder : 0;
-    vull::Array<vull::Vector<uint8_t>, 4> row_buffers;
-    for (auto &buffer : row_buffers) {
-        buffer.ensure_size(row_byte_count + padding * pixel_byte_count);
-    }
+    for (uint32_t i = 0; i < mip_count; i++) {
+        for (uint32_t block_y = 0; block_y < height; block_y += 4) {
+            for (uint32_t block_x = 0; block_x < width; block_x += 4) {
+                // TODO: These cases can probably be unified into one path.
+                switch (format) {
+                case vull::vpak::ImageFormat::Bc1Srgb: {
+                    // 64-bit compressed block.
+                    vull::Array<uint8_t, 8> compressed_block;
 
-    for (uint32_t block_y = 0; block_y < height; block_y += 4) {
-        for (uint32_t i = 0; i < 4; i++) {
-            if (block_y + i >= height) [[unlikely]] {
-                break;
-            }
-            png_read_row(png_ptr, row_buffers[i].data(), nullptr);
-        }
-        for (uint32_t block_x = 0; block_x < width; block_x += 4) {
-            switch (format) {
-            case vull::vpak::ImageFormat::Bc1Srgb: {
-                // 64-bit compressed block.
-                vull::Array<uint8_t, 8> compressed_block;
+                    // 64-byte (4x4 * 4 bytes per pixel (alpha padded)) input.
+                    vull::Array<uint8_t, 64> source_block{};
 
-                // 64-byte (4x4 * 4 bytes per pixel (alpha padded)) input.
-                vull::Array<uint8_t, 64> source_block{};
-
-                // = 16 bytes per row.
-                for (uint32_t y = 0; y < 4; y++) {
-                    const auto &row = row_buffers[y];
-                    for (uint32_t x = 0; x < 4; x++) {
-                        memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 3);
+                    // = 16 bytes per row.
+                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
+                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
+                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
+                            memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 3);
+                        }
                     }
+                    stb_compress_dxt_block(compressed_block.data(), source_block.data(), 0, STB_DXT_HIGHQUAL);
+                    entry.write(compressed_block.span());
+                    break;
                 }
-                stb_compress_dxt_block(compressed_block.data(), source_block.data(), 0, STB_DXT_HIGHQUAL);
-                entry.write(compressed_block.span());
-                break;
-            }
-            case vull::vpak::ImageFormat::Bc3Srgba: {
-                // 128-bit compressed block.
-                vull::Array<uint8_t, 16> compressed_block;
+                case vull::vpak::ImageFormat::Bc3Srgba: {
+                    // 128-bit compressed block.
+                    vull::Array<uint8_t, 16> compressed_block;
 
-                // 64-byte (4x4 * 4 bytes per pixel) input.
-                vull::Array<uint8_t, 64> source_block;
+                    // 64-byte (4x4 * 4 bytes per pixel) input.
+                    vull::Array<uint8_t, 64> source_block{};
 
-                // = 16 bytes per row.
-                for (uint32_t y = 0; y < 4; y++) {
-                    const auto &row = row_buffers[y];
-                    for (uint32_t x = 0; x < 4; x++) {
-                        memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 4);
+                    // = 16 bytes per row.
+                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
+                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
+                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
+                            memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 4);
+                        }
                     }
+                    stb_compress_dxt_block(compressed_block.data(), source_block.data(), 1, STB_DXT_HIGHQUAL);
+                    entry.write(compressed_block.span());
+                    break;
                 }
-                stb_compress_dxt_block(compressed_block.data(), source_block.data(), 1, STB_DXT_HIGHQUAL);
-                entry.write(compressed_block.span());
-                break;
-            }
-            case vull::vpak::ImageFormat::Bc5Unorm: {
-                // 128-bit compressed block.
-                vull::Array<uint8_t, 16> compressed_block;
+                case vull::vpak::ImageFormat::Bc5Unorm: {
+                    // 128-bit compressed block.
+                    vull::Array<uint8_t, 16> compressed_block;
 
-                // 32-byte (4x4 * 2 bytes per pixel) input.
-                vull::Array<uint8_t, 32> source_block;
+                    // 32-byte (4x4 * 2 bytes per pixel) input.
+                    vull::Array<uint8_t, 32> source_block{};
 
-                // = 8 bytes per row.
-                for (uint32_t y = 0; y < 4; y++) {
-                    const auto &row = row_buffers[y];
-                    for (uint32_t x = 0; x < 4; x++) {
-                        memcpy(&source_block[y * 8 + x * 2], &row[(block_x + x) * pixel_byte_count], 2);
+                    // = 8 bytes per row.
+                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
+                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
+                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
+                            memcpy(&source_block[y * 8 + x * 2], &row[(block_x + x) * pixel_byte_count], 2);
+                        }
                     }
+                    stb_compress_bc5_block(compressed_block.data(), source_block.data());
+                    entry.write(compressed_block.span());
+                    break;
                 }
-                stb_compress_bc5_block(compressed_block.data(), source_block.data());
-                entry.write(compressed_block.span());
-                break;
-            }
+                }
             }
         }
+        width >>= 1;
+        height >>= 1;
     }
     entry.finish();
 }

@@ -198,8 +198,8 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
             };
             cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
         });
-        mip_width /= 2;
-        mip_height /= 2;
+        mip_width >>= 1;
+        mip_height >>= 1;
         memory_offset += mip_size;
     }
 
