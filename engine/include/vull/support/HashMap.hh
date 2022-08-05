@@ -20,6 +20,8 @@ public:
     Optional<const V &> get(const K &key) const;
     bool set(const K &key, const V &value);
     bool set(const K &key, V &&value);
+    bool set(K &&key, const V &value);
+    bool set(K &&key, V &&value);
 
     auto begin() { return m_set.begin(); }
     auto end() { return m_set.end(); }
@@ -69,12 +71,22 @@ Optional<const V &> HashMap<K, V>::get(const K &key) const {
 
 template <typename K, typename V>
 bool HashMap<K, V>::set(const K &key, const V &value) {
-    return set(key, V(value));
+    return set(K(key), V(value));
 }
 
 template <typename K, typename V>
 bool HashMap<K, V>::set(const K &key, V &&value) {
-    if (auto existing = m_set.add({key, move(value)})) {
+    return set(K(key), move(value));
+}
+
+template <typename K, typename V>
+bool HashMap<K, V>::set(K &&key, const V &value) {
+    return set(move(key), V(value));
+}
+
+template <typename K, typename V>
+bool HashMap<K, V>::set(K &&key, V &&value) {
+    if (auto existing = m_set.add({move(key), move(value)})) {
         existing->value = move(value);
         return false;
     }
