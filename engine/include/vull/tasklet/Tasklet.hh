@@ -35,12 +35,14 @@ class alignas(64) Tasklet : public TaskletBase<Tasklet> {
     // bug in GCC that prevents compilation.
     template <typename F>
     static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) <= k_inline_capacity) {
-        (reinterpret_cast<const F &>(*inline_storage))();
+        // NOLINTNEXTLINE: const_cast
+        const_cast<F &>((reinterpret_cast<const F &>(*inline_storage)))();
     }
     template <typename F>
     [[deprecated("functor storage demoted to a heap allocation, performance will be pessimised")]] static void
     invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) > k_inline_capacity) {
-        (*reinterpret_cast<const F *const &>(*inline_storage))();
+        // NOLINTNEXTLINE: const_cast
+        const_cast<F &>((*reinterpret_cast<const F *const &>(*inline_storage)))();
     }
 
     // clang-format off
