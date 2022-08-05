@@ -1,8 +1,10 @@
 #include "FreeCamera.hh"
 #include "OrbitCamera.hh"
 
+#include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
+#include <vull/core/Transform.hh>
 #include <vull/core/Vertex.hh>
 #include <vull/core/Window.hh>
 #include <vull/ecs/Entity.hh>
@@ -43,8 +45,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <vull/core/Material.hh>
-#include <vull/core/Transform.hh>
 
 using namespace vull;
 
