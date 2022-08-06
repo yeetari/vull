@@ -20,10 +20,16 @@
 namespace vull::vk {
 namespace {
 
-Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &) {
+Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &resource) {
     if (pass.kind() == PassKind::Compute) {
         // TODO: Finer grained access.
         return {vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead};
+    }
+    if (auto image = resource.as_image()) {
+        if ((image->full_range().aspectMask & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
+            return {vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
+                    vkb::Access2::DepthStencilAttachmentRead};
+        }
     }
     VULL_ENSURE_NOT_REACHED("TODO");
 }
