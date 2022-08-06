@@ -1,5 +1,6 @@
 #include "GltfParser.hh"
 
+#include <vull/core/BoundingBox.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
@@ -63,6 +64,9 @@ class Converter {
     vull::HashMap<uint64_t, vull::String> m_normal_paths;
     vull::Mutex m_material_map_mutex;
 
+    vull::HashMap<vull::String, vull::BoundingBox> m_bounding_boxes;
+    vull::Mutex m_bounding_boxes_mutex;
+
     vull::Material make_material(simdjson::simdjson_result<simdjson::dom::element> primitive);
 
 public:
@@ -74,7 +78,7 @@ public:
     bool convert(vull::Latch &latch);
     void process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type);
     bool process_material(const simdjson::dom::element &material, uint64_t index);
-    bool process_primitive(const simdjson::dom::object &primitive, vull::StringView name);
+    bool process_primitive(const simdjson::dom::object &primitive, vull::String &&name);
     bool visit_node(uint64_t index, vull::EntityId parent_id);
 };
 
@@ -137,8 +141,8 @@ bool Converter::convert(vull::Latch &latch) {
         for (uint64_t i = 0; i < primitives.size(); i++) {
             simdjson::dom::object primitive;
             EXPECT_SUCCESS(primitives.at(i).get(primitive), "Element in \"primitives\" array is not an object")
-            vull::schedule([this, primitive, &latch, name = vull::format("{}.{}", mesh_name, i)] {
-                process_primitive(primitive, name);
+            vull::schedule([this, primitive, &latch, name = vull::format("{}.{}", mesh_name, i)]() mutable {
+                process_primitive(primitive, vull::move(name));
                 latch.count_down();
             });
         }
@@ -467,7 +471,7 @@ bool Converter::process_material(const simdjson::dom::element &material, uint64_
 }
 
 // TODO: Missing validation in some places.
-bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::StringView name) {
+bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::String &&name) {
     uint64_t positions_index;
     EXPECT_SUCCESS(primitive["attributes"]["POSITION"].get(positions_index), "Missing vertex position attribute")
     uint64_t normals_index;
@@ -578,6 +582,17 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
         m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vull::vpak::EntryType::IndexData);
     index_data_entry.write(indices.span());
     index_data_entry.finish();
+
+    vull::Vec3f aabb_min(FLT_MAX);
+    vull::Vec3f aabb_max(FLT_MIN);
+    for (const auto &vertex : vertices) {
+        aabb_min = vull::min(aabb_min, vertex.position);
+        aabb_max = vull::max(aabb_max, vertex.position);
+    }
+
+    vull::BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
+    vull::ScopedLocker locker(m_bounding_boxes_mutex);
+    m_bounding_boxes.set(vull::move(name), bounding_box);
     return true;
 }
 
@@ -654,6 +669,9 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
             entity.add<vull::Mesh>(vull::format("/meshes/{}.0/vertex", mesh_name),
                                    vull::format("/meshes/{}.0/index", mesh_name));
             entity.add<vull::Material>(make_material(primitives.at(0)));
+            if (auto box = m_bounding_boxes.get(vull::format("{}.0", mesh_name))) {
+                entity.add<vull::BoundingBox>(*box);
+            }
         } else {
             for (uint64_t i = 0; i < primitives.size(); i++) {
                 auto sub_entity = m_world.create_entity();
@@ -661,6 +679,9 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
                 sub_entity.add<vull::Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, i),
                                            vull::format("/meshes/{}.{}/index", mesh_name, i));
                 sub_entity.add<vull::Material>(make_material(primitives.at(i)));
+                if (auto box = m_bounding_boxes.get(vull::format("{}.{}", mesh_name, i))) {
+                    sub_entity.add<vull::BoundingBox>(*box);
+                }
             }
         }
     }
@@ -784,6 +805,7 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
     world.register_component<vull::Transform>();
     world.register_component<vull::Mesh>();
     world.register_component<vull::Material>();
+    world.register_component<vull::BoundingBox>();
 
     Converter converter(m_binary_blob, pack_writer, document, world, max_resolution);
     vull::Scheduler scheduler(reproducible ? 1 : 0);
