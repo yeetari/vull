@@ -1,5 +1,6 @@
 #include <vull/core/Scene.hh>
 
+#include <vull/core/BoundingBox.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
@@ -237,6 +238,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
     m_world.register_component<Material>();
+    m_world.register_component<BoundingBox>();
 
     // Allocate a temporary staging buffer used to upload data to VRAM.
     vkb::BufferCreateInfo staging_buffer_ci{

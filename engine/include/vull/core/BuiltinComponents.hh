@@ -8,6 +8,7 @@ enum class BuiltinComponents {
     Material = 2,
     RigidBody = 3,
     Collider = 4,
+    BoundingBox = 5,
 };
 
 } // namespace vull
