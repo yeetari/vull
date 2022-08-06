@@ -1254,7 +1254,7 @@ void main_task(Scheduler &scheduler) {
     });
 
     ui::Renderer ui(context, render_graph, swapchain, swapchain_resource, ui_vertex_shader, ui_fragment_shader);
-    ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.6f, 0.7f, 0.8f));
+    ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.7f, 0.2f, 0.3f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
@@ -1303,7 +1303,7 @@ void main_task(Scheduler &scheduler) {
     PhysicsEngine physics_engine;
     bool free_camera_active = false;
     bool free_camera_active_key_pressed = false;
-    vull::seed_rand(3);
+    vull::seed_rand(5);
 
     uint32_t frame_index = 0;
     Timer frame_timer;
