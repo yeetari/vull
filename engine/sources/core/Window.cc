@@ -245,7 +245,7 @@ void Window::poll_events() {
         case XCB_BUTTON_RELEASE: {
             const auto *mouse_event = reinterpret_cast<xcb_button_press_event_t *>(event);
             const auto button = translate_button(mouse_event->detail);
-            m_buttons ^= (ButtonMask(event_id == XCB_BUTTON_PRESS) ^ m_buttons) & button;
+            m_buttons ^= (-ButtonMask(event_id == XCB_BUTTON_PRESS) ^ m_buttons) & button;
 
             Vec2f position(m_mouse_x, m_mouse_y);
             if (event_id == XCB_BUTTON_PRESS && m_mouse_press_callbacks.contains(button)) {
