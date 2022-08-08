@@ -17,6 +17,7 @@ class FreeCamera {
     float m_yaw{0.0f};
 
 public:
+    void handle_mouse_move(vull::Vec2f delta);
     void update(const vull::Window &window, float dt);
     vull::Mat4f view_matrix();
 

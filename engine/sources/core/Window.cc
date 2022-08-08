@@ -1,8 +1,15 @@
 #include <vull/core/Window.hh>
 
+#include <vull/core/Input.hh>
+#include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
+#include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Function.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/Utility.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -29,7 +36,9 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
 
     // Create a window on the first screen and set the title.
     m_id = xcb_generate_id(m_connection);
-    const uint32_t event_mask = XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_POINTER_MOTION;
+    const uint32_t event_mask = XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
+                                XCB_EVENT_MASK_BUTTON_MOTION | XCB_EVENT_MASK_BUTTON_PRESS |
+                                XCB_EVENT_MASK_BUTTON_RELEASE;
     xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(m_connection)).data;
     xcb_create_window(m_connection, screen->root_depth, m_id, screen->root, 0, 0, static_cast<uint16_t>(width),
                       static_cast<uint16_t>(height), 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual,
@@ -57,24 +66,22 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
     }
 
     // Hide cursor.
-    const uint32_t cursor_value = xcb_generate_id(m_connection);
+    m_hidden_cursor = xcb_generate_id(m_connection);
     xcb_pixmap_t cursor_pixmap = xcb_generate_id(m_connection);
     xcb_create_pixmap(m_connection, 1, cursor_pixmap, m_id, 1, 1);
-    xcb_create_cursor(m_connection, cursor_value, cursor_pixmap, cursor_pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
+    xcb_create_cursor(m_connection, m_hidden_cursor, cursor_pixmap, cursor_pixmap, 0, 0, 0, 0, 0, 0, 0, 0);
     xcb_free_pixmap(m_connection, cursor_pixmap);
-    xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &cursor_value);
+    xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &m_hidden_cursor);
 
     auto use_xkb_request = xcb_xkb_use_extension(m_connection, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
     free(xcb_xkb_use_extension_reply(m_connection, use_xkb_request, nullptr));
     map_keycodes();
 
+    // TODO: Disable auto repeat.
+
     // Make the window visible and wait for the server to process the requests.
     xcb_map_window(m_connection, m_id);
     xcb_aux_sync(m_connection);
-
-    // Center the mouse pointer.
-    xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height, static_cast<int16_t>(m_width / 2),
-                     static_cast<int16_t>(m_height / 2));
 
     // Use the RandR extension to calculate the display pixels per centimetre.
     auto primary_output_request = xcb_randr_get_output_primary(m_connection, m_id);
@@ -92,6 +99,10 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
 
     free(primary_output);
     free(output_info);
+
+    // Center the mouse pointer.
+    xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height, static_cast<int16_t>(m_width / 2),
+                     static_cast<int16_t>(m_height / 2));
 }
 
 Window::~Window() {
@@ -112,7 +123,7 @@ void Window::map_keycodes() {
         KeyPair{"AC03", Key::D}, KeyPair{"AC04", Key::F}, KeyPair{"AC05", Key::G},     KeyPair{"AC06", Key::H},
         KeyPair{"AC07", Key::J}, KeyPair{"AC08", Key::K}, KeyPair{"AC09", Key::L},     KeyPair{"AB01", Key::Z},
         KeyPair{"AB02", Key::X}, KeyPair{"AB03", Key::C}, KeyPair{"AB04", Key::V},     KeyPair{"AB05", Key::B},
-        KeyPair{"AB06", Key::N}, KeyPair{"AB07", Key::M}, KeyPair{"LFSH", Key::Shift},
+        KeyPair{"AB06", Key::N}, KeyPair{"AB07", Key::M}, KeyPair{"SPCE", Key::Space}, KeyPair{"LFSH", Key::Shift},
     };
 
     auto get_names_request = xcb_xkb_get_names(m_connection, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_NAME_DETAIL_KEY_NAMES);
@@ -139,10 +150,7 @@ void Window::map_keycodes() {
 }
 
 Key Window::translate_keycode(uint8_t keycode) {
-    if (keycode >= m_keycode_map.size()) {
-        return Key::Unknown;
-    }
-    return m_keycode_map[keycode];
+    return keycode < m_keycode_map.size() ? m_keycode_map[keycode] : Key::Unknown;
 }
 
 vk::Swapchain Window::create_swapchain(const vk::Context &context, vk::SwapchainMode mode) {
@@ -160,29 +168,111 @@ void Window::close() {
     m_should_close = true;
 }
 
+void Window::hide_cursor() {
+    m_cursor_hidden = true;
+    xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &m_hidden_cursor);
+    xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height, static_cast<int16_t>(m_width / 2),
+                     static_cast<int16_t>(m_height / 2));
+}
+
+void Window::show_cursor() {
+    m_cursor_hidden = false;
+    uint32_t cursor = 0;
+    xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &cursor);
+}
+
+static ButtonMask translate_button(uint8_t button) {
+    switch (button) {
+    case XCB_BUTTON_INDEX_1:
+        return ButtonMask::Left;
+    case XCB_BUTTON_INDEX_2:
+        return ButtonMask::Middle;
+    case XCB_BUTTON_INDEX_3:
+        return ButtonMask::Right;
+    default:
+        return ButtonMask::None;
+    }
+}
+
+static ModifierMask translate_mods(uint16_t state) {
+    auto mask = static_cast<ModifierMask>(0);
+    if ((state & XCB_MOD_MASK_SHIFT) != 0u) {
+        mask |= ModifierMask::Shift;
+    }
+    if ((state & XCB_MOD_MASK_CONTROL) != 0u) {
+        mask |= ModifierMask::Ctrl;
+    }
+    if ((state & XCB_MOD_MASK_1) != 0u) {
+        mask |= ModifierMask::Alt;
+    }
+    if ((state & XCB_MOD_MASK_4) != 0u) {
+        mask |= ModifierMask::Super;
+    }
+    if ((state & XCB_MOD_MASK_LOCK) != 0u) {
+        mask |= ModifierMask::CapsLock;
+    }
+    return mask;
+}
+
 void Window::poll_events() {
-    m_delta_x = 0;
-    m_delta_y = 0;
+    int16_t delta_x = 0;
+    int16_t delta_y = 0;
+    bool had_mouse_move = false;
+
     xcb_generic_event_t *event;
     while ((event = xcb_poll_for_event(m_connection)) != nullptr) {
-        switch (event->response_type & ~0x80u) {
-        case XCB_KEY_PRESS: {
-            auto *key_press_event = reinterpret_cast<xcb_key_press_event_t *>(event);
-            m_keys[static_cast<uint8_t>(translate_keycode(key_press_event->detail))] = true;
+        const auto event_id = event->response_type & ~0x80u;
+        switch (event_id) {
+        case XCB_KEY_PRESS:
+        case XCB_KEY_RELEASE: {
+            const auto *key_event = reinterpret_cast<xcb_key_press_event_t *>(event);
+            const auto key = translate_keycode(key_event->detail);
+            m_keys[static_cast<uint8_t>(key)] = event_id == XCB_KEY_PRESS;
+
+            const auto mods = translate_mods(key_event->state);
+            if (event_id == XCB_KEY_PRESS && m_key_press_callbacks.contains(key)) {
+                if (auto &callback = *m_key_press_callbacks.get(key)) {
+                    callback(mods);
+                }
+            } else if (event_id == XCB_KEY_RELEASE && m_key_release_callbacks.contains(key)) {
+                if (auto &callback = *m_key_release_callbacks.get(key)) {
+                    callback(mods);
+                }
+            }
             break;
         }
-        case XCB_KEY_RELEASE: {
-            auto *key_release_event = reinterpret_cast<xcb_key_release_event_t *>(event);
-            m_keys[static_cast<uint8_t>(translate_keycode(key_release_event->detail))] = false;
+        case XCB_BUTTON_PRESS:
+        case XCB_BUTTON_RELEASE: {
+            const auto *mouse_event = reinterpret_cast<xcb_button_press_event_t *>(event);
+            const auto button = translate_button(mouse_event->detail);
+            m_buttons ^= (ButtonMask(event_id == XCB_BUTTON_PRESS) ^ m_buttons) & button;
+
+            Vec2f position(m_mouse_x, m_mouse_y);
+            if (event_id == XCB_BUTTON_PRESS && m_mouse_press_callbacks.contains(button)) {
+                if (auto &callback = *m_mouse_press_callbacks.get(button)) {
+                    callback(position);
+                }
+            } else if (event_id == XCB_BUTTON_RELEASE && m_mouse_release_callbacks.contains(button)) {
+                if (auto &callback = *m_mouse_release_callbacks.get(button)) {
+                    callback(position);
+                }
+            }
             break;
         }
         case XCB_MOTION_NOTIFY: {
-            auto *motion_event = reinterpret_cast<xcb_motion_notify_event_t *>(event);
-            m_delta_x = motion_event->event_x - static_cast<int16_t>(m_width / 2);  // NOLINT
-            m_delta_y = motion_event->event_y - static_cast<int16_t>(m_height / 2); // NOLINT
-            if (motion_event->event_x != m_width / 2 || motion_event->event_y != m_height / 2) {
-                xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height, static_cast<int16_t>(m_width / 2),
-                                 static_cast<int16_t>(m_height / 2));
+            const auto *motion_event = reinterpret_cast<xcb_motion_notify_event_t *>(event);
+            had_mouse_move = true;
+            m_mouse_x = motion_event->event_x;
+            m_mouse_y = motion_event->event_y;
+
+            if (m_cursor_hidden) {
+                // TODO: Delta should still work when cursor visible.
+                delta_x += motion_event->event_x - static_cast<int16_t>(m_width / 2);  // NOLINT
+                delta_y += motion_event->event_y - static_cast<int16_t>(m_height / 2); // NOLINT
+                if (motion_event->event_x != m_width / 2 || motion_event->event_y != m_height / 2) {
+                    xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height,
+                                     static_cast<int16_t>(m_width / 2), static_cast<int16_t>(m_height / 2));
+                }
             }
             break;
         }
@@ -193,10 +283,47 @@ void Window::poll_events() {
             }
             break;
         }
+        default:
+            vull::trace("[core] Received unknown X event {}", event_id);
+            break;
         }
         free(event);
     }
     xcb_flush(m_connection);
+
+    if (had_mouse_move && m_mouse_move_callback) {
+        Vec2f delta(delta_x, delta_y);
+        Vec2f position(m_mouse_x, m_mouse_y);
+        m_mouse_move_callback(delta, position, m_buttons);
+    }
+}
+
+bool Window::is_button_pressed(Button button) const {
+    return (m_buttons & button) != ButtonMask::None;
+}
+
+bool Window::is_key_pressed(Key key) const {
+    return m_keys[static_cast<uint8_t>(key)];
+}
+
+void Window::on_key_press(Key key, Function<KeyCallback> &&callback) {
+    m_key_press_callbacks.set(key, vull::move(callback));
+}
+
+void Window::on_key_release(Key key, Function<KeyCallback> &&callback) {
+    m_key_release_callbacks.set(key, vull::move(callback));
+}
+
+void Window::on_mouse_press(Button button, Function<MouseCallback> &&callback) {
+    m_mouse_press_callbacks.set(button, vull::move(callback));
+}
+
+void Window::on_mouse_release(Button button, Function<MouseCallback> &&callback) {
+    m_mouse_release_callbacks.set(button, vull::move(callback));
+}
+
+void Window::on_mouse_move(Function<MouseMoveCallback> &&callback) {
+    m_mouse_move_callback = vull::move(callback);
 }
 
 } // namespace vull

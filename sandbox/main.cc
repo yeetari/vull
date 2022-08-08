@@ -1,6 +1,7 @@
 #include "FreeCamera.hh"
 #include "OrbitCamera.hh"
 
+#include <vull/core/Input.hh>
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
@@ -1300,9 +1301,26 @@ void main_task(Scheduler &scheduler) {
     player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
 
-    PhysicsEngine physics_engine;
     bool free_camera_active = false;
-    bool free_camera_active_key_pressed = false;
+    window.on_key_release(Key::F, [&](ModifierMask) {
+        free_camera_active = !free_camera_active;
+    });
+
+    bool mouse_visible = false;
+    window.on_mouse_release(Button::Middle, [&](Vec2f) {
+        mouse_visible = !mouse_visible;
+        mouse_visible ? window.show_cursor() : window.hide_cursor();
+    });
+
+    window.on_mouse_move([&](Vec2f delta, Vec2f, ButtonMask) {
+        if (free_camera_active) {
+            free_camera.handle_mouse_move(delta);
+        } else {
+            orbit_camera.handle_mouse_move(delta, window);
+        }
+    });
+
+    PhysicsEngine physics_engine;
     vull::seed_rand(5);
 
     uint32_t frame_index = 0;
@@ -1313,9 +1331,7 @@ void main_task(Scheduler &scheduler) {
         frame_timer.reset();
 
         Timer physics_timer;
-        if (!window.is_key_down(Key::P)) {
-            physics_engine.step(world, dt);
-        }
+        physics_engine.step(world, dt);
         cpu_time_graph.push_section("Physics", physics_timer.elapsed());
 
         vkb::DescriptorSet frame_set = frame_sets[frame_index];
@@ -1354,35 +1370,28 @@ void main_task(Scheduler &scheduler) {
                      vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
                                   ubo.camera_position.z()));
 
-        if (window.is_key_down(Key::F) && !free_camera_active_key_pressed) {
-            free_camera_active = !free_camera_active;
-            free_camera_active_key_pressed = true;
-        } else if (!window.is_key_down(Key::F)) {
-            free_camera_active_key_pressed = false;
-        }
-
         if (!free_camera_active) {
             auto &player_body = player.get<RigidBody>();
             auto &player_transform = player.get<Transform>();
             auto camera_forward = vull::normalise(player_transform.position() - orbit_camera.translated());
             auto camera_right = vull::normalise(vull::cross(camera_forward, Vec3f(0.0f, 1.0f, 0.0f)));
 
-            const float speed = window.is_key_down(Key::Shift) ? 6250.0f : 1250.0f;
-            if (window.is_key_down(Key::W)) {
+            const float speed = window.is_key_pressed(Key::Shift) ? 6250.0f : 1250.0f;
+            if (window.is_key_pressed(Key::W)) {
                 player_body.apply_central_force(camera_forward * speed);
             }
-            if (window.is_key_down(Key::S)) {
+            if (window.is_key_pressed(Key::S)) {
                 player_body.apply_central_force(camera_forward * -speed);
             }
-            if (window.is_key_down(Key::A)) {
+            if (window.is_key_pressed(Key::A)) {
                 player_body.apply_central_force(camera_right * -speed);
             }
-            if (window.is_key_down(Key::D)) {
+            if (window.is_key_pressed(Key::D)) {
                 player_body.apply_central_force(camera_right * speed);
             }
             orbit_camera.set_position(player_transform.position() + Vec3f(8.0f, 3.0f, 0.0f));
             orbit_camera.set_pivot(player_transform.position());
-            orbit_camera.update(window, dt);
+            orbit_camera.update();
             ubo.camera_position = orbit_camera.translated();
             ubo.view = orbit_camera.view_matrix();
         } else {
@@ -1392,7 +1401,7 @@ void main_task(Scheduler &scheduler) {
         }
         update_cascades();
 
-        if (window.is_key_down(Key::L)) {
+        if (window.is_button_pressed(Button::Left)) {
             const auto &player_transform = player.get<Transform>();
             const auto position = player_transform.position() + player_transform.forward() * 2.0f;
             const auto force = player_transform.forward() * 2000.0f;

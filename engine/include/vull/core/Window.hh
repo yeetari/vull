@@ -1,6 +1,9 @@
 #pragma once
 
+#include <vull/core/Input.hh>
 #include <vull/support/Array.hh>
+#include <vull/support/Function.hh>
+#include <vull/support/HashMap.hh>
 #include <vull/vulkan/Swapchain.hh>
 
 #include <stdint.h>
@@ -15,15 +18,6 @@ class Context;
 
 namespace vull {
 
-enum class Key : uint8_t {
-    Unknown = 0,
-    // clang-format off
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
-    // clang-format on
-    Shift,
-    Count,
-};
-
 class Window {
     const uint16_t m_width;
     const uint16_t m_height;
@@ -31,10 +25,20 @@ class Window {
     xcb_intern_atom_reply_t *m_delete_window_atom{nullptr};
     uint32_t m_id{0};
     float m_ppcm{0.0f};
-
-    int16_t m_delta_x{0};
-    int16_t m_delta_y{0};
     Array<Key, 256> m_keycode_map{};
+
+    uint32_t m_hidden_cursor{0};
+    int16_t m_mouse_x{0};
+    int16_t m_mouse_y{0};
+    bool m_cursor_hidden{true};
+
+    HashMap<Key, Function<KeyCallback>> m_key_press_callbacks;
+    HashMap<Key, Function<KeyCallback>> m_key_release_callbacks;
+    HashMap<Button, Function<MouseCallback>> m_mouse_press_callbacks;
+    HashMap<Button, Function<MouseCallback>> m_mouse_release_callbacks;
+    Function<MouseMoveCallback> m_mouse_move_callback;
+
+    ButtonMask m_buttons;
     Array<bool, static_cast<uint8_t>(Key::Count)> m_keys{};
     bool m_should_close{false};
 
@@ -52,11 +56,17 @@ public:
 
     vk::Swapchain create_swapchain(const vk::Context &context, vk::SwapchainMode mode);
     void close();
+    void hide_cursor();
+    void show_cursor();
     void poll_events();
+    bool is_button_pressed(Button button) const;
+    bool is_key_pressed(Key key) const;
 
-    bool is_key_down(Key key) const { return m_keys[static_cast<uint8_t>(key)]; }
-    float delta_x() const { return static_cast<float>(m_delta_x); }
-    float delta_y() const { return static_cast<float>(m_delta_y); }
+    void on_key_press(Key key, Function<KeyCallback> &&callback);
+    void on_key_release(Key key, Function<KeyCallback> &&callback);
+    void on_mouse_press(Button button, Function<MouseCallback> &&callback);
+    void on_mouse_release(Button button, Function<MouseCallback> &&callback);
+    void on_mouse_move(Function<MouseMoveCallback> &&callback);
 
     float aspect_ratio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
     float ppcm() const { return m_ppcm; }

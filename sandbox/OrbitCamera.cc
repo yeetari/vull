@@ -11,12 +11,15 @@ constexpr vull::Vec3f k_world_up(0.0f, 1.0f, 0.0f);
 
 } // namespace
 
-void OrbitCamera::update(const vull::Window &window, float) {
+void OrbitCamera::handle_mouse_move(vull::Vec2f delta, const vull::Window &window) {
     // Handle any mouse movement.
-    m_yaw -= window.delta_x() * (2.0f * vull::pi<float> / static_cast<float>(window.width()));
-    m_pitch -= window.delta_y() * (vull::pi<float> / static_cast<float>(window.height()));
+    delta *= 0.3f;
+    m_yaw -= delta.x() * (2.0f * vull::pi<float> / static_cast<float>(window.width()));
+    m_pitch -= delta.y() * (vull::pi<float> / static_cast<float>(window.height()));
     m_pitch = vull::clamp(m_pitch, -0.7f, 1.0f);
+}
 
+void OrbitCamera::update() {
     const auto forward = vull::normalise(m_pivot - m_translated);
     const auto right = vull::normalise(vull::cross(forward, k_world_up) + 1e-9f);
     vull::Vec4f focus_vector(m_position - m_pivot, 1.0f);

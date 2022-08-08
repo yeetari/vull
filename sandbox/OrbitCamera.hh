@@ -17,7 +17,8 @@ class OrbitCamera {
     float m_yaw{0.0f};
 
 public:
-    void update(const vull::Window &window, float dt);
+    void handle_mouse_move(vull::Vec2f delta, const vull::Window &window);
+    void update();
     vull::Mat4f view_matrix();
 
     void set_position(const vull::Vec3f &position) { m_position = position; }
