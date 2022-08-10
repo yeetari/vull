@@ -52,7 +52,7 @@ template <typename T>
 constexpr T clz(T value) {
     constexpr int bit_count = sizeof(T) * 8;
     if (value == 0) {
-        return bit_count;
+        return T(bit_count);
     }
     if constexpr (sizeof(T) <= sizeof(unsigned)) {
         return T(__builtin_clz(value)) - (sizeof(unsigned) * 8 - bit_count);
@@ -61,6 +61,33 @@ constexpr T clz(T value) {
     } else if constexpr (sizeof(T) <= sizeof(unsigned long long)) {
         return T(__builtin_clzll(value)) - (sizeof(unsigned long long) * 8 - bit_count);
     }
+}
+
+template <typename T>
+constexpr T ffs(T value) {
+    if (value == 0) {
+        return 0;
+    }
+    if constexpr (sizeof(T) <= sizeof(int)) {
+        return T(__builtin_ffs(static_cast<int>(value)) - 1);
+    } else if constexpr (sizeof(T) <= sizeof(long)) {
+        return T(__builtin_ffsl(static_cast<long>(value)) - 1);
+    } else if constexpr (sizeof(T) <= sizeof(long long)) {
+        return T(__builtin_ffsll(static_cast<long long>(value)) - 1);
+    }
+}
+
+template <typename T>
+constexpr T fls(T value) {
+    if (value == 0) {
+        return 0;
+    }
+    return T(sizeof(T) * 8) - clz(value) - T(1);
+}
+
+template <typename T>
+constexpr T log2(T value) {
+    return fls(value);
 }
 
 constexpr float sin(float angle) {
