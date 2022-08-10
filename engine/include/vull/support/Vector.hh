@@ -134,7 +134,7 @@ void Vector<T, SizeType>::clear() {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::ensure_capacity(SizeType capacity) {
     if (capacity > m_capacity) {
-        reallocate(max(m_capacity * 2 + 1, capacity));
+        reallocate(max(SizeType(m_capacity * 2 + 1), capacity));
     }
 }
 
