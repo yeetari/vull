@@ -21,6 +21,7 @@
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Queue.hh>
@@ -84,8 +85,7 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
 }
 
 vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
-                               vkb::Buffer staging_buffer, void *staging_data, vkb::DeviceSize &memory_offset,
-                               uint32_t size, vkb::BufferUsage usage) {
+                               vkb::Buffer staging_buffer, void *staging_data, uint32_t size, vkb::BufferUsage usage) {
     vkb::BufferCreateInfo buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
         .size = size,
@@ -94,11 +94,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
     };
     vkb::Buffer buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
-
-    vkb::MemoryRequirements memory_requirements{};
-    m_context.vkGetBufferMemoryRequirements(buffer, &memory_requirements);
-    memory_offset = (memory_offset + memory_requirements.alignment - 1) & ~(memory_requirements.alignment - 1);
-    VULL_ENSURE(m_context.vkBindBufferMemory(buffer, m_memory, memory_offset) == vkb::Result::Success);
+    m_allocator.bind_memory(buffer);
 
     VULL_ENSURE(size <= k_staging_buffer_size);
     stream.read({staging_data, size});
@@ -109,12 +105,11 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
         };
         cmd_buf.copy_buffer(staging_buffer, buffer, copy);
     });
-    memory_offset += size;
     return buffer;
 }
 
 void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
-                       vkb::Buffer staging_buffer, void *staging_data, vkb::DeviceSize &memory_offset) {
+                       vkb::Buffer staging_buffer, void *staging_data) {
     const auto [format, unit_size, block_compressed] = parse_format(stream.read_byte());
     // TODO(stream-api): templated read_varint.
     const auto width = static_cast<uint32_t>(stream.read_varint());
@@ -142,11 +137,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     };
     auto &image = m_texture_images.emplace();
     VULL_ENSURE(m_context.vkCreateImage(&image_ci, &image) == vkb::Result::Success);
-
-    vkb::MemoryRequirements memory_requirements{};
-    m_context.vkGetImageMemoryRequirements(image, &memory_requirements);
-    memory_offset = (memory_offset + memory_requirements.alignment - 1) & ~(memory_requirements.alignment - 1);
-    VULL_ENSURE(m_context.vkBindImageMemory(image, m_memory, memory_offset) == vkb::Result::Success);
+    m_allocator.bind_memory(image);
 
     vkb::ImageViewCreateInfo image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -201,7 +192,6 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
         });
         mip_width >>= 1;
         mip_height >>= 1;
-        memory_offset += mip_size;
     }
 
     // Transition the whole image to ShaderReadOnlyOptimal.
@@ -226,12 +216,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
 }
 
 void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
-    // For now, allocate a fixed amount of VRAM to store all the scene's resources in.
-    vkb::MemoryRequirements memory_requirements{
-        .size = 1024ul * 1024ul * 2048ul,
-        .memoryTypeBits = 0xffffffffu,
-    };
-    m_memory = m_context.allocate_memory(memory_requirements, vk::MemoryType::DeviceLocal);
+    auto staging_allocator = m_context.create_allocator(vk::MemoryType::Staging);
 
     // Read pack header and register default components. Note that the order currently matters.
     vpak::Reader pack_reader(path);
@@ -249,30 +234,27 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     };
     vkb::Buffer staging_buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vkb::Result::Success);
-    vkb::MemoryRequirements staging_memory_requirements{};
-    m_context.vkGetBufferMemoryRequirements(staging_buffer, &staging_memory_requirements);
-    auto *staging_memory = m_context.allocate_memory(staging_memory_requirements, vk::MemoryType::Staging);
-    VULL_ENSURE(m_context.vkBindBufferMemory(staging_buffer, staging_memory, 0) == vkb::Result::Success);
+    auto staging_allocation = staging_allocator.bind_memory(staging_buffer);
     void *staging_data;
-    VULL_ENSURE(m_context.vkMapMemory(staging_memory, 0, vkb::k_whole_size, 0, &staging_data) == vkb::Result::Success);
+    VULL_ENSURE(m_context.vkMapMemory(staging_allocation.memory, 0, k_staging_buffer_size, 0, &staging_data) ==
+                vkb::Result::Success);
 
     // Load world.
     m_world.deserialise(pack_reader);
 
     // Preload all meshes.
-    vkb::DeviceSize memory_offset = 0;
     for (auto [entity, mesh] : m_world.view<Mesh>()) {
         if (auto name = mesh.vertex_data_name(); !m_vertex_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, memory_offset, entry.size,
+            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, entry.size,
                                        vkb::BufferUsage::VertexBuffer);
             m_vertex_buffers.set(name, buffer);
         }
         if (auto name = mesh.index_data_name(); !m_index_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, memory_offset, entry.size,
+            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, entry.size,
                                        vkb::BufferUsage::IndexBuffer);
             m_index_buffers.set(name, buffer);
             m_index_counts.set(name, entry.size / sizeof(uint32_t));
@@ -285,12 +267,11 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
         case vpak::EntryType::ImageData:
             auto stream = pack_reader.open(entry.name);
             m_texture_indices.set(entry.name, m_texture_images.size());
-            load_image(cmd_pool, queue, *stream, staging_buffer, staging_data, memory_offset);
+            load_image(cmd_pool, queue, *stream, staging_buffer, staging_data);
             break;
         }
     }
-    m_context.vkUnmapMemory(staging_memory);
-    m_context.vkFreeMemory(staging_memory);
+    staging_allocator.free(staging_allocation);
     m_context.vkDestroyBuffer(staging_buffer);
 }
 

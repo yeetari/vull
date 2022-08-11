@@ -28,6 +28,7 @@ target_sources(vull PRIVATE
     ui/TimeGraph.cc
     vpak/Reader.cc
     vpak/Writer.cc
+    vulkan/Allocator.cc
     vulkan/CommandBuffer.cc
     vulkan/CommandPool.cc
     vulkan/Context.cc

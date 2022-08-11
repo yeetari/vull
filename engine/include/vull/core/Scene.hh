@@ -13,6 +13,7 @@
 
 namespace vull::vk {
 
+class Allocator;
 class CommandBuffer;
 class CommandPool;
 class Context;
@@ -37,8 +38,8 @@ struct PushConstantBlock {
 
 class Scene {
     vk::Context &m_context;
+    vk::Allocator &m_allocator;
     World m_world;
-    vkb::DeviceMemory m_memory{nullptr};
     HashMap<String, vkb::Buffer> m_vertex_buffers;
     HashMap<String, vkb::Buffer> m_index_buffers;
     HashMap<String, uint32_t> m_index_counts;
@@ -46,12 +47,12 @@ class Scene {
     Vector<vkb::Image> m_texture_images;
     Vector<vkb::ImageView> m_texture_views;
 
-    vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, vkb::DeviceSize &,
-                            uint32_t, vkb::BufferUsage);
-    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, vkb::DeviceSize &);
+    vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, uint32_t,
+                            vkb::BufferUsage);
+    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *);
 
 public:
-    explicit Scene(vk::Context &context) : m_context(context) {}
+    Scene(vk::Context &context, vk::Allocator &allocator) : m_context(context), m_allocator(allocator) {}
     Scene(const Scene &) = delete;
     Scene(Scene &&) = delete;
     ~Scene();

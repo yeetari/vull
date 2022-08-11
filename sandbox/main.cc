@@ -33,6 +33,7 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
@@ -87,7 +88,9 @@ void main_task(Scheduler &scheduler) {
     vk::CommandPool cmd_pool(context, graphics_family_index);
     vk::Queue queue(context, graphics_family_index);
 
-    Scene scene(context);
+    auto allocator = context.create_allocator(vk::MemoryType::DeviceLocal);
+
+    Scene scene(context, allocator);
     scene.load(cmd_pool, queue, "scene.vpak");
 
     constexpr uint32_t tile_size = 32;
@@ -526,12 +529,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image depth_image;
     VULL_ENSURE(context.vkCreateImage(&depth_image_ci, &depth_image) == vkb::Result::Success);
-
-    vkb::MemoryRequirements depth_image_requirements{};
-    context.vkGetImageMemoryRequirements(depth_image, &depth_image_requirements);
-    vkb::DeviceMemory depth_image_memory =
-        context.allocate_memory(depth_image_requirements, vk::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindImageMemory(depth_image, depth_image_memory, 0) == vkb::Result::Success);
+    auto depth_image_allocation = allocator.bind_memory(depth_image);
 
     vkb::ImageViewCreateInfo depth_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -562,12 +560,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image albedo_image;
     VULL_ENSURE(context.vkCreateImage(&albedo_image_ci, &albedo_image) == vkb::Result::Success);
-
-    vkb::MemoryRequirements albedo_image_requirements{};
-    context.vkGetImageMemoryRequirements(albedo_image, &albedo_image_requirements);
-    vkb::DeviceMemory albedo_image_memory =
-        context.allocate_memory(albedo_image_requirements, vk::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindImageMemory(albedo_image, albedo_image_memory, 0) == vkb::Result::Success);
+    auto albedo_image_allocation = allocator.bind_memory(albedo_image);
 
     vkb::ImageViewCreateInfo albedo_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -598,12 +591,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image normal_image;
     VULL_ENSURE(context.vkCreateImage(&normal_image_ci, &normal_image) == vkb::Result::Success);
-
-    vkb::MemoryRequirements normal_image_requirements{};
-    context.vkGetImageMemoryRequirements(normal_image, &normal_image_requirements);
-    vkb::DeviceMemory normal_image_memory =
-        context.allocate_memory(normal_image_requirements, vk::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindImageMemory(normal_image, normal_image_memory, 0) == vkb::Result::Success);
+    auto normal_image_allocation = allocator.bind_memory(normal_image);
 
     vkb::ImageViewCreateInfo normal_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -635,11 +623,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image shadow_map;
     VULL_ENSURE(context.vkCreateImage(&shadow_map_ci, &shadow_map) == vkb::Result::Success);
-
-    vkb::MemoryRequirements shadow_map_requirements{};
-    context.vkGetImageMemoryRequirements(shadow_map, &shadow_map_requirements);
-    vkb::DeviceMemory shadow_map_memory = context.allocate_memory(shadow_map_requirements, vk::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindImageMemory(shadow_map, shadow_map_memory, 0) == vkb::Result::Success);
+    auto shadow_map_allocation = allocator.bind_memory(shadow_map);
 
     vkb::ImageViewCreateInfo shadow_map_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -780,13 +764,7 @@ void main_task(Scheduler &scheduler) {
     vkb::Buffer light_visibilities_buffer;
     VULL_ENSURE(context.vkCreateBuffer(&light_visibilities_buffer_ci, &light_visibilities_buffer) ==
                 vkb::Result::Success);
-
-    vkb::MemoryRequirements light_visibilities_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(light_visibilities_buffer, &light_visibilities_buffer_requirements);
-    vkb::DeviceMemory light_visibilities_buffer_memory =
-        context.allocate_memory(light_visibilities_buffer_requirements, vk::MemoryType::DeviceLocal);
-    VULL_ENSURE(context.vkBindBufferMemory(light_visibilities_buffer, light_visibilities_buffer_memory, 0) ==
-                vkb::Result::Success);
+    auto light_visibilities_buffer_allocation = allocator.bind_memory(light_visibilities_buffer);
 
     Array descriptor_pool_sizes{
         vkb::DescriptorPoolSize{
@@ -1515,7 +1493,7 @@ void main_task(Scheduler &scheduler) {
         context.vkDestroyFence(fence);
     }
     context.vkDestroyDescriptorPool(descriptor_pool);
-    context.vkFreeMemory(light_visibilities_buffer_memory);
+    allocator.free(light_visibilities_buffer_allocation);
     context.vkDestroyBuffer(light_visibilities_buffer);
     for (auto &[buffer, memory] : light_buffers) {
         context.vkDestroyBuffer(buffer);
@@ -1532,16 +1510,16 @@ void main_task(Scheduler &scheduler) {
         context.vkDestroyImageView(cascade_view);
     }
     context.vkDestroyImageView(shadow_map_view);
-    context.vkFreeMemory(shadow_map_memory);
+    allocator.free(shadow_map_allocation);
     context.vkDestroyImage(shadow_map);
     context.vkDestroyImageView(normal_image_view);
-    context.vkFreeMemory(normal_image_memory);
+    allocator.free(normal_image_allocation);
     context.vkDestroyImage(normal_image);
     context.vkDestroyImageView(albedo_image_view);
-    context.vkFreeMemory(albedo_image_memory);
+    allocator.free(albedo_image_allocation);
     context.vkDestroyImage(albedo_image);
     context.vkDestroyImageView(depth_image_view);
-    context.vkFreeMemory(depth_image_memory);
+    allocator.free(depth_image_allocation);
     context.vkDestroyImage(depth_image);
     context.vkDestroyPipeline(deferred_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);

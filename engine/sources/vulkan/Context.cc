@@ -7,6 +7,7 @@
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -204,6 +205,16 @@ uint32_t Context::find_memory_type_index(const vkb::MemoryRequirements &requirem
             continue;
         }
         return i;
+    }
+    VULL_ENSURE_NOT_REACHED();
+}
+
+Allocator Context::create_allocator(MemoryType type) {
+    const auto flags = memory_flags(type);
+    for (uint32_t i = 0; i < m_memory_types.size(); i++) {
+        if ((m_memory_types[i].propertyFlags & flags) == flags) {
+            return {*this, i};
+        }
     }
     VULL_ENSURE_NOT_REACHED();
 }
