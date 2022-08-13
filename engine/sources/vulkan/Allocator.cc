@@ -48,11 +48,6 @@ BlockMapping mapping(uint32_t size) {
     return {fl_index - fl_index_offset, sl_index};
 }
 
-template <typename T>
-T round_up(T value, T roundend) {
-    return (value + roundend - 1) & ~(roundend - 1);
-}
-
 // Individual memory heap that manages k_heap_size VRAM.
 class Heap {
     const vkb::DeviceMemory m_memory;
@@ -131,11 +126,10 @@ void Heap::unlink_block(const Block &block, BlockIndex index, uint32_t fl_index,
 
 Optional<Allocation> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
-    size = round_up(size, k_minimum_allocation_size);
+    size = align_up(size, k_minimum_allocation_size);
 
     // Round up to next block size.
-    const auto round_offset = (1u << (vull::log2(size) - k_sl_count_log2)) - 1;
-    size = round_up(size, round_offset);
+    size = align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
 
     auto [fl_index, sl_index] = mapping(size);
     auto bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
@@ -254,7 +248,7 @@ AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
     if (heap_size <= k_small_heap_cutoff) {
         m_heap_size = heap_size / 8;
     }
-    m_heap_size = round_up(m_heap_size, vkb::DeviceSize(32));
+    m_heap_size = align_up(m_heap_size, vkb::DeviceSize(32));
     // TODO: Format memory type nicely.
     vull::debug("[vulkan] Using {} byte heaps for memory type {}", m_heap_size, memory_type_index);
 }
@@ -283,6 +277,7 @@ Allocation AllocatorImpl::allocate_dedicated(uint32_t size) {
 // TODO: Avoid having individual heaps of N bytes? A new TLSF block can be created, but how would the backing
 //       VkDeviceMemory be managed?
 Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) {
+    // TODO: Handle bufferImageGranularity.
     const auto alignment = vull::max(static_cast<uint32_t>(requirements.alignment), 1u);
     auto size = static_cast<uint32_t>(requirements.size);
     if (size >= m_heap_size >> 3) {
@@ -322,7 +317,7 @@ Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) 
     }
 
     VULL_ENSURE(allocation);
-    allocation->offset = round_up(allocation->offset, alignment);
+    allocation->offset = align_up(allocation->offset, alignment);
     return *allocation;
 }
 

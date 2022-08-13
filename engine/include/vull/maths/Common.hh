@@ -90,6 +90,12 @@ constexpr T log2(T value) {
     return fls(value);
 }
 
+template <typename T>
+T align_up(T value, T alignment) {
+    VULL_ASSERT((alignment & (alignment - 1)) == 0, "Alignment not a power of two");
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
 constexpr float sin(float angle) {
     return ::sinf(angle);
 }
