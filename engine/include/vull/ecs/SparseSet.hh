@@ -197,6 +197,7 @@ void SparseSet<I>::remove(I index) {
     }
     m_dense.pop();
     m_destruct(m_data + m_dense.size() * m_object_size);
+    // TODO: Shrink storage if desirable.
 }
 
 template <typename I>
