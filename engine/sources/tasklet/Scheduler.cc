@@ -13,7 +13,6 @@
 
 #include <pthread.h>
 #include <semaphore.h>
-#include <time.h>
 #include <unistd.h>
 
 namespace vull {
@@ -51,7 +50,7 @@ Scheduler::Scheduler(uint32_t thread_count) {
     for (uint32_t i = 0; i < thread_count; i++) {
         auto &worker = m_workers.emplace(new Worker{.scheduler = *this});
         worker->queue = vull::make_unique<TaskletQueue>();
-        worker->rng_state = static_cast<uint32_t>(time(nullptr));
+        worker->rng_state = i + 1;
         worker->running.store(true, MemoryOrder::Relaxed);
     }
     vull::info("[tasklet] Created {} threads", thread_count);
