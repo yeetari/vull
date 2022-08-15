@@ -1,6 +1,10 @@
 #include "Lexer.hh"
 
 #include <vull/support/Assert.hh>
+#include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
+
+#include <stdio.h>
 
 namespace {
 

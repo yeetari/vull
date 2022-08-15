@@ -1,5 +1,15 @@
 #include "Backend.hh"
 
+#include "../Ast.hh"
+#include "../Type.hh"
+
+#include <vull/support/Assert.hh>
+#include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
+#include <vull/support/Vector.hh>
+
+#include <stdint.h>
+
 namespace spv {
 namespace {
 

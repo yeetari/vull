@@ -2,6 +2,8 @@
 
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 
 vull::StringView Token::kind_string(TokenKind kind) {
     switch (kind) {

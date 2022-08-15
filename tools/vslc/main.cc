@@ -1,9 +1,16 @@
+#include "Ast.hh"
 #include "CharStream.hh"
 #include "Legaliser.hh"
 #include "Lexer.hh"
 #include "Parser.hh"
 #include "spv/Backend.hh"
 #include "spv/Builder.hh"
+#include "spv/Spirv.hh"
+
+#include <vull/support/Utility.hh>
+
+#include <stdio.h>
+#include <string.h>
 
 static void print_usage(const char *executable) {
     fprintf(stderr, "usage: %s [--format] <input>\n", executable);

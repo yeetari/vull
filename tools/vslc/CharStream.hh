@@ -3,7 +3,6 @@
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 
-#include <stddef.h>
 #include <stdio.h>
 
 class CharStream {

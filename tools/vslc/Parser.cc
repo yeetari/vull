@@ -1,9 +1,14 @@
 #include "Parser.hh"
 
-#include <vull/support/Assert.hh>
-
 #include "Lexer.hh"
 #include "Token.hh"
+#include "Type.hh"
+
+#include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
+#include <vull/support/Vector.hh>
 
 namespace {
 

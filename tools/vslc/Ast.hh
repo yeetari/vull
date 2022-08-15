@@ -1,11 +1,14 @@
 #pragma once
 
+#include "Arena.hh"
+#include "Type.hh"
+
+#include <vull/support/Assert.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
-#include "Arena.hh"
-#include "Type.hh"
+#include <stddef.h>
 
 namespace ast {
 

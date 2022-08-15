@@ -1,8 +1,11 @@
 #pragma once
 
 #include "../Ast.hh"
+#include "../Type.hh"
 #include "Builder.hh"
+#include "Spirv.hh"
 
+#include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 
 namespace spv {

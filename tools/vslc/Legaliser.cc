@@ -1,5 +1,9 @@
 #include "Legaliser.hh"
 
+#include <vull/support/Assert.hh>
+#include <vull/support/StringView.hh>
+#include <vull/support/Vector.hh>
+
 using namespace ast;
 
 Legaliser::Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {

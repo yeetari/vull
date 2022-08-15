@@ -2,12 +2,12 @@
 
 #include "Spirv.hh"
 
-#include <vull/support/Function.hh>
-#include <vull/support/Span.hh>
+#include <vull/support/Function.hh> // IWYU pragma: keep
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
+
+#include <stdint.h>
 
 namespace spv {
 

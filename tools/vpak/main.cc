@@ -1,17 +1,20 @@
 #include "GltfParser.hh"
 
 #include <vull/core/Log.hh>
-#include <vull/maths/Random.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Timer.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vpak/Writer.hh>
+
+#include <stdlib.h>
+#include <string.h>
 
 namespace {
 

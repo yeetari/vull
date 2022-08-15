@@ -1,6 +1,9 @@
 #include "CharStream.hh"
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Span.hh>
+#include <vull/support/String.hh>
+#include <vull/support/Utility.hh>
 
 #include <stdio.h>
 #include <sys/mman.h>
