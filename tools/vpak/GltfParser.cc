@@ -790,6 +790,14 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
         return false;
     }
 
+    if (simdjson::dom::array extensions; document["extensionsRequired"].get(extensions) == simdjson::SUCCESS) {
+        for (auto extension : extensions) {
+            std::string_view name;
+            EXPECT_SUCCESS(extension.get(name), "Extension not a string")
+            vull::warn("[gltf] Required extension {} not supported", vull::StringView(name.data(), name.length()));
+        }
+    }
+
     simdjson::dom::object asset_info;
     if (auto error = document["asset"].get(asset_info)) {
         vull::error("[gltf] Failed to get asset info: {}", simdjson::error_message(error));
