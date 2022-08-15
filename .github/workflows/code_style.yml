@@ -60,9 +60,11 @@ jobs:
         uses: actions/checkout@v3
       - name: Run include-what-you-use
         run: |
-          find engine/sources engine/tests sandbox \
+          # TODO: Can't run on GltfParser.cc due to FetchContent dependencies.
+          find engine/sources engine/tests sandbox tools \
             -name '*.cc' \
             -and -not -name 'ContextTable.cc' \
+            -and -not -name 'GltfParser.cc' \
             -print0 |
           parallel -0 \
             include-what-you-use \
