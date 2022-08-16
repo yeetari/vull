@@ -187,7 +187,7 @@ void Heap::free(Allocation allocation) {
 
     // Try to coalesce free neighbouring blocks.
     // TODO: Need to remove these blocks from the vector somehow, maybe m_blocks should be a linked list.
-    if (auto &prev = m_blocks[block.prev_phys]; (prev.size & 1u) == 1u) {
+    if (auto &prev = m_blocks[block.prev_phys]; (prev.size & 1u) == 1u && prev.offset < block.offset) {
         VULL_ASSERT(block.prev_phys != 0);
         prev.size &= ~1u;
 
@@ -198,7 +198,7 @@ void Heap::free(Allocation allocation) {
         block.prev_phys = prev.prev_phys;
         m_blocks[block.prev_phys].next_phys = allocation.block_index;
     }
-    if (auto &next = m_blocks[block.next_phys]; (next.size & 1u) == 1u) {
+    if (auto &next = m_blocks[block.next_phys]; (next.size & 1u) == 1u && next.offset > block.offset) {
         VULL_ASSERT(block.next_phys != 0);
         next.size &= ~1u;
 
