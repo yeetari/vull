@@ -326,7 +326,7 @@ Allocation AllocatorImpl::bind_memory(vkb::Buffer buffer) {
     m_context.vkGetBufferMemoryRequirements(buffer, &requirements);
 
     auto allocation = allocate(requirements);
-    m_context.vkBindBufferMemory(buffer, allocation.memory, allocation.offset);
+    VULL_ENSURE(m_context.vkBindBufferMemory(buffer, allocation.memory, allocation.offset) == vkb::Result::Success);
     return allocation;
 }
 
@@ -335,7 +335,7 @@ Allocation AllocatorImpl::bind_memory(vkb::Image image) {
     m_context.vkGetImageMemoryRequirements(image, &requirements);
 
     auto allocation = allocate(requirements);
-    m_context.vkBindImageMemory(image, allocation.memory, allocation.offset);
+    VULL_ENSURE(m_context.vkBindImageMemory(image, allocation.memory, allocation.offset) == vkb::Result::Success);
     return allocation;
 }
 
