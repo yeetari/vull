@@ -23,7 +23,7 @@ public:
     QueryPool &operator=(const QueryPool &) = delete;
     QueryPool &operator=(QueryPool &&) = delete;
 
-    void read_host(Span<uint64_t> data, uint32_t first = 0);
+    void read_host(Span<uint64_t> data, uint32_t first = 0) const;
     uint32_t count() const { return m_count; }
     vkb::QueryPool operator*() const { return m_pool; }
 };
