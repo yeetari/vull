@@ -56,8 +56,8 @@ Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, co
 
     void *ui_data = nullptr;
     context.vkMapMemory(m_ui_data_buffer_memory, 0, vkb::k_whole_size, 0, &ui_data);
-    m_scaling_ratio = reinterpret_cast<Vec2f *>(ui_data);
-    m_objects = reinterpret_cast<Object *>(m_scaling_ratio + 1);
+    m_global_scale = static_cast<float *>(ui_data);
+    m_objects = reinterpret_cast<Object *>(m_global_scale + 1);
 
     Array descriptor_pool_sizes{
         vkb::DescriptorPoolSize{
@@ -179,18 +179,39 @@ Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, co
         .pAttachments = &blend_attachment,
     };
 
+    Vec2f swapchain_dimensions = swapchain.dimensions();
+    Array specialisation_map_entries{
+        vkb::SpecializationMapEntry{
+            .constantID = 0,
+            .size = sizeof(float),
+        },
+        vkb::SpecializationMapEntry{
+            .constantID = 1,
+            .offset = sizeof(float),
+            .size = sizeof(float),
+        },
+    };
+    vkb::SpecializationInfo specialisation_info{
+        .mapEntryCount = specialisation_map_entries.size(),
+        .pMapEntries = specialisation_map_entries.data(),
+        .dataSize = sizeof(Vec2f),
+        .pData = &swapchain_dimensions,
+    };
+
     Array shader_stage_cis{
         vkb::PipelineShaderStageCreateInfo{
             .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
             .stage = vkb::ShaderStage::Vertex,
             .module = vertex_shader,
             .pName = "main",
+            .pSpecializationInfo = &specialisation_info,
         },
         vkb::PipelineShaderStageCreateInfo{
             .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
             .stage = vkb::ShaderStage::Fragment,
             .module = fragment_shader,
             .pName = "main",
+            .pSpecializationInfo = &specialisation_info,
         },
     };
     const auto colour_format = vkb::Format::B8G8R8A8Unorm;
@@ -234,7 +255,6 @@ Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, co
     ui_pass.reads_from(ui_data_resource);
     ui_pass.writes_to(swapchain_resource);
     ui_pass.set_on_record([this, &swapchain_resource](const vk::CommandBuffer &cmd_buf) {
-        *m_scaling_ratio = Vec2f(m_global_scale) / m_swapchain.dimensions();
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
         vkb::RenderingAttachmentInfo colour_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
@@ -278,7 +298,7 @@ GpuFont Renderer::load_font(StringView path, ssize_t size) {
 }
 
 void Renderer::set_global_scale(float global_scale) {
-    m_global_scale = global_scale;
+    *m_global_scale = global_scale;
 }
 
 void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale) {

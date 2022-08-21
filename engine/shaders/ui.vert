@@ -5,7 +5,7 @@
 #extension GL_EXT_scalar_block_layout : enable
 
 layout (binding = 0, scalar) readonly buffer UiData {
-    vec2 g_scaling_ratio;
+    float g_global_scale;
     UiObject g_objects[];
 };
 
@@ -32,6 +32,7 @@ void main() {
 
     position *= object.scale;
     position += object.position;
-    position *= g_scaling_ratio;
+    position *= round(g_global_scale * 10.0f) / 10.0f;
+    position /= vec2(k_viewport_width, k_viewport_height);
     gl_Position = vec4(position * 2.0f - 1.0f, 0.0f, 1.0f);
 }

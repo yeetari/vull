@@ -46,9 +46,8 @@ class Renderer {
     vkb::DescriptorSet m_descriptor_set{nullptr};
     vkb::PipelineLayout m_pipeline_layout{nullptr};
     vkb::Pipeline m_pipeline{nullptr};
-    float m_global_scale{1.0f};
 
-    Vec2f *m_scaling_ratio{nullptr};
+    float *m_global_scale{nullptr};
     Object *m_objects{nullptr};
     uint32_t m_object_index{0};
 
