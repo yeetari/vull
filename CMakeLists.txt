@@ -1,5 +1,7 @@
-# 3.21 required for the use of DEPFILE with both the Makefile and Visual Studio Generators.
-cmake_minimum_required(VERSION 3.21)
+# >= 3.20 required for cmake_path and DEPFILE support with the Makefile generator
+# >= 3.21 required for DEPFILE support with the Visual Studio generator
+# >= 3.24 required for the X11::xcb_randr target
+cmake_minimum_required(VERSION 3.24)
 project(vull CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
