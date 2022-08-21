@@ -28,7 +28,7 @@ jobs:
   include-what-you-use:
     name: Include What You Use
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    container: ubuntu:22.10
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:

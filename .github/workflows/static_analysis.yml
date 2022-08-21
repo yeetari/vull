@@ -4,7 +4,7 @@ jobs:
   clang-tidy:
     name: Clang Tidy
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    container: ubuntu:22.10
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
