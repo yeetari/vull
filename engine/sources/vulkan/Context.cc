@@ -5,6 +5,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Lsan.hh>
 #include <vull/support/StringBuilder.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocator.hh>
@@ -13,7 +14,6 @@
 
 #include <dlfcn.h>
 #include <stdint.h>
-#include <string.h>
 
 namespace vull::vk {
 namespace {
@@ -86,8 +86,7 @@ Context::Context() : ContextTable{} {
     const char *validation_layer_name = "VK_LAYER_KHRONOS_validation";
     bool has_validation_layer = false;
     for (const auto &layer : layers) {
-        const auto *layer_name = static_cast<const char *>(layer.layerName);
-        if (strncmp(layer_name, validation_layer_name, strlen(validation_layer_name)) == 0) {
+        if (vull::StringView(static_cast<const char *>(layer.layerName)) == validation_layer_name) {
             has_validation_layer = true;
             break;
         }
