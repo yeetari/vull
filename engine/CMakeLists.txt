@@ -34,6 +34,7 @@ if(VULL_BUILD_WARNINGS)
         target_compile_options(vull PUBLIC
             -Werror
             -Weverything
+            -Wno-c++20-compat
             -Wno-c++98-compat
             -Wno-c++98-compat-pedantic
             -Wno-covered-switch-default
