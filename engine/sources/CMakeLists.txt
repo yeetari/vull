@@ -13,7 +13,6 @@ target_sources(vull PRIVATE
     support/Assert.cc
     support/String.cc
     support/StringBuilder.cc
-    support/StringView.cc
     support/Timer.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
