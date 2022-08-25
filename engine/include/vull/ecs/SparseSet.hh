@@ -86,8 +86,8 @@ void SparseSet<I>::initialise() {
     };
     m_deserialise = +[](void *ptr, const Function<uint8_t()> &read_byte) {
         if constexpr (!requires(T) { T::deserialise(read_byte); }) {
-            if constexpr (!IsTriviallyCopyable<T>) {
-                static_assert(!IsSame<T, T>, "T has no defined deserialise function but is also not a trivial type");
+            if constexpr (!is_trivially_copyable<T>) {
+                static_assert(!is_same<T, T>, "T has no defined deserialise function but is also not a trivial type");
             }
             // TODO(stream-api)
             for (uint8_t &byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
@@ -99,8 +99,8 @@ void SparseSet<I>::initialise() {
     };
     m_serialise = +[](void *ptr, const Function<void(uint8_t)> &write_byte) {
         if constexpr (!requires(T t) { T::serialise(t, write_byte); }) {
-            if constexpr (!IsTriviallyCopyable<T>) {
-                static_assert(!IsSame<T, T>, "T has no defined serialise function but is also not a trivial type");
+            if constexpr (!is_trivially_copyable<T>) {
+                static_assert(!is_same<T, T>, "T has no defined serialise function but is also not a trivial type");
             }
             // TODO(stream-api)
             for (uint8_t byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
@@ -167,7 +167,7 @@ void SparseSet<I>::emplace(I index, Args &&...args) {
     if (auto new_capacity = m_dense.size() + 1; new_capacity > m_capacity) {
         new_capacity = vull::max(m_capacity * 2 + 1, new_capacity);
         auto *new_data = new uint8_t[new_capacity * sizeof(T)];
-        if constexpr (!IsTriviallyCopyable<T>) {
+        if constexpr (!is_trivially_copyable<T>) {
             for (I i = 0; i < m_dense.size(); i++) {
                 new (new_data + i * sizeof(T)) T(vull::move(storage_begin<T>()[i]));
             }

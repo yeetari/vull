@@ -16,7 +16,7 @@ public:
     Optional(const T &value) : m_present(true) { new (m_data.data()) T(value); }
     Optional(T &&value) : m_present(true) { new (m_data.data()) T(move(value)); }
     // clang-format off
-    Optional(const Optional &) requires IsTriviallyCopyable<T> = default;
+    Optional(const Optional &) requires is_trivially_copyable<T> = default;
     // clang-format on
     Optional(const Optional &);
     Optional(Optional &&);
@@ -103,7 +103,7 @@ Optional<T> &Optional<T>::operator=(Optional &&other) {
 
 template <typename T>
 void Optional<T>::clear() {
-    if constexpr (!IsTriviallyDestructible<T>) {
+    if constexpr (!is_trivially_destructible<T>) {
         if (m_present) {
             operator*().~T();
         }

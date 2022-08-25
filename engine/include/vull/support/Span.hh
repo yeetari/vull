@@ -13,10 +13,10 @@ class Span {
     SizeT m_size{0};
 
     template <typename U>
-    using const_t = CopyConst<T, U>;
+    using const_t = copy_const<T, U>;
 
-    static constexpr bool is_void = IsSame<RemoveCv<T>, void>;
-    using no_void_t = Conditional<is_void, char, T>;
+    static constexpr bool is_void = is_same<remove_cv<T>, void>;
+    using no_void_t = conditional<is_void, char, T>;
 
 public:
     constexpr Span() = default;
@@ -28,7 +28,7 @@ public:
     constexpr const_t<uint8_t> *byte_offset(SizeT offset) const;
 
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
-    constexpr operator Span<void, SizeT>() const requires(!IsConst<T>) { return {data(), size_bytes()}; }
+    constexpr operator Span<void, SizeT>() const requires(!is_const<T>) { return {data(), size_bytes()}; }
     constexpr operator Span<const void, SizeT>() const { return {data(), size_bytes()}; }
 
     constexpr T *begin() const { return m_data; }

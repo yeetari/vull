@@ -13,13 +13,13 @@ namespace vull {
 
 template <typename T, typename SizeType = uint32_t>
 class Vector {
-    using BaseType = RemoveRef<T>;
+    using BaseType = remove_ref<T>;
     struct RefWrapper {
         BaseType *ptr;
         // When T is a reference T is the same as BaseType &.
         operator T() const { return *ptr; }
     };
-    using StorageType = Conditional<IsRef<T>, RefWrapper, T>;
+    using StorageType = conditional<is_ref<T>, RefWrapper, T>;
 
     StorageType *m_data{nullptr};
     SizeType m_capacity{0};
@@ -46,10 +46,10 @@ public:
     void resize_unsafe(SizeType capacity);
 
     template <typename... Args>
-    T &emplace(Args &&...args) requires(!IsRef<T>);
+    T &emplace(Args &&...args) requires(!is_ref<T>);
     template <typename Container>
     void extend(const Container &container);
-    void push(const T &elem) requires(!IsRef<T>);
+    void push(const T &elem) requires(!is_ref<T>);
     void push(T &&elem);
     void pop();
 
@@ -121,7 +121,7 @@ Vector<T, SizeType> &Vector<T, SizeType>::operator=(Vector &&other) {
 
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::clear() {
-    if constexpr (!IsTriviallyDestructible<StorageType>) {
+    if constexpr (!is_trivially_destructible<StorageType>) {
         for (auto *elem = end(); elem != begin();) {
             (--elem)->~StorageType();
         }
@@ -145,8 +145,8 @@ void Vector<T, SizeType>::ensure_size(SizeType size, Args &&...args) {
         return;
     }
     ensure_capacity(size);
-    if constexpr (!IsTriviallyConstructible<T> || sizeof...(Args) != 0) {
-        static_assert(!IsRef<T>);
+    if constexpr (!is_trivially_constructible<T> || sizeof...(Args) != 0) {
+        static_assert(!is_ref<T>);
         for (SizeType i = m_size; i < size; i++) {
             new (begin() + i) T(forward<Args>(args)...);
         }
@@ -160,8 +160,8 @@ template <typename T, typename SizeType>
 void Vector<T, SizeType>::reallocate(SizeType capacity) {
     VULL_ASSERT(capacity >= m_size);
     auto *new_data = reinterpret_cast<StorageType *>(new uint8_t[capacity * sizeof(StorageType)]);
-    if constexpr (!IsTriviallyCopyable<StorageType>) {
-        static_assert(!IsRef<T>);
+    if constexpr (!is_trivially_copyable<StorageType>) {
+        static_assert(!is_ref<T>);
         for (auto *data = new_data; auto &elem : *this) {
             new (data++) StorageType(move(elem));
         }
@@ -184,7 +184,7 @@ void Vector<T, SizeType>::resize_unsafe(SizeType capacity) {
 
 template <typename T, typename SizeType>
 template <typename... Args>
-T &Vector<T, SizeType>::emplace(Args &&...args) requires(!IsRef<T>) {
+T &Vector<T, SizeType>::emplace(Args &&...args) requires(!is_ref<T>) {
     ensure_capacity(m_size + 1);
     new (end()) T(forward<Args>(args)...);
     return (*this)[m_size++];
@@ -197,7 +197,7 @@ void Vector<T, SizeType>::extend(const Container &container) {
         return;
     }
     ensure_capacity(m_size + container.size());
-    if constexpr (IsTriviallyCopyable<StorageType>) {
+    if constexpr (is_trivially_copyable<StorageType>) {
         memcpy(end(), container.data(), container.size_bytes());
         m_size += container.size();
     } else {
@@ -208,9 +208,9 @@ void Vector<T, SizeType>::extend(const Container &container) {
 }
 
 template <typename T, typename SizeType>
-void Vector<T, SizeType>::push(const T &elem) requires(!IsRef<T>) {
+void Vector<T, SizeType>::push(const T &elem) requires(!is_ref<T>) {
     ensure_capacity(m_size + 1);
-    if constexpr (IsTriviallyCopyable<T>) {
+    if constexpr (is_trivially_copyable<T>) {
         memcpy(end(), &elem, sizeof(T));
     } else {
         new (end()) StorageType(elem);
@@ -221,7 +221,7 @@ void Vector<T, SizeType>::push(const T &elem) requires(!IsRef<T>) {
 template <typename T, typename SizeType>
 void Vector<T, SizeType>::push(T &&elem) {
     ensure_capacity(m_size + 1);
-    if constexpr (IsRef<T>) {
+    if constexpr (is_ref<T>) {
         new (end()) StorageType{&elem};
     } else {
         new (end()) StorageType(move(elem));
@@ -247,7 +247,7 @@ T Vector<T, SizeType>::take_last() {
     VULL_ASSERT(!empty());
     m_size--;
     auto value = move(*end());
-    if constexpr (!IsRef<T>) {
+    if constexpr (!is_ref<T>) {
         end()->~T();
         return value;
     } else {

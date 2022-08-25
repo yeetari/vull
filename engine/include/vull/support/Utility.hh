@@ -22,149 +22,122 @@ namespace vull {
 namespace detail {
 
 template <bool B, typename T, typename F>
-struct ConditionalImpl {
+struct Conditional {
     using type = T;
 };
 template <typename T, typename F>
-struct ConditionalImpl<false, T, F> {
+struct Conditional<false, T, F> {
     using type = F;
 };
 
 template <typename, typename U>
-struct CopyConstImpl {
+struct CopyConst {
     using type = U;
 };
 template <typename T, typename U>
-struct CopyConstImpl<const T, U> {
+struct CopyConst<const T, U> {
     using type = const U;
 };
 
 template <typename T>
-struct RemoveCvImpl {
+struct RemoveCv {
     using type = T;
 };
 template <typename T>
-struct RemoveCvImpl<const T> {
+struct RemoveCv<const T> {
     using type = T;
 };
 template <typename T>
-struct RemoveCvImpl<volatile T> {
+struct RemoveCv<volatile T> {
     using type = T;
 };
 template <typename T>
-struct RemoveCvImpl<const volatile T> {
-    using type = T;
-};
-
-template <typename T>
-struct RemoveRefImpl {
-    using type = T;
-};
-template <typename T>
-struct RemoveRefImpl<T &> {
-    using type = T;
-};
-template <typename T>
-struct RemoveRefImpl<T &&> {
+struct RemoveCv<const volatile T> {
     using type = T;
 };
 
 template <typename T>
-struct IsConstCheck {
-    static constexpr bool value = false;
+struct RemoveRef {
+    using type = T;
 };
 template <typename T>
-struct IsConstCheck<const T> {
-    static constexpr bool value = true;
-};
-
-template <typename>
-struct IsRefCheck {
-    static constexpr bool value = false;
+struct RemoveRef<T &> {
+    using type = T;
 };
 template <typename T>
-struct IsRefCheck<T &> {
-    static constexpr bool value = true;
-};
-template <typename T>
-struct IsRefCheck<T &&> {
-    static constexpr bool value = true;
-};
-
-template <typename, typename>
-struct IsSameCheck {
-    static constexpr bool value = false;
-};
-template <typename T>
-struct IsSameCheck<T, T> {
-    static constexpr bool value = true;
+struct RemoveRef<T &&> {
+    using type = T;
 };
 
 } // namespace detail
 
 template <bool B, typename T, typename F>
-using Conditional = typename detail::ConditionalImpl<B, T, F>::type;
-
+using conditional = typename detail::Conditional<B, T, F>::type;
 template <typename T, typename U>
-using CopyConst = typename detail::CopyConstImpl<T, U>::type;
+using copy_const = typename detail::CopyConst<T, U>::type;
+template <typename T>
+using remove_cv = typename detail::RemoveCv<T>::type;
+template <typename T>
+using remove_ref = typename detail::RemoveRef<T>::type;
+
+template <typename>
+inline constexpr bool is_const = false;
+template <typename T>
+inline constexpr bool is_const<const T> = true;
 
 template <typename T>
-inline constexpr bool IsConst = detail::IsConstCheck<T>::value;
+inline constexpr bool is_enum = __is_enum(T);
+
+template <typename>
+inline constexpr bool is_ref = false;
+template <typename T>
+inline constexpr bool is_ref<T &> = true;
+template <typename T>
+inline constexpr bool is_ref<T &&> = true;
+
+template <typename, typename>
+inline constexpr bool is_same = false;
+template <typename T>
+inline constexpr bool is_same<T, T> = true;
 
 template <typename T>
-inline constexpr bool IsEnum = __is_enum(T);
+inline constexpr bool is_trivially_constructible = __is_trivially_constructible(T);
 
 template <typename T>
-inline constexpr bool IsRef = detail::IsRefCheck<T>::value;
+inline constexpr bool is_trivially_copyable = __is_trivially_copyable(T);
 
-template <typename T, typename U>
-inline constexpr bool IsSame = detail::IsSameCheck<T, U>::value;
-
+#if __has_builtin(__is_trivially_destructible)
 template <typename T>
-inline constexpr bool IsTriviallyConstructible = __is_trivially_constructible(T);
-
+inline constexpr bool is_trivially_destructible = __is_trivially_destructible(T);
+#elif __has_builtin(__has_trivial_destructor)
 template <typename T>
-inline constexpr bool IsTriviallyCopyable = __is_trivially_copyable(T);
-
-template <typename T>
-concept Destructible = requires(T t) {
+inline constexpr bool is_trivially_destructible = requires(T t) {
     t.~T();
-};
-
-template <typename T>
-concept Enum = IsEnum<T>;
-
-#if defined(__clang__) || defined(_MSC_VER)
-template <typename T>
-inline constexpr bool IsTriviallyDestructible = __is_trivially_destructible(T);
-#elif defined(__GNUC__)
-// TODO: Is this completely correct?
-template <typename T>
-inline constexpr bool IsTriviallyDestructible = Destructible<T> &&__has_trivial_destructor(T);
+}
+&&__has_trivial_destructor(T);
+#else
+#error
 #endif
 
 template <typename T>
-using RemoveCv = typename detail::RemoveCvImpl<T>::type;
-
-template <typename T>
-using RemoveRef = typename detail::RemoveRefImpl<T>::type;
+concept Enum = is_enum<T>;
 
 template <typename T>
 T declval();
 
 template <typename T>
-constexpr T &&forward(RemoveRef<T> &arg) {
+constexpr T &&forward(remove_ref<T> &arg) {
     return static_cast<T &&>(arg);
 }
 
 template <typename T>
-constexpr T &&forward(RemoveRef<T> &&arg) {
+constexpr T &&forward(remove_ref<T> &&arg) {
     return static_cast<T &&>(arg);
 }
 
 template <typename T>
-constexpr RemoveRef<T> &&move(T &&arg) {
-    return static_cast<RemoveRef<T> &&>(arg);
+constexpr remove_ref<T> &&move(T &&arg) {
+    return static_cast<remove_ref<T> &&>(arg);
 }
 
 template <typename T, typename U = T>

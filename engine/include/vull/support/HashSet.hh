@@ -151,7 +151,7 @@ void HashSet<T>::rehash(size_t capacity) {
     auto old_capacity = exchange(m_capacity, capacity);
 
     // Default construct root bucket elements.
-    if constexpr (!IsTriviallyCopyable<T> || !IsTriviallyDestructible<T>) {
+    if constexpr (!is_trivially_copyable<T> || !is_trivially_destructible<T>) {
         for (size_t i = 0; i < m_capacity; i++) {
             new (m_buckets[i].data.data()) T;
         }

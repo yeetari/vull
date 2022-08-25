@@ -597,7 +597,7 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
 }
 
 bool array_to_vec(const simdjson::dom::array &array, auto &vec) {
-    if (array.size() != vull::RemoveRef<decltype(vec)>::length) {
+    if (array.size() != vull::remove_ref<decltype(vec)>::length) {
         vull::error("Array wrong size in array_to_vec");
         return false;
     }

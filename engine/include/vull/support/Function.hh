@@ -88,7 +88,7 @@ class Function<R(Args...)> { // NOLINT
 public:
     Function() = default; // NOLINT
     template <typename F>
-    Function(F &&callable) requires(!IsSame<RemoveRef<F>, Function>) { // NOLINT
+    Function(F &&callable) requires(!is_same<remove_ref<F>, Function>) { // NOLINT
         set_callable(forward<F>(callable));
     }
     Function(const Function &) = delete;
