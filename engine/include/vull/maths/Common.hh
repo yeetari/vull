@@ -91,7 +91,18 @@ constexpr T log2(T value) {
 }
 
 template <typename T>
-T align_up(T value, T alignment) {
+constexpr T popcount(T value) {
+    if constexpr (sizeof(T) <= sizeof(unsigned)) {
+        return __builtin_popcount(static_cast<unsigned>(value));
+    } else if constexpr (sizeof(T) <= sizeof(unsigned long)) {
+        return __builtin_popcountl(static_cast<unsigned long>(value));
+    } else if constexpr (sizeof(T) <= sizeof(unsigned long long)) {
+        return __builtin_popcountll(static_cast<unsigned long long>(value));
+    }
+}
+
+template <typename T>
+constexpr T align_up(T value, T alignment) {
     VULL_ASSERT((alignment & (alignment - 1)) == 0, "Alignment not a power of two");
     return (value + alignment - 1) & ~(alignment - 1);
 }
