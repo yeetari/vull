@@ -154,6 +154,16 @@ constexpr void swap(T &lhs, T &rhs) {
     rhs = move(tmp);
 }
 
+inline constexpr auto &operator&=(auto &lhs, auto rhs) {
+    return lhs = (lhs & rhs);
+}
+inline constexpr auto &operator|=(auto &lhs, auto rhs) {
+    return lhs = (lhs | rhs);
+}
+inline constexpr auto &operator^=(auto &lhs, auto rhs) {
+    return lhs = (lhs ^ rhs);
+}
+
 } // namespace vull
 
 #if !__has_include(<vector>)
