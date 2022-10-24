@@ -82,27 +82,12 @@ inline constexpr ButtonMask operator|(ButtonMask lhs, ButtonMask rhs) {
 inline constexpr ButtonMask operator^(ButtonMask lhs, ButtonMask rhs) {
     return static_cast<ButtonMask>(static_cast<uint32_t>(lhs) ^ static_cast<uint32_t>(rhs));
 }
-inline constexpr ButtonMask &operator&=(ButtonMask &lhs, ButtonMask rhs) {
-    return lhs = (lhs & rhs);
-}
-inline constexpr ButtonMask &operator|=(ButtonMask &lhs, ButtonMask rhs) {
-    return lhs = (lhs | rhs);
-}
-inline constexpr ButtonMask &operator^=(ButtonMask &lhs, ButtonMask rhs) {
-    return lhs = (lhs ^ rhs);
-}
 
 inline constexpr ModifierMask operator&(ModifierMask lhs, ModifierMask rhs) {
     return static_cast<ModifierMask>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 inline constexpr ModifierMask operator|(ModifierMask lhs, ModifierMask rhs) {
     return static_cast<ModifierMask>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
-}
-inline constexpr ModifierMask &operator&=(ModifierMask &lhs, ModifierMask rhs) {
-    return lhs = (lhs & rhs);
-}
-inline constexpr ModifierMask &operator|=(ModifierMask &lhs, ModifierMask rhs) {
-    return lhs = (lhs | rhs);
 }
 
 } // namespace vull
