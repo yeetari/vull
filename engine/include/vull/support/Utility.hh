@@ -85,9 +85,6 @@ inline constexpr bool is_const = false;
 template <typename T>
 inline constexpr bool is_const<const T> = true;
 
-template <typename T>
-inline constexpr bool is_enum = __is_enum(T);
-
 template <typename>
 inline constexpr bool is_ref = false;
 template <typename T>
@@ -118,9 +115,6 @@ inline constexpr bool is_trivially_destructible = requires(T t) {
 #else
 #error
 #endif
-
-template <typename T>
-concept Enum = is_enum<T>;
 
 template <typename T>
 T declval();

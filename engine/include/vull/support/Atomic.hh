@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Array.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/Utility.hh>
 
 namespace vull {
@@ -34,7 +35,7 @@ struct AtomicStorageType {
 };
 template <Enum T>
 struct AtomicStorageType<T> {
-    using type = __underlying_type(T);
+    using type = underlying_type<T>;
 };
 
 template <typename T>
