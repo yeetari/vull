@@ -72,7 +72,7 @@ void TimeGraph::draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont
     const auto &latest_bar = m_bars[m_bars.size() - 1];
     for (float y_offset = position.y() + 10.0f; const auto &section : vull::reverse_view(latest_bar.sections)) {
         const auto &colour = colour_for_section(section.name);
-        const auto text = format("{}: {} ms", section.name, section.duration * 1000.0f);
+        const auto text = vull::format("{}: {} ms", section.name, section.duration * 1000.0f);
         renderer.draw_text(*font, Vec3f(colour.x(), colour.y(), colour.z()),
                            Vec2f(position.x() + m_size.x() + 10.0f, y_offset), text);
         y_offset += 30.0f;
