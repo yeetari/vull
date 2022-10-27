@@ -224,30 +224,17 @@ void main_task(Scheduler &scheduler) {
     vkb::DescriptorSetLayout frame_set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&frame_set_layout_ci, &frame_set_layout) == vkb::Result::Success);
 
-    Array geometry_set_bindings{
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vkb::DescriptorType::Sampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Fragment,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vkb::DescriptorType::Sampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Fragment,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = scene.texture_count(),
-            .stageFlags = vkb::ShaderStage::Fragment,
-        },
+    vkb::DescriptorSetLayoutBinding geometry_set_binding{
+        .binding = 0,
+        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+        .descriptorCount = scene.texture_count(),
+        .stageFlags = vkb::ShaderStage::Fragment,
+        .pImmutableSamplers = scene.texture_samplers().data(),
     };
     vkb::DescriptorSetLayoutCreateInfo geometry_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = geometry_set_bindings.size(),
-        .pBindings = geometry_set_bindings.data(),
+        .bindingCount = 1,
+        .pBindings = &geometry_set_binding,
     };
     vkb::DescriptorSetLayout geometry_set_layout;
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&geometry_set_layout_ci, &geometry_set_layout) ==
@@ -671,40 +658,6 @@ void main_task(Scheduler &scheduler) {
     vkb::Sampler shadow_sampler;
     VULL_ENSURE(context.vkCreateSampler(&shadow_sampler_ci, &shadow_sampler) == vkb::Result::Success);
 
-    vkb::SamplerCreateInfo albedo_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        // TODO: Switch back to linear filtering; create a separate sampler for things wanting nearest filtering (error
-        //       texture).
-        .magFilter = vkb::Filter::Nearest,
-        .minFilter = vkb::Filter::Nearest,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::Repeat,
-        .addressModeV = vkb::SamplerAddressMode::Repeat,
-        .addressModeW = vkb::SamplerAddressMode::Repeat,
-        .anisotropyEnable = true,
-        .maxAnisotropy = 16.0f,
-        .maxLod = vkb::k_lod_clamp_none,
-        .borderColor = vkb::BorderColor::FloatTransparentBlack,
-    };
-    vkb::Sampler albedo_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&albedo_sampler_ci, &albedo_sampler) == vkb::Result::Success);
-
-    vkb::SamplerCreateInfo normal_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::Repeat,
-        .addressModeV = vkb::SamplerAddressMode::Repeat,
-        .addressModeW = vkb::SamplerAddressMode::Repeat,
-        .anisotropyEnable = true,
-        .maxAnisotropy = 16.0f,
-        .maxLod = vkb::k_lod_clamp_none,
-        .borderColor = vkb::BorderColor::FloatTransparentBlack,
-    };
-    vkb::Sampler normal_sampler;
-    VULL_ENSURE(context.vkCreateSampler(&normal_sampler_ci, &normal_sampler) == vkb::Result::Success);
-
     struct ShadowInfo {
         Array<Mat4f, 8> cascade_matrices;
         Array<float, 8> cascade_split_depths;
@@ -768,12 +721,8 @@ void main_task(Scheduler &scheduler) {
 
     Array descriptor_pool_sizes{
         vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::Sampler,
-            .descriptorCount = 2,
-        },
-        vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::SampledImage,
-            .descriptorCount = scene.texture_count() + 3,
+            .descriptorCount = 3,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::UniformBuffer,
@@ -785,7 +734,7 @@ void main_task(Scheduler &scheduler) {
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
+            .descriptorCount = scene.texture_count() + 1,
         },
         vkb::DescriptorPoolSize{
             .type = vkb::DescriptorType::StorageImage,
@@ -856,12 +805,6 @@ void main_task(Scheduler &scheduler) {
     };
 
     // Geometry set.
-    vkb::DescriptorImageInfo albedo_sampler_info{
-        .sampler = albedo_sampler,
-    };
-    vkb::DescriptorImageInfo normal_sampler_info{
-        .sampler = normal_sampler,
-    };
     Vector<vkb::DescriptorImageInfo> texture_image_infos;
     texture_image_infos.ensure_capacity(scene.texture_count());
     for (auto *image_view : scene.texture_views()) {
@@ -948,24 +891,8 @@ void main_task(Scheduler &scheduler) {
             .sType = vkb::StructureType::WriteDescriptorSet,
             .dstSet = geometry_set,
             .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::Sampler,
-            .pImageInfo = &albedo_sampler_info,
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = geometry_set,
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::Sampler,
-            .pImageInfo = &normal_sampler_info,
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = geometry_set,
-            .dstBinding = 2,
             .descriptorCount = texture_image_infos.size(),
-            .descriptorType = vkb::DescriptorType::SampledImage,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
             .pImageInfo = texture_image_infos.data(),
         },
 
@@ -1503,8 +1430,6 @@ void main_task(Scheduler &scheduler) {
         context.vkDestroyBuffer(buffer);
         context.vkFreeMemory(memory);
     }
-    context.vkDestroySampler(normal_sampler);
-    context.vkDestroySampler(albedo_sampler);
     context.vkDestroySampler(shadow_sampler);
     for (auto *cascade_view : shadow_cascade_views) {
         context.vkDestroyImageView(cascade_view);

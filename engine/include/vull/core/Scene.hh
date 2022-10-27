@@ -46,6 +46,9 @@ class Scene {
     HashMap<String, uint32_t> m_texture_indices;
     Vector<vkb::Image> m_texture_images;
     Vector<vkb::ImageView> m_texture_views;
+    Vector<vkb::Sampler> m_texture_samplers;
+    vkb::Sampler m_linear_sampler{nullptr};
+    vkb::Sampler m_nearest_sampler{nullptr};
 
     vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, uint32_t,
                             vkb::BufferUsage);
@@ -67,6 +70,7 @@ public:
     World &world() { return m_world; }
     uint32_t texture_count() const { return m_texture_images.size(); }
     const Vector<vkb::ImageView> &texture_views() const { return m_texture_views; }
+    const Vector<vkb::Sampler> &texture_samplers() const { return m_texture_samplers; }
 };
 
 } // namespace vull

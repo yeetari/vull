@@ -60,6 +60,8 @@ FormatInfo parse_format(uint8_t pack_format) {
 } // namespace
 
 Scene::~Scene() {
+    m_context.vkDestroySampler(m_nearest_sampler);
+    m_context.vkDestroySampler(m_linear_sampler);
     for (auto *texture_view : m_texture_views) {
         m_context.vkDestroyImageView(texture_view);
     }
@@ -111,7 +113,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
 void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
                        vkb::Buffer staging_buffer, void *staging_data) {
     const auto [format, unit_size, block_compressed] = parse_format(stream.read_byte());
-    stream.read_byte();
+    const auto sampler_kind = static_cast<vpak::SamplerKind>(stream.read_byte());
     // TODO(stream-api): templated read_varint.
     const auto width = static_cast<uint32_t>(stream.read_varint());
     const auto height = static_cast<uint32_t>(stream.read_varint());
@@ -152,6 +154,18 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
         },
     };
     VULL_ENSURE(m_context.vkCreateImageView(&image_view_ci, &m_texture_views.emplace()) == vkb::Result::Success);
+
+    switch (sampler_kind) {
+    case vpak::SamplerKind::LinearRepeat:
+        m_texture_samplers.push(m_linear_sampler);
+        break;
+    default:
+        vull::warn("[scene] Invalid sampler kind");
+        [[fallthrough]];
+    case vpak::SamplerKind::NearestRepeat:
+        m_texture_samplers.push(m_nearest_sampler);
+        break;
+    }
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
     queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
@@ -218,6 +232,35 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
 
 void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     auto staging_allocator = m_context.create_allocator(vk::MemoryType::Staging);
+    vkb::SamplerCreateInfo linear_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .addressModeU = vkb::SamplerAddressMode::Repeat,
+        .addressModeV = vkb::SamplerAddressMode::Repeat,
+        .addressModeW = vkb::SamplerAddressMode::Repeat,
+        .anisotropyEnable = true,
+        .maxAnisotropy = 16.0f,
+        .maxLod = vkb::k_lod_clamp_none,
+        .borderColor = vkb::BorderColor::FloatTransparentBlack,
+    };
+    VULL_ENSURE(m_context.vkCreateSampler(&linear_sampler_ci, &m_linear_sampler) == vkb::Result::Success);
+
+    vkb::SamplerCreateInfo nearest_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Nearest,
+        .minFilter = vkb::Filter::Nearest,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .addressModeU = vkb::SamplerAddressMode::Repeat,
+        .addressModeV = vkb::SamplerAddressMode::Repeat,
+        .addressModeW = vkb::SamplerAddressMode::Repeat,
+        .anisotropyEnable = true,
+        .maxAnisotropy = 16.0f,
+        .maxLod = vkb::k_lod_clamp_none,
+        .borderColor = vkb::BorderColor::FloatTransparentBlack,
+    };
+    VULL_ENSURE(m_context.vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
 
     // Read pack header and register default components. Note that the order currently matters.
     vpak::Reader pack_reader(path);

@@ -31,8 +31,8 @@ uint cascade_index() {
 }
 
 #ifdef FRAG_SHADER
-vec3 compute_normal(texture2D map, sampler map_sampler, FragmentData fragment) {
-    vec3 local_normal = vec3(texture(sampler2D(map, map_sampler), fragment.uv).rg, 0.0f) * 2.0f - 1.0f;
+vec3 compute_normal(sampler2D map, FragmentData fragment) {
+    vec3 local_normal = vec3(texture(map, fragment.uv).rg, 0.0f) * 2.0f - 1.0f;
     local_normal.z = sqrt(1.0f - dot(local_normal.xy, local_normal.xy));
 
     vec3 dpos1 = dFdx(fragment.position);
