@@ -37,6 +37,7 @@
  *
  * struct ImageData(type: 2) {
  *     ImageFormat(u8) format;
+ *     SamplerKind(u8) sampler_kind;
  *     varint width;
  *     varint height;
  *     varint mip_count;
@@ -73,6 +74,11 @@ enum class ImageFormat : uint8_t {
     Bc5Unorm = 2,
     RgUnorm = 3,
     RgbaUnorm = 4,
+};
+
+enum class SamplerKind : uint8_t {
+    LinearRepeat,
+    NearestRepeat,
 };
 
 // Struct to represent an entry in memory, note not the same representation on disk.

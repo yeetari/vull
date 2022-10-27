@@ -111,6 +111,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
 void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
                        vkb::Buffer staging_buffer, void *staging_data) {
     const auto [format, unit_size, block_compressed] = parse_format(stream.read_byte());
+    stream.read_byte();
     // TODO(stream-api): templated read_varint.
     const auto width = static_cast<uint32_t>(stream.read_varint());
     const auto height = static_cast<uint32_t>(stream.read_varint());

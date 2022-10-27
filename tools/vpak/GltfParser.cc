@@ -86,6 +86,7 @@ bool Converter::convert(vull::Latch &latch) {
     // Emit default albedo texture.
     auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vull::vpak::EntryType::ImageData);
     albedo_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgbaUnorm));
+    albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::NearestRepeat));
     albedo_entry.write_varint(16);
     albedo_entry.write_varint(16);
     albedo_entry.write_varint(1);
@@ -104,6 +105,7 @@ bool Converter::convert(vull::Latch &latch) {
     // Emit default normal map texture.
     auto normal_entry = m_pack_writer.start_entry("/default_normal", vull::vpak::EntryType::ImageData);
     normal_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgUnorm));
+    albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::LinearRepeat));
     normal_entry.write(vull::Array<uint8_t, 5>{1u, 1u, 1u, 127u, 127u}.span());
     normal_entry.finish();
 
@@ -171,7 +173,6 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         return;
     }
 
-    // TODO: Look at sampler property.
     uint64_t image_index;
     if (texture["source"].get(image_index) != simdjson::SUCCESS) {
         // No source texture, use default error texture.
@@ -187,6 +188,38 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
     std::string_view image_name_ = "?";
     VULL_IGNORE(image["name"].get(image_name_));
     vull::StringView image_name(image_name_.data(), image_name_.length());
+
+    // Default to linear filtering and repeat wrapping.
+    uint64_t mag_filter = 9729;
+    uint64_t min_filter = 9729;
+    uint64_t wrap_s = 10497;
+    uint64_t wrap_t = 10497;
+    if (uint64_t sampler_index; texture["sampler"].get(sampler_index) == simdjson::SUCCESS) {
+        simdjson::dom::object sampler;
+        if (auto error = m_document["samplers"].at(sampler_index).get(sampler)) {
+            vull::error("[gltf] Failed to get sampler at index {}: {}", sampler_index, simdjson::error_message(error));
+            return;
+        }
+        VULL_IGNORE(sampler["magFilter"].get(mag_filter));
+        VULL_IGNORE(sampler["minFilter"].get(min_filter));
+        VULL_IGNORE(sampler["wrapS"].get(wrap_s));
+        VULL_IGNORE(sampler["wrapT"].get(wrap_t));
+    }
+
+    if (wrap_s != wrap_t) {
+        // TODO: Implement.
+        vull::warn("[gltf] Image '{}' has a differing S and T wrapping mode, which is unsupported", image_name);
+        return;
+    }
+
+    if (wrap_s != 10497) {
+        // TODO: Implement.
+        vull::warn("[gltf] Ignoring non-repeat wrapping mode for image '{}'", image_name);
+    }
+
+    // TODO: Look at min_filter.
+    const auto sampler_kind =
+        mag_filter == 9728 ? vull::vpak::SamplerKind::NearestRepeat : vull::vpak::SamplerKind::LinearRepeat;
 
     uint64_t buffer_view_index;
     if (image["bufferView"].get(buffer_view_index) != simdjson::SUCCESS) {
@@ -213,11 +246,9 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         return;
     }
 
-    uint64_t byte_offset;
-    if (buffer_view["byteOffset"].get(byte_offset) != simdjson::SUCCESS) {
-        vull::error("[gltf] Missing byte offset");
-        return;
-    }
+    uint64_t byte_offset = 0;
+    VULL_IGNORE(buffer_view["byteOffset"].get(byte_offset));
+
     uint64_t byte_length;
     if (buffer_view["byteLength"].get(byte_length) != simdjson::SUCCESS) {
         vull::error("[gltf] Missing byte length");
@@ -343,6 +374,7 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
 
     auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
     entry.write_byte(uint8_t(format));
+    entry.write_byte(uint8_t(sampler_kind));
     entry.write_varint(width);
     entry.write_varint(height);
     entry.write_varint(mip_count - mip_offset);
