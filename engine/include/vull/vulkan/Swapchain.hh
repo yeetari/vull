@@ -39,12 +39,13 @@ public:
     uint32_t acquire_image(vkb::Semaphore semaphore) const;
     void present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphores) const;
 
+    const Context &context() const { return m_context; }
     Vec2f dimensions() const { return {static_cast<float>(m_extent.width), static_cast<float>(m_extent.height)}; }
     vkb::Extent2D extent_2D() const { return m_extent; }
     vkb::Extent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
     vkb::Image image(uint32_t index) const { return m_images[index]; }
     vkb::ImageView image_view(uint32_t index) const { return m_image_views[index]; }
-    const Context &context() const { return m_context; }
+    vkb::Queue present_queue() const { return m_present_queue; }
 };
 
 } // namespace vull::vk

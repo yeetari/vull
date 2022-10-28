@@ -5,6 +5,7 @@ target_sources(vull PRIVATE
     core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
+    graphics/FramePacer.cc
     maths/Random.cc
     physics/Mpr.cc
     physics/PhysicsEngine.cc
