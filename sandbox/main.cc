@@ -11,6 +11,8 @@
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/Frame.hh>
+#include <vull/graphics/FramePacer.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Quat.hh>
@@ -37,9 +39,11 @@
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
+#include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -1168,22 +1172,6 @@ void main_task(Scheduler &scheduler) {
 
     auto timestamp_pools = render_graph.create_timestamp_pools(context, 2);
 
-    vkb::FenceCreateInfo fence_ci{
-        .sType = vkb::StructureType::FenceCreateInfo,
-        .flags = vkb::FenceCreateFlags::Signaled,
-    };
-    Array<vkb::Fence, 2> frame_fences;
-    VULL_ENSURE(context.vkCreateFence(&fence_ci, &frame_fences[0]) == vkb::Result::Success);
-    VULL_ENSURE(context.vkCreateFence(&fence_ci, &frame_fences[1]) == vkb::Result::Success);
-
-    vkb::SemaphoreCreateInfo semaphore_ci{
-        .sType = vkb::StructureType::SemaphoreCreateInfo,
-    };
-    Array<vkb::Semaphore, 4> frame_semaphores;
-    for (auto &semaphore : frame_semaphores) {
-        VULL_ENSURE(context.vkCreateSemaphore(&semaphore_ci, &semaphore) == vkb::Result::Success);
-    }
-
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
@@ -1225,47 +1213,37 @@ void main_task(Scheduler &scheduler) {
         }
     });
 
+    FramePacer frame_pacer(swapchain, 2);
     PhysicsEngine physics_engine;
     vull::seed_rand(5);
 
-    uint32_t frame_index = 0;
     Timer frame_timer;
     cpu_time_graph.new_bar();
     while (!window.should_close()) {
+        Timer acquire_frame_timer;
+        auto &frame = frame_pacer.next_frame();
+        cpu_time_graph.push_section("Acquire frame", acquire_frame_timer.elapsed());
+
         float dt = frame_timer.elapsed();
         frame_timer.reset();
 
-        Timer physics_timer;
-        physics_engine.step(world, dt);
-        cpu_time_graph.push_section("Physics", physics_timer.elapsed());
+        // Poll input.
+        window.poll_events();
 
-        vkb::DescriptorSet frame_set = frame_sets[frame_index];
-        vkb::Fence frame_fence = frame_fences[frame_index];
-        vkb::Semaphore image_available_semaphore = frame_semaphores[frame_index * 2];
-        vkb::Semaphore rendering_finished_semaphore = frame_semaphores[frame_index * 2 + 1];
-        vk::QueryPool &timestamp_pool = timestamp_pools[frame_index];
-        void *light_data = light_data_ptrs[frame_index];
-        void *ubo_data = ubo_data_ptrs[frame_index];
-
-        gpu_time_graph.new_bar();
-
-        Timer acquire_timer;
-        uint32_t image_index = swapchain.acquire_image(image_available_semaphore);
-        cpu_time_graph.push_section("Acquire swapchain", acquire_timer.elapsed());
-
-        Timer wait_fence_timer;
-        context.vkWaitForFences(1, &frame_fence, true, ~0ul);
-        context.vkResetFences(1, &frame_fence);
-        cpu_time_graph.push_section("Wait fence", wait_fence_timer.elapsed());
-
-        // Previous frame N's timestamp data.
+        // Read previous frame N's timestamp data.
+        auto &timestamp_pool = timestamp_pools[frame_pacer.frame_index()];
         Array<uint64_t, 6> timestamp_data{};
         timestamp_pool.read_host(timestamp_data.span());
+        gpu_time_graph.new_bar();
         gpu_time_graph.push_section("Geometry pass", context.timestamp_elapsed(timestamp_data[0], timestamp_data[1]));
         gpu_time_graph.push_section("Shadow pass", context.timestamp_elapsed(timestamp_data[1], timestamp_data[2]));
         gpu_time_graph.push_section("Light cull", context.timestamp_elapsed(timestamp_data[2], timestamp_data[3]));
         gpu_time_graph.push_section("Deferred pass", context.timestamp_elapsed(timestamp_data[3], timestamp_data[4]));
         gpu_time_graph.push_section("UI", context.timestamp_elapsed(timestamp_data[4], timestamp_data[5]));
+
+        Timer physics_timer;
+        physics_engine.step(world, dt);
+        cpu_time_graph.push_section("Physics", physics_timer.elapsed());
 
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
         ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
@@ -1330,11 +1308,17 @@ void main_task(Scheduler &scheduler) {
             }
         }
 
+        const auto frame_index = frame_pacer.frame_index();
+        vkb::DescriptorSet frame_set = frame_sets[frame_index];
+        void *light_data = light_data_ptrs[frame_index];
+        void *ubo_data = ubo_data_ptrs[frame_index];
+
         uint32_t light_count = lights.size();
         memcpy(light_data, &light_count, sizeof(uint32_t));
         memcpy(reinterpret_cast<char *>(light_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
+        const auto image_index = frame_pacer.image_index();
         vkb::DescriptorImageInfo output_image_info{
             .imageView = swapchain.image_view(image_index),
             .imageLayout = vkb::ImageLayout::General,
@@ -1392,33 +1376,22 @@ void main_task(Scheduler &scheduler) {
         Array signal_semaphores{
             vkb::SemaphoreSubmitInfo{
                 .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = rendering_finished_semaphore,
+                .semaphore = *frame.present_semaphore(),
             },
         };
         Array wait_semaphores{
             vkb::SemaphoreSubmitInfo{
                 .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = image_available_semaphore,
+                .semaphore = *frame.acquire_semaphore(),
                 .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
             },
         };
-        queue.submit(cmd_buf, frame_fence, signal_semaphores.span(), wait_semaphores.span());
+        queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
         cpu_time_graph.new_bar();
         cpu_time_graph.push_section("Record", record_timer.elapsed());
-
-        Array present_wait_semaphores{rendering_finished_semaphore};
-        swapchain.present(image_index, present_wait_semaphores.span());
-        window.poll_events();
-        frame_index = (frame_index + 1) % 2;
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();
-    for (auto *semaphore : frame_semaphores) {
-        context.vkDestroySemaphore(semaphore);
-    }
-    for (auto *fence : frame_fences) {
-        context.vkDestroyFence(fence);
-    }
     context.vkDestroyDescriptorPool(descriptor_pool);
     allocator.free(light_visibilities_buffer_allocation);
     context.vkDestroyBuffer(light_visibilities_buffer);
