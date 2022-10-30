@@ -25,7 +25,7 @@ is not currently supported.
 
 #### Gentoo
 
-    emerge -u \
+    emerge -n \
      app-arch/zstd \
      dev-util/cmake \
      dev-util/ninja \
