@@ -129,10 +129,10 @@ void Heap::unlink_block(const Block &block, BlockIndex index, uint32_t fl_index,
 
 Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
-    size = align_up(size, k_minimum_allocation_size);
+    size = vull::align_up(size, k_minimum_allocation_size);
 
     // Round up to next block size.
-    size = align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
+    size = vull::align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
 
     auto [fl_index, sl_index] = mapping(size);
     auto bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
@@ -237,9 +237,8 @@ public:
     AllocatorImpl &operator=(AllocatorImpl &&) = delete;
 
     Allocation allocate(const vkb::MemoryRequirements &requirements);
-    Allocation bind_memory(vkb::Buffer buffer);
-    Allocation bind_memory(vkb::Image image);
     void free(const Allocation &allocation);
+    uint32_t memory_type_index() const { return m_memory_type_index; }
 };
 
 AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
@@ -252,7 +251,7 @@ AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
     if (heap_size <= k_small_heap_cutoff) {
         m_heap_size = heap_size / 8;
     }
-    m_heap_size = align_up(m_heap_size, vkb::DeviceSize(32));
+    m_heap_size = vull::align_up(m_heap_size, vkb::DeviceSize(32));
     m_mappable = (memory_type.propertyFlags & vkb::MemoryPropertyFlags::HostVisible) != vkb::MemoryPropertyFlags::None;
     // TODO: Format memory type nicely.
     vull::debug("[vulkan] Using {} byte heaps for memory type {}", m_heap_size, memory_type_index);
@@ -290,6 +289,8 @@ Allocation AllocatorImpl::allocate_dedicated(uint32_t size) {
 // TODO: Avoid having individual heaps of N bytes? A new TLSF block can be created, but how would the backing
 //       VkDeviceMemory be managed?
 Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) {
+    VULL_ASSERT((requirements.memoryTypeBits & (1u << m_memory_type_index)) != 0u);
+
     // TODO: Handle bufferImageGranularity.
     const auto alignment = vull::max(static_cast<uint32_t>(requirements.alignment), 1u);
     auto size = static_cast<uint32_t>(requirements.size);
@@ -336,31 +337,11 @@ Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) 
     }
 
     VULL_ENSURE(allocation_info);
-    allocation_info->offset = align_up(allocation_info->offset, alignment);
+    allocation_info->offset = vull::align_up(allocation_info->offset, alignment);
     if (auto *mapped_base = m_heaps[allocation_info->heap_index]->mapped_data()) {
         allocation_info->mapped_data = static_cast<uint8_t *>(mapped_base) + allocation_info->offset;
     }
     return {*this, *allocation_info};
-}
-
-Allocation AllocatorImpl::bind_memory(vkb::Buffer buffer) {
-    vkb::MemoryRequirements requirements{};
-    m_context.vkGetBufferMemoryRequirements(buffer, &requirements);
-
-    auto allocation = allocate(requirements);
-    VULL_ENSURE(m_context.vkBindBufferMemory(buffer, allocation.info().memory, allocation.info().offset) ==
-                vkb::Result::Success);
-    return allocation;
-}
-
-Allocation AllocatorImpl::bind_memory(vkb::Image image) {
-    vkb::MemoryRequirements requirements{};
-    m_context.vkGetImageMemoryRequirements(image, &requirements);
-
-    auto allocation = allocate(requirements);
-    VULL_ENSURE(m_context.vkBindImageMemory(image, allocation.info().memory, allocation.info().offset) ==
-                vkb::Result::Success);
-    return allocation;
 }
 
 void AllocatorImpl::free(const Allocation &allocation) {
@@ -379,6 +360,13 @@ Allocation::~Allocation() {
     m_allocator = nullptr;
 }
 
+Allocation &Allocation::operator=(Allocation &&other) {
+    Allocation moved(vull::move(other));
+    vull::swap(m_allocator, moved.m_allocator);
+    m_info = moved.m_info;
+    return *this;
+}
+
 Allocator::Allocator() = default;
 Allocator::~Allocator() = default;
 
@@ -392,12 +380,8 @@ Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
     return m_impl->allocate(requirements);
 }
 
-Allocation Allocator::bind_memory(vkb::Buffer buffer) {
-    return m_impl->bind_memory(buffer);
-}
-
-Allocation Allocator::bind_memory(vkb::Image image) {
-    return m_impl->bind_memory(image);
+uint32_t Allocator::memory_type_index() const {
+    return m_impl->memory_type_index();
 }
 
 } // namespace vull::vk

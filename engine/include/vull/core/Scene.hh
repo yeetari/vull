@@ -38,7 +38,6 @@ struct PushConstantBlock {
 
 class Scene {
     vk::Context &m_context;
-    vk::Allocator &m_allocator;
     World m_world;
     Vector<vk::Allocation> m_allocations;
     HashMap<String, vkb::Buffer> m_vertex_buffers;
@@ -56,7 +55,7 @@ class Scene {
     void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *);
 
 public:
-    Scene(vk::Context &context, vk::Allocator &allocator) : m_context(context), m_allocator(allocator) {}
+    explicit Scene(vk::Context &context) : m_context(context) {}
     Scene(const Scene &) = delete;
     Scene(Scene &&) = delete;
     ~Scene();

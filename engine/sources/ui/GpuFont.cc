@@ -4,7 +4,9 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/ui/Font.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <string.h>
@@ -17,19 +19,18 @@ constexpr uint32_t k_glyph_size = 64ull;
 
 } // namespace
 
-GpuFont::GpuFont(const vk::Context &context, Font &&font) : Font(vull::move(font)), m_context(context) {
+GpuFont::GpuFont(vk::Context &context, Font &&font) : Font(vull::move(font)), m_context(context) {
     m_images.ensure_size(glyph_count());
     m_image_views.ensure_size(glyph_count());
     vkb::MemoryRequirements memory_requirements{
         .size = static_cast<vkb::DeviceSize>(glyph_count()) * k_glyph_pixel_count * sizeof(float),
         .memoryTypeBits = 0xffffffffu,
     };
-    m_memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
-    m_context.vkMapMemory(m_memory, 0, vkb::k_whole_size, 0, reinterpret_cast<void **>(&m_image_data));
+    m_allocation = context.allocate_memory(memory_requirements, vk::MemoryUsage::HostToDevice);
+    m_image_data = static_cast<float *>(m_allocation.mapped_data());
 }
 
 GpuFont::~GpuFont() {
-    m_context.vkFreeMemory(m_memory);
     for (auto *image_view : m_image_views) {
         m_context.vkDestroyImageView(image_view);
     }
@@ -56,7 +57,8 @@ void GpuFont::rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set,
     VULL_ENSURE(m_context.vkCreateImage(&image_ci, &m_images[glyph_index]) == vkb::Result::Success);
 
     const auto memory_offset = static_cast<vkb::DeviceSize>(glyph_index) * k_glyph_pixel_count;
-    VULL_ENSURE(m_context.vkBindImageMemory(m_images[glyph_index], m_memory, memory_offset * sizeof(float)) ==
+    VULL_ENSURE(m_context.vkBindImageMemory(m_images[glyph_index], m_allocation.info().memory,
+                                            m_allocation.info().offset + memory_offset * sizeof(float)) ==
                 vkb::Result::Success);
 
     vkb::ImageViewCreateInfo image_view_ci{

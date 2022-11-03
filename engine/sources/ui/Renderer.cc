@@ -8,8 +8,10 @@
 #include <vull/support/Utility.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/GpuFont.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -22,7 +24,7 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
+Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
                    vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader,
                    vkb::ShaderModule fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
@@ -48,15 +50,9 @@ Renderer::Renderer(const vk::Context &context, vk::RenderGraph &render_graph, co
         .sharingMode = vkb::SharingMode::Exclusive,
     };
     VULL_ENSURE(context.vkCreateBuffer(&ui_data_buffer_ci, &m_ui_data_buffer) == vkb::Result::Success);
+    m_ui_data_buffer_allocation = context.bind_memory(m_ui_data_buffer, vk::MemoryUsage::HostToDevice);
 
-    vkb::MemoryRequirements ui_data_buffer_requirements{};
-    context.vkGetBufferMemoryRequirements(m_ui_data_buffer, &ui_data_buffer_requirements);
-    m_ui_data_buffer_memory = context.allocate_memory(ui_data_buffer_requirements, vk::MemoryType::HostVisible);
-    VULL_ENSURE(context.vkBindBufferMemory(m_ui_data_buffer, m_ui_data_buffer_memory, 0) == vkb::Result::Success);
-
-    void *ui_data = nullptr;
-    context.vkMapMemory(m_ui_data_buffer_memory, 0, vkb::k_whole_size, 0, &ui_data);
-    m_global_scale = static_cast<float *>(ui_data);
+    m_global_scale = static_cast<float *>(m_ui_data_buffer_allocation.mapped_data());
     m_objects = reinterpret_cast<Object *>(m_global_scale + 1);
 
     Array descriptor_pool_sizes{
@@ -284,7 +280,6 @@ Renderer::~Renderer() {
     m_context.vkDestroyPipelineLayout(m_pipeline_layout);
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
     m_context.vkDestroyDescriptorPool(m_descriptor_pool);
-    m_context.vkFreeMemory(m_ui_data_buffer_memory);
     m_context.vkDestroyBuffer(m_ui_data_buffer);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);

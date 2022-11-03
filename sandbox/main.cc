@@ -40,6 +40,7 @@
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
@@ -92,9 +93,7 @@ void main_task(Scheduler &scheduler) {
     vk::CommandPool cmd_pool(context, graphics_family_index);
     vk::Queue queue(context, graphics_family_index);
 
-    auto allocator = context.create_allocator(vk::MemoryType::DeviceLocal);
-
-    Scene scene(context, allocator);
+    Scene scene(context);
     scene.load(cmd_pool, queue, "scene.vpak");
 
     constexpr uint32_t tile_size = 32;
@@ -520,7 +519,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image depth_image;
     VULL_ENSURE(context.vkCreateImage(&depth_image_ci, &depth_image) == vkb::Result::Success);
-    auto depth_image_allocation = allocator.bind_memory(depth_image);
+    auto depth_image_allocation = context.bind_memory(depth_image, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageViewCreateInfo depth_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -551,7 +550,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image albedo_image;
     VULL_ENSURE(context.vkCreateImage(&albedo_image_ci, &albedo_image) == vkb::Result::Success);
-    auto albedo_image_allocation = allocator.bind_memory(albedo_image);
+    auto albedo_image_allocation = context.bind_memory(albedo_image, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageViewCreateInfo albedo_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -582,7 +581,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image normal_image;
     VULL_ENSURE(context.vkCreateImage(&normal_image_ci, &normal_image) == vkb::Result::Success);
-    auto normal_image_allocation = allocator.bind_memory(normal_image);
+    auto normal_image_allocation = context.bind_memory(normal_image, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageViewCreateInfo normal_image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -614,7 +613,7 @@ void main_task(Scheduler &scheduler) {
     };
     vkb::Image shadow_map;
     VULL_ENSURE(context.vkCreateImage(&shadow_map_ci, &shadow_map) == vkb::Result::Success);
-    auto shadow_map_allocation = allocator.bind_memory(shadow_map);
+    auto shadow_map_allocation = context.bind_memory(shadow_map, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageViewCreateInfo shadow_map_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -678,13 +677,10 @@ void main_task(Scheduler &scheduler) {
         .usage = vkb::BufferUsage::UniformBuffer,
         .sharingMode = vkb::SharingMode::Exclusive,
     };
-    Array<Tuple<vkb::Buffer, vkb::DeviceMemory>, 2> uniform_buffers;
+    Array<Tuple<vkb::Buffer, vk::Allocation>, 2> uniform_buffers;
     for (auto &[buffer, memory] : uniform_buffers) {
         VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &buffer) == vkb::Result::Success);
-        vkb::MemoryRequirements memory_requirements{};
-        context.vkGetBufferMemoryRequirements(buffer, &memory_requirements);
-        memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(buffer, memory, 0) == vkb::Result::Success);
+        memory = context.bind_memory(buffer, vk::MemoryUsage::HostToDevice);
     }
 
     struct PointLight {
@@ -703,13 +699,10 @@ void main_task(Scheduler &scheduler) {
         .usage = vkb::BufferUsage::StorageBuffer,
         .sharingMode = vkb::SharingMode::Exclusive,
     };
-    Array<Tuple<vkb::Buffer, vkb::DeviceMemory>, 2> light_buffers;
+    Array<Tuple<vkb::Buffer, vk::Allocation>, 2> light_buffers;
     for (auto &[buffer, memory] : light_buffers) {
         VULL_ENSURE(context.vkCreateBuffer(&light_buffer_ci, &buffer) == vkb::Result::Success);
-        vkb::MemoryRequirements memory_requirements{};
-        context.vkGetBufferMemoryRequirements(buffer, &memory_requirements);
-        memory = context.allocate_memory(memory_requirements, vk::MemoryType::HostVisible);
-        VULL_ENSURE(context.vkBindBufferMemory(buffer, memory, 0) == vkb::Result::Success);
+        memory = context.bind_memory(buffer, vk::MemoryUsage::HostToDevice);
     }
 
     vkb::BufferCreateInfo light_visibilities_buffer_ci{
@@ -721,7 +714,8 @@ void main_task(Scheduler &scheduler) {
     vkb::Buffer light_visibilities_buffer;
     VULL_ENSURE(context.vkCreateBuffer(&light_visibilities_buffer_ci, &light_visibilities_buffer) ==
                 vkb::Result::Success);
-    auto light_visibilities_buffer_allocation = allocator.bind_memory(light_visibilities_buffer);
+    auto light_visibilities_buffer_allocation =
+        context.bind_memory(light_visibilities_buffer, vk::MemoryUsage::DeviceOnly);
 
     Array descriptor_pool_sizes{
         vkb::DescriptorPoolSize{
@@ -1022,12 +1016,14 @@ void main_task(Scheduler &scheduler) {
         }
     };
 
-    Array<void *, 2> light_data_ptrs;
-    Array<void *, 2> ubo_data_ptrs;
-    context.vkMapMemory(vull::get<1>(light_buffers[0]), 0, vkb::k_whole_size, 0, &light_data_ptrs[0]);
-    context.vkMapMemory(vull::get<1>(light_buffers[1]), 0, vkb::k_whole_size, 0, &light_data_ptrs[1]);
-    context.vkMapMemory(vull::get<1>(uniform_buffers[0]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[0]);
-    context.vkMapMemory(vull::get<1>(uniform_buffers[1]), 0, vkb::k_whole_size, 0, &ubo_data_ptrs[1]);
+    Array<void *, 2> light_data_ptrs{
+        vull::get<1>(light_buffers[0]).mapped_data(),
+        vull::get<1>(light_buffers[1]).mapped_data(),
+    };
+    Array<void *, 2> ubo_data_ptrs{
+        vull::get<1>(uniform_buffers[0]).mapped_data(),
+        vull::get<1>(uniform_buffers[1]).mapped_data(),
+    };
 
     vk::RenderGraph render_graph;
 
@@ -1394,13 +1390,11 @@ void main_task(Scheduler &scheduler) {
     context.vkDeviceWaitIdle();
     context.vkDestroyDescriptorPool(descriptor_pool);
     context.vkDestroyBuffer(light_visibilities_buffer);
-    for (auto &[buffer, memory] : light_buffers) {
+    for (auto &[buffer, allocation] : light_buffers) {
         context.vkDestroyBuffer(buffer);
-        context.vkFreeMemory(memory);
     }
-    for (auto &[buffer, memory] : uniform_buffers) {
+    for (auto &[buffer, allocation] : uniform_buffers) {
         context.vkDestroyBuffer(buffer);
-        context.vkFreeMemory(memory);
     }
     context.vkDestroySampler(shadow_sampler);
     for (auto *cascade_view : shadow_cascade_views) {

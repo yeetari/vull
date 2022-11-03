@@ -24,6 +24,7 @@
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -96,7 +97,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
     };
     vkb::Buffer buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
-    m_allocations.push(m_allocator.bind_memory(buffer));
+    m_allocations.push(m_context.bind_memory(buffer, vk::MemoryUsage::DeviceOnly));
 
     VULL_ENSURE(size <= k_staging_buffer_size);
     stream.read({staging_data, size});
@@ -140,7 +141,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     };
     auto &image = m_texture_images.emplace();
     VULL_ENSURE(m_context.vkCreateImage(&image_ci, &image) == vkb::Result::Success);
-    m_allocations.push(m_allocator.bind_memory(image));
+    m_allocations.push(m_context.bind_memory(image, vk::MemoryUsage::DeviceOnly));
 
     vkb::ImageViewCreateInfo image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -231,7 +232,6 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
 }
 
 void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
-    auto staging_allocator = m_context.create_allocator(vk::MemoryType::Staging);
     vkb::SamplerCreateInfo linear_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -278,7 +278,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     };
     vkb::Buffer staging_buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vkb::Result::Success);
-    auto staging_allocation = staging_allocator.bind_memory(staging_buffer);
+    auto staging_allocation = m_context.bind_memory(staging_buffer, vk::MemoryUsage::HostOnly);
     auto *staging_data = staging_allocation.mapped_data();
 
     // Load world.

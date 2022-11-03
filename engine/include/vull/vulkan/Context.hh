@@ -3,24 +3,20 @@
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/ContextTable.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
-enum class MemoryType {
-    DeviceLocal,
-    HostVisible,
-    Staging,
-};
-
 class Context : public vkb::ContextTable {
-    Vector<vkb::MemoryType> m_memory_types;
-    Vector<vkb::QueueFamilyProperties> m_queue_families;
     vkb::PhysicalDeviceProperties m_properties{};
+    vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
+    Vector<vkb::QueueFamilyProperties> m_queue_families;
+    Vector<Allocator> m_allocators;
 
-    uint32_t find_memory_type_index(const vkb::MemoryRequirements &requirements, MemoryType type) const;
+    Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
 
 public:
     Context();
@@ -31,8 +27,9 @@ public:
     Context &operator=(const Context &) = delete;
     Context &operator=(Context &&) = delete;
 
-    Allocator create_allocator(MemoryType type);
-    vkb::DeviceMemory allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const;
+    Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
+    Allocation bind_memory(vkb::Buffer buffer, MemoryUsage usage);
+    Allocation bind_memory(vkb::Image image, MemoryUsage usage);
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     const Vector<vkb::QueueFamilyProperties> &queue_families() const { return m_queue_families; }
 };

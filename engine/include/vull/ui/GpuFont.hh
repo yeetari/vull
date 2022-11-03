@@ -2,6 +2,7 @@
 
 #include <vull/support/Vector.hh>
 #include <vull/ui/Font.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -15,14 +16,14 @@ class Context;
 namespace vull::ui {
 
 class GpuFont : public Font {
-    const vk::Context &m_context;
-    vkb::DeviceMemory m_memory{nullptr};
+    vk::Context &m_context;
+    vk::Allocation m_allocation;
     Vector<vkb::Image> m_images;
     Vector<vkb::ImageView> m_image_views;
     float *m_image_data{nullptr};
 
 public:
-    GpuFont(const vk::Context &context, Font &&font);
+    GpuFont(vk::Context &context, Font &&font);
     GpuFont(const GpuFont &) = delete;
     GpuFont(GpuFont &&) = delete;
     ~GpuFont();

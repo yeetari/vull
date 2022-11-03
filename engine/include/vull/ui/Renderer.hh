@@ -3,6 +3,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/ui/GpuFont.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -35,12 +36,12 @@ struct Object {
 };
 
 class Renderer {
-    const vk::Context &m_context;
+    vk::Context &m_context;
     const vk::Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
     vkb::Sampler m_font_sampler{nullptr};
     vkb::Buffer m_ui_data_buffer{nullptr};
-    vkb::DeviceMemory m_ui_data_buffer_memory{nullptr};
+    vk::Allocation m_ui_data_buffer_allocation;
     vkb::DescriptorPool m_descriptor_pool{nullptr};
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vkb::DescriptorSet m_descriptor_set{nullptr};
@@ -52,7 +53,7 @@ class Renderer {
     uint32_t m_object_index{0};
 
 public:
-    Renderer(const vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
+    Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
              vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader, vkb::ShaderModule fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;

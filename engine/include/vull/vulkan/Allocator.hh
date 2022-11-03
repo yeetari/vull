@@ -31,12 +31,13 @@ private:
     Allocation(AllocatorImpl &allocator, const AllocationInfo &info) : m_allocator(&allocator), m_info(info) {}
 
 public:
+    Allocation() = default;
     Allocation(const Allocation &) = delete;
     Allocation(Allocation &&other) : m_allocator(vull::exchange(other.m_allocator, nullptr)), m_info(other.m_info) {}
     ~Allocation();
 
     Allocation &operator=(const Allocation &) = delete;
-    Allocation &operator=(Allocation &&) = delete;
+    Allocation &operator=(Allocation &&);
 
     const AllocationInfo &info() const { return m_info; }
     void *mapped_data() const { return m_info.mapped_data; }
@@ -57,8 +58,7 @@ public:
     Allocator &operator=(Allocator &&);
 
     [[nodiscard]] Allocation allocate(const vkb::MemoryRequirements &requirements);
-    [[nodiscard]] Allocation bind_memory(vkb::Buffer buffer);
-    [[nodiscard]] Allocation bind_memory(vkb::Image image);
+    uint32_t memory_type_index() const;
 };
 
 } // namespace vull::vk

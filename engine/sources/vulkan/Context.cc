@@ -1,15 +1,19 @@
 #include <vull/vulkan/Context.hh>
 
 #include <vull/core/Log.hh>
+#include <vull/maths/Common.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/Lsan.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/ContextTable.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
@@ -20,19 +24,6 @@ namespace {
 
 #define VK_MAKE_VERSION(major, minor, patch)                                                                           \
     ((static_cast<uint32_t>(major) << 22u) | (static_cast<uint32_t>(minor) << 12u) | static_cast<uint32_t>(patch))
-
-vkb::MemoryPropertyFlags memory_flags(MemoryType type) {
-    switch (type) {
-    case MemoryType::DeviceLocal:
-        return vkb::MemoryPropertyFlags::DeviceLocal;
-    case MemoryType::HostVisible:
-        return vkb::MemoryPropertyFlags::DeviceLocal | vkb::MemoryPropertyFlags::HostVisible |
-               vkb::MemoryPropertyFlags::HostCoherent;
-    case MemoryType::Staging:
-        return vkb::MemoryPropertyFlags::HostVisible | vkb::MemoryPropertyFlags::HostCoherent;
-    }
-    VULL_ENSURE_NOT_REACHED();
-}
 
 const char *queue_flag_string(uint32_t bit) {
     switch (static_cast<vkb::QueueFlags>(bit)) {
@@ -47,6 +38,11 @@ const char *queue_flag_string(uint32_t bit) {
     default:
         return "?";
     }
+}
+
+// TODO: This should be generated in Vulkan.hh
+vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
+    return static_cast<vkb::MemoryPropertyFlags>(~static_cast<uint32_t>(flags));
 }
 
 } // namespace
@@ -101,20 +97,14 @@ Context::Context() : ContextTable{} {
     VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
     load_instance(vkGetInstanceProcAddr);
 
+    // TODO: Better device selection.
     uint32_t physical_device_count = 1;
     vkb::Result enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
     VULL_ENSURE(enumeration_result == vkb::Result::Success || enumeration_result == vkb::Result::Incomplete);
     VULL_ENSURE(physical_device_count == 1);
 
-    vkb::PhysicalDeviceProperties device_properties{};
-    vkGetPhysicalDeviceProperties(&device_properties);
-    vull::info("[vulkan] Creating device from {}", device_properties.deviceName);
-
-    vkb::PhysicalDeviceMemoryProperties memory_properties{};
-    vkGetPhysicalDeviceMemoryProperties(&memory_properties);
-    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++) {
-        m_memory_types.push(memory_properties.memoryTypes[i]);
-    }
+    vkGetPhysicalDeviceProperties(&m_properties);
+    vull::info("[vulkan] Creating device from {}", m_properties.deviceName);
 
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, nullptr);
@@ -186,47 +176,100 @@ Context::Context() : ContextTable{} {
     };
     VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vkb::Result::Success);
     load_device();
-    vkGetPhysicalDeviceProperties(&m_properties);
+
+    vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
+    for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
+        m_allocators.emplace(*this, i);
+    }
+
+    vkb::MemoryRequirements requirements{
+        .memoryTypeBits = 0xffffffffu,
+    };
+    vull::debug("[vulkan] Using memory type {} for MemoryUsage::DeviceOnly",
+                allocator_for(requirements, MemoryUsage::DeviceOnly).memory_type_index());
+    vull::debug("[vulkan] Using memory type {} for MemoryUsage::HostOnly",
+                allocator_for(requirements, MemoryUsage::HostOnly).memory_type_index());
+    vull::debug("[vulkan] Using memory type {} for MemoryUsage::HostToDevice",
+                allocator_for(requirements, MemoryUsage::HostToDevice).memory_type_index());
+    vull::debug("[vulkan] Using memory type {} for MemoryUsage::DeviceToHost",
+                allocator_for(requirements, MemoryUsage::DeviceToHost).memory_type_index());
 }
 
 Context::~Context() {
+    m_allocators.clear();
     vkDestroyDevice();
     vkDestroyInstance();
 }
 
-uint32_t Context::find_memory_type_index(const vkb::MemoryRequirements &requirements, MemoryType type) const {
-    const auto flags = memory_flags(type);
-    for (uint32_t i = 0; i < m_memory_types.size(); i++) {
-        if ((requirements.memoryTypeBits & (1u << i)) == 0u) {
+Allocator &Context::allocator_for(const vkb::MemoryRequirements &requirements, MemoryUsage usage) {
+    auto required_flags = vkb::MemoryPropertyFlags::None;
+    auto desirable_flags = vkb::MemoryPropertyFlags::None;
+    switch (usage) {
+    case MemoryUsage::DeviceOnly:
+        required_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
+        break;
+    case MemoryUsage::DeviceToHost:
+        required_flags |= vkb::MemoryPropertyFlags::HostVisible;
+        desirable_flags |= vkb::MemoryPropertyFlags::HostCached;
+        break;
+    case MemoryUsage::HostToDevice:
+        desirable_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
+        [[fallthrough]];
+    case MemoryUsage::HostOnly:
+        required_flags |= vkb::MemoryPropertyFlags::HostVisible | vkb::MemoryPropertyFlags::HostCoherent;
+        break;
+    }
+
+    Optional<Allocator &> best_allocator;
+    uint32_t best_cost = UINT32_MAX;
+    for (uint32_t index = 0; index < m_memory_properties.memoryTypeCount; index++) {
+        if ((requirements.memoryTypeBits & (1u << index)) == 0u) {
+            // Memory type not acceptable for this allocation.
             continue;
         }
-        if ((m_memory_types[i].propertyFlags & flags) != flags) {
+
+        const auto flags = m_memory_properties.memoryTypes[index].propertyFlags;
+        if ((flags & required_flags) != required_flags) {
+            // Memory type doesn't have all the required flags.
             continue;
         }
-        return i;
-    }
-    VULL_ENSURE_NOT_REACHED();
-}
 
-Allocator Context::create_allocator(MemoryType type) {
-    const auto flags = memory_flags(type);
-    for (uint32_t i = 0; i < m_memory_types.size(); i++) {
-        if ((m_memory_types[i].propertyFlags & flags) == flags) {
-            return {*this, i};
+        const auto cost = static_cast<uint32_t>(vull::popcount(vull::to_underlying(desirable_flags & ~flags)));
+        if (cost < best_cost) {
+            best_cost = cost;
+            best_allocator = m_allocators[index];
+        }
+        if (cost == 0) {
+            // Perfect match.
+            break;
         }
     }
-    VULL_ENSURE_NOT_REACHED();
+    VULL_ENSURE(best_allocator);
+    return *best_allocator;
 }
 
-vkb::DeviceMemory Context::allocate_memory(const vkb::MemoryRequirements &requirements, MemoryType type) const {
-    vkb::MemoryAllocateInfo memory_ai{
-        .sType = vkb::StructureType::MemoryAllocateInfo,
-        .allocationSize = requirements.size,
-        .memoryTypeIndex = find_memory_type_index(requirements, type),
-    };
-    vkb::DeviceMemory memory;
-    VULL_ENSURE(vkAllocateMemory(&memory_ai, &memory) == vkb::Result::Success);
-    return memory;
+Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements, vk::MemoryUsage usage) {
+    return allocator_for(requirements, usage).allocate(requirements);
+}
+
+Allocation Context::bind_memory(vkb::Buffer buffer, vk::MemoryUsage usage) {
+    vkb::MemoryRequirements requirements{};
+    vkGetBufferMemoryRequirements(buffer, &requirements);
+
+    auto allocation = allocate_memory(requirements, usage);
+    const auto &info = allocation.info();
+    VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
+    return allocation;
+}
+
+Allocation Context::bind_memory(vkb::Image image, vk::MemoryUsage usage) {
+    vkb::MemoryRequirements requirements{};
+    vkGetImageMemoryRequirements(image, &requirements);
+
+    auto allocation = allocate_memory(requirements, usage);
+    const auto &info = allocation.info();
+    VULL_ENSURE(vkBindImageMemory(image, info.memory, info.offset) == vkb::Result::Success);
+    return allocation;
 }
 
 float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {
