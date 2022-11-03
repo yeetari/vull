@@ -51,6 +51,7 @@ BlockMapping mapping(uint32_t size) {
 // Individual memory heap that manages k_heap_size VRAM.
 class Heap {
     const vkb::DeviceMemory m_memory;
+    void *const m_mapped_data;
     Bitset m_fl_bitset{};
     Array<Bitset, k_fl_count> m_sl_bitsets{};
     Array<Array<BlockIndex, k_sl_count>, k_fl_count> m_block_map{};
@@ -60,7 +61,7 @@ class Heap {
     void unlink_block(const Block &, BlockIndex, uint32_t fl_index, uint32_t sl_index);
 
 public:
-    Heap(vkb::DeviceMemory, vkb::DeviceSize);
+    Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data);
     Heap(const Heap &) = delete;
     Heap(Heap &&) = delete;
     ~Heap() = default;
@@ -68,13 +69,15 @@ public:
     Heap &operator=(const Heap &) = delete;
     Heap &operator=(Heap &&) = delete;
 
-    Optional<Allocation> allocate(uint32_t);
-    void free(Allocation);
+    Optional<AllocationInfo> allocate(uint32_t);
+    void free(const AllocationInfo &);
 
     vkb::DeviceMemory memory() const { return m_memory; }
+    void *mapped_data() const { return m_mapped_data; }
 };
 
-Heap::Heap(vkb::DeviceMemory memory, vkb::DeviceSize size) : m_memory(memory) {
+Heap::Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data)
+    : m_memory(memory), m_mapped_data(mapped_data) {
     // Push null block - BlockIndex(0) is used to represent absence.
     m_blocks.emplace();
 
@@ -124,7 +127,7 @@ void Heap::unlink_block(const Block &block, BlockIndex index, uint32_t fl_index,
     }
 }
 
-Optional<Allocation> Heap::allocate(uint32_t size) {
+Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
     size = align_up(size, k_minimum_allocation_size);
 
@@ -174,14 +177,14 @@ Optional<Allocation> Heap::allocate(uint32_t size) {
         link_block(new_block, new_block_index);
     }
 
-    return Allocation{
+    return AllocationInfo{
         .memory = m_memory,
         .offset = block->offset,
         .block_index = block_index,
     };
 }
 
-void Heap::free(Allocation allocation) {
+void Heap::free(const AllocationInfo &allocation) {
     auto &block = m_blocks[allocation.block_index];
     VULL_ASSERT((block.size & 1u) == 0u, "Block already free");
 
@@ -220,6 +223,7 @@ class AllocatorImpl {
     const uint32_t m_memory_type_index;
     Vector<UniquePtr<Heap>> m_heaps;
     vkb::DeviceSize m_heap_size{k_big_heap_size};
+    bool m_mappable{false};
 
     Allocation allocate_dedicated(uint32_t size);
 
@@ -235,7 +239,7 @@ public:
     Allocation allocate(const vkb::MemoryRequirements &requirements);
     Allocation bind_memory(vkb::Buffer buffer);
     Allocation bind_memory(vkb::Image image);
-    void free(Allocation allocation);
+    void free(const Allocation &allocation);
 };
 
 AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
@@ -243,12 +247,13 @@ AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
     vkb::PhysicalDeviceMemoryProperties memory_properties{};
     context.vkGetPhysicalDeviceMemoryProperties(&memory_properties);
 
-    const auto heap_index = memory_properties.memoryTypes[memory_type_index].heapIndex;
-    const auto heap_size = memory_properties.memoryHeaps[heap_index].size;
+    const auto &memory_type = memory_properties.memoryTypes[memory_type_index];
+    const auto heap_size = memory_properties.memoryHeaps[memory_type.heapIndex].size;
     if (heap_size <= k_small_heap_cutoff) {
         m_heap_size = heap_size / 8;
     }
     m_heap_size = align_up(m_heap_size, vkb::DeviceSize(32));
+    m_mappable = (memory_type.propertyFlags & vkb::MemoryPropertyFlags::HostVisible) != vkb::MemoryPropertyFlags::None;
     // TODO: Format memory type nicely.
     vull::debug("[vulkan] Using {} byte heaps for memory type {}", m_heap_size, memory_type_index);
 }
@@ -268,10 +273,18 @@ Allocation AllocatorImpl::allocate_dedicated(uint32_t size) {
     };
     vkb::DeviceMemory memory;
     VULL_ENSURE(m_context.vkAllocateMemory(&memory_ai, &memory) == vkb::Result::Success);
-    return {
+
+    void *mapped_data = nullptr;
+    if (m_mappable) {
+        VULL_ENSURE(m_context.vkMapMemory(memory, 0, vkb::k_whole_size, 0, &mapped_data) == vkb::Result::Success);
+    }
+
+    AllocationInfo info{
         .memory = memory,
-        .dedicated = true,
+        .mapped_data = mapped_data,
+        .heap_index = 0xffu,
     };
+    return {*this, info};
 }
 
 // TODO: Avoid having individual heaps of N bytes? A new TLSF block can be created, but how would the backing
@@ -290,15 +303,15 @@ Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) 
         size = size + alignment - remainder;
     }
 
-    Optional<Allocation> allocation;
+    Optional<AllocationInfo> allocation_info;
     for (uint32_t i = 0; i < m_heaps.size(); i++) {
-        if ((allocation = m_heaps[i]->allocate(size))) {
-            allocation->heap_index = static_cast<uint8_t>(i);
+        if ((allocation_info = m_heaps[i]->allocate(size))) {
+            allocation_info->heap_index = static_cast<uint8_t>(i);
             break;
         }
     }
 
-    for (uint32_t shift = 0; !allocation && shift < 6; shift++) {
+    for (uint32_t shift = 0; !allocation_info && shift < 6; shift++) {
         vkb::MemoryAllocateInfo memory_ai{
             .sType = vkb::StructureType::MemoryAllocateInfo,
             .allocationSize = m_heap_size >> shift,
@@ -311,14 +324,23 @@ Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) 
         }
         vull::trace("[vulkan] New heap of size {} created for memory type {}", m_heap_size >> shift,
                     m_memory_type_index);
-        auto &heap = m_heaps.emplace(new Heap(memory, m_heap_size >> shift));
-        allocation = heap->allocate(size);
-        allocation->heap_index = static_cast<uint8_t>(m_heaps.size() - 1);
+
+        void *mapped_data = nullptr;
+        if (m_mappable) {
+            VULL_ENSURE(m_context.vkMapMemory(memory, 0, vkb::k_whole_size, 0, &mapped_data) == vkb::Result::Success);
+        }
+
+        auto &heap = m_heaps.emplace(new Heap(memory, m_heap_size >> shift, mapped_data));
+        allocation_info = heap->allocate(size);
+        allocation_info->heap_index = static_cast<uint8_t>(m_heaps.size() - 1);
     }
 
-    VULL_ENSURE(allocation);
-    allocation->offset = align_up(allocation->offset, alignment);
-    return *allocation;
+    VULL_ENSURE(allocation_info);
+    allocation_info->offset = align_up(allocation_info->offset, alignment);
+    if (auto *mapped_base = m_heaps[allocation_info->heap_index]->mapped_data()) {
+        allocation_info->mapped_data = static_cast<uint8_t *>(mapped_base) + allocation_info->offset;
+    }
+    return {*this, *allocation_info};
 }
 
 Allocation AllocatorImpl::bind_memory(vkb::Buffer buffer) {
@@ -326,7 +348,8 @@ Allocation AllocatorImpl::bind_memory(vkb::Buffer buffer) {
     m_context.vkGetBufferMemoryRequirements(buffer, &requirements);
 
     auto allocation = allocate(requirements);
-    VULL_ENSURE(m_context.vkBindBufferMemory(buffer, allocation.memory, allocation.offset) == vkb::Result::Success);
+    VULL_ENSURE(m_context.vkBindBufferMemory(buffer, allocation.info().memory, allocation.info().offset) ==
+                vkb::Result::Success);
     return allocation;
 }
 
@@ -335,17 +358,25 @@ Allocation AllocatorImpl::bind_memory(vkb::Image image) {
     m_context.vkGetImageMemoryRequirements(image, &requirements);
 
     auto allocation = allocate(requirements);
-    VULL_ENSURE(m_context.vkBindImageMemory(image, allocation.memory, allocation.offset) == vkb::Result::Success);
+    VULL_ENSURE(m_context.vkBindImageMemory(image, allocation.info().memory, allocation.info().offset) ==
+                vkb::Result::Success);
     return allocation;
 }
 
-void AllocatorImpl::free(Allocation allocation) {
-    if (allocation.dedicated) {
-        m_context.vkFreeMemory(allocation.memory);
+void AllocatorImpl::free(const Allocation &allocation) {
+    if (allocation.is_dedicated()) {
+        m_context.vkFreeMemory(allocation.info().memory);
         return;
     }
-    m_heaps[allocation.heap_index]->free(allocation);
+    m_heaps[allocation.info().heap_index]->free(allocation.info());
     // TODO: Shrink heaps based on heuristic.
+}
+
+Allocation::~Allocation() {
+    if (m_allocator != nullptr) {
+        m_allocator->free(*this);
+    }
+    m_allocator = nullptr;
 }
 
 Allocator::Allocator() = default;
@@ -367,10 +398,6 @@ Allocation Allocator::bind_memory(vkb::Buffer buffer) {
 
 Allocation Allocator::bind_memory(vkb::Image image) {
     return m_impl->bind_memory(image);
-}
-
-void Allocator::free(Allocation allocation) {
-    return m_impl->free(allocation);
 }
 
 } // namespace vull::vk

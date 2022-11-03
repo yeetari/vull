@@ -7,13 +7,13 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Allocator.hh> // IWYU pragma: keep
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
-class Allocator;
 class CommandBuffer;
 class CommandPool;
 class Context;
@@ -40,6 +40,7 @@ class Scene {
     vk::Context &m_context;
     vk::Allocator &m_allocator;
     World m_world;
+    Vector<vk::Allocation> m_allocations;
     HashMap<String, vkb::Buffer> m_vertex_buffers;
     HashMap<String, vkb::Buffer> m_index_buffers;
     HashMap<String, uint32_t> m_index_counts;

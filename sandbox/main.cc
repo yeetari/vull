@@ -1393,7 +1393,6 @@ void main_task(Scheduler &scheduler) {
     scheduler.stop();
     context.vkDeviceWaitIdle();
     context.vkDestroyDescriptorPool(descriptor_pool);
-    allocator.free(light_visibilities_buffer_allocation);
     context.vkDestroyBuffer(light_visibilities_buffer);
     for (auto &[buffer, memory] : light_buffers) {
         context.vkDestroyBuffer(buffer);
@@ -1408,16 +1407,12 @@ void main_task(Scheduler &scheduler) {
         context.vkDestroyImageView(cascade_view);
     }
     context.vkDestroyImageView(shadow_map_view);
-    allocator.free(shadow_map_allocation);
     context.vkDestroyImage(shadow_map);
     context.vkDestroyImageView(normal_image_view);
-    allocator.free(normal_image_allocation);
     context.vkDestroyImage(normal_image);
     context.vkDestroyImageView(albedo_image_view);
-    allocator.free(albedo_image_allocation);
     context.vkDestroyImage(albedo_image);
     context.vkDestroyImageView(depth_image_view);
-    allocator.free(depth_image_allocation);
     context.vkDestroyImage(depth_image);
     context.vkDestroyPipeline(deferred_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);

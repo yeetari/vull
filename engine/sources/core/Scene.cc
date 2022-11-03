@@ -96,7 +96,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
     };
     vkb::Buffer buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
-    m_allocator.bind_memory(buffer);
+    m_allocations.push(m_allocator.bind_memory(buffer));
 
     VULL_ENSURE(size <= k_staging_buffer_size);
     stream.read({staging_data, size});
@@ -140,7 +140,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     };
     auto &image = m_texture_images.emplace();
     VULL_ENSURE(m_context.vkCreateImage(&image_ci, &image) == vkb::Result::Success);
-    m_allocator.bind_memory(image);
+    m_allocations.push(m_allocator.bind_memory(image));
 
     vkb::ImageViewCreateInfo image_view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
@@ -279,9 +279,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     vkb::Buffer staging_buffer;
     VULL_ENSURE(m_context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vkb::Result::Success);
     auto staging_allocation = staging_allocator.bind_memory(staging_buffer);
-    void *staging_data;
-    VULL_ENSURE(m_context.vkMapMemory(staging_allocation.memory, 0, k_staging_buffer_size, 0, &staging_data) ==
-                vkb::Result::Success);
+    auto *staging_data = staging_allocation.mapped_data();
 
     // Load world.
     m_world.deserialise(pack_reader);
@@ -315,7 +313,6 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
             break;
         }
     }
-    staging_allocator.free(staging_allocation);
     m_context.vkDestroyBuffer(staging_buffer);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/UniquePtr.hh>
+#include <vull/support/Utility.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -12,12 +13,34 @@ class Context;
 
 using BlockIndex = uint16_t;
 
-struct Allocation {
+struct AllocationInfo {
     vkb::DeviceMemory memory;
-    uint32_t offset;
-    BlockIndex block_index;
+    uint32_t offset{0};
+    BlockIndex block_index{0};
+    void *mapped_data{nullptr};
     uint8_t heap_index;
-    bool dedicated;
+};
+
+class Allocation {
+    friend AllocatorImpl;
+
+private:
+    AllocatorImpl *m_allocator{nullptr};
+    AllocationInfo m_info;
+
+    Allocation(AllocatorImpl &allocator, const AllocationInfo &info) : m_allocator(&allocator), m_info(info) {}
+
+public:
+    Allocation(const Allocation &) = delete;
+    Allocation(Allocation &&other) : m_allocator(vull::exchange(other.m_allocator, nullptr)), m_info(other.m_info) {}
+    ~Allocation();
+
+    Allocation &operator=(const Allocation &) = delete;
+    Allocation &operator=(Allocation &&) = delete;
+
+    const AllocationInfo &info() const { return m_info; }
+    void *mapped_data() const { return m_info.mapped_data; }
+    bool is_dedicated() const { return m_info.heap_index == 0xffu; }
 };
 
 class Allocator {
@@ -33,10 +56,9 @@ public:
     Allocator &operator=(const Allocator &) = delete;
     Allocator &operator=(Allocator &&);
 
-    Allocation allocate(const vkb::MemoryRequirements &requirements);
-    Allocation bind_memory(vkb::Buffer buffer);
-    Allocation bind_memory(vkb::Image image);
-    void free(Allocation allocation);
+    [[nodiscard]] Allocation allocate(const vkb::MemoryRequirements &requirements);
+    [[nodiscard]] Allocation bind_memory(vkb::Buffer buffer);
+    [[nodiscard]] Allocation bind_memory(vkb::Image image);
 };
 
 } // namespace vull::vk
