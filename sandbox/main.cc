@@ -35,7 +35,7 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>

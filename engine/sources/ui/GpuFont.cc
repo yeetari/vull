@@ -4,7 +4,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/ui/Font.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>

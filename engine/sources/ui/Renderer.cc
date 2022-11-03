@@ -8,7 +8,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>

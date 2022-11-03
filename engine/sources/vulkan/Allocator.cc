@@ -8,6 +8,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -47,6 +48,8 @@ BlockMapping mapping(uint32_t size) {
     const auto sl_index = (size >> (fl_index - k_sl_count_log2)) ^ k_sl_count;
     return {fl_index - fl_index_offset, sl_index};
 }
+
+} // namespace
 
 // Individual memory heap that manages k_heap_size VRAM.
 class Heap {
@@ -216,33 +219,8 @@ void Heap::free(const AllocationInfo &allocation) {
     link_block(block, allocation.block_index);
 }
 
-} // namespace
-
-class AllocatorImpl {
-    const Context &m_context;
-    const uint32_t m_memory_type_index;
-    Vector<UniquePtr<Heap>> m_heaps;
-    vkb::DeviceSize m_heap_size{k_big_heap_size};
-    bool m_mappable{false};
-
-    Allocation allocate_dedicated(uint32_t size);
-
-public:
-    AllocatorImpl(const Context &context, uint32_t memory_type_index);
-    AllocatorImpl(const AllocatorImpl &) = delete;
-    AllocatorImpl(AllocatorImpl &&) = delete;
-    ~AllocatorImpl();
-
-    AllocatorImpl &operator=(const AllocatorImpl &) = delete;
-    AllocatorImpl &operator=(AllocatorImpl &&) = delete;
-
-    Allocation allocate(const vkb::MemoryRequirements &requirements);
-    void free(const Allocation &allocation);
-    uint32_t memory_type_index() const { return m_memory_type_index; }
-};
-
-AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
-    : m_context(context), m_memory_type_index(memory_type_index) {
+Allocator::Allocator(const Context &context, uint32_t memory_type_index)
+    : m_context(context), m_memory_type_index(memory_type_index), m_heap_size(k_big_heap_size) {
     vkb::PhysicalDeviceMemoryProperties memory_properties{};
     context.vkGetPhysicalDeviceMemoryProperties(&memory_properties);
 
@@ -257,13 +235,13 @@ AllocatorImpl::AllocatorImpl(const Context &context, uint32_t memory_type_index)
     vull::debug("[vulkan] Using {} byte heaps for memory type {}", m_heap_size, memory_type_index);
 }
 
-AllocatorImpl::~AllocatorImpl() {
+Allocator::~Allocator() {
     for (auto &heap : m_heaps) {
         m_context.vkFreeMemory(heap->memory());
     }
 }
 
-Allocation AllocatorImpl::allocate_dedicated(uint32_t size) {
+Allocation Allocator::allocate_dedicated(uint32_t size) {
     // TODO: VkMemoryDedicatedAllocateInfo.
     vkb::MemoryAllocateInfo memory_ai{
         .sType = vkb::StructureType::MemoryAllocateInfo,
@@ -288,7 +266,7 @@ Allocation AllocatorImpl::allocate_dedicated(uint32_t size) {
 
 // TODO: Avoid having individual heaps of N bytes? A new TLSF block can be created, but how would the backing
 //       VkDeviceMemory be managed?
-Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) {
+Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
     VULL_ASSERT((requirements.memoryTypeBits & (1u << m_memory_type_index)) != 0u);
 
     // TODO: Handle bufferImageGranularity.
@@ -344,7 +322,7 @@ Allocation AllocatorImpl::allocate(const vkb::MemoryRequirements &requirements) 
     return {*this, *allocation_info};
 }
 
-void AllocatorImpl::free(const Allocation &allocation) {
+void Allocator::free(const Allocation &allocation) {
     if (allocation.is_dedicated()) {
         m_context.vkFreeMemory(allocation.info().memory);
         return;
@@ -365,23 +343,6 @@ Allocation &Allocation::operator=(Allocation &&other) {
     vull::swap(m_allocator, moved.m_allocator);
     m_info = moved.m_info;
     return *this;
-}
-
-Allocator::Allocator() = default;
-Allocator::~Allocator() = default;
-
-Allocator::Allocator(Allocator &&) = default;
-Allocator &Allocator::operator=(Allocator &&) = default;
-
-Allocator::Allocator(const Context &context, uint32_t memory_type_index)
-    : m_impl(new AllocatorImpl(context, memory_type_index)) {}
-
-Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
-    return m_impl->allocate(requirements);
-}
-
-uint32_t Allocator::memory_type_index() const {
-    return m_impl->memory_type_index();
 }
 
 } // namespace vull::vk

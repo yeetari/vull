@@ -9,8 +9,10 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/MemoryUsage.hh>
@@ -179,7 +181,7 @@ Context::Context() : ContextTable{} {
 
     vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
     for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
-        m_allocators.emplace(*this, i);
+        m_allocators.emplace(new Allocator(*this, i));
     }
 
     vkb::MemoryRequirements requirements{
@@ -237,7 +239,7 @@ Allocator &Context::allocator_for(const vkb::MemoryRequirements &requirements, M
         const auto cost = static_cast<uint32_t>(vull::popcount(vull::to_underlying(desirable_flags & ~flags)));
         if (cost < best_cost) {
             best_cost = cost;
-            best_allocator = m_allocators[index];
+            best_allocator = *m_allocators[index];
         }
         if (cost == 0) {
             // Perfect match.

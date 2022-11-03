@@ -7,13 +7,13 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
-#include <vull/vulkan/Allocator.hh> // IWYU pragma: keep
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
+class Allocation;
 class CommandBuffer;
 class CommandPool;
 class Context;

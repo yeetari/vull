@@ -2,7 +2,7 @@
 
 #include <vull/support/Vector.hh>
 #include <vull/ui/Font.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>

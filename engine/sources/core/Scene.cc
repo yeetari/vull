@@ -21,7 +21,7 @@
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>

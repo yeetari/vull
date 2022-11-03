@@ -1,7 +1,8 @@
 #pragma once
 
+#include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -10,11 +11,13 @@
 
 namespace vull::vk {
 
+class Allocator;
+
 class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceProperties m_properties{};
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<vkb::QueueFamilyProperties> m_queue_families;
-    Vector<Allocator> m_allocators;
+    Vector<UniquePtr<Allocator>> m_allocators;
 
     Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
 

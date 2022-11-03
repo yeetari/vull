@@ -3,7 +3,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
