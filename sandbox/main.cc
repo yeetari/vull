@@ -1167,9 +1167,6 @@ void main_task(Scheduler &scheduler) {
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
     render_graph.compile(swapchain_resource);
 
-    vkb::PhysicalDeviceProperties device_properties{};
-    context.vkGetPhysicalDeviceProperties(&device_properties);
-
     auto &world = scene.world();
     world.register_component<RigidBody>();
     world.register_component<Collider>();
