@@ -53,6 +53,9 @@ class HashSet {
             : m_root_bucket(bucket), m_bucket(bucket), m_end_bucket(end_bucket) {}
 
         void skip_to_next() {
+            if (m_bucket == nullptr) [[unlikely]] {
+                return;
+            }
             m_bucket = m_bucket->next;
             if (m_bucket == nullptr) {
                 m_bucket = ++m_root_bucket;
