@@ -25,6 +25,8 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/HashSet.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
@@ -41,7 +43,6 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/MemoryUsage.hh>
-#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
@@ -1166,8 +1167,6 @@ void main_task(Scheduler &scheduler) {
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
     render_graph.compile(swapchain_resource);
 
-    auto timestamp_pools = render_graph.create_timestamp_pools(context, 2);
-
     vkb::PhysicalDeviceProperties device_properties{};
     context.vkGetPhysicalDeviceProperties(&device_properties);
 
@@ -1226,16 +1225,12 @@ void main_task(Scheduler &scheduler) {
         // Poll input.
         window.poll_events();
 
-        // Read previous frame N's timestamp data.
-        auto &timestamp_pool = timestamp_pools[frame_pacer.frame_index()];
-        Array<uint64_t, 6> timestamp_data{};
-        timestamp_pool.read_host(timestamp_data.span());
+        // Collect previous frame N's timestamp data.
+        const auto pass_times = frame.pass_times(render_graph);
         gpu_time_graph.new_bar();
-        gpu_time_graph.push_section("Geometry pass", context.timestamp_elapsed(timestamp_data[0], timestamp_data[1]));
-        gpu_time_graph.push_section("Shadow pass", context.timestamp_elapsed(timestamp_data[1], timestamp_data[2]));
-        gpu_time_graph.push_section("Light cull", context.timestamp_elapsed(timestamp_data[2], timestamp_data[3]));
-        gpu_time_graph.push_section("Deferred pass", context.timestamp_elapsed(timestamp_data[3], timestamp_data[4]));
-        gpu_time_graph.push_section("UI", context.timestamp_elapsed(timestamp_data[4], timestamp_data[5]));
+        for (const auto &[name, time] : pass_times) {
+            gpu_time_graph.push_section(name, time);
+        }
 
         Timer physics_timer;
         physics_engine.step(world, dt);
@@ -1356,7 +1351,7 @@ void main_task(Scheduler &scheduler) {
             .memoryBarrierCount = 1,
             .pMemoryBarriers = &memory_barrier,
         });
-        render_graph.record(cmd_buf, timestamp_pool);
+        render_graph.record(cmd_buf, frame.timestamp_pool());
 
         vkb::ImageMemoryBarrier2 swapchain_present_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,

@@ -12,7 +12,6 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
-#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
@@ -164,7 +163,7 @@ bool Pass::does_write_to(Resource &resource) {
     return false;
 }
 
-void Pass::record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool) {
+void Pass::record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) {
     Vector<vkb::BufferMemoryBarrier2> buffer_barriers;
     Vector<vkb::ImageMemoryBarrier2> image_barriers;
     auto add_barriers = [&](const Vector<ResourceUse> &uses) {
@@ -319,11 +318,7 @@ void RenderGraph::compile(Resource &target) {
     }
 }
 
-Vector<QueryPool> RenderGraph::create_timestamp_pools(const Context &context, uint32_t count) const {
-    return Vector<QueryPool>(count, context, m_pass_order.size() + 1, vkb::QueryType::Timestamp);
-}
-
-void RenderGraph::record(const CommandBuffer &cmd_buf, Optional<QueryPool &> timestamp_pool) const {
+void RenderGraph::record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) const {
     if (timestamp_pool) {
         cmd_buf.reset_query_pool(*timestamp_pool);
         cmd_buf.write_timestamp(vkb::PipelineStage2::None, *timestamp_pool, 0);

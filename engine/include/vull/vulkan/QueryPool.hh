@@ -11,10 +11,11 @@ class Context;
 
 class QueryPool {
     const Context &m_context;
-    uint32_t m_count;
-    vkb::QueryPool m_pool;
+    uint32_t m_count{0};
+    vkb::QueryPool m_pool{nullptr};
 
 public:
+    explicit QueryPool(const Context &context) : m_context(context) {}
     QueryPool(const Context &context, uint32_t count, vkb::QueryType type);
     QueryPool(const QueryPool &) = delete;
     QueryPool(QueryPool &&);
@@ -24,6 +25,10 @@ public:
     QueryPool &operator=(QueryPool &&) = delete;
 
     void read_host(Span<uint64_t> data, uint32_t first = 0) const;
+    void recreate(uint32_t count, vkb::QueryType type);
+
+    explicit operator bool() const { return m_pool != nullptr; }
+    const Context &context() const { return m_context; }
     uint32_t count() const { return m_count; }
     vkb::QueryPool operator*() const { return m_pool; }
 };

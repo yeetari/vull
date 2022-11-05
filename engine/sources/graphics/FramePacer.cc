@@ -3,12 +3,18 @@
 #include <vull/graphics/Frame.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/Span.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/QueryPool.hh>
+#include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -89,6 +95,23 @@ Frame &FramePacer::next_frame() {
     wait_fence.wait();
     wait_fence.reset();
     return frame;
+}
+
+HashMap<StringView, float> Frame::pass_times(const vk::RenderGraph &render_graph) {
+    if (!m_timestamp_pool) {
+        m_timestamp_pool.recreate(render_graph.pass_count() + 1, vkb::QueryType::Timestamp);
+        return {};
+    }
+
+    Vector<uint64_t> timestamp_data(m_timestamp_pool.count());
+    m_timestamp_pool.read_host(timestamp_data.span());
+
+    HashMap<StringView, float> times;
+    for (uint32_t i = 0; i < m_timestamp_pool.count() - 1; i++) {
+        float time = m_timestamp_pool.context().timestamp_elapsed(timestamp_data[i], timestamp_data[i + 1]);
+        times.set(render_graph.passes()[i]->name(), time);
+    }
+    return times;
 }
 
 } // namespace vull

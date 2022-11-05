@@ -8,13 +8,8 @@
 
 namespace vull::vk {
 
-QueryPool::QueryPool(const Context &context, uint32_t count, vkb::QueryType type) : m_context(context), m_count(count) {
-    vkb::QueryPoolCreateInfo pool_ci{
-        .sType = vkb::StructureType::QueryPoolCreateInfo,
-        .queryType = type,
-        .queryCount = count,
-    };
-    VULL_ENSURE(m_context.vkCreateQueryPool(&pool_ci, &m_pool) == vkb::Result::Success);
+QueryPool::QueryPool(const Context &context, uint32_t count, vkb::QueryType type) : m_context(context) {
+    recreate(count, type);
 }
 
 QueryPool::QueryPool(QueryPool &&other) : m_context(other.m_context) {
@@ -29,6 +24,16 @@ QueryPool::~QueryPool() {
 void QueryPool::read_host(Span<uint64_t> data, uint32_t first) const {
     m_context.vkGetQueryPoolResults(m_pool, first, data.size(), data.size_bytes(), data.data(), sizeof(uint64_t),
                                     vkb::QueryResultFlags::_64);
+}
+
+void QueryPool::recreate(uint32_t count, vkb::QueryType type) {
+    m_context.vkDestroyQueryPool(vull::exchange(m_pool, nullptr));
+    vkb::QueryPoolCreateInfo pool_ci{
+        .sType = vkb::StructureType::QueryPoolCreateInfo,
+        .queryType = type,
+        .queryCount = (m_count = count),
+    };
+    VULL_ENSURE(m_context.vkCreateQueryPool(&pool_ci, &m_pool) == vkb::Result::Success);
 }
 
 } // namespace vull::vk
