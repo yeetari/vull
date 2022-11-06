@@ -5,8 +5,8 @@
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
-#include <vull/core/Vertex.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>

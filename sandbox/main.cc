@@ -6,13 +6,13 @@
 #include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
 #include <vull/core/Transform.hh>
-#include <vull/core/Vertex.hh>
 #include <vull/core/Window.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Frame.hh>
 #include <vull/graphics/FramePacer.hh>
+#include <vull/graphics/Vertex.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Quat.hh>
