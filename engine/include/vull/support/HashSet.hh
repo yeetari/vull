@@ -12,14 +12,14 @@ template <typename T>
 class HashSet {
     struct Bucket {
         Bucket *next{nullptr};
-        alignas(T) Array<uint8_t, sizeof(T)> data;
+        AlignedStorage<T> storage;
 
         Bucket() = default;
         Bucket(const Bucket &) = delete;
         Bucket(Bucket &&) = delete;
         ~Bucket() {
             delete next;
-            elem().~T();
+            storage.release();
         }
 
         Bucket &operator=(const Bucket &) = delete;
@@ -35,9 +35,8 @@ class HashSet {
         void do_append(T &&elem) {
             VULL_ASSERT(next == nullptr);
             next = new Bucket;
-            new (next->data.data()) T(move(elem));
+            next->storage.set(move(elem));
         }
-        T &elem() { return *reinterpret_cast<T *>(data.data()); }
     };
 
     template <bool IsConst>
@@ -72,7 +71,7 @@ class HashSet {
             skip_to_next();
             return *this;
         }
-        T &operator*() const { return m_bucket->elem(); }
+        T &operator*() const { return m_bucket->storage.get(); }
     };
 
     Bucket *m_buckets{nullptr};
@@ -156,14 +155,14 @@ void HashSet<T>::rehash(size_t capacity) {
     // Default construct root bucket elements.
     if constexpr (!is_trivially_copyable<T> || !is_trivially_destructible<T>) {
         for (size_t i = 0; i < m_capacity; i++) {
-            new (m_buckets[i].data.data()) T;
+            m_buckets[i].storage.emplace();
         }
     }
 
     // Move old elements;
     for (size_t i = 0; i < old_capacity; i++) {
         for (auto *bucket = old_buckets[i].next; bucket != nullptr; bucket = bucket->next) {
-            insert(move(bucket->elem()));
+            insert(move(bucket->storage.get()));
         }
     }
     delete[] old_buckets;
@@ -184,8 +183,8 @@ Optional<T &> HashSet<T>::add(T &&elem) {
                 break;
             }
             bucket = bucket->next;
-            if (elem == bucket->elem()) {
-                return bucket->elem();
+            if (elem == bucket->storage.get()) {
+                return bucket->storage.get();
             }
         }
     }
@@ -215,8 +214,8 @@ Optional<T &> HashSet<T>::find_hash(hash_t hash, EqualFn equal_fn) const {
     }
     auto &root_bucket = m_buckets[hash % m_capacity];
     for (auto *bucket = root_bucket.next; bucket != nullptr; bucket = bucket->next) {
-        if (equal_fn(bucket->elem())) {
-            return bucket->elem();
+        if (auto &elem = bucket->storage.get(); equal_fn(elem)) {
+            return elem;
         }
     }
     return {};

@@ -156,6 +156,25 @@ constexpr void swap(T &lhs, T &rhs) {
     rhs = move(tmp);
 }
 
+// NOLINTBEGIN
+template <typename T>
+struct AlignedStorage {
+    alignas(T) unsigned char data[sizeof(T)];
+
+    template <typename... Args>
+    void emplace(Args &&...args) {
+        new (data) T(forward<Args>(args)...);
+    }
+
+    void set(const T &value) { new (data) T(value); }
+    void set(T &&value) { new (data) T(move(value)); }
+    void release() { get().~T(); }
+
+    T &get() { return *__builtin_launder(reinterpret_cast<T *>(data)); }
+    const T &get() const { return const_cast<AlignedStorage<T> *>(this)->get(); }
+};
+// NOLINTEND
+
 inline constexpr auto &operator&=(auto &lhs, auto rhs) {
     return lhs = (lhs & rhs);
 }

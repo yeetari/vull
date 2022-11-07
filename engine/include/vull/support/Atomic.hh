@@ -17,11 +17,9 @@ enum class MemoryOrder {
 
 template <typename T>
 T atomic_load(T &ptr, MemoryOrder order = MemoryOrder::Relaxed) {
-    // NOLINTNEXTLINE: buffer doesn't need to be initialised.
-    alignas(T) Array<char, sizeof(T)> buffer;
-    auto *buf_ptr = reinterpret_cast<T *>(buffer.data());
-    __atomic_load(&ptr, buf_ptr, static_cast<int>(order));
-    return move(*buf_ptr);
+    AlignedStorage<T> storage;
+    __atomic_load(&ptr, &storage.get(), static_cast<int>(order));
+    return move(storage.get());
 }
 
 template <typename T>
