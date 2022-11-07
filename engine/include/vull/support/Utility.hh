@@ -116,6 +116,14 @@ inline constexpr bool is_trivially_destructible = requires(T t) {
 #error
 #endif
 
+template <typename T, typename U>
+inline constexpr bool is_convertible_to = is_same<T, U> || requires(T obj) {
+    static_cast<U>(obj);
+};
+
+template <typename T, typename U>
+concept ConvertibleTo = is_convertible_to<T, U>;
+
 template <typename T>
 T declval();
 
