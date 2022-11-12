@@ -5,7 +5,6 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
-#include <vull/support/Lsan.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
@@ -50,7 +49,6 @@ vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
 } // namespace
 
 Context::Context() : ContextTable{} {
-    LsanDisabler lsan_disabler;
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
         libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
