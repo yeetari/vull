@@ -41,6 +41,7 @@ if(VULL_BUILD_WARNINGS)
             -Wno-double-promotion
             -Wno-error=deprecated-declarations
             -Wno-gnu-anonymous-struct
+            -Wno-gnu-statement-expression
             # Disabling this should be fine as it's now allowed in C++ 20.
             -Wno-gnu-zero-variadic-macro-arguments
             -Wno-nested-anon-types
