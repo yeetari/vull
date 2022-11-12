@@ -175,6 +175,37 @@ struct AlignedStorage {
 };
 // NOLINTEND
 
+template <typename... Ts>
+struct TypeList {
+    template <unsigned, typename, typename...>
+    struct Index;
+
+    template <unsigned I, typename T>
+    struct Index<I, T> {
+        static constexpr auto index = unsigned(-1);
+    };
+
+    template <unsigned I, typename T, typename U, typename... Rest>
+    struct Index<I, T, U, Rest...> {
+        static constexpr auto index = is_same<T, U> ? I : Index<I + 1, T, Rest...>::index;
+    };
+
+    template <typename T>
+    static consteval bool contains() {
+        return (is_same<T, Ts> || ...);
+    }
+
+    template <typename T>
+    static consteval auto index_of() {
+        return Index<0, T, Ts...>::index;
+    }
+};
+
+// clang-format off
+template <typename T, typename... Ts>
+concept ContainsType = TypeList<Ts...>::template contains<T>();
+// clang-format on
+
 inline constexpr auto &operator&=(auto &lhs, auto rhs) {
     return lhs = (lhs & rhs);
 }
