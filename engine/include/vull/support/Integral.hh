@@ -28,6 +28,15 @@ template <>
 inline constexpr bool is_integral<uint64_t> = true;
 
 template <typename T>
+inline constexpr bool is_signed = T(-1) < T(0);
+
+template <typename T>
 concept Integral = is_integral<T>;
+
+template <typename T>
+concept SignedIntegral = is_integral<T> && is_signed<T>;
+
+template <typename T>
+concept UnsignedIntegral = is_integral<T> && !is_signed<T>;
 
 } // namespace vull
