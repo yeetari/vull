@@ -12,6 +12,7 @@ target_sources(vull PRIVATE
     physics/RigidBody.cc
     physics/Shape.cc
     support/Assert.cc
+    support/Stream.cc
     support/String.cc
     support/StringBuilder.cc
     support/Timer.cc
