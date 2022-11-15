@@ -85,11 +85,11 @@ public:
 bool Converter::convert(vull::Latch &latch) {
     // Emit default albedo texture.
     auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vull::vpak::EntryType::ImageData);
-    albedo_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgbaUnorm));
-    albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::NearestRepeat));
-    albedo_entry.write_varint(16);
-    albedo_entry.write_varint(16);
-    albedo_entry.write_varint(1);
+    VULL_EXPECT(albedo_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgbaUnorm)));
+    VULL_EXPECT(albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::NearestRepeat)));
+    VULL_EXPECT(albedo_entry.write_varint(16u));
+    VULL_EXPECT(albedo_entry.write_varint(16u));
+    VULL_EXPECT(albedo_entry.write_varint(1u));
     constexpr vull::Array colours{
         vull::Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
         vull::Vec<uint8_t, 4>(0x94, 0x00, 0xd3, 0xff),
@@ -97,16 +97,16 @@ bool Converter::convert(vull::Latch &latch) {
     for (uint32_t y = 0; y < 16; y++) {
         for (uint32_t x = 0; x < 16; x++) {
             uint32_t colour_index = (x + y) % colours.size();
-            albedo_entry.write({&colours[colour_index], 4});
+            VULL_EXPECT(albedo_entry.write({&colours[colour_index], 4}));
         }
     }
     albedo_entry.finish();
 
     // Emit default normal map texture.
     auto normal_entry = m_pack_writer.start_entry("/default_normal", vull::vpak::EntryType::ImageData);
-    normal_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgUnorm));
-    albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::LinearRepeat));
-    normal_entry.write(vull::Array<uint8_t, 5>{1u, 1u, 1u, 127u, 127u}.span());
+    VULL_EXPECT(normal_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgUnorm)));
+    VULL_EXPECT(normal_entry.write_byte(uint8_t(vull::vpak::SamplerKind::LinearRepeat)));
+    VULL_EXPECT(normal_entry.write(vull::Array<uint8_t, 5>{1u, 1u, 1u, 127u, 127u}.span()));
     normal_entry.finish();
 
     // Process meshes.
@@ -373,11 +373,11 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
     }
 
     auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
-    entry.write_byte(uint8_t(format));
-    entry.write_byte(uint8_t(sampler_kind));
-    entry.write_varint(width);
-    entry.write_varint(height);
-    entry.write_varint(mip_count - mip_offset);
+    VULL_EXPECT(entry.write_byte(uint8_t(format)));
+    VULL_EXPECT(entry.write_byte(uint8_t(sampler_kind)));
+    VULL_EXPECT(entry.write_varint(width));
+    VULL_EXPECT(entry.write_varint(height));
+    VULL_EXPECT(entry.write_varint(mip_count - mip_offset));
 
     for (uint32_t i = mip_offset; i < mip_count; i++) {
         for (uint32_t block_y = 0; block_y < height; block_y += 4) {
@@ -399,7 +399,7 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
                         }
                     }
                     stb_compress_dxt_block(compressed_block.data(), source_block.data(), 0, STB_DXT_HIGHQUAL);
-                    entry.write(compressed_block.span());
+                    VULL_EXPECT(entry.write(compressed_block.span()));
                     break;
                 }
                 case vull::vpak::ImageFormat::Bc3Srgba: {
@@ -417,7 +417,7 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
                         }
                     }
                     stb_compress_dxt_block(compressed_block.data(), source_block.data(), 1, STB_DXT_HIGHQUAL);
-                    entry.write(compressed_block.span());
+                    VULL_EXPECT(entry.write(compressed_block.span()));
                     break;
                 }
                 case vull::vpak::ImageFormat::Bc5Unorm: {
@@ -435,7 +435,7 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
                         }
                     }
                     stb_compress_bc5_block(compressed_block.data(), source_block.data());
-                    entry.write(compressed_block.span());
+                    VULL_EXPECT(entry.write(compressed_block.span()));
                     break;
                 }
                 }
@@ -607,12 +607,12 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
 
     auto vertex_data_entry =
         m_pack_writer.start_entry(vull::format("/meshes/{}/vertex", name), vull::vpak::EntryType::VertexData);
-    vertex_data_entry.write(vertices.span());
+    VULL_EXPECT(vertex_data_entry.write(vertices.span()));
     vertex_data_entry.finish();
 
     auto index_data_entry =
         m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vull::vpak::EntryType::IndexData);
-    index_data_entry.write(indices.span());
+    VULL_EXPECT(index_data_entry.write(indices.span()));
     index_data_entry.finish();
 
     vull::Vec3f aabb_min(FLT_MAX);
@@ -885,7 +885,7 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
         }
     }
 
-    world.serialise(pack_writer);
+    VULL_EXPECT(world.serialise(pack_writer));
     vull::debug("[gltf] Finished traversing");
     return true;
 }

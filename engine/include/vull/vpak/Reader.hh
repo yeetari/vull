@@ -2,7 +2,10 @@
 
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Stream.hh>
+#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
@@ -13,7 +16,7 @@
 
 namespace vull::vpak {
 
-class ReadStream {
+class ReadStream final : public Stream {
     const LargeSpan<uint8_t> m_data;
     size_t m_block_start;
     size_t m_compressed_size{0};
@@ -22,9 +25,8 @@ class ReadStream {
 public:
     ReadStream(LargeSpan<uint8_t> data, off64_t first_block);
 
-    void read(Span<void> data);
-    uint8_t read_byte();
-    uint64_t read_varint();
+    // TODO: override read_byte for a faster path.
+    Result<void, StreamError> read(Span<void> data) override;
 };
 
 class Reader {

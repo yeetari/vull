@@ -4,7 +4,10 @@
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Algorithm.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
+#include <vull/support/StreamError.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
@@ -15,54 +18,50 @@
 
 namespace vull {
 
-void World::deserialise(vpak::Reader &pack_reader) {
+Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_reader) {
     auto stream = pack_reader.open("/world");
     if (!stream) {
         vull::error("[vpak] Missing /world entry");
-        return;
+        return WorldError::MissingEntry;
     }
 
-    // TODO(stream-api): templated read_varint.
-    const auto entity_count = static_cast<EntityId>(stream->read_varint());
+    const auto entity_count = VULL_TRY(stream->read_varint<EntityId>());
     m_entities.ensure_capacity(entity_count);
     for (EntityId i = 0; i < entity_count; i++) {
         m_entities.push(i);
     }
 
-    const auto set_count = stream->read_varint();
+    const auto set_count = VULL_TRY(stream->read_varint<uint32_t>());
     for (uint32_t i = 0; i < set_count; i++) {
-        const auto set_entity_count = static_cast<EntityId>(stream->read_varint());
+        const auto set_entity_count = VULL_TRY(stream->read_varint<EntityId>());
         if (set_entity_count == 0) {
             continue;
         }
         if (i >= m_component_sets.size() || !m_component_sets[i].initialised()) {
             vull::error("[vpak] Mismatched world");
-            return;
+            return WorldError::InvalidComponent;
         }
         auto &set = m_component_sets[i];
-        set.deserialise(set_entity_count, [&] {
-            return stream->read_byte();
-        });
+        set.deserialise(set_entity_count, *stream);
         for (EntityId j = 0; j < set_entity_count; j++) {
-            set.raw_ensure_index(static_cast<EntityId>(stream->read_varint()));
+            set.raw_ensure_index(VULL_TRY(stream->read_varint<EntityId>()));
         }
     }
+    return {};
 }
 
-float World::serialise(vpak::Writer &pack_writer) {
+Result<float, StreamError> World::serialise(vpak::Writer &pack_writer) {
     auto entry = pack_writer.start_entry("/world", vpak::EntryType::WorldData);
-    entry.write_varint(m_entities.size());
-    entry.write_varint(m_component_sets.size());
+    VULL_TRY(entry.write_varint(m_entities.size()));
+    VULL_TRY(entry.write_varint(m_component_sets.size()));
     for (auto &set : m_component_sets) {
-        entry.write_varint(set.size());
+        VULL_TRY(entry.write_varint(set.size()));
         if (!set.initialised()) {
             continue;
         }
-        set.serialise([&](uint8_t byte) {
-            entry.write_byte(byte);
-        });
+        set.serialise(entry);
         for (EntityId id : vull::ViewAdapter(set.dense_begin(), set.dense_end())) {
-            entry.write_varint(id);
+            VULL_TRY(entry.write_varint(id));
         }
     }
     return entry.finish();

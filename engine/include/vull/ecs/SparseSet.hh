@@ -2,6 +2,7 @@
 
 #include <vull/support/Assert.hh>
 #include <vull/support/Function.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
@@ -16,8 +17,8 @@ class SparseSet {
 
     void (*m_destruct)(void *){nullptr};
     void (*m_swap)(void *, void *){nullptr};
-    void (*m_deserialise)(void *, const Function<uint8_t()> &){nullptr};
-    void (*m_serialise)(void *, const Function<void(uint8_t)> &){nullptr};
+    void (*m_deserialise)(void *, Stream &){nullptr};
+    void (*m_serialise)(void *, Stream &){nullptr};
     I m_object_size{0};
     I m_capacity{0};
 
@@ -32,9 +33,9 @@ public:
 
     template <typename T>
     void initialise();
-    void deserialise(I count, Function<uint8_t()> read_byte);
+    void deserialise(I count, Stream &stream);
     void raw_ensure_index(I index);
-    void serialise(Function<void(uint8_t)> write_byte);
+    void serialise(Stream &stream);
 
     template <typename T>
     T &at(I index);
@@ -84,41 +85,38 @@ void SparseSet<I>::initialise() {
     m_swap = +[](void *lhs, void *rhs) {
         vull::swap(*static_cast<T *>(lhs), *static_cast<T *>(rhs));
     };
-    m_deserialise = +[](void *ptr, const Function<uint8_t()> &read_byte) {
-        if constexpr (!requires(T) { T::deserialise(read_byte); }) {
+    m_deserialise = +[](void *ptr, Stream &stream) {
+        if constexpr (!requires(T) { T::deserialise(stream); }) {
             if constexpr (!is_trivially_copyable<T>) {
                 static_assert(!is_same<T, T>, "T has no defined deserialise function but is also not a trivial type");
             }
-            // TODO(stream-api)
-            for (uint8_t &byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
-                byte = read_byte();
-            }
+            // TODO: Propagate errors.
+            VULL_EXPECT(stream.read({static_cast<uint8_t *>(ptr), sizeof(T)}));
         } else {
-            new (ptr) T(T::deserialise(read_byte));
+            new (ptr) T(T::deserialise(stream));
         }
     };
-    m_serialise = +[](void *ptr, const Function<void(uint8_t)> &write_byte) {
-        if constexpr (!requires(T t) { T::serialise(t, write_byte); }) {
+    m_serialise = +[](void *ptr, Stream &stream) {
+        if constexpr (!requires(T t) { T::serialise(t, stream); }) {
             if constexpr (!is_trivially_copyable<T>) {
                 static_assert(!is_same<T, T>, "T has no defined serialise function but is also not a trivial type");
             }
-            // TODO(stream-api)
-            for (uint8_t byte : Span<void>(ptr, sizeof(T)).as<uint8_t>()) {
-                write_byte(byte);
-            }
+            // TODO: Propagate errors.
+            VULL_EXPECT(stream.write({static_cast<uint8_t *>(ptr), sizeof(T)}));
         } else {
-            T::serialise(*static_cast<T *>(ptr), write_byte);
+            T::serialise(*static_cast<T *>(ptr), stream);
         }
     };
     m_object_size = static_cast<I>(sizeof(T));
 }
 
 template <typename I>
-void SparseSet<I>::deserialise(I count, Function<uint8_t()> read_byte) {
+void SparseSet<I>::deserialise(I count, Stream &stream) {
     m_capacity = count;
     m_data = new uint8_t[m_capacity * m_object_size];
+    // TODO: If trivially copyable, read from stream in one go.
     for (I i = 0; i < count; i++) {
-        m_deserialise(m_data + i * m_object_size, read_byte);
+        m_deserialise(m_data + i * m_object_size, stream);
     }
 }
 
@@ -130,9 +128,9 @@ void SparseSet<I>::raw_ensure_index(I index) {
 }
 
 template <typename I>
-void SparseSet<I>::serialise(Function<void(uint8_t)> write_byte) {
+void SparseSet<I>::serialise(Stream &stream) {
     for (I i = 0; i < m_dense.size(); i++) {
-        m_serialise(m_data + i * m_object_size, write_byte);
+        m_serialise(m_data + i * m_object_size, stream);
     }
 }
 

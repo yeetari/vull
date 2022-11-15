@@ -27,7 +27,6 @@
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>

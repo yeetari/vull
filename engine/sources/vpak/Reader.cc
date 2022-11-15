@@ -1,10 +1,13 @@
 #include <vull/vpak/Reader.hh>
 
 #include <vull/maths/Common.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
@@ -44,7 +47,7 @@ ReadStream::ReadStream(LargeSpan<uint8_t> data, off64_t first_block)
     m_compressed_size = ZSTD_findFrameCompressedSize(m_data.byte_offset(m_block_start), m_data.size() - m_block_start);
 }
 
-void ReadStream::read(Span<void> data) {
+Result<void, StreamError> ReadStream::read(Span<void> data) {
     // TODO: Is this loop needed?
     for (uint32_t bytes_read = 0; bytes_read < data.size();) {
         ZSTD_inBuffer input{
@@ -81,25 +84,7 @@ void ReadStream::read(Span<void> data) {
             m_offset = 0;
         }
     }
-}
-
-uint8_t ReadStream::read_byte() {
-    // TODO: Shorter path.
-    uint8_t byte;
-    read({&byte, 1});
-    return byte;
-}
-
-uint64_t ReadStream::read_varint() {
-    uint64_t value = 0;
-    for (uint64_t byte_count = 0; byte_count < sizeof(uint64_t); byte_count++) {
-        uint8_t byte = read_byte();
-        value |= static_cast<uint64_t>(byte & 0x7fu) << (byte_count * 7u);
-        if ((byte & 0x80u) == 0u) {
-            break;
-        }
-    }
-    return value;
+    return {};
 }
 
 Reader::Reader(const String &path) : m_fd(::open(path.data(), O_RDONLY)) {

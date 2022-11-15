@@ -7,8 +7,10 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/ScopeGuard.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
@@ -115,7 +117,7 @@ float WriteStream::finish() {
 }
 
 // TODO: Better input buffering.
-void WriteStream::write(Span<const void> data) {
+Result<void, StreamError> WriteStream::write(Span<const void> data) {
     m_entry.size += data.size();
     for (size_t bytes_written = 0; bytes_written < data.size();) {
         ZSTD_inBuffer input{
@@ -137,9 +139,10 @@ void WriteStream::write(Span<const void> data) {
         } while (input.pos != input.size);
         bytes_written += input.size;
     }
+    return {};
 }
 
-void WriteStream::write_byte(uint8_t byte) {
+Result<void, StreamError> WriteStream::write_byte(uint8_t byte) {
     m_entry.size++;
     ZSTD_inBuffer input{
         .src = &byte,
@@ -155,14 +158,7 @@ void WriteStream::write_byte(uint8_t byte) {
     };
     ZSTD_compressStream2(s_cctx, &output, &input, ZSTD_e_continue);
     m_compress_head += static_cast<off64_t>(output.pos);
-}
-
-void WriteStream::write_varint(uint64_t value) {
-    while (value >= 128) {
-        write_byte((value & 0x7fu) | 0x80u);
-        value >>= 7u;
-    }
-    write_byte(value & 0x7fu);
+    return {};
 }
 
 Writer::Writer(const String &path, CompressionLevel clevel) : m_fd(creat(path.data(), 0666)), m_clevel(clevel) {

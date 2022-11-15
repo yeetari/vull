@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vull/ecs/Entity.hh>
+#include <vull/support/Result.hh>
+#include <vull/support/StreamError.hh>
 
 namespace vull::vpak {
 
@@ -11,10 +13,15 @@ class Writer;
 
 namespace vull {
 
+enum class WorldError {
+    InvalidComponent,
+    MissingEntry,
+};
+
 class World : public EntityManager {
 public:
-    void deserialise(vpak::Reader &pack_reader);
-    float serialise(vpak::Writer &pack_writer);
+    Result<void, StreamError, WorldError> deserialise(vpak::Reader &pack_reader);
+    Result<float, StreamError> serialise(vpak::Writer &pack_writer);
 };
 
 } // namespace vull

@@ -7,14 +7,11 @@
 #include <vull/support/Tuple.hh>
 #include <vull/support/Vector.hh>
 
-#include <stdint.h>
-
 using namespace vull;
 
 namespace vull {
 
-template <typename>
-class Function;
+struct Stream;
 
 } // namespace vull
 
@@ -24,7 +21,7 @@ class BaseComp {
     int *m_destruct_count{nullptr};
 
 public:
-    static void serialise(BaseComp &, const Function<void(uint8_t)> &) {}
+    static void serialise(BaseComp &, Stream &) {}
 
     BaseComp() = default;
     explicit BaseComp(int &destruct_count) : m_destruct_count(&destruct_count) {}
@@ -43,13 +40,13 @@ public:
 struct Foo : BaseComp {
     VULL_DECLARE_COMPONENT(0);
     using BaseComp::BaseComp;
-    static Foo deserialise(const Function<uint8_t()> &) { VULL_ENSURE_NOT_REACHED(); }
+    static Foo deserialise(Stream &) { VULL_ENSURE_NOT_REACHED(); }
 };
 
 struct Bar : BaseComp {
     VULL_DECLARE_COMPONENT(1);
     using BaseComp::BaseComp;
-    static Bar deserialise(const Function<uint8_t()> &) { VULL_ENSURE_NOT_REACHED(); }
+    static Bar deserialise(Stream &) { VULL_ENSURE_NOT_REACHED(); }
 };
 
 template <typename... Comps>

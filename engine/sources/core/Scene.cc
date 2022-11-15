@@ -10,14 +10,16 @@
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
 #include <vull/support/Optional.hh>
-#include <vull/support/Span.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Tuple.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
@@ -100,7 +102,7 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
     m_allocations.push(m_context.bind_memory(buffer, vk::MemoryUsage::DeviceOnly));
 
     VULL_ENSURE(size <= k_staging_buffer_size);
-    stream.read({staging_data, size});
+    VULL_EXPECT(stream.read({staging_data, size}));
 
     queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
         vkb::BufferCopy copy{
@@ -113,12 +115,11 @@ vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak
 
 void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
                        vkb::Buffer staging_buffer, void *staging_data) {
-    const auto [format, unit_size, block_compressed] = parse_format(stream.read_byte());
-    const auto sampler_kind = static_cast<vpak::SamplerKind>(stream.read_byte());
-    // TODO(stream-api): templated read_varint.
-    const auto width = static_cast<uint32_t>(stream.read_varint());
-    const auto height = static_cast<uint32_t>(stream.read_varint());
-    const auto mip_count = static_cast<uint32_t>(stream.read_varint());
+    const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
+    const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
+    const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
+    const auto height = VULL_EXPECT(stream.read_varint<uint32_t>());
+    const auto mip_count = VULL_EXPECT(stream.read_varint<uint32_t>());
 
     // TODO: What's the best thing to do if this happens?
     uint32_t expected_mip_count = 32u - vull::clz(vull::max(width, height));
@@ -192,7 +193,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
         const uint32_t mip_size = block_compressed ? ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * unit_size
                                                    : mip_width * mip_height * unit_size;
         VULL_ENSURE(mip_size <= k_staging_buffer_size);
-        stream.read({staging_data, mip_size});
+        VULL_EXPECT(stream.read({staging_data, mip_size}));
 
         // Perform CPU -> GPU copy.
         queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
@@ -282,7 +283,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     auto *staging_data = staging_allocation.mapped_data();
 
     // Load world.
-    m_world.deserialise(pack_reader);
+    VULL_EXPECT(m_world.deserialise(pack_reader));
 
     // Preload all meshes.
     for (auto [entity, mesh] : m_world.view<Mesh>()) {

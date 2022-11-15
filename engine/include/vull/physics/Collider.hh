@@ -7,6 +7,8 @@
 
 namespace vull {
 
+struct Stream;
+
 class Collider {
     VULL_DECLARE_COMPONENT(BuiltinComponents::Collider);
 
@@ -14,10 +16,10 @@ private:
     UniquePtr<Shape> m_shape;
 
 public:
-    [[noreturn]] static Collider deserialise(const Function<uint8_t()> &) {
+    [[noreturn]] static Collider deserialise(Stream &) {
         VULL_ENSURE_NOT_REACHED("TODO: Implement Collider serialisation");
     }
-    [[noreturn]] static void serialise(Collider &, const Function<void(uint8_t)> &) {
+    [[noreturn]] static void serialise(Collider &, Stream &) {
         VULL_ENSURE_NOT_REACHED("TODO: Implement Collider serialisation");
     }
 

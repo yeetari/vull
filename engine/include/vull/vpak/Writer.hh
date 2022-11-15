@@ -1,7 +1,10 @@
 #pragma once
 
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Stream.hh>
+#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
@@ -21,7 +24,7 @@ enum class CompressionLevel {
     Ultra,
 };
 
-class WriteStream {
+class WriteStream final : public Stream {
     Writer &m_writer;
     Entry &m_entry;
     off64_t m_block_link_offset{0};
@@ -40,9 +43,8 @@ public:
     WriteStream &operator=(WriteStream &&) = delete;
 
     float finish();
-    void write(Span<const void> data);
-    void write_byte(uint8_t byte);
-    void write_varint(uint64_t value);
+    Result<void, StreamError> write(Span<const void> data) override;
+    Result<void, StreamError> write_byte(uint8_t byte) override;
 };
 
 class Writer {

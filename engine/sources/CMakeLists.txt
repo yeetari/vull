@@ -1,5 +1,7 @@
 target_sources(vull PRIVATE
     core/Log.cc
+    core/Material.cc
+    core/Mesh.cc
     core/Scene.cc
     core/Transform.cc
     core/Window.cc
