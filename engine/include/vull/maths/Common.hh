@@ -107,6 +107,10 @@ constexpr T align_up(T value, T alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
+constexpr float fmod(float x, float y) {
+    return ::fmodf(x, y);
+}
+
 constexpr float sin(float angle) {
     return ::sinf(angle);
 }
