@@ -24,6 +24,7 @@ private:
     Vec3f m_force;
     Vec3f m_torque;
     float m_inv_mass;
+    bool m_ignore_rotation{false};
 
 public:
     RigidBody(float mass) : m_inv_mass(1.0f / mass) {}
@@ -32,8 +33,11 @@ public:
     void apply_force(const Vec3f &force, const Vec3f &point);
     void apply_impulse(const Vec3f &impulse, const Vec3f &point);
     void apply_psuedo_impulse(const Vec3f &impulse, const Vec3f &point);
+    void set_ignore_rotation(bool ignore_rotation);
     void set_shape(const Shape &shape);
     Vec3f velocity_at_point(const Vec3f &point) const;
+
+    Vec3f linear_velocity() const { return m_linear_velocity; }
 };
 
 } // namespace vull

@@ -25,6 +25,10 @@ void RigidBody::apply_psuedo_impulse(const Vec3f &impulse, const Vec3f &point) {
     m_pseudo_angular_velocity += m_inertia_tensor_world * vull::cross(point, impulse);
 }
 
+void RigidBody::set_ignore_rotation(bool ignore_rotation) {
+    m_ignore_rotation = ignore_rotation;
+}
+
 void RigidBody::set_shape(const Shape &shape) {
     m_inertia_tensor = vull::inverse(shape.inertia_tensor(1.0f / m_inv_mass));
 }

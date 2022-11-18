@@ -34,6 +34,10 @@ void PhysicsEngine::sub_step(World &world, float time_step) {
         body.m_linear_velocity += acceleration * time_step;
         transform.set_position(transform.position() + body.m_linear_velocity * time_step);
 
+        if (body.m_ignore_rotation) {
+            continue;
+        }
+
         auto mat_rotation = vull::to_mat3(transform.rotation());
         body.m_inertia_tensor_world = mat_rotation * body.m_inertia_tensor * vull::transpose(mat_rotation);
         body.m_angular_velocity += body.m_inertia_tensor_world * body.m_torque * time_step;
