@@ -1,6 +1,3 @@
-#include "FreeCamera.hh"
-#include "OrbitCamera.hh"
-
 #include <vull/core/Input.hh>
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
@@ -937,12 +934,6 @@ void main_task(Scheduler &scheduler) {
         light.position = vull::linear_rand(Vec3f(-50.0f, 2.0f, -70.0f), Vec3f(100.0f, 30.0f, 50.0f));
     }
 
-    FreeCamera free_camera;
-    OrbitCamera orbit_camera;
-    free_camera.set_position({20.0f, 15.0f, -20.0f});
-    free_camera.set_pitch(-0.3f);
-    free_camera.set_yaw(2.4f);
-
     const float near_plane = 0.1f;
     UniformBuffer ubo{
         .proj = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, near_plane),
@@ -1178,16 +1169,22 @@ void main_task(Scheduler &scheduler) {
     }
 
     auto player = world.create_entity();
-    player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(1.0f, 1.0f, 1.0f));
+    player.add<Transform>(~EntityId(0), Vec3f(0.0f, 10.0f, 0.0f), Quatf(), Vec3f(0.5f, 1.5f, 0.5f));
     player.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
     player.add<Material>("/default_albedo", "/default_normal");
     player.add<RigidBody>(250.0f);
-    player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 1.0f, 1.0f)));
+    player.add<Collider>(vull::make_unique<BoxShape>(player.get<Transform>().scale()));
+    player.get<RigidBody>().set_ignore_rotation(true);
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
 
     bool free_camera_active = false;
     window.on_key_release(Key::F, [&](ModifierMask) {
         free_camera_active = !free_camera_active;
+    });
+
+    window.on_key_press(Key::Space, [&](ModifierMask) {
+        float impulse = vull::sqrt(-2.0f * 6.0f * 250.0f * -9.81f * 100.0f);
+        player.get<RigidBody>().apply_impulse({0.0f, impulse, 0.0f}, {});
     });
 
     bool mouse_visible = false;
@@ -1196,17 +1193,20 @@ void main_task(Scheduler &scheduler) {
         mouse_visible ? window.show_cursor() : window.hide_cursor();
     });
 
+    float camera_pitch = 0.0f;
+    float camera_yaw = 0.0f;
     window.on_mouse_move([&](Vec2f delta, Vec2f, ButtonMask) {
-        if (free_camera_active) {
-            free_camera.handle_mouse_move(delta);
-        } else {
-            orbit_camera.handle_mouse_move(delta, window);
-        }
+        camera_yaw -= delta.x() * (2.0f / static_cast<float>(window.width()));
+        camera_pitch += delta.y() * (1.0f / static_cast<float>(window.height()));
+        camera_pitch = vull::clamp(camera_pitch, -vull::half_pi<float> + 0.001f, vull::half_pi<float> - 0.001f);
+        camera_yaw = vull::fmod(camera_yaw, vull::pi<float> * 2.0f);
     });
 
     FramePacer frame_pacer(swapchain, 2);
     PhysicsEngine physics_engine;
     vull::seed_rand(5);
+
+    float fire_time = 0.0f;
 
     Timer frame_timer;
     cpu_time_graph.new_bar();
@@ -1217,6 +1217,10 @@ void main_task(Scheduler &scheduler) {
 
         float dt = frame_timer.elapsed();
         frame_timer.reset();
+
+        if (window.is_button_pressed(Button::Right)) {
+            dt /= 5.0f;
+        }
 
         // Poll input.
         window.poll_events();
@@ -1237,54 +1241,52 @@ void main_task(Scheduler &scheduler) {
         cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
         gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
         ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95.0f, 140.0f},
-                     vull::format("Camera position: ({}, {}, {})", ubo.camera_position.x(), ubo.camera_position.y(),
-                                  ubo.camera_position.z()));
+                     vull::format("Camera position: ({}, {}, {}) {} {}", ubo.camera_position.x(),
+                                  ubo.camera_position.y(), ubo.camera_position.z(), camera_pitch, camera_yaw));
 
-        if (!free_camera_active) {
-            auto &player_body = player.get<RigidBody>();
-            auto &player_transform = player.get<Transform>();
-            auto camera_forward = vull::normalise(player_transform.position() - orbit_camera.translated());
-            auto camera_right = vull::normalise(vull::cross(camera_forward, Vec3f(0.0f, 1.0f, 0.0f)));
+        auto &player_body = player.get<RigidBody>();
+        auto &player_transform = player.get<Transform>();
 
-            const float speed = window.is_key_pressed(Key::Shift) ? 6250.0f : 1250.0f;
-            if (window.is_key_pressed(Key::W)) {
-                player_body.apply_central_force(camera_forward * speed);
-            }
-            if (window.is_key_pressed(Key::S)) {
-                player_body.apply_central_force(camera_forward * -speed);
-            }
-            if (window.is_key_pressed(Key::A)) {
-                player_body.apply_central_force(camera_right * -speed);
-            }
-            if (window.is_key_pressed(Key::D)) {
-                player_body.apply_central_force(camera_right * speed);
-            }
-            orbit_camera.set_position(player_transform.position() + Vec3f(8.0f, 3.0f, 0.0f));
-            orbit_camera.set_pivot(player_transform.position());
-            orbit_camera.update();
-            ubo.camera_position = orbit_camera.translated();
-            ubo.view = orbit_camera.view_matrix();
-        } else {
-            free_camera.update(window, dt);
-            ubo.camera_position = free_camera.position();
-            ubo.view = free_camera.view_matrix();
+        player_transform.set_rotation(vull::angle_axis(camera_yaw, Vec3f(0.0f, 1.0f, 0.0f)));
+
+        Vec3f camera_forward =
+            vull::rotate(player_transform.rotation() * vull::angle_axis(camera_pitch, Vec3f(1.0f, 0.0f, 0.0f)),
+                         Vec3f(0.0f, 0.0f, 1.0f));
+        ubo.camera_position = player_transform.position() + Vec3f(0.0f, 1.5f, 0.0f);
+        ubo.view = vull::look_at(ubo.camera_position, ubo.camera_position + camera_forward, Vec3f(0.0f, 1.0f, 0.0f));
+
+        player_body.apply_central_force(player_body.linear_velocity() * Vec3f(-1000.0f, 0.0f, -1000.0f));
+
+        const float speed = window.is_key_pressed(Key::Shift) ? 6250.0f : 1250.0f;
+        if (window.is_key_pressed(Key::W)) {
+            player_body.apply_central_force(player_transform.forward() * speed);
         }
-        update_cascades();
+        if (window.is_key_pressed(Key::S)) {
+            player_body.apply_central_force(player_transform.forward() * -speed);
+        }
+        if (window.is_key_pressed(Key::A)) {
+            player_body.apply_central_force(player_transform.right() * speed);
+        }
+        if (window.is_key_pressed(Key::D)) {
+            player_body.apply_central_force(player_transform.right() * -speed);
+        }
 
-        if (window.is_button_pressed(Button::Left)) {
-            const auto &player_transform = player.get<Transform>();
-            const auto position = player_transform.position() + player_transform.forward() * 2.0f;
-            const auto force = player_transform.forward() * 2000.0f;
+        update_cascades();
+        if (window.is_button_pressed(Button::Left) && fire_time >= 0.1f) {
+            constexpr float bullet_mass = 0.2f;
+            const auto spawn_point = Vec3f(0.0f, 1.0f, 0.0f) + camera_forward * 2.0f;
             auto box = world.create_entity();
-            box.add<Transform>(~EntityId(0), position, Quatf(), Vec3f(0.2f));
+            box.add<Transform>(~EntityId(0), player_transform.position() + spawn_point, Quatf(), Vec3f(0.2f));
             box.add<Mesh>("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index");
             box.add<Material>("/default_albedo", "/default_normal");
             box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.2f)));
-            box.add<RigidBody>(0.2f);
+            box.add<RigidBody>(bullet_mass);
             box.get<RigidBody>().set_shape(box.get<Collider>().shape());
-            box.get<RigidBody>().apply_central_force(force);
-            player.get<RigidBody>().apply_central_force(-force);
+            box.get<RigidBody>().apply_impulse(camera_forward * 5.0f, Vec3f(0.0f));
+            box.get<RigidBody>().apply_impulse(player_body.velocity_at_point(spawn_point) * bullet_mass, Vec3f(0.0f));
+            fire_time = 0.0f;
         }
+        fire_time += dt;
 
         for (auto [entity, body, transform] : world.view<RigidBody, Transform>()) {
             if (entity == player) {
