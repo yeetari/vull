@@ -1283,7 +1283,8 @@ void main_task(Scheduler &scheduler) {
             box.add<RigidBody>(bullet_mass);
             box.get<RigidBody>().set_shape(box.get<Collider>().shape());
             box.get<RigidBody>().apply_impulse(camera_forward * 5.0f, Vec3f(0.0f));
-            box.get<RigidBody>().apply_impulse(player_body.velocity_at_point(spawn_point) * bullet_mass, Vec3f(0.0f));
+            box.get<RigidBody>().apply_impulse(player.get<RigidBody>().velocity_at_point(spawn_point) * bullet_mass,
+                                               Vec3f(0.0f));
             fire_time = 0.0f;
         }
         fire_time += dt;
