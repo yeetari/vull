@@ -208,6 +208,39 @@ template <typename T, typename... Ts>
 concept ContainsType = TypeList<Ts...>::template contains<T>();
 // clang-format on
 
+template <typename T>
+class RefWrapper {
+    T *m_ptr;
+
+public:
+    constexpr RefWrapper(T &ref) : m_ptr(&ref) {}
+    constexpr operator T &() const { return *m_ptr; }
+};
+
+template <typename T>
+constexpr auto ref(T &ref) {
+    return RefWrapper<T>(ref);
+}
+template <typename T>
+constexpr auto cref(const T &ref) {
+    return RefWrapper<const T>(ref);
+}
+
+template <typename T>
+struct UnrapRefWrapper {
+    using type = T;
+};
+template <typename T>
+struct UnrapRefWrapper<RefWrapper<T>> {
+    using type = T &;
+};
+
+template <typename T>
+using unwrap_ref = typename UnrapRefWrapper<T>::type;
+
+template <typename T>
+using decay_unwrap = unwrap_ref<decay<T>>;
+
 inline constexpr auto &operator&=(auto &lhs, auto rhs) {
     return lhs = (lhs & rhs);
 }
