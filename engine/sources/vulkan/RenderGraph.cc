@@ -22,12 +22,12 @@ namespace {
 Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &resource) {
     if (pass.kind() == PassKind::Compute) {
         // TODO: Finer grained access.
-        return {vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead};
+        return vull::make_tuple(vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead);
     }
     if (auto image = resource.as_image()) {
         if ((image->full_range().aspectMask & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
-            return {vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
-                    vkb::Access2::DepthStencilAttachmentRead};
+            return vull::make_tuple(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
+                                    vkb::Access2::DepthStencilAttachmentRead);
         }
     }
     VULL_ENSURE_NOT_REACHED("TODO");
@@ -43,21 +43,21 @@ vkb::ImageLayout write_layout(const Pass &writer) {
 
 Tuple<vkb::PipelineStage2, vkb::Access2> write_stage(const Pass &pass, Resource &resource) {
     if (pass.kind() == PassKind::Compute) {
-        return {vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderWrite};
+        return vull::make_tuple(vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderWrite);
     }
 
     if (auto image = resource.as_image()) {
         const auto aspect = image->full_range().aspectMask;
         if ((aspect & vkb::ImageAspect::Color) != vkb::ImageAspect::None) {
-            return {vkb::PipelineStage2::ColorAttachmentOutput, vkb::Access2::ColorAttachmentWrite};
+            return vull::make_tuple(vkb::PipelineStage2::ColorAttachmentOutput, vkb::Access2::ColorAttachmentWrite);
         }
         if ((aspect & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
-            return {vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
-                    vkb::Access2::DepthStencilAttachmentWrite};
+            return vull::make_tuple(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
+                                    vkb::Access2::DepthStencilAttachmentWrite);
         }
         VULL_ENSURE_NOT_REACHED();
     }
-    return {vkb::PipelineStage2::AllGraphics, vkb::Access2::ShaderWrite};
+    return vull::make_tuple(vkb::PipelineStage2::AllGraphics, vkb::Access2::ShaderWrite);
 }
 
 StringView access_string(vkb::Access2 access) {

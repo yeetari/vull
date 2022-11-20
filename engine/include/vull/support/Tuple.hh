@@ -31,37 +31,41 @@ template <size_t>
 struct TupleTag {};
 
 template <size_t I, typename T>
-class TupleElem {
-    [[no_unique_address]] T m_value;
-
-public:
+struct TupleElem {
     static T elem_type(TupleTag<I>);
-
-    constexpr TupleElem() : m_value{} {}
-    constexpr TupleElem(T &&value) : m_value(forward<T &&>(value)) {}
-    constexpr decltype(auto) operator[](TupleTag<I>) { return (m_value); }
-};
-
-template <typename... Ts>
-struct TupleMap : Ts... {
-    using Ts::elem_type...;
-    using Ts::operator[]...;
+    [[no_unique_address]] T value;
+    constexpr decltype(auto) operator[](TupleTag<I>) & { return (value); }
 };
 
 template <typename, typename...>
 struct TupleBase;
 template <size_t... Is, typename... Ts>
-struct TupleBase<IndexSequence<Is...>, Ts...> : TupleMap<TupleElem<Is, Ts>...> {};
+struct TupleBase<IndexSequence<Is...>, Ts...> : TupleElem<Is, Ts>... {
+    using TupleElem<Is, Ts>::elem_type...;
+    using TupleElem<Is, Ts>::operator[]...;
+
+    TupleBase() = default;
+    explicit TupleBase(Ts &&...ts) : TupleElem<Is, Ts>{forward<Ts>(ts)}... {}
+};
 
 template <typename... Ts>
-struct Tuple : TupleBase<make_index_sequence<sizeof...(Ts)>, Ts...> {};
-
-template <typename... Ts>
-Tuple(Ts...) -> Tuple<Ts...>;
+struct Tuple : TupleBase<make_index_sequence<sizeof...(Ts)>, Ts...> {
+    using TupleBase<make_index_sequence<sizeof...(Ts)>, Ts...>::TupleBase;
+};
 
 template <size_t I, typename T>
 constexpr decltype(auto) get(T &&tuple) {
     return tuple[TupleTag<I>()];
+}
+
+template <typename... Ts>
+constexpr auto forward_as_tuple(Ts &&...ts) {
+    return Tuple<Ts &&...>{forward<Ts>(ts)...};
+}
+
+template <typename... Ts>
+constexpr auto make_tuple(Ts &&...ts) {
+    return Tuple<decay_unwrap<Ts>...>(forward<Ts>(ts)...);
 }
 
 } // namespace vull

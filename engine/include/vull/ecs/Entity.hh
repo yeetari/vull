@@ -172,7 +172,7 @@ EntityIterator<C> &EntityIterator<C>::operator++() {
 
 template <typename C>
 Tuple<Entity, C &> EntityIterator<C>::operator*() const {
-    return {Entity(m_manager, *m_current_id), *m_current_component};
+    return vull::make_tuple(Entity(m_manager, *m_current_id), vull::ref(*m_current_component));
 }
 
 template <typename C, typename... Comps>
@@ -197,9 +197,10 @@ EntityIterator<C, Comps...> &EntityIterator<C, Comps...>::operator++() {
 
 template <typename C, typename... Comps>
 Tuple<Entity, C &, Comps &...> EntityIterator<C, Comps...>::operator*() const {
-    return {Entity(EntityIterator<C>::m_manager, *EntityIterator<C>::m_current_id),
-            *EntityIterator<C>::m_current_component,
-            EntityIterator<C>::m_manager->template get_component<Comps>(*EntityIterator<C>::m_current_id)...};
+    return vull::make_tuple(
+        Entity(EntityIterator<C>::m_manager, *EntityIterator<C>::m_current_id),
+        vull::ref(*EntityIterator<C>::m_current_component),
+        vull::ref(EntityIterator<C>::m_manager->template get_component<Comps>(*EntityIterator<C>::m_current_id))...);
 }
 
 template <typename C, typename... Comps>
