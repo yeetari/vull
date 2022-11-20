@@ -79,6 +79,8 @@ template <typename T>
 using remove_cv = typename detail::RemoveCv<T>::type;
 template <typename T>
 using remove_ref = typename detail::RemoveRef<T>::type;
+template <typename T>
+using decay = remove_cv<remove_ref<T>>;
 
 template <typename>
 inline constexpr bool is_const = false;

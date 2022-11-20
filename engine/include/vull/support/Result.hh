@@ -26,7 +26,7 @@ namespace vull {
 
 template <typename T, Enum... Es>
 class [[nodiscard]] Result {
-    static constexpr bool is_void = is_same<remove_cv<T>, void>;
+    static constexpr bool is_void = is_same<decay<T>, void>;
     using storage_t = conditional<is_void, char, T>;
     Variant<storage_t, Es...> m_value;
 
