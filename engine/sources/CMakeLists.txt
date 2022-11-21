@@ -13,6 +13,8 @@ target_sources(vull PRIVATE
     physics/PhysicsEngine.cc
     physics/RigidBody.cc
     physics/Shape.cc
+    platform/File.cc
+    platform/FileStream.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
