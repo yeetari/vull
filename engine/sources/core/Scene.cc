@@ -10,6 +10,7 @@
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/platform/File.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>
@@ -264,7 +265,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     VULL_ENSURE(m_context.vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
 
     // Read pack header and register default components. Note that the order currently matters.
-    vpak::Reader pack_reader(path);
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(path, OpenMode::Read)));
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
     m_world.register_component<Material>();

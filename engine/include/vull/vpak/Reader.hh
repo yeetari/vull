@@ -6,13 +6,18 @@
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>
-#include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh> // IWYU pragma: keep
 
+#include <stddef.h>
 #include <stdint.h>
-#include <sys/types.h>
+
+namespace vull {
+
+class File;
+
+} // namespace vull
 
 namespace vull::vpak {
 
@@ -23,20 +28,19 @@ class ReadStream final : public Stream {
     size_t m_offset{0};
 
 public:
-    ReadStream(LargeSpan<uint8_t> data, off64_t first_block);
+    ReadStream(LargeSpan<uint8_t> data, size_t first_block);
 
     // TODO: override read_byte for a faster path.
     Result<void, StreamError> read(Span<void> data) override;
 };
 
 class Reader {
-    const int m_fd;
     LargeSpan<uint8_t> m_data;
     Vector<Entry> m_entries;
     PerfectHasher m_phf;
 
 public:
-    explicit Reader(const String &path);
+    explicit Reader(File &&file);
     Reader(const Reader &) = delete;
     Reader(Reader &&) = delete;
     ~Reader();

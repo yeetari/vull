@@ -3,7 +3,6 @@
 #include <vull/support/String.hh>
 
 #include <stdint.h>
-#include <sys/types.h>
 
 /*
  * struct {
@@ -84,7 +83,7 @@ enum class SamplerKind : uint8_t {
 // Struct to represent an entry in memory, note not the same representation on disk.
 struct Entry {
     String name;
-    off64_t first_block;
+    uint64_t first_block;
     uint32_t size;
     EntryType type;
 };

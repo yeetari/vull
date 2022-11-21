@@ -1,13 +1,18 @@
 #include "GltfParser.hh"
 
 #include <vull/core/Log.hh>
+#include <vull/platform/File.hh>
+#include <vull/platform/FileStream.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
@@ -105,7 +110,9 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
         return EXIT_SUCCESS;
     }
 
-    vull::vpak::Writer pack_writer(output_path, compression_level);
+    auto file = VULL_EXPECT(
+        vull::open_file(output_path, vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write));
+    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(file.create_stream()), compression_level);
     if (!gltf_parser.convert(pack_writer, max_resolution, reproducible)) {
         return EXIT_FAILURE;
     }
@@ -120,7 +127,7 @@ int ls(const vull::Vector<vull::StringView> &args) {
         vull::log_raw("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vull::vpak::Reader pack_reader(args[2]);
+    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
     for (const auto &entry : pack_reader.entries()) {
         vull::log_raw(vull::format("{}", entry.name));
     }
@@ -147,7 +154,7 @@ int stat(const vull::Vector<vull::StringView> &args) {
         vull::log_raw("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vull::vpak::Reader pack_reader(args[2]);
+    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
     auto entry = pack_reader.stat(args[3]);
     if (!entry) {
         vull::log_raw(vull::format("fatal: no entry named {}", args[3]));
