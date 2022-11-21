@@ -15,11 +15,11 @@ target_sources(vull PRIVATE
     physics/Shape.cc
     platform/File.cc
     platform/FileStream.cc
+    platform/Timer.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
     support/StringBuilder.cc
-    support/Timer.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
     terrain/Chunk.cc

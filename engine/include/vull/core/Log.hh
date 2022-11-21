@@ -1,8 +1,8 @@
 #pragma once
 
+#include <vull/platform/Timer.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/StringBuilder.hh>
-#include <vull/support/Timer.hh>
 #include <vull/support/Utility.hh>
 
 #include <stdint.h>

@@ -8,13 +8,13 @@
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/platform/Timer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/PerfectMap.hh>
 #include <vull/support/ScopeGuard.hh>
-#include <vull/support/Timer.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>

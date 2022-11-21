@@ -19,13 +19,13 @@
 #include <vull/physics/PhysicsEngine.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/Shape.hh>
+#include <vull/platform/Timer.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
 #include <vull/support/String.hh>
-#include <vull/support/Timer.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
