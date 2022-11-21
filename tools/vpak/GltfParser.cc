@@ -8,6 +8,9 @@
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/platform/Latch.hh>
+#include <vull/platform/Mutex.hh>
+#include <vull/platform/ScopedLock.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
@@ -18,9 +21,6 @@
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>
-#include <vull/thread/Latch.hh>
-#include <vull/thread/Mutex.hh>
-#include <vull/thread/ScopedLocker.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Writer.hh>
 
@@ -496,7 +496,7 @@ bool Converter::process_material(const simdjson::dom::element &material, uint64_
         process_texture(normal_index, normal_path, vull::format("/materials/{}/normal", name), TextureType::Normal);
     }
 
-    vull::ScopedLocker locker(m_material_map_mutex);
+    vull::ScopedLock lock(m_material_map_mutex);
     m_albedo_paths.set(index, albedo_path);
     m_normal_paths.set(index, normal_path);
     return true;
@@ -623,7 +623,7 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
     }
 
     vull::BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
-    vull::ScopedLocker locker(m_bounding_boxes_mutex);
+    vull::ScopedLock lock(m_bounding_boxes_mutex);
     m_bounding_boxes.set(vull::move(name), bounding_box);
     return true;
 }

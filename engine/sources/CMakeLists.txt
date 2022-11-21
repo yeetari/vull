@@ -13,9 +13,8 @@ target_sources(vull PRIVATE
     physics/PhysicsEngine.cc
     physics/RigidBody.cc
     physics/Shape.cc
-    platform/File.cc
     platform/FileStream.cc
-    platform/Timer.cc
+    platform/Linux.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
@@ -26,7 +25,6 @@ target_sources(vull PRIVATE
     terrain/Noise.cc
     terrain/QuadTree.cc
     terrain/Terrain.cc
-    thread/Linux.cc
     ui/Font.cc
     ui/GpuFont.cc
     ui/Renderer.cc

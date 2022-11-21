@@ -1,5 +1,7 @@
 #include <vull/core/Log.hh>
 
+#include <vull/platform/Mutex.hh>
+#include <vull/platform/ScopedLock.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -8,8 +10,6 @@
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/thread/Mutex.hh>
-#include <vull/thread/ScopedLocker.hh>
 
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
 #include <errno.h>
@@ -105,7 +105,7 @@ GlobalState::~GlobalState() {
 }
 
 void GlobalState::add_queue(LogQueue *queue) {
-    ScopedLocker locker(m_queues_mutex);
+    ScopedLock lock(m_queues_mutex);
     m_queues.push(queue);
 }
 

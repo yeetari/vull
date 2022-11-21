@@ -2,6 +2,7 @@
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
+#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -15,7 +16,6 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/thread/ScopedLocker.hh>
 #include <vull/vpak/PackFile.hh>
 
 #include <zstd.h>
@@ -165,7 +165,7 @@ uint64_t Writer::finish() {
 }
 
 WriteStream Writer::start_entry(String name, EntryType type) {
-    ScopedLocker locker(m_mutex);
+    ScopedLock lock(m_mutex);
     auto &entry = *m_entries.emplace(new Entry{
         .name = vull::move(name),
         .type = type,
@@ -174,7 +174,7 @@ WriteStream Writer::start_entry(String name, EntryType type) {
 }
 
 Result<uint64_t, StreamError> Writer::allocate(size_t size) {
-    ScopedLocker locker(m_mutex);
+    ScopedLock lock(m_mutex);
     return VULL_TRY(m_stream->seek(size, SeekMode::Add)) - size;
 }
 
