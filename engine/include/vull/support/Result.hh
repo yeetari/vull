@@ -36,6 +36,8 @@ public:
     Result() requires (is_void) : m_value(storage_t{}) {}
     // clang-format on
     template <ContainsType<T, Es...> U>
+    Result(const U &value) : m_value(value) {}
+    template <ContainsType<T, Es...> U>
     Result(U &&value) : m_value(move(value)) {}
     Result(const Result &) = delete;
     Result(Result &&) = delete;

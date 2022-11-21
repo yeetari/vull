@@ -53,6 +53,8 @@ class Variant {
 public:
     Variant() = default;
     template <ContainsType<Ts...> T>
+    Variant(const T &value) : m_union(value), m_index(index_of<T>()) {}
+    template <ContainsType<Ts...> T>
     Variant(T &&value) : m_union(move(value)), m_index(index_of<T>()) {}
     Variant(const Variant &) = delete;
     Variant(Variant &&) = delete;
