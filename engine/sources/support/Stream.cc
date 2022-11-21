@@ -9,6 +9,10 @@
 
 namespace vull {
 
+Result<size_t, StreamError> Stream::seek(StreamOffset, SeekMode) {
+    return StreamError::NotImplemented;
+}
+
 Result<void, StreamError> Stream::read(Span<void>) {
     return StreamError::NotImplemented;
 }

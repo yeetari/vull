@@ -2,18 +2,48 @@
 
 #include <vull/support/Array.hh>
 #include <vull/support/Integral.hh> // IWYU pragma: keep
+#include <vull/support/Integral.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StreamError.hh>
 #include <vull/support/String.hh> // IWYU pragma: keep
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 
-#include <stddef.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 namespace vull {
 
+class StreamOffset {
+    ssize_t m_value;
+
+public:
+    template <SignedIntegral T>
+    StreamOffset(T value) : m_value(value) {}
+    template <UnsignedIntegral T>
+    StreamOffset(T value) : m_value(static_cast<ssize_t>(value)) {}
+
+    operator ssize_t() const { return m_value; }
+};
+
+enum class SeekMode {
+    Set,
+    Add,
+    End,
+};
+
 struct Stream {
+    Stream() = default;
+    Stream(const Stream &) = default;
+    Stream(Stream &&) = default;
+    virtual ~Stream() = default;
+
+    Stream &operator=(const Stream &) = default;
+    Stream &operator=(Stream &&) = default;
+
+    virtual UniquePtr<Stream> clone_unique() const { return {}; }
+    virtual Result<size_t, StreamError> seek(StreamOffset offset, SeekMode mode);
     virtual Result<void, StreamError> read(Span<void> data);
     virtual Result<void, StreamError> write(Span<const void> data);
 
@@ -22,6 +52,8 @@ struct Stream {
 
     template <Integral T>
     Result<T, StreamError> read_be();
+    template <Integral T>
+    Result<void, StreamError> write_be(T value);
 
     template <UnsignedIntegral T>
     Result<T, StreamError> read_varint();
@@ -38,10 +70,22 @@ Result<T, StreamError> Stream::read_be() {
     VULL_TRY(read(bytes.span()));
 
     T value = 0;
-    for (size_t i = 0; i < sizeof(T); i++) {
-        value |= static_cast<T>(bytes[i]) << (sizeof(T) - i - 1) * T(8);
+    for (uint32_t i = 0; i < sizeof(T); i++) {
+        const auto shift = (sizeof(T) - i - 1) * T(8);
+        value |= static_cast<T>(bytes[i]) << shift;
     }
     return value;
+}
+
+template <Integral T>
+Result<void, StreamError> Stream::write_be(T value) {
+    Array<uint8_t, sizeof(T)> bytes;
+    for (uint32_t i = 0; i < sizeof(T); i++) {
+        const auto shift = (sizeof(T) - i - 1) * T(8);
+        bytes[i] = static_cast<uint8_t>((value >> shift) & 0xffu);
+    }
+    VULL_TRY(write(bytes.span()));
+    return {};
 }
 
 template <UnsignedIntegral T>

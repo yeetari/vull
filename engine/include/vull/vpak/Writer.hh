@@ -37,7 +37,7 @@ public:
     WriteStream(Writer &writer, Entry &entry);
     WriteStream(const WriteStream &) = delete;
     WriteStream(WriteStream &&) = delete;
-    ~WriteStream();
+    ~WriteStream() override;
 
     WriteStream &operator=(const WriteStream &) = delete;
     WriteStream &operator=(WriteStream &&) = delete;
