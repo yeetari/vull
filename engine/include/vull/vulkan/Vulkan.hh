@@ -505,6 +505,7 @@ enum class DriverId {
     SamsungProprietary = 21,
     MesaVenus = 22,
     MesaDozen = 23,
+    MesaNvk = 24,
 };
 
 enum class DynamicState {
