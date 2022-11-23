@@ -91,7 +91,7 @@ Result<void, StreamError> Stream::write_be(T value) {
 template <UnsignedIntegral T>
 Result<T, StreamError> Stream::read_varint() {
     T value = 0;
-    for (T byte_count = 0; byte_count < sizeof(T); byte_count++) {
+    for (T byte_count = 0; byte_count <= sizeof(T); byte_count++) {
         uint8_t byte = VULL_TRY(read_byte());
         value |= static_cast<T>(byte & 0x7fu) << (byte_count * 7u);
         if ((byte & 0x80u) == 0u) {
