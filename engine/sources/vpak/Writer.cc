@@ -152,11 +152,17 @@ Result<void, StreamError> WriteStream::write_byte(uint8_t byte) {
 }
 
 Writer::Writer(UniquePtr<Stream> &&stream, CompressionLevel clevel) : m_stream(vull::move(stream)), m_clevel(clevel) {
+    VULL_EXPECT(read_existing());
+    VULL_EXPECT(m_stream->seek(0, SeekMode::Set));
+
     Array magic_bytes{'V', 'P', 'A', 'K'};
     VULL_EXPECT(m_stream->write(magic_bytes.span()));
 
-    // Reserve space for entry_count and entry_table_offset.
-    VULL_EXPECT(m_stream->seek(sizeof(uint32_t) + sizeof(uint64_t), SeekMode::Add));
+    // Reserve space for entry_count and entry_table_offset (using dummy data instead of SeekMode::Add so seeking to the
+    // end works properly).
+    Array<uint8_t, 12> dummy;
+    VULL_EXPECT(m_stream->write(dummy.span()));
+    VULL_EXPECT(m_stream->seek(0, SeekMode::End));
 }
 
 uint64_t Writer::finish() {
@@ -176,6 +182,32 @@ WriteStream Writer::start_entry(String name, EntryType type) {
 Result<uint64_t, StreamError> Writer::allocate(size_t size) {
     ScopedLock lock(m_mutex);
     return VULL_TRY(m_stream->seek(size, SeekMode::Add)) - size;
+}
+
+Result<void, StreamError> Writer::read_existing() {
+    if (VULL_TRY(m_stream->seek(0, SeekMode::End)) == 0) {
+        // File empty, creating a new vpak.
+        return {};
+    }
+
+    // Seek past magic number.
+    // TODO: Should check the magic number.
+    VULL_TRY(m_stream->seek(4, SeekMode::Set));
+
+    // TODO: Duplicated with Reader.
+    const auto entry_count = VULL_TRY(m_stream->read_be<uint32_t>());
+    const auto entry_table_offset = VULL_TRY(m_stream->read_be<uint64_t>());
+    VULL_TRY(m_stream->seek(entry_table_offset + entry_count * sizeof(uint32_t), SeekMode::Set));
+
+    m_entries.ensure_size(entry_count);
+    for (auto &entry : m_entries) {
+        entry = vull::make_unique<Entry>();
+        entry->type = static_cast<EntryType>(VULL_TRY(m_stream->read_byte()));
+        entry->name = VULL_TRY(m_stream->read_string());
+        entry->size = VULL_TRY(m_stream->read_varint<uint32_t>());
+        entry->first_block = VULL_TRY(m_stream->read_varint<uint64_t>());
+    }
+    return {};
 }
 
 void Writer::write_entry_table() {

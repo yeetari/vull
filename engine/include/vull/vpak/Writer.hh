@@ -57,6 +57,7 @@ private:
     Mutex m_mutex;
 
     Result<uint64_t, StreamError> allocate(size_t size);
+    Result<void, StreamError> read_existing();
     void write_entry_table();
 
 public:
