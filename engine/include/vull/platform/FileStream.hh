@@ -17,9 +17,10 @@ class FileStream final : public Stream {
 
 private:
     const int m_fd;
+    const bool m_seekable;
     size_t m_head{0};
 
-    explicit FileStream(int fd) : m_fd(fd) {}
+    FileStream(int fd, bool seekable) : m_fd(fd), m_seekable(seekable) {}
 
 public:
     UniquePtr<Stream> clone_unique() const override;

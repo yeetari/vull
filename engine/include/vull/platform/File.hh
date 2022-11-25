@@ -41,7 +41,7 @@ public:
     File &operator=(const File &) = delete;
     File &operator=(File &&) = delete;
 
-    FileStream create_stream() const { return FileStream(m_fd); }
+    FileStream create_stream() const;
     int fd() const { return m_fd; }
 };
 

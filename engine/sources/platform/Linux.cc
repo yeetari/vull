@@ -8,6 +8,7 @@
 #include <vull/support/Atomic.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 
@@ -15,6 +16,7 @@
 #include <fcntl.h>
 #include <linux/futex.h>
 #include <stdint.h>
+#include <sys/stat.h>
 #include <syscall.h>
 #include <time.h>
 #include <unistd.h>
@@ -25,6 +27,12 @@ File::~File() {
     if (m_fd >= 0) {
         close(m_fd);
     }
+}
+
+FileStream File::create_stream() const {
+    struct stat stat_buf {};
+    fstat(m_fd, &stat_buf);
+    return {m_fd, (stat_buf.st_mode & S_IFREG) != 0};
 }
 
 Result<File, OpenError> open_file(String path, OpenMode mode) {
@@ -52,8 +60,37 @@ Result<File, OpenError> open_file(String path, OpenMode mode) {
     return File::from_fd(rc);
 }
 
+Result<size_t, StreamError> FileStream::seek(StreamOffset offset, SeekMode mode) {
+    if (!m_seekable) {
+        return StreamError::NotImplemented;
+    }
+    switch (mode) {
+    case SeekMode::Set:
+        m_head = static_cast<size_t>(offset);
+        break;
+    case SeekMode::Add:
+        // TODO: Check for overflow.
+        m_head = static_cast<size_t>(static_cast<ssize_t>(m_head) + offset);
+        break;
+    case SeekMode::End: {
+        struct stat stat_buf {};
+        if (fstat(m_fd, &stat_buf) < 0) {
+            return StreamError::Unknown;
+        }
+        m_head = static_cast<size_t>(stat_buf.st_size + offset);
+        break;
+    }
+    }
+    return m_head;
+}
+
 Result<void, StreamError> FileStream::read(Span<void> data) {
-    ssize_t rc = pread(m_fd, data.data(), data.size(), static_cast<off_t>(m_head));
+    ssize_t rc;
+    if (m_seekable) {
+        rc = pread(m_fd, data.data(), data.size(), static_cast<off_t>(m_head));
+    } else {
+        rc = ::read(m_fd, data.data(), data.size());
+    }
     if (rc < 0) {
         return StreamError::Unknown;
     }
@@ -67,7 +104,12 @@ Result<void, StreamError> FileStream::read(Span<void> data) {
 }
 
 Result<void, StreamError> FileStream::write(Span<const void> data) {
-    ssize_t rc = pwrite(m_fd, data.data(), data.size(), static_cast<off_t>(m_head));
+    ssize_t rc;
+    if (m_seekable) {
+        rc = pwrite(m_fd, data.data(), data.size(), static_cast<off_t>(m_head));
+    } else {
+        rc = ::write(m_fd, data.data(), data.size());
+    }
     if (rc < 0) {
         return StreamError::Unknown;
     }
