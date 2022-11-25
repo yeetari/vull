@@ -308,7 +308,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     // Load textures.
     for (const auto &entry : pack_reader.entries()) {
         switch (entry.type) {
-        case vpak::EntryType::ImageData:
+        case vpak::EntryType::Image:
             auto stream = pack_reader.open(entry.name);
             m_texture_indices.set(entry.name, m_texture_images.size());
             load_image(cmd_pool, queue, *stream, staging_buffer, staging_data);

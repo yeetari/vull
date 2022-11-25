@@ -136,14 +136,12 @@ int ls(const vull::Vector<vull::StringView> &args) {
 
 vull::StringView type_string(vull::vpak::EntryType type) {
     switch (type) {
-    case vull::vpak::EntryType::VertexData:
-        return "vertex data";
-    case vull::vpak::EntryType::IndexData:
-        return "index data";
-    case vull::vpak::EntryType::ImageData:
-        return "image data";
-    case vull::vpak::EntryType::WorldData:
-        return "world data";
+    case vull::vpak::EntryType::Blob:
+        return "blob";
+    case vull::vpak::EntryType::Image:
+        return "image";
+    case vull::vpak::EntryType::World:
+        return "world";
     default:
         return "unknown";
     }

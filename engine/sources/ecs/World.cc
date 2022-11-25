@@ -51,7 +51,7 @@ Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_read
 }
 
 Result<float, StreamError> World::serialise(vpak::Writer &pack_writer) {
-    auto entry = pack_writer.start_entry("/world", vpak::EntryType::WorldData);
+    auto entry = pack_writer.start_entry("/world", vpak::EntryType::World);
     VULL_TRY(entry.write_varint(m_entities.size()));
     VULL_TRY(entry.write_varint(m_component_sets.size()));
     for (auto &set : m_component_sets) {

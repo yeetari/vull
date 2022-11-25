@@ -15,10 +15,10 @@
  *
  * struct EntryHeader {
  *     EntryType(u8) type;
- *     u8 name_length;
+ *     v64 name_length;
  *     u8 name[name_length];
- *     varint size; // uncompressed size in bytes
- *     varint first_block;
+ *     v32 size; // uncompressed size in bytes
+ *     v64 first_block;
  * };
  *
  * struct EntryTable {
@@ -26,45 +26,38 @@
  *     EntryHeader entries[entry_count];
  * };
  *
- * struct VertexData(type: 0) {
- *     Vertex vertices[size / sizeof(Vertex)];
+ * struct Blob(type: 0) {
+ *     u8 data[size];
  * };
  *
- * struct IndexData(type: 1) {
- *     u32 indices[size / sizeof(u32)];
- * };
- *
- * struct ImageData(type: 2) {
+ * struct Image(type: 1) {
  *     ImageFormat(u8) format;
  *     SamplerKind(u8) sampler_kind;
- *     varint width;
- *     varint height;
- *     varint mip_count;
+ *     v32 width;
+ *     v32 height;
+ *     v32 mip_count;
  *     u8 mip_data[];
  * };
  *
  * // Handled in World::serialise and World::deserialise
- * struct WorldData(type: 3) {
- *     struct Component {
- *         varint component_id;
- *         u8 serialised[];
+ * struct World(type: 2) {
+ *     struct ComponentSet {
+ *         v32 entity_count;
+ *         u8 serialised_data[];
+ *         v32 entity_ids[entity_count];
  *     };
- *     struct Entity {
- *         varint component_count;
- *         Component components[component_count];
- *     };
- *     varint entity_count;
- *     Entity entities[entity_count];
+ *     v32 entity_count;
+ *     v32 set_count;
+ *     ComponentSet sets[set_count];
  * };
  */
 
 namespace vull::vpak {
 
 enum class EntryType : uint8_t {
-    VertexData = 0,
-    IndexData = 1,
-    ImageData = 2,
-    WorldData = 3,
+    Blob = 0,
+    Image = 1,
+    World = 2,
 };
 
 enum class ImageFormat : uint8_t {

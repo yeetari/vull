@@ -84,7 +84,7 @@ public:
 
 bool Converter::convert(vull::Latch &latch) {
     // Emit default albedo texture.
-    auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vull::vpak::EntryType::ImageData);
+    auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vull::vpak::EntryType::Image);
     VULL_EXPECT(albedo_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgbaUnorm)));
     VULL_EXPECT(albedo_entry.write_byte(uint8_t(vull::vpak::SamplerKind::NearestRepeat)));
     VULL_EXPECT(albedo_entry.write_varint(16u));
@@ -103,7 +103,7 @@ bool Converter::convert(vull::Latch &latch) {
     albedo_entry.finish();
 
     // Emit default normal map texture.
-    auto normal_entry = m_pack_writer.start_entry("/default_normal", vull::vpak::EntryType::ImageData);
+    auto normal_entry = m_pack_writer.start_entry("/default_normal", vull::vpak::EntryType::Image);
     VULL_EXPECT(normal_entry.write_byte(uint8_t(vull::vpak::ImageFormat::RgUnorm)));
     VULL_EXPECT(normal_entry.write_byte(uint8_t(vull::vpak::SamplerKind::LinearRepeat)));
     VULL_EXPECT(normal_entry.write(vull::Array<uint8_t, 5>{1u, 1u, 1u, 127u, 127u}.span()));
@@ -372,7 +372,7 @@ void Converter::process_texture(uint64_t index, vull::String &path, vull::String
         mip_offset++;
     }
 
-    auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::ImageData);
+    auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vull::vpak::EntryType::Image);
     VULL_EXPECT(entry.write_byte(uint8_t(format)));
     VULL_EXPECT(entry.write_byte(uint8_t(sampler_kind)));
     VULL_EXPECT(entry.write_varint(width));
@@ -606,12 +606,12 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
                                 sizeof(vull::Vertex));
 
     auto vertex_data_entry =
-        m_pack_writer.start_entry(vull::format("/meshes/{}/vertex", name), vull::vpak::EntryType::VertexData);
+        m_pack_writer.start_entry(vull::format("/meshes/{}/vertex", name), vull::vpak::EntryType::Blob);
     VULL_EXPECT(vertex_data_entry.write(vertices.span()));
     vertex_data_entry.finish();
 
     auto index_data_entry =
-        m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vull::vpak::EntryType::IndexData);
+        m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vull::vpak::EntryType::Blob);
     VULL_EXPECT(index_data_entry.write(indices.span()));
     index_data_entry.finish();
 
