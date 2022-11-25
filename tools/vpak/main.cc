@@ -4,7 +4,6 @@
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
 #include <vull/support/Algorithm.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -46,7 +45,7 @@ void print_usage(vull::StringView executable) {
     sb.append("  {} convert-gltf --fast sponza.glb\n", executable);
     sb.append("  {} ls scene.vpak\n", executable);
     sb.append("  {} stat scene.vpak /default_albedo", executable);
-    vull::log_raw(sb.build());
+    vull::println(sb.build());
 }
 
 int convert_gltf(const vull::Vector<vull::StringView> &args) {
@@ -69,25 +68,25 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
         } else if (arg == "--ultra") {
             ultra = true;
         } else if (arg[0] == '-') {
-            vull::log_raw(vull::format("fatal: unknown option {}", arg));
+            vull::println("fatal: unknown option {}", arg);
             return EXIT_FAILURE;
         } else if (input_path.empty()) {
             input_path = arg;
         } else if (output_path.empty()) {
             output_path = arg;
         } else {
-            vull::log_raw(vull::format("fatal: unexpected argument {}", arg));
+            vull::println("fatal: unexpected argument {}", arg);
             return EXIT_FAILURE;
         }
     }
 
     if (fast && ultra) {
-        vull::log_raw("fatal: cannot have --fast and --ultra");
+        vull::println("fatal: cannot have --fast and --ultra");
         return EXIT_FAILURE;
     }
 
     if (input_path.empty()) {
-        vull::log_raw("fatal: missing <input-gltf> argument");
+        vull::println("fatal: missing <input-gltf> argument");
         return EXIT_FAILURE;
     }
     output_path = !output_path.empty() ? output_path : "scene.vpak";
@@ -106,7 +105,7 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
     }
 
     if (dump_json) {
-        vull::log_raw(gltf_parser.json());
+        vull::println(gltf_parser.json());
         return EXIT_SUCCESS;
     }
 
@@ -124,12 +123,12 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
 
 int ls(const vull::Vector<vull::StringView> &args) {
     if (args.size() != 3) {
-        vull::log_raw("fatal: invalid usage");
+        vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
     vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
     for (const auto &entry : pack_reader.entries()) {
-        vull::log_raw(vull::format("{}", entry.name));
+        vull::println("{}", entry.name);
     }
     return EXIT_SUCCESS;
 }
@@ -149,17 +148,17 @@ vull::StringView type_string(vull::vpak::EntryType type) {
 
 int stat(const vull::Vector<vull::StringView> &args) {
     if (args.size() != 4) {
-        vull::log_raw("fatal: invalid usage");
+        vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
     vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
     auto entry = pack_reader.stat(args[3]);
     if (!entry) {
-        vull::log_raw(vull::format("fatal: no entry named {}", args[3]));
+        vull::println("fatal: no entry named {}", args[3]);
         return EXIT_FAILURE;
     }
-    vull::log_raw(vull::format("Size: {} bytes (uncompressed)", entry->size));
-    vull::log_raw(vull::format("Type: {}", type_string(entry->type)));
+    vull::println("Size: {} bytes (uncompressed)", entry->size);
+    vull::println("Type: {}", type_string(entry->type));
     return EXIT_SUCCESS;
 }
 
@@ -183,6 +182,6 @@ int main(int argc, char **argv) {
         return stat(args);
     }
 
-    vull::log_raw(vull::format("fatal: unknown command '{}'", command));
+    vull::println("fatal: unknown command '{}'", command);
     return EXIT_FAILURE;
 }

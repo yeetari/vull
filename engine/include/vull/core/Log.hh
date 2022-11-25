@@ -2,7 +2,9 @@
 
 #include <vull/platform/Timer.hh>
 #include <vull/support/Array.hh>
+#include <vull/support/Format.hh>
 #include <vull/support/StringBuilder.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 
 #include <stdint.h>
@@ -25,8 +27,14 @@ constexpr Array k_level_strings{
     "TRACE ", "DEBUG ", "INFO  ", "WARN  ", "ERROR ",
 };
 
-void log_raw(String &&message);
-void log_close();
+void logln(String &&);
+void close_log();
+
+void println(StringView);
+template <typename... Args>
+void println(const char *fmt, Args &&...args) {
+    println(vull::format(fmt, vull::forward<Args>(args)...));
+}
 
 #define DEFINE_LOG_LEVEL(fn, lvl)                                                                                      \
     template <typename... Args>                                                                                        \
@@ -36,7 +44,7 @@ void log_close();
         sb.append("[{d5 }.{d3}] ", time / 1000u, time % 1000u);                                                        \
         sb.append(k_level_strings[static_cast<uint32_t>(lvl)]);                                                        \
         sb.append(fmt, vull::forward<Args>(args)...);                                                                  \
-        log_raw(sb.build());                                                                                           \
+        logln(sb.build());                                                                                             \
     }
 
 DEFINE_LOG_LEVEL(trace, LogLevel::Trace)

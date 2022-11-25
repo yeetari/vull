@@ -8,6 +8,7 @@
 #include <vull/support/Atomic.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
@@ -156,7 +157,7 @@ void *sink_loop(void *mutex) {
 
 VULL_GLOBAL(Timer g_log_timer);
 
-void log_raw(String &&message) {
+void logln(String &&message) {
     if (s_queue == nullptr) {
         s_queue = new LogQueue;
         s_state.add_queue(s_queue);
@@ -165,8 +166,13 @@ void log_raw(String &&message) {
     s_state.post();
 }
 
-void log_close() {
+void close_log() {
     s_state.close();
+}
+
+void println(StringView line) {
+    fwrite(line.data(), 1, line.length(), stdout);
+    fputc('\n', stdout);
 }
 
 } // namespace vull

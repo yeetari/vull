@@ -11,7 +11,7 @@ namespace vull {
     if (note != nullptr) {
         vull::error("=> {}", note);
     }
-    vull::log_close();
+    vull::close_log();
     abort();
 }
 
