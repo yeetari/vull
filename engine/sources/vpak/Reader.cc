@@ -47,7 +47,7 @@ ReadStream::ReadStream(LargeSpan<uint8_t> data, size_t first_block) : m_data(dat
     m_compressed_size = ZSTD_findFrameCompressedSize(m_data.byte_offset(m_block_start), m_data.size() - m_block_start);
 }
 
-Result<void, StreamError> ReadStream::read(Span<void> data) {
+Result<size_t, StreamError> ReadStream::read(Span<void> data) {
     // TODO: Is this loop needed?
     for (uint32_t bytes_read = 0; bytes_read < data.size();) {
         ZSTD_inBuffer input{
@@ -84,7 +84,7 @@ Result<void, StreamError> ReadStream::read(Span<void> data) {
             m_offset = 0;
         }
     }
-    return {};
+    return static_cast<size_t>(data.size());
 }
 
 Reader::Reader(File &&file) {

@@ -31,7 +31,7 @@ public:
     ReadStream(LargeSpan<uint8_t> data, size_t first_block);
 
     // TODO: override read_byte for a faster path.
-    Result<void, StreamError> read(Span<void> data) override;
+    Result<size_t, StreamError> read(Span<void> data) override;
 };
 
 class Reader {

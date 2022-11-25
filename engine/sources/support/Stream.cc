@@ -13,7 +13,7 @@ Result<size_t, StreamError> Stream::seek(StreamOffset, SeekMode) {
     return StreamError::NotImplemented;
 }
 
-Result<void, StreamError> Stream::read(Span<void>) {
+Result<size_t, StreamError> Stream::read(Span<void>) {
     return StreamError::NotImplemented;
 }
 
@@ -23,7 +23,9 @@ Result<void, StreamError> Stream::write(Span<const void>) {
 
 Result<uint8_t, StreamError> Stream::read_byte() {
     uint8_t byte;
-    VULL_TRY(read({&byte, 1}));
+    if (VULL_TRY(read({&byte, 1})) != 1) {
+        return StreamError::Truncated;
+    }
     return byte;
 }
 
@@ -37,7 +39,9 @@ Result<void, StreamError> Stream::write_byte(uint8_t byte) {
 Result<String, StreamError> Stream::read_string() {
     const auto length = VULL_TRY(read_varint<uint32_t>());
     String value(length);
-    VULL_TRY(read({value.data(), length}));
+    if (VULL_TRY(read({value.data(), length})) != length) {
+        return StreamError::Truncated;
+    }
     return value;
 }
 

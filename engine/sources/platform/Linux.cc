@@ -84,7 +84,7 @@ Result<size_t, StreamError> FileStream::seek(StreamOffset offset, SeekMode mode)
     return m_head;
 }
 
-Result<void, StreamError> FileStream::read(Span<void> data) {
+Result<size_t, StreamError> FileStream::read(Span<void> data) {
     ssize_t rc;
     if (m_seekable) {
         rc = pread(m_fd, data.data(), data.size(), static_cast<off_t>(m_head));
@@ -97,10 +97,7 @@ Result<void, StreamError> FileStream::read(Span<void> data) {
 
     const auto bytes_read = static_cast<size_t>(rc);
     m_head += bytes_read;
-    if (bytes_read != data.size()) {
-        return StreamError::Truncated;
-    }
-    return {};
+    return bytes_read;
 }
 
 Result<void, StreamError> FileStream::write(Span<const void> data) {

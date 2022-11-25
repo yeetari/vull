@@ -44,7 +44,7 @@ struct Stream {
 
     virtual UniquePtr<Stream> clone_unique() const { return {}; }
     virtual Result<size_t, StreamError> seek(StreamOffset offset, SeekMode mode);
-    virtual Result<void, StreamError> read(Span<void> data);
+    virtual Result<size_t, StreamError> read(Span<void> data);
     virtual Result<void, StreamError> write(Span<const void> data);
 
     virtual Result<uint8_t, StreamError> read_byte();
@@ -67,7 +67,9 @@ struct Stream {
 template <Integral T>
 Result<T, StreamError> Stream::read_be() {
     Array<uint8_t, sizeof(T)> bytes;
-    VULL_TRY(read(bytes.span()));
+    if (VULL_TRY(read(bytes.span())) != sizeof(T)) {
+        return StreamError::Truncated;
+    }
 
     T value = 0;
     for (uint32_t i = 0; i < sizeof(T); i++) {

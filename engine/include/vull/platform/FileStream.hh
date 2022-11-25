@@ -25,7 +25,7 @@ private:
 public:
     UniquePtr<Stream> clone_unique() const override;
     Result<size_t, StreamError> seek(StreamOffset offset, SeekMode mode) override;
-    Result<void, StreamError> read(Span<void> data) override;
+    Result<size_t, StreamError> read(Span<void> data) override;
     Result<void, StreamError> write(Span<const void> data) override;
 };
 
