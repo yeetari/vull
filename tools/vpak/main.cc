@@ -1,9 +1,11 @@
 #include "GltfParser.hh"
 
 #include <vull/core/Log.hh>
+#include <vull/maths/Common.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
 #include <vull/support/Algorithm.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -17,6 +19,7 @@
 #include <vull/vpak/Reader.hh>
 #include <vull/vpak/Writer.hh>
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -29,33 +32,115 @@ void print_usage(vull::StringView executable) {
     vull::StringBuilder sb;
     sb.append("usage:\n");
     sb.append("  {} <command> [<args>]\n", executable);
-    sb.append("  {} convert-gltf [--dump-json] [--fast|--ultra] [--max-resolution]\n", executable);
-    sb.append("  {}              [--reproducible] <input-gltf> [output-vpak]\n", whitespace);
+    sb.append("  {} add [--fast|--ultra] <vpak> <file> <name>\n", executable);
+    sb.append("  {} add-gltf [--dump-json] [--fast|--ultra] [--max-resolution]\n", executable);
+    sb.append("  {}          [--reproducible] <vpak> <gltf>\n", whitespace);
+    sb.append("  {} get <vpak> <name> <file>\n", executable);
     sb.append("  {} help\n", executable);
     sb.append("  {} ls <vpak>\n", executable);
     sb.append("  {} stat <vpak> <name>\n", executable);
     sb.append("\narguments:\n");
-    sb.append("  [output-vpak]    The vpak file to be written (default: scene.vpak)\n");
+    sb.append("  <vpak>           The vpak file to be inspected/modified\n");
     sb.append("  --dump-json      Dump the JSON scene data contained in the glTF\n");
     sb.append("  --fast           Use the lowest Zstd compression level (negative)\n");
     sb.append("  --max-resolution Don't discard the top mip for textures >1K\n");
     sb.append("  --reproducible   Limit the writer to one thread\n");
-    sb.append("  --ultra          Use the highest Zstd compression level (warning: will increase memory usage)\n");
+    sb.append("                   (only relevant for add-gltf)\n");
+    sb.append("  --ultra          Use the highest Zstd compression level\n");
+    sb.append("                   (warning: will increase memory usage by a lot)\n");
     sb.append("\nexamples:\n");
-    sb.append("  {} convert-gltf --fast sponza.glb\n", executable);
-    sb.append("  {} ls scene.vpak\n", executable);
-    sb.append("  {} stat scene.vpak /default_albedo", executable);
+    sb.append("  {} add shaders.vpak my_shader.spv /shaders/my_shader\n", executable);
+    sb.append("  {} add-gltf --fast sponza.vpak sponza.glb\n", executable);
+    sb.append("  {} add-gltf sponza.vpak player_model.glb\n", executable);
+    sb.append("  {} ls sounds.vpak\n", executable);
+    sb.append("  {} stat textures.vpak /default_albedo", executable);
     vull::println(sb.build());
 }
 
-int convert_gltf(const vull::Vector<vull::StringView> &args) {
+int add(const vull::Vector<vull::StringView> &args) {
+    bool fast = false;
+    bool ultra = false;
+    vull::StringView vpak_path;
+    vull::StringView input_path;
+    vull::StringView entry_name;
+    for (const auto arg : vull::slice(args, 2u)) {
+        if (arg == "--fast") {
+            fast = true;
+        } else if (arg == "--ultra") {
+            ultra = true;
+        } else if (arg[0] == '-') {
+            vull::println("fatal: unknown option {}", arg);
+            return EXIT_FAILURE;
+        } else if (vpak_path.empty()) {
+            vpak_path = arg;
+        } else if (input_path.empty()) {
+            input_path = arg;
+        } else if (entry_name.empty()) {
+            entry_name = arg;
+        } else {
+            vull::println("fatal: unexpected argument {}", arg);
+            return EXIT_FAILURE;
+        }
+    }
+
+    if (fast && ultra) {
+        vull::println("fatal: cannot have --fast and --ultra");
+        return EXIT_FAILURE;
+    }
+
+    if (vpak_path.empty()) {
+        vull::println("fatal: missing <vpak> argument");
+        return EXIT_FAILURE;
+    }
+    if (input_path.empty()) {
+        vull::println("fatal: missing <file> argument");
+        return EXIT_FAILURE;
+    }
+    if (entry_name.empty()) {
+        vull::println("fatal: missing <name> argument");
+        return EXIT_FAILURE;
+    }
+
+    auto compression_level = vull::vpak::CompressionLevel::Normal;
+    if (fast) {
+        compression_level = vull::vpak::CompressionLevel::Fast;
+    }
+    if (ultra) {
+        compression_level = vull::vpak::CompressionLevel::Ultra;
+    }
+
+    auto input_file_or_error = vull::open_file(input_path, vull::OpenMode::Read);
+    if (input_file_or_error.is_error()) {
+        vull::println("fatal: failed to open input file {}", input_path);
+        return EXIT_FAILURE;
+    }
+    auto input_file = input_file_or_error.disown_value();
+    auto input_stream = input_file.create_stream();
+
+    auto vpak_file =
+        VULL_EXPECT(vull::open_file(vpak_path, vull::OpenMode::Create | vull::OpenMode::Read | vull::OpenMode::Write));
+    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(vpak_file.create_stream()), compression_level);
+
+    auto entry_stream = pack_writer.start_entry(entry_name, vull::vpak::EntryType::Blob);
+
+    vull::Array<uint8_t, 128 * 1024> buffer;
+    size_t bytes_read = 0;
+    while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
+        VULL_EXPECT(entry_stream.write({buffer.data(), static_cast<uint32_t>(bytes_read)}));
+    }
+    entry_stream.finish();
+    pack_writer.finish();
+    return EXIT_SUCCESS;
+}
+
+int add_gltf(const vull::Vector<vull::StringView> &args) {
     bool dump_json = false;
     bool fast = false;
     bool max_resolution = false;
     bool reproducible = false;
     bool ultra = false;
-    vull::StringView input_path;
-    vull::StringView output_path;
+    vull::StringView vpak_path;
+    vull::StringView gltf_path;
     for (const auto arg : vull::slice(args, 2u)) {
         if (arg == "--dump-json") {
             dump_json = true;
@@ -70,10 +155,10 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
         } else if (arg[0] == '-') {
             vull::println("fatal: unknown option {}", arg);
             return EXIT_FAILURE;
-        } else if (input_path.empty()) {
-            input_path = arg;
-        } else if (output_path.empty()) {
-            output_path = arg;
+        } else if (vpak_path.empty()) {
+            vpak_path = arg;
+        } else if (gltf_path.empty()) {
+            gltf_path = arg;
         } else {
             vull::println("fatal: unexpected argument {}", arg);
             return EXIT_FAILURE;
@@ -85,11 +170,14 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    if (input_path.empty()) {
-        vull::println("fatal: missing <input-gltf> argument");
+    if (vpak_path.empty()) {
+        vull::println("fatal: missing <vpak> argument");
         return EXIT_FAILURE;
     }
-    output_path = !output_path.empty() ? output_path : "scene.vpak";
+    if (gltf_path.empty()) {
+        vull::println("fatal: missing <gltf> argument");
+        return EXIT_FAILURE;
+    }
 
     auto compression_level = vull::vpak::CompressionLevel::Normal;
     if (fast) {
@@ -100,7 +188,7 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
     }
 
     GltfParser gltf_parser;
-    if (!gltf_parser.parse_glb(input_path)) {
+    if (!gltf_parser.parse_glb(gltf_path)) {
         return EXIT_FAILURE;
     }
 
@@ -109,15 +197,49 @@ int convert_gltf(const vull::Vector<vull::StringView> &args) {
         return EXIT_SUCCESS;
     }
 
-    auto file = VULL_EXPECT(
-        vull::open_file(output_path, vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write));
-    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(file.create_stream()), compression_level);
+    auto vpak_file =
+        VULL_EXPECT(vull::open_file(vpak_path, vull::OpenMode::Create | vull::OpenMode::Read | vull::OpenMode::Write));
+    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(vpak_file.create_stream()), compression_level);
     if (!gltf_parser.convert(pack_writer, max_resolution, reproducible)) {
         return EXIT_FAILURE;
     }
 
     const auto bytes_written = pack_writer.finish();
-    vull::info("[main] Wrote {} bytes to {}", bytes_written, output_path);
+    vull::info("[main] Wrote {} bytes to {}", bytes_written, vpak_path);
+    return EXIT_SUCCESS;
+}
+
+int get(const vull::Vector<vull::StringView> &args) {
+    if (args.size() != 5) {
+        vull::println("fatal: invalid usage");
+        return EXIT_FAILURE;
+    }
+    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
+    auto entry_stream = pack_reader.open(args[3]);
+    if (!entry_stream) {
+        vull::println("fatal: no entry named {}", args[3]);
+        return EXIT_FAILURE;
+    }
+
+    auto output_file_or_error =
+        vull::open_file(args[4], vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write);
+    if (output_file_or_error.is_error()) {
+        vull::println("fatal: failed to create output file {}", args[4]);
+        return EXIT_FAILURE;
+    }
+
+    auto output_file = output_file_or_error.disown_value();
+    auto output_stream = output_file.create_stream();
+
+    // TODO: Do this in a nicer way.
+    uint32_t size = pack_reader.stat(args[3])->size;
+    while (size > 0) {
+        vull::Array<uint8_t, 64 * 1024> buffer;
+        const auto to_read = vull::min(buffer.size(), size);
+        VULL_EXPECT(entry_stream->read({buffer.data(), to_read}));
+        VULL_EXPECT(output_stream.write({buffer.data(), to_read}));
+        size -= to_read;
+    }
     return EXIT_SUCCESS;
 }
 
@@ -172,8 +294,14 @@ int main(int argc, char **argv) {
     }
 
     const auto command = args[1];
-    if (command == "convert-gltf") {
-        return convert_gltf(args);
+    if (command == "add") {
+        return add(args);
+    }
+    if (command == "add-gltf") {
+        return add_gltf(args);
+    }
+    if (command == "get") {
+        return get(args);
     }
     if (command == "ls") {
         return ls(args);

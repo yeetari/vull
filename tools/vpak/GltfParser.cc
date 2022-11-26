@@ -57,7 +57,6 @@ class Converter {
     const uint8_t *const m_binary_blob;
     vull::vpak::Writer &m_pack_writer;
     simdjson::dom::element &m_document;
-    vull::World &m_world;
     const bool m_max_resolution;
 
     vull::HashMap<uint64_t, vull::String> m_albedo_paths;
@@ -71,15 +70,15 @@ class Converter {
 
 public:
     Converter(const uint8_t *binary_blob, vull::vpak::Writer &pack_writer, simdjson::dom::element &document,
-              vull::World &world, bool max_resolution)
-        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document), m_world(world),
+              bool max_resolution)
+        : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document),
           m_max_resolution(max_resolution) {}
 
     bool convert(vull::Latch &latch);
     void process_texture(uint64_t index, vull::String &path, vull::String desired_path, TextureType type);
     bool process_material(const simdjson::dom::element &material, uint64_t index);
     bool process_primitive(const simdjson::dom::object &primitive, vull::String &&name);
-    bool visit_node(uint64_t index, vull::EntityId parent_id);
+    bool visit_node(vull::World &world, uint64_t index, vull::EntityId parent_id);
 };
 
 bool Converter::convert(vull::Latch &latch) {
@@ -659,7 +658,7 @@ vull::Material Converter::make_material(simdjson::simdjson_result<simdjson::dom:
     return {vull::move(albedo_path), vull::move(normal_path)};
 }
 
-bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
+bool Converter::visit_node(vull::World &world, uint64_t index, vull::EntityId parent_id) {
     simdjson::dom::object node;
     EXPECT_SUCCESS(m_document["nodes"].at(index).get(node), "Failed to index node array")
 
@@ -687,7 +686,7 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
         }
     }
 
-    auto entity = m_world.create_entity();
+    auto entity = world.create_entity();
     entity.add<vull::Transform>(parent_id, position, rotation, scale);
     if (uint64_t mesh_index; node["mesh"].get(mesh_index) == simdjson::SUCCESS) {
         std::string_view mesh_name_;
@@ -706,7 +705,7 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
             }
         } else {
             for (uint64_t i = 0; i < primitives.size(); i++) {
-                auto sub_entity = m_world.create_entity();
+                auto sub_entity = world.create_entity();
                 sub_entity.add<vull::Transform>(entity);
                 sub_entity.add<vull::Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, i),
                                            vull::format("/meshes/{}.{}/index", mesh_name, i));
@@ -722,7 +721,7 @@ bool Converter::visit_node(uint64_t index, vull::EntityId parent_id) {
         for (auto child : children) {
             uint64_t child_index;
             EXPECT_SUCCESS(child.get(child_index), "Child node index not an integer")
-            if (!visit_node(child_index, entity)) {
+            if (!visit_node(world, child_index, entity)) {
                 return false;
             }
         }
@@ -839,15 +838,7 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
         vull::info("[gltf] Generator: {}", vull::StringView(generator.data(), generator.length()));
     }
 
-    // TODO: Ensure only one buffer.
-
-    vull::World world;
-    world.register_component<vull::Transform>();
-    world.register_component<vull::Mesh>();
-    world.register_component<vull::Material>();
-    world.register_component<vull::BoundingBox>();
-
-    Converter converter(m_binary_blob, pack_writer, document, world, max_resolution);
+    Converter converter(m_binary_blob, pack_writer, document, max_resolution);
     vull::Scheduler scheduler(reproducible ? 1 : 0);
     vull::Latch latch;
     vull::Atomic<bool> success = true;
@@ -857,35 +848,39 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
     latch.wait();
     scheduler.stop();
 
-    if (!success.load(vull::MemoryOrder::Relaxed)) {
+    if (!success.load()) {
         return false;
     }
 
-    // The scene property may not be present, so we assume the first one if not.
-    uint64_t scene_index = 0;
-    VULL_IGNORE(document["scene"].get(scene_index));
-
-    simdjson::dom::object scene;
-    if (auto error = document["scenes"].at(scene_index).get(scene)) {
-        vull::error("[gltf] Failed to get scene at index {}: {}", scene_index, simdjson::error_message(error));
-        return false;
-    }
-    if (std::string_view scene_name; scene["name"].get(scene_name) == simdjson::SUCCESS) {
-        vull::info("[gltf] Scene: '{}' (idx {})", vull::StringView(scene_name.data(), scene_name.length()),
-                   scene_index);
-    }
-
-    if (simdjson::dom::array root_nodes; scene["nodes"].get(root_nodes) == simdjson::SUCCESS) {
-        for (auto node : root_nodes) {
-            uint64_t index;
-            EXPECT_SUCCESS(node.get(index), "Root node index not an integer")
-            if (!converter.visit_node(index, ~vull::EntityId(0))) {
-                return false;
+    if (simdjson::dom::array scenes; document["scenes"].get(scenes) == simdjson::SUCCESS) {
+        for (auto scene : scenes) {
+            std::string_view name_;
+            if (scene["name"].get(name_) != simdjson::SUCCESS) {
+                vull::warn("[gltf] Ignoring scene with no name");
+                continue;
             }
+            vull::StringView name(name_.data(), name_.length());
+            vull::info("[gltf] Creating scene '{}'", name);
+
+            vull::World world;
+            world.register_component<vull::Transform>();
+            world.register_component<vull::Mesh>();
+            world.register_component<vull::Material>();
+            world.register_component<vull::BoundingBox>();
+
+            if (simdjson::dom::array root_nodes; scene["nodes"].get(root_nodes) == simdjson::SUCCESS) {
+                for (auto node : root_nodes) {
+                    uint64_t index;
+                    EXPECT_SUCCESS(node.get(index), "Root node index not an integer")
+                    if (!converter.visit_node(world, index, ~vull::EntityId(0))) {
+                        return false;
+                    }
+                }
+            }
+
+            const auto entry_name = vull::format("/scenes/{}", name);
+            VULL_EXPECT(world.serialise(pack_writer, entry_name));
         }
     }
-
-    VULL_EXPECT(world.serialise(pack_writer));
-    vull::debug("[gltf] Finished traversing");
     return true;
 }

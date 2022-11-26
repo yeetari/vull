@@ -26,6 +26,7 @@
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
@@ -48,6 +49,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 using namespace vull;
@@ -81,7 +83,7 @@ vkb::ShaderModule load_shader(const vk::Context &context, const char *path) {
     return module;
 }
 
-void main_task(Scheduler &scheduler) {
+void main_task(Scheduler &scheduler, StringView scene_name) {
     Window window(2560, 1440, true);
     vk::Context context;
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
@@ -91,7 +93,7 @@ void main_task(Scheduler &scheduler) {
     vk::Queue queue(context, graphics_family_index);
 
     Scene scene(context);
-    scene.load(cmd_pool, queue, "scene.vpak");
+    scene.load(cmd_pool, queue, "scene.vpak", scene_name);
 
     constexpr uint32_t tile_size = 32;
     uint32_t row_tile_count = vull::ceil_div(window.width(), tile_size);
@@ -1422,9 +1424,14 @@ void main_task(Scheduler &scheduler) {
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <scene-name>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
     Scheduler scheduler;
     scheduler.start([&] {
-        main_task(scheduler);
+        main_task(scheduler, argv[1]);
     });
 }

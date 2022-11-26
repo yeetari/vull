@@ -171,11 +171,20 @@ uint64_t Writer::finish() {
 }
 
 WriteStream Writer::start_entry(String name, EntryType type) {
-    ScopedLock lock(m_mutex);
-    auto &entry = *m_entries.emplace(new Entry{
-        .name = vull::move(name),
+    auto new_entry = vull::make_unique<Entry>(Entry{
+        .name = name,
         .type = type,
     });
+    ScopedLock lock(m_mutex);
+    // TODO: Use a hash map.
+    for (auto &entry : m_entries) {
+        if (entry->name == name) {
+            vull::warn("[vpak] Overwriting {}", name);
+            entry = vull::move(new_entry);
+            return {*this, m_stream->clone_unique(), *entry};
+        }
+    }
+    auto &entry = *m_entries.emplace(vull::move(new_entry));
     return {*this, m_stream->clone_unique(), entry};
 }
 

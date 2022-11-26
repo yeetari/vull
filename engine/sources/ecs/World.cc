@@ -8,6 +8,7 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/StreamError.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
@@ -18,10 +19,9 @@
 
 namespace vull {
 
-Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_reader) {
-    auto stream = pack_reader.open("/world");
+Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_reader, StringView name) {
+    auto stream = pack_reader.open(name);
     if (!stream) {
-        vull::error("[vpak] Missing /world entry");
         return WorldError::MissingEntry;
     }
 
@@ -50,8 +50,8 @@ Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_read
     return {};
 }
 
-Result<float, StreamError> World::serialise(vpak::Writer &pack_writer) {
-    auto entry = pack_writer.start_entry("/world", vpak::EntryType::World);
+Result<float, StreamError> World::serialise(vpak::Writer &pack_writer, StringView name) {
+    auto entry = pack_writer.start_entry(name, vpak::EntryType::World);
     VULL_TRY(entry.write_varint(m_entities.size()));
     VULL_TRY(entry.write_varint(m_component_sets.size()));
     for (auto &set : m_component_sets) {

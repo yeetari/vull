@@ -233,7 +233,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     });
 }
 
-void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
+void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_path, StringView scene_name) {
     vkb::SamplerCreateInfo linear_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -265,7 +265,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     VULL_ENSURE(m_context.vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
 
     // Read pack header and register default components. Note that the order currently matters.
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(path, OpenMode::Read)));
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Read)));
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
     m_world.register_component<Material>();
@@ -284,7 +284,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView path) {
     auto *staging_data = staging_allocation.mapped_data();
 
     // Load world.
-    VULL_EXPECT(m_world.deserialise(pack_reader));
+    VULL_EXPECT(m_world.deserialise(pack_reader, scene_name));
 
     // Preload all meshes.
     for (auto [entity, mesh] : m_world.view<Mesh>()) {
