@@ -6,9 +6,9 @@ project(vull CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+option(VULL_BUILD_GLTF "Build the vpak tool with glTF support" OFF)
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_TESTS "Build tests" OFF)
-option(VULL_BUILD_VPAK_TOOL "Build vpak tool" OFF)
 option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 
 find_package(Freetype REQUIRED)

@@ -1,4 +1,6 @@
+#ifdef BUILD_GLTF
 #include "GltfParser.hh"
+#endif
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
@@ -133,6 +135,7 @@ int add(const vull::Vector<vull::StringView> &args) {
     return EXIT_SUCCESS;
 }
 
+#ifdef BUILD_GLTF
 int add_gltf(const vull::Vector<vull::StringView> &args) {
     bool dump_json = false;
     bool fast = false;
@@ -208,6 +211,12 @@ int add_gltf(const vull::Vector<vull::StringView> &args) {
     vull::info("[main] Wrote {} bytes to {}", bytes_written, vpak_path);
     return EXIT_SUCCESS;
 }
+#else
+int add_gltf(const vull::Vector<vull::StringView> &) {
+    vull::println("fatal: not built with gltf support");
+    return EXIT_FAILURE;
+}
+#endif
 
 int get(const vull::Vector<vull::StringView> &args) {
     if (args.size() != 5) {

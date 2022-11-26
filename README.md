@@ -53,12 +53,12 @@ To configure vull, use:
 
 #### Available options
 
-| Option                 | Description                          | Default Value |
-|------------------------|--------------------------------------|---------------|
-| `VULL_BUILD_SANDBOX`   | Build sandbox application            | `ON`          |
-| `VULL_BUILD_TESTS`     | Build tests                          | `OFF`         |
-| `VULL_BUILD_VPAK_TOOL` | Build vpak tool                      | `OFF`         |
-| `VULL_BUILD_WARNINGS`  | Build with compiler warnings enabled | `OFF`         |
+| Option                | Description                          | Default Value |
+|-----------------------|--------------------------------------|---------------|
+| `VULL_BUILD_GLTF`     | Build vpak tool with glTF support    | `OFF`         |
+| `VULL_BUILD_SANDBOX`  | Build sandbox application            | `ON`          |
+| `VULL_BUILD_TESTS`    | Build tests                          | `OFF`         |
+| `VULL_BUILD_WARNINGS` | Build with compiler warnings enabled | `OFF`         |
 
 ### Building
 

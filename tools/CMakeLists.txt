@@ -1,4 +1,9 @@
-if(VULL_BUILD_VPAK_TOOL)
+add_executable(vpak vpak/main.cc)
+target_compile_features(vpak PRIVATE cxx_std_20)
+target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
+target_link_libraries(vpak PRIVATE vull)
+
+if(VULL_BUILD_GLTF)
     include(FetchContent)
     FetchContent_Declare(meshoptimizer
         GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
@@ -21,13 +26,10 @@ if(VULL_BUILD_VPAK_TOOL)
     get_target_property(simdjson_iid simdjson INTERFACE_INCLUDE_DIRECTORIES)
     set_target_properties(simdjson PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${simdjson_iid}")
 
-    add_executable(vpak
-        vpak/GltfParser.cc
-        vpak/main.cc)
-    target_compile_features(vpak PRIVATE cxx_std_20)
-    target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
+    target_compile_definitions(vpak PRIVATE BUILD_GLTF)
     target_include_directories(vpak SYSTEM PRIVATE vpak/stb)
-    target_link_libraries(vpak PRIVATE meshoptimizer PNG::PNG simdjson vull)
+    target_link_libraries(vpak PRIVATE meshoptimizer PNG::PNG simdjson)
+    target_sources(vpak PRIVATE vpak/GltfParser.cc)
 endif()
 
 add_executable(vslc
