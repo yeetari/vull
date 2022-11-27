@@ -58,7 +58,6 @@ using CommandPoolTrimFlags = Flags;
 using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
-using ImageViewCreateFlags = Flags;
 using InstanceCreateFlags = Flags;
 using MemoryMapFlags = Flags;
 using PipelineCacheCreateFlags = Flags;
@@ -75,7 +74,6 @@ using PipelineViewportStateCreateFlags = Flags;
 using PrivateDataSlotCreateFlags = Flags;
 using QueryPoolCreateFlags = Flags;
 using RenderPassCreateFlags = Flags;
-using SamplerCreateFlags = Flags;
 using SemaphoreCreateFlags = Flags;
 using ShaderModuleCreateFlags = Flags;
 using SubpassDescriptionFlags = Flags;
@@ -163,6 +161,7 @@ enum class Access2 : uint64_t {
     ShaderSampledRead = 1ull << 32ull,
     ShaderStorageRead = 1ull << 33ull,
     ShaderStorageWrite = 1ull << 34ull,
+    DescriptorBufferReadEXT = 1ull << 41ull,
 };
 inline constexpr Access2 operator&(Access2 lhs, Access2 rhs) {
     return static_cast<Access2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -240,6 +239,7 @@ enum class BufferCreateFlags {
     SparseAliased = 1u << 2u,
     Protected = 1u << 3u,
     DeviceAddressCaptureReplay = 1u << 4u,
+    DescriptorBufferCaptureReplayEXT = 1u << 5u,
 };
 inline constexpr BufferCreateFlags operator&(BufferCreateFlags lhs, BufferCreateFlags rhs) {
     return static_cast<BufferCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -259,6 +259,9 @@ enum class BufferUsage {
     VertexBuffer = 1u << 7u,
     IndirectBuffer = 1u << 8u,
     ShaderDeviceAddress = 1u << 17u,
+    SamplerDescriptorBufferEXT = 1u << 21u,
+    ResourceDescriptorBufferEXT = 1u << 22u,
+    PushDescriptorsDescriptorBufferEXT = 1u << 26u,
 };
 inline constexpr BufferUsage operator&(BufferUsage lhs, BufferUsage rhs) {
     return static_cast<BufferUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -430,6 +433,8 @@ inline constexpr DescriptorPoolCreateFlags operator|(DescriptorPoolCreateFlags l
 enum class DescriptorSetLayoutCreateFlags {
     None = 0,
     UpdateAfterBindPool = 1u << 1u,
+    DescriptorBufferEXT = 1u << 4u,
+    EmbeddedImmutableSamplersEXT = 1u << 5u,
 };
 inline constexpr DescriptorSetLayoutCreateFlags operator&(DescriptorSetLayoutCreateFlags lhs, DescriptorSetLayoutCreateFlags rhs) {
     return static_cast<DescriptorSetLayoutCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -1010,6 +1015,7 @@ enum class ImageCreateFlags {
     ExtendedUsage = 1u << 8u,
     Protected = 1u << 11u,
     Disjoint = 1u << 9u,
+    DescriptorBufferCaptureReplayEXT = 1u << 16u,
 };
 inline constexpr ImageCreateFlags operator&(ImageCreateFlags lhs, ImageCreateFlags rhs) {
     return static_cast<ImageCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -1065,6 +1071,17 @@ inline constexpr ImageUsage operator&(ImageUsage lhs, ImageUsage rhs) {
 }
 inline constexpr ImageUsage operator|(ImageUsage lhs, ImageUsage rhs) {
     return static_cast<ImageUsage>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+}
+
+enum class ImageViewCreateFlags {
+    None = 0,
+    DescriptorBufferCaptureReplayEXT = 1u << 2u,
+};
+inline constexpr ImageViewCreateFlags operator&(ImageViewCreateFlags lhs, ImageViewCreateFlags rhs) {
+    return static_cast<ImageViewCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+}
+inline constexpr ImageViewCreateFlags operator|(ImageViewCreateFlags lhs, ImageViewCreateFlags rhs) {
+    return static_cast<ImageViewCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class ImageViewType {
@@ -1219,6 +1236,7 @@ enum class PipelineCreateFlags {
     DispatchBase = 1u << 4u,
     FailOnPipelineCompileRequired = 1u << 8u,
     EarlyReturnOnFailure = 1u << 9u,
+    DescriptorBufferEXT = 1u << 29u,
 };
 inline constexpr PipelineCreateFlags operator&(PipelineCreateFlags lhs, PipelineCreateFlags rhs) {
     return static_cast<PipelineCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -1493,6 +1511,17 @@ enum class SamplerAddressMode {
     ClampToBorder = 3,
     MirrorClampToEdge = 4,
 };
+
+enum class SamplerCreateFlags {
+    None = 0,
+    DescriptorBufferCaptureReplayEXT = 1u << 3u,
+};
+inline constexpr SamplerCreateFlags operator&(SamplerCreateFlags lhs, SamplerCreateFlags rhs) {
+    return static_cast<SamplerCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+}
+inline constexpr SamplerCreateFlags operator|(SamplerCreateFlags lhs, SamplerCreateFlags rhs) {
+    return static_cast<SamplerCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+}
 
 enum class SamplerMipmapMode {
     Nearest = 0,
@@ -1838,6 +1867,18 @@ enum class StructureType {
     PhysicalDeviceMaintenance4Properties = 1000413001,
     DeviceBufferMemoryRequirements = 1000413002,
     DeviceImageMemoryRequirements = 1000413003,
+    PhysicalDeviceDescriptorBufferPropertiesEXT = 1000316000,
+    PhysicalDeviceDescriptorBufferDensityMapPropertiesEXT = 1000316001,
+    PhysicalDeviceDescriptorBufferFeaturesEXT = 1000316002,
+    DescriptorAddressInfoEXT = 1000316003,
+    DescriptorGetInfoEXT = 1000316004,
+    BufferCaptureDescriptorDataInfoEXT = 1000316005,
+    ImageCaptureDescriptorDataInfoEXT = 1000316006,
+    ImageViewCaptureDescriptorDataInfoEXT = 1000316007,
+    SamplerCaptureDescriptorDataInfoEXT = 1000316008,
+    OpaqueCaptureDescriptorDataCreateInfoEXT = 1000316010,
+    DescriptorBufferBindingInfoEXT = 1000316011,
+    DescriptorBufferBindingPushDescriptorBufferHandleEXT = 1000316012,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     SwapchainCreateInfoKHR = 1000001000,
     PresentInfoKHR = 1000001001,
@@ -4648,6 +4689,130 @@ struct DeviceImageMemoryRequirements {
     ImageAspect planeAspect;
 };
 
+struct PhysicalDeviceDescriptorBufferPropertiesEXT {
+    StructureType sType;
+    void *pNext;
+    Bool combinedImageSamplerDescriptorSingleArray;
+    Bool bufferlessPushDescriptors;
+    Bool allowSamplerImageViewPostSubmitCreation;
+    DeviceSize descriptorBufferOffsetAlignment;
+    uint32_t maxDescriptorBufferBindings;
+    uint32_t maxResourceDescriptorBufferBindings;
+    uint32_t maxSamplerDescriptorBufferBindings;
+    uint32_t maxEmbeddedImmutableSamplerBindings;
+    uint32_t maxEmbeddedImmutableSamplers;
+    size_t bufferCaptureReplayDescriptorDataSize;
+    size_t imageCaptureReplayDescriptorDataSize;
+    size_t imageViewCaptureReplayDescriptorDataSize;
+    size_t samplerCaptureReplayDescriptorDataSize;
+    size_t accelerationStructureCaptureReplayDescriptorDataSize;
+    size_t samplerDescriptorSize;
+    size_t combinedImageSamplerDescriptorSize;
+    size_t sampledImageDescriptorSize;
+    size_t storageImageDescriptorSize;
+    size_t uniformTexelBufferDescriptorSize;
+    size_t robustUniformTexelBufferDescriptorSize;
+    size_t storageTexelBufferDescriptorSize;
+    size_t robustStorageTexelBufferDescriptorSize;
+    size_t uniformBufferDescriptorSize;
+    size_t robustUniformBufferDescriptorSize;
+    size_t storageBufferDescriptorSize;
+    size_t robustStorageBufferDescriptorSize;
+    size_t inputAttachmentDescriptorSize;
+    size_t accelerationStructureDescriptorSize;
+    DeviceSize maxSamplerDescriptorBufferRange;
+    DeviceSize maxResourceDescriptorBufferRange;
+    DeviceSize samplerDescriptorBufferAddressSpaceSize;
+    DeviceSize resourceDescriptorBufferAddressSpaceSize;
+    DeviceSize descriptorBufferAddressSpaceSize;
+};
+
+struct PhysicalDeviceDescriptorBufferDensityMapPropertiesEXT {
+    StructureType sType;
+    void *pNext;
+    size_t combinedImageSamplerDensityMapDescriptorSize;
+};
+
+struct PhysicalDeviceDescriptorBufferFeaturesEXT {
+    StructureType sType;
+    void *pNext;
+    Bool descriptorBuffer;
+    Bool descriptorBufferCaptureReplay;
+    Bool descriptorBufferImageLayoutIgnored;
+    Bool descriptorBufferPushDescriptors;
+};
+
+struct DescriptorAddressInfoEXT {
+    StructureType sType;
+    void *pNext;
+    DeviceAddress address;
+    DeviceSize range;
+    Format format;
+};
+
+struct DescriptorBufferBindingInfoEXT {
+    StructureType sType;
+    void *pNext;
+    DeviceAddress address;
+    BufferUsage usage;
+};
+
+struct DescriptorBufferBindingPushDescriptorBufferHandleEXT {
+    StructureType sType;
+    void *pNext;
+    Buffer buffer;
+};
+
+union DescriptorDataEXT {
+    const Sampler *pSampler;
+    const DescriptorImageInfo *pCombinedImageSampler;
+    const DescriptorImageInfo *pInputAttachmentImage;
+    const DescriptorImageInfo *pSampledImage;
+    const DescriptorImageInfo *pStorageImage;
+    const DescriptorAddressInfoEXT *pUniformTexelBuffer;
+    const DescriptorAddressInfoEXT *pStorageTexelBuffer;
+    const DescriptorAddressInfoEXT *pUniformBuffer;
+    const DescriptorAddressInfoEXT *pStorageBuffer;
+    DeviceAddress accelerationStructure;
+};
+
+struct DescriptorGetInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    DescriptorType type;
+    DescriptorDataEXT data;
+};
+
+struct BufferCaptureDescriptorDataInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    Buffer buffer;
+};
+
+struct ImageCaptureDescriptorDataInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    Image image;
+};
+
+struct ImageViewCaptureDescriptorDataInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    ImageView imageView;
+};
+
+struct SamplerCaptureDescriptorDataInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    Sampler sampler;
+};
+
+struct OpaqueCaptureDescriptorDataCreateInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    const void *opaqueCaptureDescriptorData;
+};
+
 struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
     StructureType sType;
     void *pNext;
@@ -4799,6 +4964,8 @@ using PFN_vkCmdBeginQuery = void (*)(CommandBuffer commandBuffer, QueryPool quer
 using PFN_vkCmdBeginRenderPass = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, SubpassContents contents);
 using PFN_vkCmdBeginRenderPass2 = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, const SubpassBeginInfo *pSubpassBeginInfo);
 using PFN_vkCmdBeginRendering = void (*)(CommandBuffer commandBuffer, const RenderingInfo *pRenderingInfo);
+using PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t set);
+using PFN_vkCmdBindDescriptorBuffersEXT = void (*)(CommandBuffer commandBuffer, uint32_t bufferCount, const DescriptorBufferBindingInfoEXT *pBindingInfos);
 using PFN_vkCmdBindDescriptorSets = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets);
 using PFN_vkCmdBindIndexBuffer = void (*)(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, IndexType indexType);
 using PFN_vkCmdBindPipeline = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, Pipeline pipeline);
@@ -4852,6 +5019,7 @@ using PFN_vkCmdSetDepthBoundsTestEnable = void (*)(CommandBuffer commandBuffer, 
 using PFN_vkCmdSetDepthCompareOp = void (*)(CommandBuffer commandBuffer, CompareOp depthCompareOp);
 using PFN_vkCmdSetDepthTestEnable = void (*)(CommandBuffer commandBuffer, Bool depthTestEnable);
 using PFN_vkCmdSetDepthWriteEnable = void (*)(CommandBuffer commandBuffer, Bool depthWriteEnable);
+using PFN_vkCmdSetDescriptorBufferOffsetsEXT = void (*)(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t setCount, const uint32_t *pBufferIndices, const DeviceSize *pOffsets);
 using PFN_vkCmdSetDeviceMask = void (*)(CommandBuffer commandBuffer, uint32_t deviceMask);
 using PFN_vkCmdSetEvent = void (*)(CommandBuffer commandBuffer, Event event, PipelineStage stageMask);
 using PFN_vkCmdSetEvent2 = void (*)(CommandBuffer commandBuffer, Event event, const DependencyInfo *pDependencyInfo);
@@ -4943,6 +5111,10 @@ using PFN_vkGetBufferDeviceAddress = DeviceAddress (*)(Device device, const Buff
 using PFN_vkGetBufferMemoryRequirements = void (*)(Device device, Buffer buffer, MemoryRequirements *pMemoryRequirements);
 using PFN_vkGetBufferMemoryRequirements2 = void (*)(Device device, const BufferMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements);
 using PFN_vkGetBufferOpaqueCaptureAddress = uint64_t (*)(Device device, const BufferDeviceAddressInfo *pInfo);
+using PFN_vkGetBufferOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const BufferCaptureDescriptorDataInfoEXT *pInfo, void *pData);
+using PFN_vkGetDescriptorEXT = void (*)(Device device, const DescriptorGetInfoEXT *pDescriptorInfo, size_t dataSize, void *pDescriptor);
+using PFN_vkGetDescriptorSetLayoutBindingOffsetEXT = void (*)(Device device, DescriptorSetLayout layout, uint32_t binding, DeviceSize *pOffset);
+using PFN_vkGetDescriptorSetLayoutSizeEXT = void (*)(Device device, DescriptorSetLayout layout, DeviceSize *pLayoutSizeInBytes);
 using PFN_vkGetDescriptorSetLayoutSupport = void (*)(Device device, const DescriptorSetLayoutCreateInfo *pCreateInfo, DescriptorSetLayoutSupport *pSupport);
 using PFN_vkGetDeviceBufferMemoryRequirements = void (*)(Device device, const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements);
 using PFN_vkGetDeviceGroupPeerMemoryFeatures = void (*)(Device device, uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures);
@@ -4959,9 +5131,11 @@ using PFN_vkGetEventStatus = Result (*)(Device device, Event event);
 using PFN_vkGetFenceStatus = Result (*)(Device device, Fence fence);
 using PFN_vkGetImageMemoryRequirements = void (*)(Device device, Image image, MemoryRequirements *pMemoryRequirements);
 using PFN_vkGetImageMemoryRequirements2 = void (*)(Device device, const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements);
+using PFN_vkGetImageOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const ImageCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetImageSparseMemoryRequirements = void (*)(Device device, Image image, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements *pSparseMemoryRequirements);
 using PFN_vkGetImageSparseMemoryRequirements2 = void (*)(Device device, const ImageSparseMemoryRequirementsInfo2 *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements);
 using PFN_vkGetImageSubresourceLayout = void (*)(Device device, Image image, const ImageSubresource *pSubresource, SubresourceLayout *pLayout);
+using PFN_vkGetImageViewOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const ImageViewCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetInstanceProcAddr = PFN_vkVoidFunction (*)(Instance instance, const char *pName);
 using PFN_vkGetPhysicalDeviceExternalBufferProperties = void (*)(PhysicalDevice physicalDevice, const PhysicalDeviceExternalBufferInfo *pExternalBufferInfo, ExternalBufferProperties *pExternalBufferProperties);
 using PFN_vkGetPhysicalDeviceExternalFenceProperties = void (*)(PhysicalDevice physicalDevice, const PhysicalDeviceExternalFenceInfo *pExternalFenceInfo, ExternalFenceProperties *pExternalFenceProperties);
@@ -4991,6 +5165,7 @@ using PFN_vkGetPipelineCacheData = Result (*)(Device device, PipelineCache pipel
 using PFN_vkGetPrivateData = void (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData);
 using PFN_vkGetQueryPoolResults = Result (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags);
 using PFN_vkGetRenderAreaGranularity = void (*)(Device device, RenderPass renderPass, Extent2D *pGranularity);
+using PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetSemaphoreCounterValue = Result (*)(Device device, Semaphore semaphore, uint64_t *pValue);
 using PFN_vkGetSwapchainImagesKHR = Result (*)(Device device, SwapchainKHR swapchain, uint32_t *pSwapchainImageCount, Image *pSwapchainImages);
 using PFN_vkInvalidateMappedMemoryRanges = Result (*)(Device device, uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges);

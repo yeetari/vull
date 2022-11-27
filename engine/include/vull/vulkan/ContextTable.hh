@@ -31,6 +31,8 @@ private:
     PFN_vkCmdBeginRenderPass m_vkCmdBeginRenderPass;
     PFN_vkCmdBeginRenderPass2 m_vkCmdBeginRenderPass2;
     PFN_vkCmdBeginRendering m_vkCmdBeginRendering;
+    PFN_vkCmdBindDescriptorBufferEmbeddedSamplersEXT m_vkCmdBindDescriptorBufferEmbeddedSamplersEXT;
+    PFN_vkCmdBindDescriptorBuffersEXT m_vkCmdBindDescriptorBuffersEXT;
     PFN_vkCmdBindDescriptorSets m_vkCmdBindDescriptorSets;
     PFN_vkCmdBindIndexBuffer m_vkCmdBindIndexBuffer;
     PFN_vkCmdBindPipeline m_vkCmdBindPipeline;
@@ -84,6 +86,7 @@ private:
     PFN_vkCmdSetDepthCompareOp m_vkCmdSetDepthCompareOp;
     PFN_vkCmdSetDepthTestEnable m_vkCmdSetDepthTestEnable;
     PFN_vkCmdSetDepthWriteEnable m_vkCmdSetDepthWriteEnable;
+    PFN_vkCmdSetDescriptorBufferOffsetsEXT m_vkCmdSetDescriptorBufferOffsetsEXT;
     PFN_vkCmdSetDeviceMask m_vkCmdSetDeviceMask;
     PFN_vkCmdSetEvent m_vkCmdSetEvent;
     PFN_vkCmdSetEvent2 m_vkCmdSetEvent2;
@@ -175,6 +178,10 @@ private:
     PFN_vkGetBufferMemoryRequirements m_vkGetBufferMemoryRequirements;
     PFN_vkGetBufferMemoryRequirements2 m_vkGetBufferMemoryRequirements2;
     PFN_vkGetBufferOpaqueCaptureAddress m_vkGetBufferOpaqueCaptureAddress;
+    PFN_vkGetBufferOpaqueCaptureDescriptorDataEXT m_vkGetBufferOpaqueCaptureDescriptorDataEXT;
+    PFN_vkGetDescriptorEXT m_vkGetDescriptorEXT;
+    PFN_vkGetDescriptorSetLayoutBindingOffsetEXT m_vkGetDescriptorSetLayoutBindingOffsetEXT;
+    PFN_vkGetDescriptorSetLayoutSizeEXT m_vkGetDescriptorSetLayoutSizeEXT;
     PFN_vkGetDescriptorSetLayoutSupport m_vkGetDescriptorSetLayoutSupport;
     PFN_vkGetDeviceBufferMemoryRequirements m_vkGetDeviceBufferMemoryRequirements;
     PFN_vkGetDeviceGroupPeerMemoryFeatures m_vkGetDeviceGroupPeerMemoryFeatures;
@@ -191,9 +198,11 @@ private:
     PFN_vkGetFenceStatus m_vkGetFenceStatus;
     PFN_vkGetImageMemoryRequirements m_vkGetImageMemoryRequirements;
     PFN_vkGetImageMemoryRequirements2 m_vkGetImageMemoryRequirements2;
+    PFN_vkGetImageOpaqueCaptureDescriptorDataEXT m_vkGetImageOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetImageSparseMemoryRequirements m_vkGetImageSparseMemoryRequirements;
     PFN_vkGetImageSparseMemoryRequirements2 m_vkGetImageSparseMemoryRequirements2;
     PFN_vkGetImageSubresourceLayout m_vkGetImageSubresourceLayout;
+    PFN_vkGetImageViewOpaqueCaptureDescriptorDataEXT m_vkGetImageViewOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetPhysicalDeviceExternalBufferProperties m_vkGetPhysicalDeviceExternalBufferProperties;
     PFN_vkGetPhysicalDeviceExternalFenceProperties m_vkGetPhysicalDeviceExternalFenceProperties;
     PFN_vkGetPhysicalDeviceExternalSemaphoreProperties m_vkGetPhysicalDeviceExternalSemaphoreProperties;
@@ -222,6 +231,7 @@ private:
     PFN_vkGetPrivateData m_vkGetPrivateData;
     PFN_vkGetQueryPoolResults m_vkGetQueryPoolResults;
     PFN_vkGetRenderAreaGranularity m_vkGetRenderAreaGranularity;
+    PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT m_vkGetSamplerOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetSemaphoreCounterValue m_vkGetSemaphoreCounterValue;
     PFN_vkGetSwapchainImagesKHR m_vkGetSwapchainImagesKHR;
     PFN_vkInvalidateMappedMemoryRanges m_vkInvalidateMappedMemoryRanges;
@@ -263,6 +273,8 @@ public:
     void vkCmdBeginRenderPass(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, SubpassContents contents) const;
     void vkCmdBeginRenderPass2(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, const SubpassBeginInfo *pSubpassBeginInfo) const;
     void vkCmdBeginRendering(CommandBuffer commandBuffer, const RenderingInfo *pRenderingInfo) const;
+    void vkCmdBindDescriptorBufferEmbeddedSamplersEXT(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t set) const;
+    void vkCmdBindDescriptorBuffersEXT(CommandBuffer commandBuffer, uint32_t bufferCount, const DescriptorBufferBindingInfoEXT *pBindingInfos) const;
     void vkCmdBindDescriptorSets(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t *pDynamicOffsets) const;
     void vkCmdBindIndexBuffer(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, IndexType indexType) const;
     void vkCmdBindPipeline(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, Pipeline pipeline) const;
@@ -316,6 +328,7 @@ public:
     void vkCmdSetDepthCompareOp(CommandBuffer commandBuffer, CompareOp depthCompareOp) const;
     void vkCmdSetDepthTestEnable(CommandBuffer commandBuffer, Bool depthTestEnable) const;
     void vkCmdSetDepthWriteEnable(CommandBuffer commandBuffer, Bool depthWriteEnable) const;
+    void vkCmdSetDescriptorBufferOffsetsEXT(CommandBuffer commandBuffer, PipelineBindPoint pipelineBindPoint, PipelineLayout layout, uint32_t firstSet, uint32_t setCount, const uint32_t *pBufferIndices, const DeviceSize *pOffsets) const;
     void vkCmdSetDeviceMask(CommandBuffer commandBuffer, uint32_t deviceMask) const;
     void vkCmdSetEvent(CommandBuffer commandBuffer, Event event, PipelineStage stageMask) const;
     void vkCmdSetEvent2(CommandBuffer commandBuffer, Event event, const DependencyInfo *pDependencyInfo) const;
@@ -407,6 +420,10 @@ public:
     void vkGetBufferMemoryRequirements(Buffer buffer, MemoryRequirements *pMemoryRequirements) const;
     void vkGetBufferMemoryRequirements2(const BufferMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
     uint64_t vkGetBufferOpaqueCaptureAddress(const BufferDeviceAddressInfo *pInfo) const;
+    Result vkGetBufferOpaqueCaptureDescriptorDataEXT(const BufferCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
+    void vkGetDescriptorEXT(const DescriptorGetInfoEXT *pDescriptorInfo, size_t dataSize, void *pDescriptor) const;
+    void vkGetDescriptorSetLayoutBindingOffsetEXT(DescriptorSetLayout layout, uint32_t binding, DeviceSize *pOffset) const;
+    void vkGetDescriptorSetLayoutSizeEXT(DescriptorSetLayout layout, DeviceSize *pLayoutSizeInBytes) const;
     void vkGetDescriptorSetLayoutSupport(const DescriptorSetLayoutCreateInfo *pCreateInfo, DescriptorSetLayoutSupport *pSupport) const;
     void vkGetDeviceBufferMemoryRequirements(const DeviceBufferMemoryRequirements *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
     void vkGetDeviceGroupPeerMemoryFeatures(uint32_t heapIndex, uint32_t localDeviceIndex, uint32_t remoteDeviceIndex, PeerMemoryFeature *pPeerMemoryFeatures) const;
@@ -423,9 +440,11 @@ public:
     Result vkGetFenceStatus(Fence fence) const;
     void vkGetImageMemoryRequirements(Image image, MemoryRequirements *pMemoryRequirements) const;
     void vkGetImageMemoryRequirements2(const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
+    Result vkGetImageOpaqueCaptureDescriptorDataEXT(const ImageCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     void vkGetImageSparseMemoryRequirements(Image image, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements *pSparseMemoryRequirements) const;
     void vkGetImageSparseMemoryRequirements2(const ImageSparseMemoryRequirementsInfo2 *pInfo, uint32_t *pSparseMemoryRequirementCount, SparseImageMemoryRequirements2 *pSparseMemoryRequirements) const;
     void vkGetImageSubresourceLayout(Image image, const ImageSubresource *pSubresource, SubresourceLayout *pLayout) const;
+    Result vkGetImageViewOpaqueCaptureDescriptorDataEXT(const ImageViewCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     void vkGetPhysicalDeviceExternalBufferProperties(const PhysicalDeviceExternalBufferInfo *pExternalBufferInfo, ExternalBufferProperties *pExternalBufferProperties) const;
     void vkGetPhysicalDeviceExternalFenceProperties(const PhysicalDeviceExternalFenceInfo *pExternalFenceInfo, ExternalFenceProperties *pExternalFenceProperties) const;
     void vkGetPhysicalDeviceExternalSemaphoreProperties(const PhysicalDeviceExternalSemaphoreInfo *pExternalSemaphoreInfo, ExternalSemaphoreProperties *pExternalSemaphoreProperties) const;
@@ -454,6 +473,7 @@ public:
     void vkGetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData) const;
     Result vkGetQueryPoolResults(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags) const;
     void vkGetRenderAreaGranularity(RenderPass renderPass, Extent2D *pGranularity) const;
+    Result vkGetSamplerOpaqueCaptureDescriptorDataEXT(const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     Result vkGetSemaphoreCounterValue(Semaphore semaphore, uint64_t *pValue) const;
     Result vkGetSwapchainImagesKHR(SwapchainKHR swapchain, uint32_t *pSwapchainImageCount, Image *pSwapchainImages) const;
     Result vkInvalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges) const;
