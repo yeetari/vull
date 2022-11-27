@@ -10,23 +10,6 @@
 
 namespace vull {
 
-template <typename I, I... Is>
-struct IntegerSequence {};
-
-template <size_t... Is>
-using IndexSequence = IntegerSequence<size_t, Is...>;
-
-#if __has_builtin(__make_integer_seq)
-template <typename I, I N>
-using make_integer_sequence = __make_integer_seq<IntegerSequence, I, N>;
-#else
-template <typename I, I N>
-using make_integer_sequence = IntegerSequence<I, __integer_pack(N)...>;
-#endif
-
-template <size_t N>
-using make_index_sequence = make_integer_sequence<size_t, N>;
-
 template <size_t>
 struct TupleTag {};
 
@@ -40,7 +23,7 @@ struct TupleElem {
 template <typename, typename...>
 struct TupleBase;
 template <size_t... Is, typename... Ts>
-struct TupleBase<IndexSequence<Is...>, Ts...> : TupleElem<Is, Ts>... {
+struct TupleBase<IntegerSequence<size_t, Is...>, Ts...> : TupleElem<Is, Ts>... {
     using TupleElem<Is, Ts>::elem_type...;
     using TupleElem<Is, Ts>::operator[]...;
 
@@ -49,8 +32,8 @@ struct TupleBase<IndexSequence<Is...>, Ts...> : TupleElem<Is, Ts>... {
 };
 
 template <typename... Ts>
-struct Tuple : TupleBase<make_index_sequence<sizeof...(Ts)>, Ts...> {
-    using TupleBase<make_index_sequence<sizeof...(Ts)>, Ts...>::TupleBase;
+struct Tuple : TupleBase<make_integer_sequence<size_t, sizeof...(Ts)>, Ts...> {
+    using TupleBase<make_integer_sequence<size_t, sizeof...(Ts)>, Ts...>::TupleBase;
 };
 
 template <size_t I, typename T>

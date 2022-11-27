@@ -241,6 +241,17 @@ using unwrap_ref = typename UnrapRefWrapper<T>::type;
 template <typename T>
 using decay_unwrap = unwrap_ref<decay<T>>;
 
+template <typename I, I... Is>
+struct IntegerSequence {};
+
+#if __has_builtin(__make_integer_seq)
+template <typename I, I N>
+using make_integer_sequence = __make_integer_seq<IntegerSequence, I, N>;
+#else
+template <typename I, I N>
+using make_integer_sequence = IntegerSequence<I, __integer_pack(N)...>;
+#endif
+
 inline constexpr auto &operator&=(auto &lhs, auto rhs) {
     return lhs = (lhs & rhs);
 }
