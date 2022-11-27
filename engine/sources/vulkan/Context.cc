@@ -136,12 +136,15 @@ Context::Context() : ContextTable{} {
         vull::debug("[vulkan]  - {} queues capable of {}", m_queue_families[i].queueCount, flags_string.build());
     }
 
-    vkb::PhysicalDeviceFeatures device_features{
-        .fillModeNonSolid = true,
-        .samplerAnisotropy = true,
+    vkb::PhysicalDeviceFeatures2 device_10_features{
+        .sType = vkb::StructureType::PhysicalDeviceFeatures2,
+        .features{
+            .samplerAnisotropy = true,
+        },
     };
     vkb::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
+        .pNext = &device_10_features,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
         .runtimeDescriptorArray = true,
@@ -172,7 +175,6 @@ Context::Context() : ContextTable{} {
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = enabled_device_extensions.size(),
         .ppEnabledExtensionNames = enabled_device_extensions.data(),
-        .pEnabledFeatures = &device_features,
     };
     VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vkb::Result::Success);
     load_device();
