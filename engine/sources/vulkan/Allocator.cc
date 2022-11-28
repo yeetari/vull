@@ -231,8 +231,6 @@ Allocator::Allocator(const Context &context, uint32_t memory_type_index)
     }
     m_heap_size = vull::align_up(m_heap_size, vkb::DeviceSize(32));
     m_mappable = (memory_type.propertyFlags & vkb::MemoryPropertyFlags::HostVisible) != vkb::MemoryPropertyFlags::None;
-    // TODO: Format memory type nicely.
-    vull::debug("[vulkan] Using {} byte heaps for memory type {}", m_heap_size, memory_type_index);
 }
 
 Allocator::~Allocator() {

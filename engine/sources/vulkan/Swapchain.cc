@@ -4,6 +4,7 @@
 #include <vull/maths/Common.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
@@ -45,34 +46,6 @@ unsigned rate_present_mode(vkb::PresentModeKHR present_mode, SwapchainMode swapc
     }
 }
 
-const char *swapchain_mode_string(SwapchainMode swapchain_mode) {
-    switch (swapchain_mode) {
-    case SwapchainMode::LowPower:
-        return "SwapchainMode::LowPower";
-    case SwapchainMode::Normal:
-        return "SwapchainMode::Normal";
-    case SwapchainMode::NoVsync:
-        return "SwapchainMode::NoVsync";
-    default:
-        VULL_ENSURE_NOT_REACHED();
-    }
-}
-
-const char *present_mode_string(vkb::PresentModeKHR present_mode) {
-    switch (present_mode) {
-    case vkb::PresentModeKHR::Immediate:
-        return "vkb::PresentModeKHR::Immediate";
-    case vkb::PresentModeKHR::Mailbox:
-        return "vkb::PresentModeKHR::Mailbox";
-    case vkb::PresentModeKHR::Fifo:
-        return "vkb::PresentModeKHR::Fifo";
-    case vkb::PresentModeKHR::FifoRelaxed:
-        return "vkb::PresentModeKHR::FifoRelaxed";
-    default:
-        VULL_ENSURE_NOT_REACHED();
-    }
-}
-
 } // namespace
 
 Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode)
@@ -93,8 +66,8 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
         return rate_present_mode(lhs, mode) < rate_present_mode(rhs, mode);
     });
 
-    vull::info("[vulkan] Requested {}", swapchain_mode_string(mode));
-    vull::debug("[vulkan]  - using {}", present_mode_string(present_modes.first()));
+    vull::info("[vulkan] Requested {}", vull::enum_name(mode));
+    vull::debug("[vulkan]  - using {}", vull::enum_name<3>(present_modes.first()));
 
     vkb::SwapchainCreateInfoKHR swapchain_ci{
         .sType = vkb::StructureType::SwapchainCreateInfoKHR,
