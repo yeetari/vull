@@ -32,13 +32,13 @@ void close_log();
 
 void println(StringView);
 template <typename... Args>
-void println(const char *fmt, Args &&...args) {
+void println(StringView fmt, Args &&...args) {
     println(vull::format(fmt, vull::forward<Args>(args)...));
 }
 
 #define DEFINE_LOG_LEVEL(fn, lvl)                                                                                      \
     template <typename... Args>                                                                                        \
-    void fn(const char *fmt, Args &&...args) {                                                                         \
+    void fn(StringView fmt, Args &&...args) {                                                                          \
         StringBuilder sb;                                                                                              \
         const uint64_t time = g_log_timer.elapsed_ns() / 1000000u;                                                     \
         sb.append("[{d5 }.{d3}] ", time / 1000u, time % 1000u);                                                        \

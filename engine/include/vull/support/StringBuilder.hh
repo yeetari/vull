@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Array.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
@@ -26,11 +27,11 @@ class StringBuilder {
     }
 
     template <typename T>
-    void append_part(const char *&fmt, const T &arg);
+    void append_part(StringView fmt, size_t &index, const T &arg);
 
 public:
     template <typename... Args>
-    void append(const char *fmt, const Args &...args);
+    void append(StringView fmt, const Args &...args);
     void append(char ch);
 
     String build();
@@ -39,29 +40,29 @@ public:
 };
 
 template <typename T>
-void StringBuilder::append_part(const char *&fmt, const T &arg) {
-    while (*fmt != '\0' && *fmt != '{') {
-        m_buffer.push(*fmt++);
+void StringBuilder::append_part(StringView fmt, size_t &index, const T &arg) {
+    while (index < fmt.length() && fmt[index] != '{') {
+        m_buffer.push(fmt[index++]);
     }
-    if (*fmt++ != '{') {
+
+    if (index >= fmt.length() || fmt[index++] != '{') {
         return;
     }
+
     Array<char, 4> opts{};
-    for (uint32_t i = 0; i < opts.size() && *fmt != '}';) {
-        opts[i++] = *fmt++;
+    for (uint32_t i = 0; i < opts.size() && fmt[index] != '}';) {
+        opts[i++] = fmt[index++];
     }
-    append_single(arg, opts.data()); // NOLINT
-    fmt++;
+    // NOLINTNEXTLINE
+    append_single(arg, opts.data());
+    index++;
 }
 
 template <typename... Args>
-void StringBuilder::append(const char *fmt, const Args &...args) {
-    (append_part(fmt, args), ...);
-    // TODO: If we knew the remaining size of the format string (if we took in a StringView for fmt), this code could be
-    //       much faster.
-    while (*fmt != '\0') {
-        m_buffer.push(*fmt++);
-    }
+void StringBuilder::append(StringView fmt, const Args &...args) {
+    size_t index = 0;
+    (append_part(fmt, index, args), ...);
+    m_buffer.extend(LargeSpan<const char>{fmt.begin() + index, fmt.length() - index});
 }
 
 } // namespace vull
