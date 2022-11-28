@@ -5,7 +5,10 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/HashSet.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
@@ -184,17 +187,53 @@ Context::Context() : ContextTable{} {
         m_allocators.emplace(new Allocator(*this, i));
     }
 
-    vkb::MemoryRequirements requirements{
-        .memoryTypeBits = 0xffffffffu,
+    vull::debug("[vulkan] Memory usage -> memory type mapping:");
+    auto get_dummy_buffer_requirements = [this](vkb::BufferUsage usage) {
+        vkb::BufferCreateInfo create_info{
+            .sType = vkb::StructureType::BufferCreateInfo,
+            .size = 65536,
+            .usage = usage,
+        };
+        vkb::DeviceBufferMemoryRequirements requirements_info{
+            .sType = vkb::StructureType::DeviceBufferMemoryRequirements,
+            .pCreateInfo = &create_info,
+        };
+        vkb::MemoryRequirements2 requirements{
+            .sType = vkb::StructureType::MemoryRequirements2,
+        };
+        vkGetDeviceBufferMemoryRequirements(&requirements_info, &requirements);
+        return requirements.memoryRequirements;
     };
-    vull::debug("[vulkan] Using memory type {} for MemoryUsage::DeviceOnly",
-                allocator_for(requirements, MemoryUsage::DeviceOnly).memory_type_index());
-    vull::debug("[vulkan] Using memory type {} for MemoryUsage::HostOnly",
-                allocator_for(requirements, MemoryUsage::HostOnly).memory_type_index());
-    vull::debug("[vulkan] Using memory type {} for MemoryUsage::HostToDevice",
-                allocator_for(requirements, MemoryUsage::HostToDevice).memory_type_index());
-    vull::debug("[vulkan] Using memory type {} for MemoryUsage::DeviceToHost",
-                allocator_for(requirements, MemoryUsage::DeviceToHost).memory_type_index());
+
+    const auto descriptor_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::ResourceDescriptorBufferEXT);
+    const auto indirect_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::IndirectBuffer);
+    const auto ssbo_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::StorageBuffer);
+    const auto ubo_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::UniformBuffer);
+    auto print_for = [&](MemoryUsage usage) {
+        HashMap<uint32_t, Vector<String>> map;
+        map[allocator_for(descriptor_requirements, usage).memory_type_index()].push("descriptor");
+        map[allocator_for(indirect_requirements, usage).memory_type_index()].push("indirect");
+        map[allocator_for(ssbo_requirements, usage).memory_type_index()].push("ssbo");
+        map[allocator_for(ubo_requirements, usage).memory_type_index()].push("ubo");
+
+        vull::debug("[vulkan]  - {}", vull::enum_name(usage));
+        for (const auto &[index, types] : map) {
+            StringBuilder sb;
+            sb.append("[vulkan]   - {} (", index);
+            for (bool first = true; const auto &type : types) {
+                if (!vull::exchange(first, false)) {
+                    sb.append(", ");
+                }
+                sb.append(type);
+            }
+            sb.append(")");
+            vull::debug(sb.build());
+        }
+    };
+    print_for(MemoryUsage::DeviceOnly);
+    print_for(MemoryUsage::HostOnly);
+    print_for(MemoryUsage::HostToDevice);
+    print_for(MemoryUsage::DeviceToHost);
 }
 
 Context::~Context() {
