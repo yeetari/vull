@@ -16,6 +16,7 @@
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Allocator.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -311,6 +312,25 @@ Allocation Context::bind_memory(vkb::Image image, vk::MemoryUsage usage) {
     const auto &info = allocation.info();
     VULL_ENSURE(vkBindImageMemory(image, info.memory, info.offset) == vkb::Result::Success);
     return allocation;
+}
+
+Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
+    vkb::BufferCreateInfo buffer_ci{
+        .sType = vkb::StructureType::BufferCreateInfo,
+        .size = size,
+        .usage = usage,
+        .sharingMode = vkb::SharingMode::Exclusive,
+    };
+    vkb::Buffer buffer;
+    VULL_ENSURE(vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
+
+    vkb::MemoryRequirements requirements{};
+    vkGetBufferMemoryRequirements(buffer, &requirements);
+
+    auto allocation = allocate_memory(requirements, memory_usage);
+    const auto &info = allocation.info();
+    VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
+    return {vull::move(allocation), buffer, usage};
 }
 
 float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {

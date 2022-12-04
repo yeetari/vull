@@ -32,6 +32,7 @@ target_sources(vull PRIVATE
     vpak/Reader.cc
     vpak/Writer.cc
     vulkan/Allocator.cc
+    vulkan/Buffer.cc
     vulkan/CommandBuffer.cc
     vulkan/CommandPool.cc
     vulkan/Context.cc

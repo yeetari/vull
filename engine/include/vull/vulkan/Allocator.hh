@@ -35,6 +35,8 @@ public:
     Allocator &operator=(Allocator &&) = delete;
 
     [[nodiscard]] Allocation allocate(const vkb::MemoryRequirements &requirements);
+
+    const Context &context() const { return m_context; }
     uint32_t memory_type_index() const { return m_memory_type_index; }
 };
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/Utility.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -35,6 +36,7 @@ public:
     Allocation &operator=(const Allocation &) = delete;
     Allocation &operator=(Allocation &&);
 
+    const Allocator *allocator() const { return m_allocator; }
     const AllocationInfo &info() const { return m_info; }
     void *mapped_data() const { return m_info.mapped_data; }
     bool is_dedicated() const { return m_info.heap_index == 0xffu; }
