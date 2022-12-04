@@ -34,7 +34,7 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
-#include <vull/vulkan/Allocation.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
@@ -670,51 +670,26 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         Vec3f camera_position;
         ShadowInfo shadow_info;
     };
-    vkb::BufferCreateInfo uniform_buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = sizeof(UniformBuffer),
-        .usage = vkb::BufferUsage::UniformBuffer,
-        .sharingMode = vkb::SharingMode::Exclusive,
-    };
-    Array<Tuple<vkb::Buffer, vk::Allocation>, 2> uniform_buffers;
-    for (auto &[buffer, memory] : uniform_buffers) {
-        VULL_ENSURE(context.vkCreateBuffer(&uniform_buffer_ci, &buffer) == vkb::Result::Success);
-        memory = context.bind_memory(buffer, vk::MemoryUsage::HostToDevice);
-    }
-
     struct PointLight {
         Vec3f position;
         float radius{0.0f};
         Vec3f colour;
         float padding{0.0f};
     };
-    vkb::DeviceSize lights_buffer_size = sizeof(PointLight) * 3000 + sizeof(float) * 4;
+    vkb::DeviceSize light_buffer_size = sizeof(PointLight) * 3000 + sizeof(float) * 4;
     vkb::DeviceSize light_visibility_size = (specialisation_data.tile_max_light_count + 1) * sizeof(uint32_t);
-    vkb::DeviceSize light_visibilities_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
+    vkb::DeviceSize light_visibility_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
 
-    vkb::BufferCreateInfo light_buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = lights_buffer_size,
-        .usage = vkb::BufferUsage::StorageBuffer,
-        .sharingMode = vkb::SharingMode::Exclusive,
+    Array uniform_buffers{
+        context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice),
+        context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice),
     };
-    Array<Tuple<vkb::Buffer, vk::Allocation>, 2> light_buffers;
-    for (auto &[buffer, memory] : light_buffers) {
-        VULL_ENSURE(context.vkCreateBuffer(&light_buffer_ci, &buffer) == vkb::Result::Success);
-        memory = context.bind_memory(buffer, vk::MemoryUsage::HostToDevice);
-    }
-
-    vkb::BufferCreateInfo light_visibilities_buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = light_visibilities_buffer_size,
-        .usage = vkb::BufferUsage::StorageBuffer,
-        .sharingMode = vkb::SharingMode::Exclusive,
+    Array light_buffers{
+        context.create_buffer(light_buffer_size, vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice),
+        context.create_buffer(light_buffer_size, vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice),
     };
-    vkb::Buffer light_visibilities_buffer;
-    VULL_ENSURE(context.vkCreateBuffer(&light_visibilities_buffer_ci, &light_visibilities_buffer) ==
-                vkb::Result::Success);
-    auto light_visibilities_buffer_allocation =
-        context.bind_memory(light_visibilities_buffer, vk::MemoryUsage::DeviceOnly);
+    auto light_visibility_buffer = context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
+                                                         vk::MemoryUsage::DeviceOnly);
 
     Array descriptor_pool_sizes{
         vkb::DescriptorPoolSize{
@@ -778,26 +753,26 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     // Frame set.
     Array<vkb::DescriptorBufferInfo, 2> uniform_buffer_infos{
         vkb::DescriptorBufferInfo{
-            .buffer = vull::get<0>(uniform_buffers[0]),
+            .buffer = *uniform_buffers[0],
             .range = vkb::k_whole_size,
         },
         vkb::DescriptorBufferInfo{
-            .buffer = vull::get<0>(uniform_buffers[1]),
+            .buffer = *uniform_buffers[1],
             .range = vkb::k_whole_size,
         },
     };
     Array<vkb::DescriptorBufferInfo, 2> light_buffer_infos{
         vkb::DescriptorBufferInfo{
-            .buffer = vull::get<0>(light_buffers[0]),
+            .buffer = *light_buffers[0],
             .range = vkb::k_whole_size,
         },
         vkb::DescriptorBufferInfo{
-            .buffer = vull::get<0>(light_buffers[1]),
+            .buffer = *light_buffers[1],
             .range = vkb::k_whole_size,
         },
     };
     vkb::DescriptorBufferInfo light_visibilities_buffer_info{
-        .buffer = light_visibilities_buffer,
+        .buffer = *light_visibility_buffer,
         .range = vkb::k_whole_size,
     };
 
@@ -1009,15 +984,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         }
     };
 
-    Array<void *, 2> light_data_ptrs{
-        vull::get<1>(light_buffers[0]).mapped_data(),
-        vull::get<1>(light_buffers[1]).mapped_data(),
-    };
-    Array<void *, 2> ubo_data_ptrs{
-        vull::get<1>(uniform_buffers[0]).mapped_data(),
-        vull::get<1>(uniform_buffers[1]).mapped_data(),
-    };
-
     vk::RenderGraph render_graph;
 
     // GBuffer resources.
@@ -1042,7 +1008,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     auto &global_ubo_resource = render_graph.add_uniform_buffer("Global UBO");
     auto &light_data_resource = render_graph.add_storage_buffer("Light data");
     auto &light_visibility_data_resource = render_graph.add_storage_buffer("Light visibility data");
-    light_visibility_data_resource.set_buffer(light_visibilities_buffer);
+    light_visibility_data_resource.set_buffer(*light_visibility_buffer);
 
     auto &geometry_pass = render_graph.add_graphics_pass("Geometry pass");
     geometry_pass.reads_from(global_ubo_resource);
@@ -1302,8 +1268,8 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
 
         const auto frame_index = frame_pacer.frame_index();
         vkb::DescriptorSet frame_set = frame_sets[frame_index];
-        void *light_data = light_data_ptrs[frame_index];
-        void *ubo_data = ubo_data_ptrs[frame_index];
+        void *light_data = light_buffers[frame_index].mapped_raw();
+        void *ubo_data = uniform_buffers[frame_index].mapped_raw();
 
         uint32_t light_count = lights.size();
         memcpy(light_data, &light_count, sizeof(uint32_t));
@@ -1336,8 +1302,8 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
 
         vkb::Image swapchain_image = swapchain.image(image_index);
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
-        global_ubo_resource.set_buffer(vull::get<0>(uniform_buffers[frame_index]));
-        light_data_resource.set_buffer(vull::get<0>(light_buffers[frame_index]));
+        global_ubo_resource.set_buffer(*uniform_buffers[frame_index]);
+        light_data_resource.set_buffer(*light_buffers[frame_index]);
         swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
 
         vkb::MemoryBarrier2 memory_barrier{
@@ -1385,13 +1351,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     scheduler.stop();
     context.vkDeviceWaitIdle();
     context.vkDestroyDescriptorPool(descriptor_pool);
-    context.vkDestroyBuffer(light_visibilities_buffer);
-    for (auto &[buffer, allocation] : light_buffers) {
-        context.vkDestroyBuffer(buffer);
-    }
-    for (auto &[buffer, allocation] : uniform_buffers) {
-        context.vkDestroyBuffer(buffer);
-    }
     context.vkDestroySampler(shadow_sampler);
     for (auto *cascade_view : shadow_cascade_views) {
         context.vkDestroyImageView(cascade_view);
