@@ -241,8 +241,13 @@ Allocator::~Allocator() {
 
 Allocation Allocator::allocate_dedicated(uint32_t size) {
     // TODO: VkMemoryDedicatedAllocateInfo.
+    vkb::MemoryAllocateFlagsInfo flags_info{
+        .sType = vkb::StructureType::MemoryAllocateFlagsInfo,
+        .flags = vkb::MemoryAllocateFlags::DeviceAddress,
+    };
     vkb::MemoryAllocateInfo memory_ai{
         .sType = vkb::StructureType::MemoryAllocateInfo,
+        .pNext = &flags_info,
         .allocationSize = size,
         .memoryTypeIndex = m_memory_type_index,
     };
@@ -289,8 +294,13 @@ Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
     }
 
     for (uint32_t shift = 0; !allocation_info && shift < 6; shift++) {
+        vkb::MemoryAllocateFlagsInfo flags_info{
+            .sType = vkb::StructureType::MemoryAllocateFlagsInfo,
+            .flags = vkb::MemoryAllocateFlags::DeviceAddress,
+        };
         vkb::MemoryAllocateInfo memory_ai{
             .sType = vkb::StructureType::MemoryAllocateInfo,
+            .pNext = &flags_info,
             .allocationSize = m_heap_size >> shift,
             .memoryTypeIndex = m_memory_type_index,
         };

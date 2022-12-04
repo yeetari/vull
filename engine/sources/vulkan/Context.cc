@@ -154,6 +154,8 @@ Context::Context() : ContextTable{} {
         .runtimeDescriptorArray = true,
         .scalarBlockLayout = true,
         .timelineSemaphore = true,
+        // Extension promoted to vk 1.2, feature must be supported in vk 1.3
+        .bufferDeviceAddress = true,
     };
     vkb::PhysicalDeviceVulkan13Features device_13_features{
         .sType = vkb::StructureType::PhysicalDeviceVulkan13Features,
