@@ -1,12 +1,14 @@
 #pragma once
 
 #include <vull/support/Span.hh>
+#include <vull/support/Vector.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
+class Buffer;
 class CommandPool;
 class Context;
 class QueryPool;
@@ -19,6 +21,7 @@ private:
     const vkb::CommandBuffer m_cmd_buf;
     vkb::Semaphore m_completion_semaphore;
     uint64_t m_completion_value{0};
+    Vector<Buffer> m_associated_buffers;
 
     void reset();
 
@@ -34,6 +37,7 @@ public:
     void begin_rendering(const vkb::RenderingInfo &rendering_info) const;
     void end_rendering() const;
 
+    void bind_associated_buffer(Buffer &&buffer);
     void bind_descriptor_sets(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout,
                               Span<vkb::DescriptorSet> descriptor_sets) const;
     void bind_index_buffer(vkb::Buffer buffer, vkb::IndexType index_type) const;

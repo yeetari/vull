@@ -3,6 +3,8 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
+#include <vull/support/Vector.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -45,6 +47,9 @@ CommandBuffer::~CommandBuffer() {
 }
 
 void CommandBuffer::reset() {
+    // Free any associated buffers.
+    m_associated_buffers.clear();
+
     // Reset the semaphore to an uncompleted state and the command buffer back to a fresh recording state. Since the
     // command pool was created with the RESET_COMMAND_BUFFER flag, the reset is implicitly performed by
     // vkBeginCommandBuffer.
@@ -67,6 +72,10 @@ void CommandBuffer::begin_rendering(const vkb::RenderingInfo &rendering_info) co
 
 void CommandBuffer::end_rendering() const {
     m_context.vkCmdEndRendering(m_cmd_buf);
+}
+
+void CommandBuffer::bind_associated_buffer(Buffer &&buffer) {
+    m_associated_buffers.push(vull::move(buffer));
 }
 
 void CommandBuffer::bind_descriptor_sets(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout,
