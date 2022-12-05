@@ -16,6 +16,13 @@ A vulkan rendering engine written in C++ 20.
 * [xcb](https://xcb.freedesktop.org)
 * [zstd](https://github.com/facebook/zstd)
 
+## Requirements
+
+* Vulkan 1.3
+* VK_EXT_descriptor_buffer
+* VK_EXT_shader_atomic_float
+* VK_EXT_shader_atomic_float2
+
 ## Building and running
 
 Vull uses [cmake](https://cmake.org) as its build system. Either `make` or `ninja` will additionally be needed. Windows
