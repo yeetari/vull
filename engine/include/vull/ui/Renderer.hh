@@ -2,8 +2,8 @@
 
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Vector.hh>
 #include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -40,17 +40,14 @@ class Renderer {
     const vk::Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
     vkb::Sampler m_font_sampler{nullptr};
-    vkb::Buffer m_ui_data_buffer{nullptr};
-    vk::Allocation m_ui_data_buffer_allocation;
     vkb::DescriptorPool m_descriptor_pool{nullptr};
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vkb::DescriptorSet m_descriptor_set{nullptr};
     vkb::PipelineLayout m_pipeline_layout{nullptr};
     vkb::Pipeline m_pipeline{nullptr};
 
-    float *m_global_scale{nullptr};
-    Object *m_objects{nullptr};
-    uint32_t m_object_index{0};
+    float m_global_scale{1.0f};
+    Vector<Object> m_objects;
 
 public:
     Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,

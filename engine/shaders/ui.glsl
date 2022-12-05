@@ -8,3 +8,12 @@ struct UiObject {
     uint glyph_index;
     uint type;
 };
+
+layout (buffer_reference, scalar) readonly buffer UiData {
+    float global_scale;
+    UiObject objects[];
+};
+
+layout (push_constant) uniform PushConstants {
+    UiData g_data;
+};

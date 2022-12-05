@@ -1,6 +1,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#extension GL_EXT_buffer_reference : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 #extension GL_EXT_scalar_block_layout : enable

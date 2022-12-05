@@ -86,7 +86,7 @@ void GpuFont::rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set,
     vkb::WriteDescriptorSet descriptor_write{
         .sType = vkb::StructureType::WriteDescriptorSet,
         .dstSet = descriptor_set,
-        .dstBinding = 1,
+        .dstBinding = 0,
         .dstArrayElement = glyph_index,
         .descriptorCount = 1,
         // TODO: Don't use combined image sampler.

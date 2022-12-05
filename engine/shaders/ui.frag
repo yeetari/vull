@@ -2,24 +2,17 @@
 #include "lib/common.glsl"
 #include "ui.glsl"
 
-#extension GL_EXT_nonuniform_qualifier : enable
-#extension GL_EXT_scalar_block_layout : enable
-
 layout (location = 0) in FragmentData {
     vec2 uv;
     flat uint object_id;
 } g_fragment;
 
-layout (binding = 0, scalar) readonly buffer UiData {
-    float g_global_scale;
-    UiObject g_objects[];
-};
-layout (binding = 1) uniform sampler2D g_font_samplers[];
+layout (binding = 0) uniform sampler2D g_font_samplers[];
 
 layout (location = 0) out vec4 g_out_colour;
 
 void main() {
-    UiObject object = g_objects[nonuniformEXT(g_fragment.object_id)];
+    UiObject object = g_data.objects[nonuniformEXT(g_fragment.object_id)];
     switch (object.type) {
     case 0:
         g_out_colour = object.colour;

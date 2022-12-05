@@ -6,9 +6,10 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
+#include <vull/support/Vector.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Allocation.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>
@@ -21,6 +22,7 @@
 
 #include <freetype/freetype.h>
 #include <freetype/fterrors.h>
+#include <string.h>
 
 namespace vull::ui {
 
@@ -42,24 +44,7 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     };
     VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vkb::Result::Success);
 
-    // TODO: Dynamic resizing.
-    vkb::BufferCreateInfo ui_data_buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = sizeof(Vec2f) + sizeof(Object) * 4096,
-        .usage = vkb::BufferUsage::StorageBuffer,
-        .sharingMode = vkb::SharingMode::Exclusive,
-    };
-    VULL_ENSURE(context.vkCreateBuffer(&ui_data_buffer_ci, &m_ui_data_buffer) == vkb::Result::Success);
-    m_ui_data_buffer_allocation = context.bind_memory(m_ui_data_buffer, vk::MemoryUsage::HostToDevice);
-
-    m_global_scale = static_cast<float *>(m_ui_data_buffer_allocation.mapped_data());
-    m_objects = reinterpret_cast<Object *>(m_global_scale + 1);
-
     Array descriptor_pool_sizes{
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-        },
         vkb::DescriptorPoolSize{
             // TODO: Dynamic count or glyph streaming.
             .type = vkb::DescriptorType::CombinedImageSampler,
@@ -77,19 +62,12 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 1,
             .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = descriptor_pool_sizes[1].descriptorCount,
+            .descriptorCount = descriptor_pool_sizes[0].descriptorCount,
             .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     Array set_binding_flags{
-        vkb::DescriptorBindingFlags::None,
         vkb::DescriptorBindingFlags::PartiallyBound,
     };
     vkb::DescriptorSetLayoutBindingFlagsCreateInfo set_binding_flags_ci{
@@ -113,10 +91,16 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     };
     VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &m_descriptor_set) == vkb::Result::Success);
 
+    vkb::PushConstantRange push_constant_range{
+        .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
+        .size = sizeof(vkb::DeviceAddress),
+    };
     vkb::PipelineLayoutCreateInfo pipeline_layout_ci{
         .sType = vkb::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = 1,
         .pSetLayouts = &m_descriptor_set_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant_range,
     };
     VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &m_pipeline_layout) == vkb::Result::Success);
 
@@ -231,26 +215,20 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     };
     VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &m_pipeline) == vkb::Result::Success);
 
-    vkb::DescriptorBufferInfo ui_data_buffer_info{
-        .buffer = m_ui_data_buffer,
-        .range = vkb::k_whole_size,
-    };
-    vkb::WriteDescriptorSet ui_data_buffer_descriptor_write{
-        .sType = vkb::StructureType::WriteDescriptorSet,
-        .dstSet = m_descriptor_set,
-        .dstBinding = 0,
-        .descriptorCount = 1,
-        .descriptorType = vkb::DescriptorType::StorageBuffer,
-        .pBufferInfo = &ui_data_buffer_info,
-    };
-    context.vkUpdateDescriptorSets(1, &ui_data_buffer_descriptor_write, 0, nullptr);
-
     auto &ui_data_resource = render_graph.add_storage_buffer("UI data");
-    ui_data_resource.set_buffer(m_ui_data_buffer);
     auto &ui_pass = render_graph.add_graphics_pass("UI pass");
     ui_pass.reads_from(ui_data_resource);
     ui_pass.writes_to(swapchain_resource);
-    ui_pass.set_on_record([this, &swapchain_resource](const vk::CommandBuffer &cmd_buf) {
+    ui_pass.set_on_record([this, &swapchain_resource](vk::CommandBuffer &cmd_buf) {
+        auto object_buffer =
+            m_context.create_buffer(sizeof(float) + m_objects.size_bytes(), vkb::BufferUsage::ShaderDeviceAddress,
+                                    vk::MemoryUsage::HostToDevice);
+        memcpy(object_buffer.mapped<float>(), &m_global_scale, sizeof(float));
+        memcpy(object_buffer.mapped<float>() + 1, m_objects.data(), m_objects.size_bytes());
+
+        const auto buffer_address = object_buffer.device_address();
+        cmd_buf.bind_associated_buffer(vull::move(object_buffer));
+
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
         vkb::RenderingAttachmentInfo colour_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
@@ -269,9 +247,12 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
             .pColorAttachments = &colour_write_attachment,
         };
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
+        cmd_buf.push_constants(m_pipeline_layout, vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
+                               sizeof(vkb::DeviceAddress), &buffer_address);
         cmd_buf.begin_rendering(rendering_info);
-        cmd_buf.draw(6, exchange(m_object_index, 0u));
+        cmd_buf.draw(6, m_objects.size());
         cmd_buf.end_rendering();
+        m_objects.clear();
     });
 }
 
@@ -280,7 +261,6 @@ Renderer::~Renderer() {
     m_context.vkDestroyPipelineLayout(m_pipeline_layout);
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
     m_context.vkDestroyDescriptorPool(m_descriptor_pool);
-    m_context.vkDestroyBuffer(m_ui_data_buffer);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);
 }
@@ -293,16 +273,16 @@ GpuFont Renderer::load_font(StringView path, ssize_t size) {
 }
 
 void Renderer::set_global_scale(float global_scale) {
-    *m_global_scale = global_scale;
+    m_global_scale = global_scale;
 }
 
 void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale) {
-    m_objects[m_object_index++] = {
+    m_objects.push({
         .colour = colour,
         .position = position,
         .scale = scale,
         .type = ObjectType::Rect,
-    };
+    });
 }
 
 void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text) {
@@ -316,13 +296,13 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
         Vec2f glyph_position(cursor_x + static_cast<float>(x_offset) / 64.0f,
                              cursor_y + static_cast<float>(y_offset) / 64.0f);
         glyph_position += {glyph->disp_x, glyph->disp_y};
-        m_objects[m_object_index++] = {
+        m_objects.push({
             .colour = {colour.x(), colour.y(), colour.z(), 1.0f},
             .position = glyph_position,
             .scale = Vec2f(64.0f),
             .glyph_index = glyph_index,
             .type = ObjectType::TextGlyph,
-        };
+        });
         cursor_x += static_cast<float>(x_advance) / 64.0f;
         cursor_y += static_cast<float>(y_advance) / 64.0f;
     }
