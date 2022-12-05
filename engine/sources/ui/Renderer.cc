@@ -44,26 +44,11 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     };
     VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vkb::Result::Success);
 
-    Array descriptor_pool_sizes{
-        vkb::DescriptorPoolSize{
-            // TODO: Dynamic count or glyph streaming.
-            .type = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 2000,
-        },
-    };
-    vkb::DescriptorPoolCreateInfo descriptor_pool_ci{
-        .sType = vkb::StructureType::DescriptorPoolCreateInfo,
-        .maxSets = 1,
-        .poolSizeCount = descriptor_pool_sizes.size(),
-        .pPoolSizes = descriptor_pool_sizes.data(),
-    };
-    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &m_descriptor_pool) == vkb::Result::Success);
-
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = descriptor_pool_sizes[0].descriptorCount,
+            .descriptorCount = 2000,
             .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
@@ -78,18 +63,17 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     vkb::DescriptorSetLayoutCreateInfo set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
         .pNext = &set_binding_flags_ci,
+        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
         .bindingCount = set_bindings.size(),
         .pBindings = set_bindings.data(),
     };
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_descriptor_set_layout) == vkb::Result::Success);
 
-    vkb::DescriptorSetAllocateInfo descriptor_set_ai{
-        .sType = vkb::StructureType::DescriptorSetAllocateInfo,
-        .descriptorPool = m_descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &m_descriptor_set_layout,
-    };
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&descriptor_set_ai, &m_descriptor_set) == vkb::Result::Success);
+    vkb::DeviceSize descriptor_buffer_size;
+    context.vkGetDescriptorSetLayoutSizeEXT(m_descriptor_set_layout, &descriptor_buffer_size);
+    m_descriptor_buffer = context.create_buffer(
+        descriptor_buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress,
+        vk::MemoryUsage::HostToDevice);
 
     vkb::PushConstantRange push_constant_range{
         .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
@@ -203,6 +187,7 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     vkb::GraphicsPipelineCreateInfo pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &rendering_create_info,
+        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
         .stageCount = shader_stage_cis.size(),
         .pStages = shader_stage_cis.data(),
         .pVertexInputState = &vertex_input_state,
@@ -228,8 +213,9 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
 
         const auto buffer_address = object_buffer.device_address();
         cmd_buf.bind_associated_buffer(vull::move(object_buffer));
+        cmd_buf.bind_layout(vkb::PipelineBindPoint::Graphics, m_pipeline_layout);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 0, 0);
 
-        cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, m_pipeline_layout, m_descriptor_set);
         vkb::RenderingAttachmentInfo colour_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
             .imageView = swapchain_resource.view(),
@@ -247,8 +233,8 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
             .pColorAttachments = &colour_write_attachment,
         };
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
-        cmd_buf.push_constants(m_pipeline_layout, vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
-                               sizeof(vkb::DeviceAddress), &buffer_address);
+        cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, sizeof(vkb::DeviceAddress),
+                               &buffer_address);
         cmd_buf.begin_rendering(rendering_info);
         cmd_buf.draw(6, m_objects.size());
         cmd_buf.end_rendering();
@@ -260,7 +246,6 @@ Renderer::~Renderer() {
     m_context.vkDestroyPipeline(m_pipeline);
     m_context.vkDestroyPipelineLayout(m_pipeline_layout);
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
-    m_context.vkDestroyDescriptorPool(m_descriptor_pool);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);
 }
@@ -291,7 +276,7 @@ void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &positi
     for (auto [glyph_index, x_advance, y_advance, x_offset, y_offset] : font.shape(text)) {
         const auto &glyph = font.cached_glyph(glyph_index);
         if (!glyph) {
-            font.rasterise(glyph_index, m_descriptor_set, m_font_sampler);
+            font.rasterise(glyph_index, m_descriptor_buffer.mapped<uint8_t>(), m_font_sampler);
         }
         Vec2f glyph_position(cursor_x + static_cast<float>(x_offset) / 64.0f,
                              cursor_y + static_cast<float>(y_offset) / 64.0f);

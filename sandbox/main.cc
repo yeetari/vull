@@ -192,57 +192,8 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .pName = "main",
         .pSpecializationInfo = &specialisation_info,
     };
-    Array frame_set_bindings{
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vkb::DescriptorType::UniformBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::All,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 3,
-            .descriptorType = vkb::DescriptorType::StorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-    };
-    vkb::DescriptorSetLayoutCreateInfo frame_set_layout_ci{
-        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = frame_set_bindings.size(),
-        .pBindings = frame_set_bindings.data(),
-    };
-    vkb::DescriptorSetLayout frame_set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&frame_set_layout_ci, &frame_set_layout) == vkb::Result::Success);
 
-    vkb::DescriptorSetLayoutBinding geometry_set_binding{
-        .binding = 0,
-        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-        .descriptorCount = scene.texture_count(),
-        .stageFlags = vkb::ShaderStage::Fragment,
-        .pImmutableSamplers = scene.texture_samplers().data(),
-    };
-    vkb::DescriptorSetLayoutCreateInfo geometry_set_layout_ci{
-        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = 1,
-        .pBindings = &geometry_set_binding,
-    };
-    vkb::DescriptorSetLayout geometry_set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&geometry_set_layout_ci, &geometry_set_layout) ==
-                vkb::Result::Success);
-
-    Array deferred_set_bindings{
+    Array static_set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vkb::DescriptorType::SampledImage,
@@ -267,23 +218,75 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 4,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
     };
-    vkb::DescriptorSetLayoutCreateInfo deferred_set_layout_ci{
+    vkb::DescriptorSetLayoutCreateInfo static_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .bindingCount = deferred_set_bindings.size(),
-        .pBindings = deferred_set_bindings.data(),
+        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
+        .bindingCount = static_set_bindings.size(),
+        .pBindings = static_set_bindings.data(),
     };
-    vkb::DescriptorSetLayout deferred_set_layout;
-    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&deferred_set_layout_ci, &deferred_set_layout) ==
+    vkb::DescriptorSetLayout static_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&static_set_layout_ci, &static_set_layout) == vkb::Result::Success);
+
+    Array dynamic_set_bindings{
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vkb::DescriptorType::UniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::All,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 2,
+            .descriptorType = vkb::DescriptorType::StorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+    };
+    vkb::DescriptorSetLayoutCreateInfo dynamic_set_layout_ci{
+        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
+        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
+        .bindingCount = dynamic_set_bindings.size(),
+        .pBindings = dynamic_set_bindings.data(),
+    };
+    vkb::DescriptorSetLayout dynamic_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&dynamic_set_layout_ci, &dynamic_set_layout) ==
+                vkb::Result::Success);
+
+    vkb::DescriptorSetLayoutBinding texture_set_binding{
+        .binding = 0,
+        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+        .descriptorCount = scene.texture_count(),
+        .stageFlags = vkb::ShaderStage::Fragment,
+    };
+    vkb::DescriptorSetLayoutCreateInfo texture_set_layout_ci{
+        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
+        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
+        .bindingCount = 1,
+        .pBindings = &texture_set_binding,
+    };
+    vkb::DescriptorSetLayout texture_set_layout;
+    VULL_ENSURE(context.vkCreateDescriptorSetLayout(&texture_set_layout_ci, &texture_set_layout) ==
                 vkb::Result::Success);
 
     vkb::PushConstantRange push_constant_range{
-        .stageFlags = vkb::ShaderStage::All,
+        .stageFlags = vkb::ShaderStage::AllGraphics,
         .size = sizeof(PushConstantBlock),
     };
     Array geometry_set_layouts{
-        frame_set_layout,
-        geometry_set_layout,
+        dynamic_set_layout,
+        texture_set_layout,
     };
     vkb::PipelineLayoutCreateInfo geometry_pipeline_layout_ci{
         .sType = vkb::StructureType::PipelineLayoutCreateInfo,
@@ -297,8 +300,8 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
                 vkb::Result::Success);
 
     Array compute_set_layouts{
-        frame_set_layout,
-        deferred_set_layout,
+        dynamic_set_layout,
+        static_set_layout,
     };
     vkb::PipelineLayoutCreateInfo compute_pipeline_layout_ci{
         .sType = vkb::StructureType::PipelineLayoutCreateInfo,
@@ -449,6 +452,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vkb::GraphicsPipelineCreateInfo geometry_pass_pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &geometry_pass_rendering_create_info,
+        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
         .stageCount = geometry_pass_shader_stage_cis.size(),
         .pStages = geometry_pass_shader_stage_cis.data(),
         .pVertexInputState = &main_vertex_input_state,
@@ -471,6 +475,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vkb::GraphicsPipelineCreateInfo shadow_pass_pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &shadow_pass_rendering_create_info,
+        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
         .stageCount = 1,
         .pStages = &shadow_shader_stage_ci,
         .pVertexInputState = &shadow_vertex_input_state,
@@ -487,6 +492,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
 
     vkb::ComputePipelineCreateInfo light_cull_pipeline_ci{
         .sType = vkb::StructureType::ComputePipelineCreateInfo,
+        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
         .stage = light_cull_shader_stage_ci,
         .layout = compute_pipeline_layout,
     };
@@ -496,6 +502,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
 
     vkb::ComputePipelineCreateInfo deferred_pipeline_ci{
         .sType = vkb::StructureType::ComputePipelineCreateInfo,
+        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
         .stage = deferred_shader_stage_ci,
         .layout = compute_pipeline_layout,
     };
@@ -681,228 +688,24 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vkb::DeviceSize light_visibility_buffer_size = light_visibility_size * row_tile_count * col_tile_count;
 
     Array uniform_buffers{
-        context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice),
-        context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice),
+        context.create_buffer(sizeof(UniformBuffer),
+                              vkb::BufferUsage::UniformBuffer | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
+        context.create_buffer(sizeof(UniformBuffer),
+                              vkb::BufferUsage::UniformBuffer | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
     };
     Array light_buffers{
-        context.create_buffer(light_buffer_size, vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice),
-        context.create_buffer(light_buffer_size, vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice),
+        context.create_buffer(light_buffer_size,
+                              vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
+        context.create_buffer(light_buffer_size,
+                              vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
     };
-    auto light_visibility_buffer = context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
-                                                         vk::MemoryUsage::DeviceOnly);
-
-    Array descriptor_pool_sizes{
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 3,
-        },
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::UniformBuffer,
-            .descriptorCount = 2,
-        },
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 4,
-        },
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = scene.texture_count() + 1,
-        },
-        vkb::DescriptorPoolSize{
-            .type = vkb::DescriptorType::StorageImage,
-            .descriptorCount = 2,
-        },
-    };
-    vkb::DescriptorPoolCreateInfo descriptor_pool_ci{
-        .sType = vkb::StructureType::DescriptorPoolCreateInfo,
-        .maxSets = 4,
-        .poolSizeCount = descriptor_pool_sizes.size(),
-        .pPoolSizes = descriptor_pool_sizes.data(),
-    };
-    vkb::DescriptorPool descriptor_pool;
-    VULL_ENSURE(context.vkCreateDescriptorPool(&descriptor_pool_ci, &descriptor_pool) == vkb::Result::Success);
-
-    Array<vkb::DescriptorSet, 2> frame_sets;
-    Array frame_set_layouts{frame_set_layout, frame_set_layout};
-    vkb::DescriptorSetAllocateInfo frame_set_ai{
-        .sType = vkb::StructureType::DescriptorSetAllocateInfo,
-        .descriptorPool = descriptor_pool,
-        .descriptorSetCount = frame_sets.size(),
-        .pSetLayouts = frame_set_layouts.data(),
-    };
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&frame_set_ai, frame_sets.data()) == vkb::Result::Success);
-
-    vkb::DescriptorSetAllocateInfo geometry_set_ai{
-        .sType = vkb::StructureType::DescriptorSetAllocateInfo,
-        .descriptorPool = descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &geometry_set_layout,
-    };
-    vkb::DescriptorSet geometry_set;
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&geometry_set_ai, &geometry_set) == vkb::Result::Success);
-
-    vkb::DescriptorSetAllocateInfo deferred_set_ai{
-        .sType = vkb::StructureType::DescriptorSetAllocateInfo,
-        .descriptorPool = descriptor_pool,
-        .descriptorSetCount = 1,
-        .pSetLayouts = &deferred_set_layout,
-    };
-    vkb::DescriptorSet deferred_set;
-    VULL_ENSURE(context.vkAllocateDescriptorSets(&deferred_set_ai, &deferred_set) == vkb::Result::Success);
-
-    // Frame set.
-    Array<vkb::DescriptorBufferInfo, 2> uniform_buffer_infos{
-        vkb::DescriptorBufferInfo{
-            .buffer = *uniform_buffers[0],
-            .range = vkb::k_whole_size,
-        },
-        vkb::DescriptorBufferInfo{
-            .buffer = *uniform_buffers[1],
-            .range = vkb::k_whole_size,
-        },
-    };
-    Array<vkb::DescriptorBufferInfo, 2> light_buffer_infos{
-        vkb::DescriptorBufferInfo{
-            .buffer = *light_buffers[0],
-            .range = vkb::k_whole_size,
-        },
-        vkb::DescriptorBufferInfo{
-            .buffer = *light_buffers[1],
-            .range = vkb::k_whole_size,
-        },
-    };
-    vkb::DescriptorBufferInfo light_visibilities_buffer_info{
-        .buffer = *light_visibility_buffer,
-        .range = vkb::k_whole_size,
-    };
-
-    // Geometry set.
-    Vector<vkb::DescriptorImageInfo> texture_image_infos;
-    texture_image_infos.ensure_capacity(scene.texture_count());
-    for (auto *image_view : scene.texture_views()) {
-        texture_image_infos.push(vkb::DescriptorImageInfo{
-            .imageView = image_view,
-            .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-        });
-    }
-
-    // Deferred set.
-    vkb::DescriptorImageInfo depth_image_info{
-        .imageView = depth_image_view,
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo albedo_image_info{
-        .imageView = albedo_image_view,
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo normal_image_info{
-        .imageView = normal_image_view,
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo shadow_map_image_info{
-        .sampler = shadow_sampler,
-        .imageView = shadow_map_view,
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-
-    Array descriptor_writes{
-        // First frame set.
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[0],
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::UniformBuffer,
-            .pBufferInfo = &uniform_buffer_infos[0],
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[0],
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .pBufferInfo = &light_buffer_infos[0],
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[0],
-            .dstBinding = 2,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .pBufferInfo = &light_visibilities_buffer_info,
-        },
-
-        // Second frame set.
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[1],
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::UniformBuffer,
-            .pBufferInfo = &uniform_buffer_infos[1],
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[1],
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .pBufferInfo = &light_buffer_infos[1],
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_sets[1],
-            .dstBinding = 2,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .pBufferInfo = &light_visibilities_buffer_info,
-        },
-
-        // Geometry set.
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = geometry_set,
-            .dstBinding = 0,
-            .descriptorCount = texture_image_infos.size(),
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .pImageInfo = texture_image_infos.data(),
-        },
-
-        // Deferred set.
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = deferred_set,
-            .dstBinding = 0,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .pImageInfo = &depth_image_info,
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = deferred_set,
-            .dstBinding = 1,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .pImageInfo = &albedo_image_info,
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = deferred_set,
-            .dstBinding = 2,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .pImageInfo = &normal_image_info,
-        },
-        vkb::WriteDescriptorSet{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = deferred_set,
-            .dstBinding = 3,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .pImageInfo = &shadow_map_image_info,
-        },
-    };
-    context.vkUpdateDescriptorSets(descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
+    auto light_visibility_buffer = context.create_buffer(
+        light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::ShaderDeviceAddress,
+        vk::MemoryUsage::DeviceOnly);
 
     Vector<PointLight> lights(50);
     for (auto &light : lights) {
@@ -984,6 +787,90 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         }
     };
 
+    vkb::DeviceSize static_set_layout_size;
+    vkb::DeviceSize dynamic_set_layout_size;
+    vkb::DeviceSize texture_set_layout_size;
+    context.vkGetDescriptorSetLayoutSizeEXT(static_set_layout, &static_set_layout_size);
+    context.vkGetDescriptorSetLayoutSizeEXT(dynamic_set_layout, &dynamic_set_layout_size);
+    context.vkGetDescriptorSetLayoutSizeEXT(texture_set_layout, &texture_set_layout_size);
+
+    auto static_descriptor_buffer = context.create_buffer(
+        static_set_layout_size + texture_set_layout_size,
+        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT |
+            vkb::BufferUsage::ShaderDeviceAddress | vkb::BufferUsage::TransferDst,
+        vk::MemoryUsage::DeviceOnly);
+    auto descriptor_staging_buffer = context.create_buffer(static_set_layout_size + texture_set_layout_size,
+                                                           vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto *desc_ptr = descriptor_staging_buffer.mapped<uint8_t>();
+
+    auto put_desc = [&context](uint8_t *&desc_ptr, vkb::DescriptorType type, void *info) {
+        const auto size = context.descriptor_size(type);
+        vkb::DescriptorGetInfoEXT get_info{
+            .sType = vkb::StructureType::DescriptorGetInfoEXT,
+            .type = type,
+            .data{
+                .pSampler = static_cast<vkb::Sampler *>(info),
+            },
+        };
+        context.vkGetDescriptorEXT(&get_info, size, desc_ptr);
+        desc_ptr += size;
+    };
+
+    vkb::DescriptorImageInfo depth_image_info{
+        .imageView = depth_image_view,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
+    vkb::DescriptorImageInfo albedo_image_info{
+        .imageView = albedo_image_view,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
+    vkb::DescriptorImageInfo normal_image_info{
+        .imageView = normal_image_view,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
+    vkb::DescriptorImageInfo shadow_map_image_info{
+        .sampler = shadow_sampler,
+        .imageView = shadow_map_view,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
+    vkb::DescriptorAddressInfoEXT light_visibility_buffer_info{
+        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+        .address = light_visibility_buffer.device_address(),
+        .range = light_visibility_buffer_size,
+    };
+    put_desc(desc_ptr, vkb::DescriptorType::SampledImage, &depth_image_info);
+    put_desc(desc_ptr, vkb::DescriptorType::SampledImage, &albedo_image_info);
+    put_desc(desc_ptr, vkb::DescriptorType::SampledImage, &normal_image_info);
+    put_desc(desc_ptr, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
+    put_desc(desc_ptr, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_info);
+
+    for (uint32_t i = 0; i < scene.texture_count(); i++) {
+        vkb::DescriptorImageInfo image_info{
+            .sampler = scene.texture_samplers()[i],
+            .imageView = scene.texture_views()[i],
+            .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+        };
+        put_desc(desc_ptr, vkb::DescriptorType::CombinedImageSampler, &image_info);
+    }
+
+    queue.immediate_submit(cmd_pool, [&](const vk::CommandBuffer &cmd_buf) {
+        vkb::BufferCopy copy{
+            .size = static_set_layout_size + texture_set_layout_size,
+        };
+        cmd_buf.copy_buffer(*descriptor_staging_buffer, *static_descriptor_buffer, copy);
+    });
+
+    Array dynamic_descriptor_buffers{
+        context.create_buffer(dynamic_set_layout_size,
+                              vkb::BufferUsage::SamplerDescriptorBufferEXT |
+                                  vkb::BufferUsage::ResourceDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
+        context.create_buffer(dynamic_set_layout_size,
+                              vkb::BufferUsage::SamplerDescriptorBufferEXT |
+                                  vkb::BufferUsage::ResourceDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress,
+                              vk::MemoryUsage::HostToDevice),
+    };
+
     vk::RenderGraph render_graph;
 
     // GBuffer resources.
@@ -1015,7 +902,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     geometry_pass.writes_to(albedo_image_resource);
     geometry_pass.writes_to(normal_image_resource);
     geometry_pass.writes_to(depth_image_resource);
-    geometry_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+    geometry_pass.set_on_record([&](vk::CommandBuffer &cmd_buf) {
         Array colour_write_attachments{
             vkb::RenderingAttachmentInfo{
                 .sType = vkb::StructureType::RenderingAttachmentInfo,
@@ -1060,14 +947,14 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         };
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, geometry_pass_pipeline);
         cmd_buf.begin_rendering(rendering_info);
-        scene.render(cmd_buf, geometry_pipeline_layout, 0);
+        scene.render(cmd_buf, 0);
         cmd_buf.end_rendering();
     });
 
     auto &shadow_pass = render_graph.add_graphics_pass("Shadow pass");
     shadow_pass.reads_from(global_ubo_resource);
     shadow_pass.writes_to(shadow_map_resource);
-    shadow_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+    shadow_pass.set_on_record([&](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, shadow_pass_pipeline);
         for (uint32_t i = 0; i < shadow_cascade_count; i++) {
             vkb::RenderingAttachmentInfo shadow_map_write_attachment{
@@ -1089,7 +976,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
                 .pDepthAttachment = &shadow_map_write_attachment,
             };
             cmd_buf.begin_rendering(rendering_info);
-            scene.render(cmd_buf, geometry_pipeline_layout, i);
+            scene.render(cmd_buf, i);
             cmd_buf.end_rendering();
         }
     });
@@ -1099,7 +986,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     light_cull_pass.reads_from(depth_image_resource);
     light_cull_pass.reads_from(light_data_resource);
     light_cull_pass.writes_to(light_visibility_data_resource);
-    light_cull_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+    light_cull_pass.set_on_record([&](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, light_cull_pipeline);
         cmd_buf.dispatch(row_tile_count, col_tile_count, 1);
     });
@@ -1113,7 +1000,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     deferred_pass.reads_from(light_data_resource);
     deferred_pass.reads_from(light_visibility_data_resource);
     deferred_pass.writes_to(swapchain_resource);
-    deferred_pass.set_on_record([&](const vk::CommandBuffer &cmd_buf) {
+    deferred_pass.set_on_record([&](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Compute, deferred_pipeline);
         cmd_buf.dispatch(vull::ceil_div(window.width(), 8u), vull::ceil_div(window.height(), 8u), 1);
     });
@@ -1267,7 +1154,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         }
 
         const auto frame_index = frame_pacer.frame_index();
-        vkb::DescriptorSet frame_set = frame_sets[frame_index];
         void *light_data = light_buffers[frame_index].mapped_raw();
         void *ubo_data = uniform_buffers[frame_index].mapped_raw();
 
@@ -1276,35 +1162,43 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         memcpy(reinterpret_cast<char *>(light_data) + 4 * sizeof(float), lights.data(), lights.size_bytes());
         memcpy(ubo_data, &ubo, sizeof(UniformBuffer));
 
+        auto &dynamic_descriptor_buffer = dynamic_descriptor_buffers[frame_index];
+        auto *desc_data = dynamic_descriptor_buffer.mapped<uint8_t>();
+        vkb::DescriptorAddressInfoEXT ubo_address_info{
+            .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+            .address = uniform_buffers[frame_index].device_address(),
+            .range = sizeof(UniformBuffer),
+        };
+        vkb::DescriptorAddressInfoEXT light_buffer_address_info{
+            .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+            .address = light_buffers[frame_index].device_address(),
+            .range = light_buffer_size,
+        };
         const auto image_index = frame_pacer.image_index();
         vkb::DescriptorImageInfo output_image_info{
             .imageView = swapchain.image_view(image_index),
             .imageLayout = vkb::ImageLayout::General,
         };
-        vkb::WriteDescriptorSet output_image_write{
-            .sType = vkb::StructureType::WriteDescriptorSet,
-            .dstSet = frame_set,
-            .dstBinding = 3,
-            .descriptorCount = 1,
-            .descriptorType = vkb::DescriptorType::StorageImage,
-            .pImageInfo = &output_image_info,
-        };
-        context.vkUpdateDescriptorSets(1, &output_image_write, 0, nullptr);
+        put_desc(desc_data, vkb::DescriptorType::UniformBuffer, &ubo_address_info);
+        put_desc(desc_data, vkb::DescriptorType::StorageBuffer, &light_buffer_address_info);
+        put_desc(desc_data, vkb::DescriptorType::StorageImage, &output_image_info);
 
         Timer record_timer;
         auto &cmd_buf = cmd_pool.request_cmd_buf();
-
-        Array compute_sets{frame_set, deferred_set};
-        cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Compute, compute_pipeline_layout, compute_sets.span());
-
-        Array graphics_sets{frame_set, geometry_set};
-        cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Graphics, geometry_pipeline_layout, graphics_sets.span());
 
         vkb::Image swapchain_image = swapchain.image(image_index);
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
         global_ubo_resource.set_buffer(*uniform_buffers[frame_index]);
         light_data_resource.set_buffer(*light_buffers[frame_index]);
         swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
+
+        cmd_buf.bind_layout(vkb::PipelineBindPoint::Compute, compute_pipeline_layout);
+        cmd_buf.bind_layout(vkb::PipelineBindPoint::Graphics, geometry_pipeline_layout);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, static_descriptor_buffer, 1, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, static_descriptor_buffer, 1,
+                                       static_set_layout_size);
 
         vkb::MemoryBarrier2 memory_barrier{
             .sType = vkb::StructureType::MemoryBarrier2,
@@ -1350,7 +1244,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();
-    context.vkDestroyDescriptorPool(descriptor_pool);
     context.vkDestroySampler(shadow_sampler);
     for (auto *cascade_view : shadow_cascade_views) {
         context.vkDestroyImageView(cascade_view);
@@ -1369,9 +1262,9 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     context.vkDestroyPipeline(geometry_pass_pipeline);
     context.vkDestroyPipelineLayout(compute_pipeline_layout);
     context.vkDestroyPipelineLayout(geometry_pipeline_layout);
-    context.vkDestroyDescriptorSetLayout(deferred_set_layout);
-    context.vkDestroyDescriptorSetLayout(geometry_set_layout);
-    context.vkDestroyDescriptorSetLayout(frame_set_layout);
+    context.vkDestroyDescriptorSetLayout(texture_set_layout);
+    context.vkDestroyDescriptorSetLayout(dynamic_set_layout);
+    context.vkDestroyDescriptorSetLayout(static_set_layout);
     context.vkDestroyShaderModule(ui_fragment_shader);
     context.vkDestroyShaderModule(ui_vertex_shader);
     context.vkDestroyShaderModule(shadow_shader);

@@ -318,7 +318,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_pa
     m_context.vkDestroyBuffer(staging_buffer);
 }
 
-void Scene::render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index) {
+void Scene::render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index) {
     for (auto [entity, mesh, material] : m_world.view<Mesh, Material>()) {
         auto vertex_buffer = m_vertex_buffers.get(mesh.vertex_data_name());
         auto index_buffer = m_index_buffers.get(mesh.index_data_name());
@@ -340,7 +340,7 @@ void Scene::render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipelin
         };
         cmd_buf.bind_vertex_buffer(*vertex_buffer);
         cmd_buf.bind_index_buffer(*index_buffer, vkb::IndexType::Uint32);
-        cmd_buf.push_constants(pipeline_layout, vkb::ShaderStage::All, sizeof(PushConstantBlock), &push_constant_block);
+        cmd_buf.push_constants(vkb::ShaderStage::AllGraphics, sizeof(PushConstantBlock), &push_constant_block);
         cmd_buf.draw_indexed(*m_index_counts.get(mesh.index_data_name()), 1);
     }
 }

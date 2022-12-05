@@ -13,6 +13,7 @@ class Buffer {
 private:
     Allocation m_allocation;
     vkb::Buffer m_buffer{nullptr};
+    vkb::BufferUsage m_usage{};
     vkb::DeviceAddress m_device_address{0};
 
     Buffer(Allocation &&allocation, vkb::Buffer buffer, vkb::BufferUsage usage);
@@ -27,7 +28,8 @@ public:
     Buffer &operator=(Buffer &&);
 
     vkb::Buffer operator*() const { return m_buffer; }
-    vkb::DeviceAddress device_address() const { return m_device_address; }
+    vkb::BufferUsage usage() const { return m_usage; }
+    vkb::DeviceAddress device_address() const;
     void *mapped_raw() const { return m_allocation.mapped_data(); }
     template <typename T>
     T *mapped() const;

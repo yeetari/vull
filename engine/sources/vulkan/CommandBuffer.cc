@@ -66,6 +66,22 @@ void CommandBuffer::reset() {
     m_context.vkBeginCommandBuffer(m_cmd_buf, &cmd_buf_bi);
 }
 
+void CommandBuffer::emit_descriptor_binds() {
+    if (m_descriptor_buffers.empty()) {
+        return;
+    }
+    m_context.vkCmdBindDescriptorBuffersEXT(m_cmd_buf, m_descriptor_buffers.size(), m_descriptor_buffers.data());
+
+    // TODO: Batch this.
+    for (const auto &binding : m_descriptor_buffer_bindings) {
+        auto *layout = binding.bind_point == vkb::PipelineBindPoint::Compute ? m_compute_layout : m_graphics_layout;
+        m_context.vkCmdSetDescriptorBufferOffsetsEXT(m_cmd_buf, binding.bind_point, layout, binding.set, 1,
+                                                     &binding.buffer_index, &binding.offset);
+    }
+    m_descriptor_buffers.clear();
+    m_descriptor_buffer_bindings.clear();
+}
+
 void CommandBuffer::begin_rendering(const vkb::RenderingInfo &rendering_info) const {
     m_context.vkCmdBeginRendering(m_cmd_buf, &rendering_info);
 }
@@ -78,14 +94,48 @@ void CommandBuffer::bind_associated_buffer(Buffer &&buffer) {
     m_associated_buffers.push(vull::move(buffer));
 }
 
-void CommandBuffer::bind_descriptor_sets(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout,
-                                         Span<vkb::DescriptorSet> descriptor_sets) const {
-    m_context.vkCmdBindDescriptorSets(m_cmd_buf, bind_point, layout, 0, descriptor_sets.size(), descriptor_sets.data(),
-                                      0, nullptr);
+void CommandBuffer::bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, const Buffer &buffer, uint32_t set,
+                                           vkb::DeviceSize offset) {
+    VULL_ASSERT((buffer.usage() & (vkb::BufferUsage::ResourceDescriptorBufferEXT |
+                                   vkb::BufferUsage::SamplerDescriptorBufferEXT)) != static_cast<vkb::BufferUsage>(0));
+    uint32_t buffer_index = m_descriptor_buffers.size();
+    bool need_to_bind = true;
+    for (uint32_t i = 0; i < m_descriptor_buffers.size(); i++) {
+        if (m_descriptor_buffers[i].address == buffer.device_address()) {
+            buffer_index = i;
+            need_to_bind = false;
+        }
+    }
+    m_descriptor_buffer_bindings.push({
+        .bind_point = bind_point,
+        .set = set,
+        .buffer_index = buffer_index,
+        .offset = offset,
+    });
+    if (need_to_bind) {
+        m_descriptor_buffers.push({
+            .sType = vkb::StructureType::DescriptorBufferBindingInfoEXT,
+            .address = buffer.device_address(),
+            .usage = buffer.usage(),
+        });
+    }
 }
 
 void CommandBuffer::bind_index_buffer(vkb::Buffer buffer, vkb::IndexType index_type) const {
     m_context.vkCmdBindIndexBuffer(m_cmd_buf, buffer, 0, index_type);
+}
+
+void CommandBuffer::bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout) {
+    switch (bind_point) {
+    case vkb::PipelineBindPoint::Compute:
+        m_compute_layout = layout;
+        break;
+    case vkb::PipelineBindPoint::Graphics:
+        m_graphics_layout = layout;
+        break;
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
 }
 
 void CommandBuffer::bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeline pipeline) const {
@@ -106,20 +156,30 @@ void CommandBuffer::copy_buffer_to_image(vkb::Buffer src, vkb::Image dst, vkb::I
     m_context.vkCmdCopyBufferToImage(m_cmd_buf, src, dst, dst_layout, regions.size(), regions.data());
 }
 
-void CommandBuffer::push_constants(vkb::PipelineLayout layout, vkb::ShaderStage stage, uint32_t size,
-                                   const void *data) const {
-    m_context.vkCmdPushConstants(m_cmd_buf, layout, stage, 0, size, data);
+void CommandBuffer::push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const {
+    VULL_ASSERT(stage != vkb::ShaderStage::All);
+    if (stage == vkb::ShaderStage::Compute) {
+        m_context.vkCmdPushConstants(m_cmd_buf, m_compute_layout, stage, 0, size, data);
+        return;
+    }
+    if (stage != vkb::ShaderStage::AllGraphics) {
+        VULL_ASSERT((stage & vkb::ShaderStage::Compute) != vkb::ShaderStage::Compute);
+    }
+    m_context.vkCmdPushConstants(m_cmd_buf, m_graphics_layout, stage, 0, size, data);
 }
 
-void CommandBuffer::dispatch(uint32_t x, uint32_t y, uint32_t z) const {
+void CommandBuffer::dispatch(uint32_t x, uint32_t y, uint32_t z) {
+    emit_descriptor_binds();
     m_context.vkCmdDispatch(m_cmd_buf, x, y, z);
 }
 
-void CommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count) const {
+void CommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count) {
+    emit_descriptor_binds();
     m_context.vkCmdDraw(m_cmd_buf, vertex_count, instance_count, 0, 0);
 }
 
-void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) const {
+void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) {
+    emit_descriptor_binds();
     m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, 0, 0, 0);
 }
 

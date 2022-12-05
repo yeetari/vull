@@ -13,10 +13,11 @@ layout (binding = 1, std430) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (binding = 2) writeonly buffer LightVisibilities {
+
+layout (set = 1, binding = 0) uniform texture2D g_depth_image;
+layout (set = 1, binding = 4) writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-layout (set = 1, binding = 0) uniform texture2D g_depth_image;
 
 struct ViewFrustum {
     vec3 planes[4];

@@ -16,14 +16,26 @@ class QueryPool;
 class CommandBuffer {
     friend CommandPool;
 
+    struct DescriptorBufferBinding {
+        vkb::PipelineBindPoint bind_point;
+        uint32_t set;
+        uint32_t buffer_index;
+        vkb::DeviceSize offset;
+    };
+
 private:
     const Context &m_context;
     const vkb::CommandBuffer m_cmd_buf;
     vkb::Semaphore m_completion_semaphore;
     uint64_t m_completion_value{0};
     Vector<Buffer> m_associated_buffers;
+    Vector<vkb::DescriptorBufferBindingInfoEXT> m_descriptor_buffers;
+    Vector<DescriptorBufferBinding> m_descriptor_buffer_bindings;
+    vkb::PipelineLayout m_compute_layout;
+    vkb::PipelineLayout m_graphics_layout;
 
     void reset();
+    void emit_descriptor_binds();
 
 public:
     CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf);
@@ -38,20 +50,21 @@ public:
     void end_rendering() const;
 
     void bind_associated_buffer(Buffer &&buffer);
-    void bind_descriptor_sets(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout,
-                              Span<vkb::DescriptorSet> descriptor_sets) const;
+    void bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, const Buffer &buffer, uint32_t set,
+                                vkb::DeviceSize offset);
     void bind_index_buffer(vkb::Buffer buffer, vkb::IndexType index_type) const;
+    void bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout);
     void bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeline pipeline) const;
     void bind_vertex_buffer(vkb::Buffer buffer) const;
 
     void copy_buffer(vkb::Buffer src, vkb::Buffer dst, Span<vkb::BufferCopy> regions) const;
     void copy_buffer_to_image(vkb::Buffer src, vkb::Image dst, vkb::ImageLayout dst_layout,
                               Span<vkb::BufferImageCopy> regions) const;
-    void push_constants(vkb::PipelineLayout layout, vkb::ShaderStage stage, uint32_t size, const void *data) const;
+    void push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const;
 
-    void dispatch(uint32_t x, uint32_t y, uint32_t z) const;
-    void draw(uint32_t vertex_count, uint32_t instance_count) const;
-    void draw_indexed(uint32_t index_count, uint32_t instance_count) const;
+    void dispatch(uint32_t x, uint32_t y = 1, uint32_t z = 1);
+    void draw(uint32_t vertex_count, uint32_t instance_count);
+    void draw_indexed(uint32_t index_count, uint32_t instance_count);
 
     void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
     void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;

@@ -8,6 +8,7 @@
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
 
+#include <stddef.h>
 #include <stdint.h>
 
 namespace vull::vk {
@@ -16,6 +17,7 @@ class Allocator;
 
 class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceProperties m_properties{};
+    vkb::PhysicalDeviceDescriptorBufferPropertiesEXT m_descriptor_buffer_properties{};
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<vkb::QueueFamilyProperties> m_queue_families;
     Vector<UniquePtr<Allocator>> m_allocators;
@@ -35,6 +37,7 @@ public:
     Allocation bind_memory(vkb::Buffer buffer, MemoryUsage usage);
     Allocation bind_memory(vkb::Image image, MemoryUsage usage);
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
+    size_t descriptor_size(vkb::DescriptorType type) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     const Vector<vkb::QueueFamilyProperties> &queue_families() const { return m_queue_families; }
 };

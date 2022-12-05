@@ -31,7 +31,7 @@ public:
     GpuFont &operator=(const GpuFont &) = delete;
     GpuFont &operator=(GpuFont &&) = delete;
 
-    void rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set, vkb::Sampler sampler);
+    void rasterise(uint32_t glyph_index, uint8_t *descriptor_data, vkb::Sampler sampler);
 };
 
 } // namespace vull::ui

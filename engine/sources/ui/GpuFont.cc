@@ -39,7 +39,7 @@ GpuFont::~GpuFont() {
     }
 }
 
-void GpuFont::rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set, vkb::Sampler sampler) {
+void GpuFont::rasterise(uint32_t glyph_index, uint8_t *descriptor_data, vkb::Sampler sampler) {
     vkb::ImageCreateInfo image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
         .imageType = vkb::ImageType::_2D,
@@ -83,19 +83,16 @@ void GpuFont::rasterise(uint32_t glyph_index, vkb::DescriptorSet descriptor_set,
         .imageView = m_image_views[glyph_index],
         .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
     };
-    vkb::WriteDescriptorSet descriptor_write{
-        .sType = vkb::StructureType::WriteDescriptorSet,
-        .dstSet = descriptor_set,
-        .dstBinding = 0,
-        .dstArrayElement = glyph_index,
-        .descriptorCount = 1,
+    vkb::DescriptorGetInfoEXT descriptor_info{
+        .sType = vkb::StructureType::DescriptorGetInfoEXT,
         // TODO: Don't use combined image sampler.
-        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-        .pImageInfo = &image_info,
+        .type = vkb::DescriptorType::CombinedImageSampler,
+        .data{
+            .pCombinedImageSampler = &image_info,
+        },
     };
-    // TODO: Device wait idle hack to avoid updating in-use descriptor set.
-    m_context.vkDeviceWaitIdle();
-    m_context.vkUpdateDescriptorSets(1, &descriptor_write, 0, nullptr);
+    const auto descriptor_size = m_context.descriptor_size(descriptor_info.type);
+    m_context.vkGetDescriptorEXT(&descriptor_info, descriptor_size, descriptor_data + glyph_index * descriptor_size);
 }
 
 } // namespace vull::ui

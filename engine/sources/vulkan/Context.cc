@@ -22,6 +22,7 @@
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
+#include <stddef.h>
 #include <stdint.h>
 
 namespace vull::vk {
@@ -107,7 +108,13 @@ Context::Context() : ContextTable{} {
     VULL_ENSURE(enumeration_result == vkb::Result::Success || enumeration_result == vkb::Result::Incomplete);
     VULL_ENSURE(physical_device_count == 1);
 
-    vkGetPhysicalDeviceProperties(&m_properties);
+    m_descriptor_buffer_properties.sType = vkb::StructureType::PhysicalDeviceDescriptorBufferPropertiesEXT;
+    vkb::PhysicalDeviceProperties2 properties{
+        .sType = vkb::StructureType::PhysicalDeviceProperties2,
+        .pNext = &m_descriptor_buffer_properties,
+    };
+    vkGetPhysicalDeviceProperties2(&properties);
+    m_properties = properties.properties;
     vull::info("[vulkan] Creating device from {}", m_properties.deviceName);
 
     uint32_t queue_family_count = 0;
@@ -168,15 +175,29 @@ Context::Context() : ContextTable{} {
         .pNext = &device_13_features,
         .shaderSharedFloat32AtomicMinMax = true,
     };
+    vkb::PhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
+        .sType = vkb::StructureType::PhysicalDeviceDescriptorBufferFeaturesEXT,
+        .pNext = &atomic_float_min_max_features,
+        .descriptorBuffer = true,
+    };
+
+    vull::trace("[vulkan] maxDescriptorBufferBindings: {}", m_descriptor_buffer_properties.maxDescriptorBufferBindings);
+    vull::trace("[vulkan] maxResourceDescriptorBufferBindings: {}",
+                m_descriptor_buffer_properties.maxResourceDescriptorBufferBindings);
+    vull::trace("[vulkan] maxSamplerDescriptorBufferBindings: {}",
+                m_descriptor_buffer_properties.maxSamplerDescriptorBufferBindings);
+    vull::trace("[vulkan] combinedImageSamplerDescriptorSingleArray: {}",
+                m_descriptor_buffer_properties.combinedImageSamplerDescriptorSingleArray ? "yes" : "no");
 
     Array enabled_device_extensions{
+        "VK_EXT_descriptor_buffer",
         "VK_EXT_shader_atomic_float",
         "VK_EXT_shader_atomic_float2",
         "VK_KHR_swapchain",
     };
     vkb::DeviceCreateInfo device_ci{
         .sType = vkb::StructureType::DeviceCreateInfo,
-        .pNext = &atomic_float_min_max_features,
+        .pNext = &descriptor_buffer_features,
         .queueCreateInfoCount = queue_cis.size(),
         .pQueueCreateInfos = queue_cis.data(),
         .enabledExtensionCount = enabled_device_extensions.size(),
@@ -333,6 +354,29 @@ Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, Memo
     const auto &info = allocation.info();
     VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
     return {vull::move(allocation), buffer, usage};
+}
+
+size_t Context::descriptor_size(vkb::DescriptorType type) const {
+    switch (type) {
+    case vkb::DescriptorType::Sampler:
+        return m_descriptor_buffer_properties.samplerDescriptorSize;
+    case vkb::DescriptorType::CombinedImageSampler:
+        return m_descriptor_buffer_properties.combinedImageSamplerDescriptorSize;
+    case vkb::DescriptorType::SampledImage:
+        return m_descriptor_buffer_properties.sampledImageDescriptorSize;
+    case vkb::DescriptorType::StorageImage:
+        return m_descriptor_buffer_properties.storageImageDescriptorSize;
+    case vkb::DescriptorType::UniformTexelBuffer:
+        return m_descriptor_buffer_properties.uniformTexelBufferDescriptorSize;
+    case vkb::DescriptorType::StorageTexelBuffer:
+        return m_descriptor_buffer_properties.storageTexelBufferDescriptorSize;
+    case vkb::DescriptorType::UniformBuffer:
+        return m_descriptor_buffer_properties.uniformBufferDescriptorSize;
+    case vkb::DescriptorType::StorageBuffer:
+        return m_descriptor_buffer_properties.storageBufferDescriptorSize;
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
 }
 
 float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {

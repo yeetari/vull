@@ -65,7 +65,7 @@ public:
 
     Mat4f get_transform_matrix(EntityId entity);
     void load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_path, StringView scene_name);
-    void render(const vk::CommandBuffer &cmd_buf, vkb::PipelineLayout pipeline_layout, uint32_t cascade_index);
+    void render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index);
 
     World &world() { return m_world; }
     uint32_t texture_count() const { return m_texture_images.size(); }

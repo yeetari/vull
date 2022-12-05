@@ -4,6 +4,7 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 #include <vull/ui/GpuFont.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -40,11 +41,10 @@ class Renderer {
     const vk::Swapchain &m_swapchain;
     FT_Library m_ft_library{nullptr};
     vkb::Sampler m_font_sampler{nullptr};
-    vkb::DescriptorPool m_descriptor_pool{nullptr};
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
-    vkb::DescriptorSet m_descriptor_set{nullptr};
     vkb::PipelineLayout m_pipeline_layout{nullptr};
     vkb::Pipeline m_pipeline{nullptr};
+    vk::Buffer m_descriptor_buffer;
 
     float m_global_scale{1.0f};
     Vector<Object> m_objects;
