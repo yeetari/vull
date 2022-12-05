@@ -1292,7 +1292,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         context.vkUpdateDescriptorSets(1, &output_image_write, 0, nullptr);
 
         Timer record_timer;
-        const auto &cmd_buf = cmd_pool.request_cmd_buf();
+        auto &cmd_buf = cmd_pool.request_cmd_buf();
 
         Array compute_sets{frame_set, deferred_set};
         cmd_buf.bind_descriptor_sets(vkb::PipelineBindPoint::Compute, compute_pipeline_layout, compute_sets.span());

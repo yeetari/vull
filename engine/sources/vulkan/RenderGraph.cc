@@ -163,7 +163,7 @@ bool Pass::does_write_to(Resource &resource) {
     return false;
 }
 
-void Pass::record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) {
+void Pass::record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) {
     Vector<vkb::BufferMemoryBarrier2> buffer_barriers;
     Vector<vkb::ImageMemoryBarrier2> image_barriers;
     auto add_barriers = [&](const Vector<ResourceUse> &uses) {
@@ -318,7 +318,7 @@ void RenderGraph::compile(Resource &target) {
     }
 }
 
-void RenderGraph::record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) const {
+void RenderGraph::record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool) const {
     if (timestamp_pool) {
         cmd_buf.reset_query_pool(*timestamp_pool);
         cmd_buf.write_timestamp(vkb::PipelineStage2::None, *timestamp_pool, 0);

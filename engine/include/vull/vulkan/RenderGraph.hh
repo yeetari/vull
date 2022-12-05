@@ -120,11 +120,11 @@ private:
     const String m_name;
     Vector<ResourceUse> m_reads;
     Vector<ResourceUse> m_writes;
-    Function<void(const CommandBuffer &)> m_on_record;
+    Function<void(CommandBuffer &)> m_on_record;
     uint32_t m_order_index{~0u};
 
     bool does_write_to(Resource &resource);
-    void record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool);
+    void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool);
     void set_order_index(uint32_t order_index) { m_order_index = order_index; }
 
 public:
@@ -132,7 +132,7 @@ public:
 
     void reads_from(Resource &resource);
     void writes_to(Resource &resource);
-    void set_on_record(Function<void(const CommandBuffer &)> on_record) { m_on_record = vull::move(on_record); }
+    void set_on_record(Function<void(CommandBuffer &)> on_record) { m_on_record = vull::move(on_record); }
 
     PassKind kind() const { return m_kind; }
     const String &name() const { return m_name; }
@@ -153,7 +153,7 @@ public:
     BufferResource &add_storage_buffer(String name);
     BufferResource &add_uniform_buffer(String name);
     void compile(Resource &target);
-    void record(const CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool = {}) const;
+    void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool = {}) const;
     String to_dot() const;
 
     const Vector<UniquePtr<Pass>> &passes() const { return m_passes; }
