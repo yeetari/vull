@@ -25,6 +25,8 @@
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
+#include <vull/support/Result.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Tuple.hh>
@@ -43,6 +45,7 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
+#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -66,21 +69,14 @@ uint32_t find_graphics_family(const vk::Context &context) {
     VULL_ENSURE_NOT_REACHED();
 }
 
-vkb::ShaderModule load_shader(const vk::Context &context, const char *path) {
+Vector<uint8_t> load(const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
-    LargeVector<uint32_t> binary(static_cast<size_t>(ftell(file)) / sizeof(uint32_t));
+    Vector<uint8_t> binary(static_cast<uint32_t>(ftell(file)));
     fseek(file, 0, SEEK_SET);
-    VULL_ENSURE(fread(binary.data(), sizeof(uint32_t), binary.size(), file) == binary.size());
+    VULL_ENSURE(fread(binary.data(), 1, binary.size(), file) == binary.size());
     fclose(file);
-    vkb::ShaderModuleCreateInfo module_ci{
-        .sType = vkb::StructureType::ShaderModuleCreateInfo,
-        .codeSize = binary.size_bytes(),
-        .pCode = binary.data(),
-    };
-    vkb::ShaderModule module;
-    VULL_ENSURE(context.vkCreateShaderModule(&module_ci, &module) == vkb::Result::Success);
-    return module;
+    return binary;
 }
 
 void main_task(Scheduler &scheduler, StringView scene_name) {
@@ -147,51 +143,19 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .pData = &specialisation_data,
     };
 
-    auto *default_vertex_shader = load_shader(context, "engine/shaders/default.vert.spv");
-    auto *default_fragment_shader = load_shader(context, "engine/shaders/default.frag.spv");
-    auto *deferred_shader = load_shader(context, "engine/shaders/deferred.comp.spv");
-    auto *light_cull_shader = load_shader(context, "engine/shaders/light_cull.comp.spv");
-    auto *shadow_shader = load_shader(context, "engine/shaders/shadow.vert.spv");
-    auto *ui_vertex_shader = load_shader(context, "engine/shaders/ui.vert.spv");
-    auto *ui_fragment_shader = load_shader(context, "engine/shaders/ui.frag.spv");
+    auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
+    auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));
+    auto deferred_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/deferred.comp.spv").span()));
+    auto light_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/light_cull.comp.spv").span()));
+    auto shadow_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/shadow.vert.spv").span()));
+    auto ui_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.vert.spv").span()));
+    auto ui_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.frag.spv").span()));
 
     Array geometry_pass_shader_stage_cis{
-        vkb::PipelineShaderStageCreateInfo{
-            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vkb::ShaderStage::Vertex,
-            .module = default_vertex_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
-        vkb::PipelineShaderStageCreateInfo{
-            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vkb::ShaderStage::Fragment,
-            .module = default_fragment_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
+        default_vs.create_info(specialisation_info),
+        default_fs.create_info(specialisation_info),
     };
-    vkb::PipelineShaderStageCreateInfo deferred_shader_stage_ci{
-        .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-        .stage = vkb::ShaderStage::Compute,
-        .module = deferred_shader,
-        .pName = "main",
-        .pSpecializationInfo = &specialisation_info,
-    };
-    vkb::PipelineShaderStageCreateInfo light_cull_shader_stage_ci{
-        .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-        .stage = vkb::ShaderStage::Compute,
-        .module = light_cull_shader,
-        .pName = "main",
-        .pSpecializationInfo = &specialisation_info,
-    };
-    vkb::PipelineShaderStageCreateInfo shadow_shader_stage_ci{
-        .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-        .stage = vkb::ShaderStage::Vertex,
-        .module = shadow_shader,
-        .pName = "main",
-        .pSpecializationInfo = &specialisation_info,
-    };
+    auto shadow_shader_stage_ci = shadow_shader.create_info(specialisation_info);
 
     Array static_set_bindings{
         vkb::DescriptorSetLayoutBinding{
@@ -493,7 +457,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vkb::ComputePipelineCreateInfo light_cull_pipeline_ci{
         .sType = vkb::StructureType::ComputePipelineCreateInfo,
         .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
-        .stage = light_cull_shader_stage_ci,
+        .stage = light_cull_shader.create_info(specialisation_info),
         .layout = compute_pipeline_layout,
     };
     vkb::Pipeline light_cull_pipeline;
@@ -503,7 +467,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vkb::ComputePipelineCreateInfo deferred_pipeline_ci{
         .sType = vkb::StructureType::ComputePipelineCreateInfo,
         .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
-        .stage = deferred_shader_stage_ci,
+        .stage = deferred_shader.create_info(specialisation_info),
         .layout = compute_pipeline_layout,
     };
     vkb::Pipeline deferred_pipeline;
@@ -1005,7 +969,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         cmd_buf.dispatch(vull::ceil_div(window.width(), 8u), vull::ceil_div(window.height(), 8u), 1);
     });
 
-    ui::Renderer ui(context, render_graph, swapchain, swapchain_resource, ui_vertex_shader, ui_fragment_shader);
+    ui::Renderer ui(context, render_graph, swapchain, swapchain_resource, ui_vs, ui_fs);
     ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.7f, 0.2f, 0.3f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
@@ -1265,13 +1229,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     context.vkDestroyDescriptorSetLayout(texture_set_layout);
     context.vkDestroyDescriptorSetLayout(dynamic_set_layout);
     context.vkDestroyDescriptorSetLayout(static_set_layout);
-    context.vkDestroyShaderModule(ui_fragment_shader);
-    context.vkDestroyShaderModule(ui_vertex_shader);
-    context.vkDestroyShaderModule(shadow_shader);
-    context.vkDestroyShaderModule(light_cull_shader);
-    context.vkDestroyShaderModule(deferred_shader);
-    context.vkDestroyShaderModule(default_fragment_shader);
-    context.vkDestroyShaderModule(default_vertex_shader);
 }
 
 } // namespace

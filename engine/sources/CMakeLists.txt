@@ -42,4 +42,5 @@ target_sources(vull PRIVATE
     vulkan/Queue.cc
     vulkan/RenderGraph.cc
     vulkan/Semaphore.cc
+    vulkan/Shader.cc
     vulkan/Swapchain.cc)

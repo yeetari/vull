@@ -17,6 +17,7 @@ namespace vull::vk {
 class Context;
 class ImageResource;
 class RenderGraph;
+class Shader;
 class Swapchain;
 
 } // namespace vull::vk
@@ -51,7 +52,7 @@ class Renderer {
 
 public:
     Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
-             vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader, vkb::ShaderModule fragment_shader);
+             vk::ImageResource &swapchain_resource, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();

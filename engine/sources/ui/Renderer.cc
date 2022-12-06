@@ -14,6 +14,7 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/RenderGraph.hh>
+#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -27,8 +28,8 @@
 namespace vull::ui {
 
 Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
-                   vk::ImageResource &swapchain_resource, vkb::ShaderModule vertex_shader,
-                   vkb::ShaderModule fragment_shader)
+                   vk::ImageResource &swapchain_resource, const vk::Shader &vertex_shader,
+                   const vk::Shader &fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
 
@@ -163,20 +164,8 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
     };
 
     Array shader_stage_cis{
-        vkb::PipelineShaderStageCreateInfo{
-            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vkb::ShaderStage::Vertex,
-            .module = vertex_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
-        vkb::PipelineShaderStageCreateInfo{
-            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-            .stage = vkb::ShaderStage::Fragment,
-            .module = fragment_shader,
-            .pName = "main",
-            .pSpecializationInfo = &specialisation_info,
-        },
+        vertex_shader.create_info(specialisation_info),
+        fragment_shader.create_info(specialisation_info),
     };
     const auto colour_format = vkb::Format::B8G8R8A8Unorm;
     vkb::PipelineRenderingCreateInfo rendering_create_info{
