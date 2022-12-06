@@ -29,7 +29,8 @@ public:
 
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
     constexpr operator Span<void, SizeT>() const requires(!is_const<T>) { return {data(), size_bytes()}; }
-    constexpr operator Span<const void, SizeT>() const { return {data(), size_bytes()}; }
+    constexpr operator Span<const void, SizeT>() const requires(!is_void) { return {data(), size_bytes()}; }
+    constexpr operator Span<const T, SizeT>() const { return {data(), size_bytes()}; }
 
     constexpr T *begin() const { return m_data; }
     constexpr T *end() const { return m_data + m_size; }
