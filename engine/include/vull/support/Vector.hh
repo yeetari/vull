@@ -99,8 +99,8 @@ Vector<T, SizeType>::Vector(It first, It last) {
 template <typename T, typename SizeType>
 Vector<T, SizeType>::Vector(Vector &&other) {
     m_data = exchange(other.m_data, nullptr);
-    m_capacity = exchange(other.m_capacity, 0u);
-    m_size = exchange(other.m_size, 0u);
+    m_capacity = exchange(other.m_capacity, SizeType(0));
+    m_size = exchange(other.m_size, SizeType(0));
 }
 
 template <typename T, typename SizeType>
@@ -113,8 +113,8 @@ Vector<T, SizeType> &Vector<T, SizeType>::operator=(Vector &&other) {
     if (this != &other) {
         clear();
         m_data = exchange(other.m_data, nullptr);
-        m_capacity = exchange(other.m_capacity, 0u);
-        m_size = exchange(other.m_size, 0u);
+        m_capacity = exchange(other.m_capacity, SizeType(0));
+        m_size = exchange(other.m_size, SizeType(0));
     }
     return *this;
 }
@@ -238,8 +238,8 @@ void Vector<T, SizeType>::pop() {
 
 template <typename T, typename SizeType>
 Span<typename Vector<T, SizeType>::StorageType, SizeType> Vector<T, SizeType>::take_all() {
-    m_capacity = 0u;
-    return {exchange(m_data, nullptr), exchange(m_size, 0u)};
+    m_capacity = 0;
+    return {exchange(m_data, nullptr), exchange(m_size, SizeType(0))};
 }
 
 template <typename T, typename SizeType>
