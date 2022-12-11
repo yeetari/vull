@@ -17,7 +17,7 @@ namespace vull {
 class StringBuilder {
     LargeVector<char> m_buffer;
 
-    void append_single(float, const char *);
+    void append_single(double, const char *);
     void append_single(size_t, const char *);
     void append_single(StringView, const char *);
 

@@ -12,7 +12,7 @@
 
 namespace vull {
 
-void StringBuilder::append_single(float arg, const char *) {
+void StringBuilder::append_single(double arg, const char *) {
     // TODO: Own implementation.
     Array<char, 20> buf{};
     int length = snprintf(buf.data(), buf.size(), "%f", arg); // NOLINT
