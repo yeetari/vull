@@ -170,8 +170,12 @@ void close_log() {
     s_state.close();
 }
 
-void println(StringView line) {
+void print(StringView line) {
     fwrite(line.data(), 1, line.length(), stdout);
+}
+
+void println(StringView line) {
+    print(line);
     fputc('\n', stdout);
 }
 

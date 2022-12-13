@@ -30,7 +30,12 @@ constexpr Array k_level_strings{
 void logln(String &&);
 void close_log();
 
+void print(StringView);
 void println(StringView);
+template <typename... Args>
+void print(StringView fmt, Args &&...args) {
+    print(vull::format(fmt, vull::forward<Args>(args)...));
+}
 template <typename... Args>
 void println(StringView fmt, Args &&...args) {
     println(vull::format(fmt, vull::forward<Args>(args)...));
