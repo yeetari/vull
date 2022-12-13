@@ -1,6 +1,4 @@
-# TODO: Being an object library might increase the build time for executables linking to vull, investigate when vull
-#       is a bit bigger.
-add_library(vull OBJECT)
+add_library(vull)
 add_subdirectory(sources)
 target_add_shader(vull shaders/default.frag)
 target_add_shader(vull shaders/default.vert)
