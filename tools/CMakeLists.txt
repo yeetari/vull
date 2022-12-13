@@ -32,6 +32,11 @@ if(VULL_BUILD_GLTF)
     target_sources(vpak PRIVATE vpak/GltfParser.cc)
 endif()
 
+add_executable(vsi vsi/main.cc)
+target_compile_features(vsi PRIVATE cxx_std_20)
+target_compile_options(vsi PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
+target_link_libraries(vsi PRIVATE vull)
+
 add_executable(vslc
     vslc/spv/Backend.cc
     vslc/spv/Builder.cc

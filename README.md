@@ -73,9 +73,10 @@ To configure vull, use:
 
 ### Running
 
-Depending on the options passed to CMake, four executables can be produced after building:
+Depending on the options passed to CMake, five executables can be produced after building:
 
 * `./build/engine/vull-tests`
 * `./build/sandbox/vull-sandbox`
 * `./build/tools/vpak`
+* `./build/tools/vsi`
 * `./build/tools/vslc`
