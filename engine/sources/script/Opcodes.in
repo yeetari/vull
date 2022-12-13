@@ -1,0 +1,43 @@
+// R[a] = R[b] + R[c]
+VM_CASE(OP_add) {
+    frame.reg(inst.a()) = {.number = frame.reg(inst.b()).number + frame.reg(inst.c()).number};
+    break;
+}
+
+// R[a] = R[b] - R[c]
+VM_CASE(OP_sub) {
+    frame.reg(inst.a()) = {.number = frame.reg(inst.b()).number - frame.reg(inst.c()).number};
+    break;
+}
+
+// R[a] = R[b] * R[c]
+VM_CASE(OP_mul) {
+    frame.reg(inst.a()) = {.number = frame.reg(inst.b()).number * frame.reg(inst.c()).number};
+    break;
+}
+
+// R[a] = R[b] / R[c]
+VM_CASE(OP_div) {
+    frame.reg(inst.a()) = {.number = frame.reg(inst.b()).number / frame.reg(inst.c()).number};
+    break;
+}
+
+// R[a] = K[(b << 8) | c]
+VM_CASE(OP_loadk) {
+    frame.reg(inst.a()) = m_constant_pool[static_cast<uint16_t>((inst.b() << 8u) | inst.c())];
+    break;
+}
+
+// R[a] = R[b]
+VM_CASE(OP_move) {
+    frame.reg(inst.a()) = frame.reg(inst.b());
+    break;
+}
+
+VM_CASE(OP_return0) {
+    return {};
+}
+
+VM_CASE(OP_return1) {
+    return frame.reg(inst.a());
+}

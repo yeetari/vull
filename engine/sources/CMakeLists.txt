@@ -15,6 +15,11 @@ target_sources(vull PRIVATE
     physics/Shape.cc
     platform/FileStream.cc
     platform/Linux.cc
+    script/Builder.cc
+    script/ConstantPool.cc
+    script/Lexer.cc
+    script/Parser.cc
+    script/Vm.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
