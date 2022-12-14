@@ -158,7 +158,7 @@ SourcePosition Lexer::recover_position(const Token &token) const {
         if (ch == '\n') {
             line++;
             column = 1;
-            line_head = head;
+            line_head = head + 1;
         }
     }
     uint32_t line_end = line_head;

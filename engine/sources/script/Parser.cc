@@ -66,7 +66,7 @@ public:
     Scope &operator=(Scope &&) = delete;
 
     Optional<uint8_t> lookup_local(StringView name) const;
-    void put_local(StringView name, uint8_t reg);
+    bool put_local(StringView name, uint8_t reg);
 };
 
 Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
@@ -83,8 +83,8 @@ Optional<uint8_t> Scope::lookup_local(StringView name) const {
     return opt ? *opt : Optional<uint8_t>();
 }
 
-void Scope::put_local(StringView name, uint8_t reg) {
-    VULL_ENSURE(m_local_map.set(name, reg));
+bool Scope::put_local(StringView name, uint8_t reg) {
+    return m_local_map.set(name, reg);
 }
 
 Optional<Token> Parser::consume(TokenKind kind) {
@@ -122,8 +122,14 @@ Op Parser::parse_subexpr(Expr &expr, unsigned prec) {
         // TODO: Emit an OP_negate.
     } else if (auto name = consume(TokenKind::Identifier)) {
         // TODO: VLOCAL that gets materialised later?
-        expr.kind = ExprKind::Allocated;
-        expr.index = *m_scope->lookup_local(name->string());
+        auto local = m_scope->lookup_local(name->string());
+        if (local) {
+            expr.kind = ExprKind::Allocated;
+            expr.index = *local;
+        } else {
+            expr.kind = ExprKind::Invalid;
+            message(MessageKind::Error, *name, vull::format("no symbol named '{}'", name->string()));
+        }
     } else if (consume('('_tk)) {
         parse_expr(expr);
         expect(')'_tk);
@@ -131,13 +137,19 @@ Op Parser::parse_subexpr(Expr &expr, unsigned prec) {
         expr.kind = ExprKind::Number;
         expr.number_value = token->number();
     } else {
-        message(MessageKind::Error, m_lexer.peek(), "error");
+        message(MessageKind::Error, m_lexer.peek(), "expected expression");
     }
 
     auto binary_op = to_binary_op(m_lexer.peek().kind());
     while (binary_op != Op::None && precedence(binary_op) > prec) {
         const auto op_token = m_lexer.next();
 
+        if (expr.kind == ExprKind::Invalid) {
+            message(MessageKind::Error, op_token, "malformed expression");
+            message(MessageKind::Note, op_token, vull::format("unfinished expression before {}", op_token.to_string()));
+        }
+
+        const auto sub_token = m_lexer.peek();
         Expr rhs;
         Op next_op = parse_subexpr(rhs, precedence(binary_op));
         if (rhs.kind == ExprKind::Invalid) {
@@ -145,9 +157,7 @@ Op Parser::parse_subexpr(Expr &expr, unsigned prec) {
             message(MessageKind::Error, op_token, "malformed expression");
             message(MessageKind::Note, erroneous_token,
                     vull::format("expected expression before {}", erroneous_token.to_string()));
-            message(MessageKind::Note, erroneous_token,
-                    vull::format("assuming {} is erroneous", erroneous_token.to_string()));
-            continue;
+            message(MessageKind::Note, sub_token, vull::format("assuming {} is erroneous", sub_token.to_string()));
         }
         m_builder.emit_binary(vull::exchange(binary_op, next_op), expr, rhs);
     }
@@ -165,7 +175,10 @@ void Parser::parse_stmt() {
         expect('='_tk);
         Expr expr;
         parse_expr(expr);
-        m_scope->put_local(name.string(), m_builder.materialise(expr));
+        if (!m_scope->put_local(name.string(), m_builder.materialise(expr))) {
+            // TODO: Note previous definition.
+            message(MessageKind::Error, name, vull::format("redefinition of symbol '{}'", name.string()));
+        }
         return;
     }
     if (consume(TokenKind::KW_return)) {

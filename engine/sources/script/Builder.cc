@@ -66,6 +66,10 @@ uint8_t Builder::materialise(Expr &expr) {
         // Already allocated.
         return expr.index;
     }
+    if (expr.kind == ExprKind::Invalid) {
+        // Ignore invalid expressions.
+        return 0;
+    }
 
     const auto reg = m_reg_count++;
     switch (expr.kind) {
