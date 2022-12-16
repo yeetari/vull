@@ -7,6 +7,7 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -40,8 +41,8 @@ class Scene {
     vk::Context &m_context;
     World m_world;
     Vector<vk::Allocation> m_allocations;
-    HashMap<String, vkb::Buffer> m_vertex_buffers;
-    HashMap<String, vkb::Buffer> m_index_buffers;
+    HashMap<String, vk::Buffer> m_vertex_buffers;
+    HashMap<String, vk::Buffer> m_index_buffers;
     HashMap<String, uint32_t> m_index_counts;
     HashMap<String, uint32_t> m_texture_indices;
     Vector<vkb::Image> m_texture_images;
@@ -50,9 +51,8 @@ class Scene {
     vkb::Sampler m_linear_sampler{nullptr};
     vkb::Sampler m_nearest_sampler{nullptr};
 
-    vkb::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *, uint32_t,
-                            vkb::BufferUsage);
-    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, vkb::Buffer, void *);
+    vk::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, uint32_t, vkb::BufferUsage);
+    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}

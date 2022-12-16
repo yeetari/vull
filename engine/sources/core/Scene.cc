@@ -14,7 +14,6 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>
-#include <vull/support/HashSet.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
@@ -25,6 +24,7 @@
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Allocation.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>
@@ -35,8 +35,6 @@
 
 namespace vull {
 namespace {
-
-constexpr auto k_staging_buffer_size = 1024ul * 1024ul * 16ul;
 
 struct FormatInfo {
     vkb::Format format;
@@ -72,12 +70,6 @@ Scene::~Scene() {
     for (auto *texture_image : m_texture_images) {
         m_context.vkDestroyImage(texture_image);
     }
-    for (const auto &[name, index_buffer] : m_index_buffers) {
-        m_context.vkDestroyBuffer(index_buffer);
-    }
-    for (const auto &[name, vertex_buffer] : m_vertex_buffers) {
-        m_context.vkDestroyBuffer(vertex_buffer);
-    }
 }
 
 Mat4f Scene::get_transform_matrix(EntityId entity) {
@@ -90,32 +82,22 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     return parent_matrix * transform.matrix();
 }
 
-vkb::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
-                               vkb::Buffer staging_buffer, void *staging_data, uint32_t size, vkb::BufferUsage usage) {
-    vkb::BufferCreateInfo buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = size,
-        .usage = usage | vkb::BufferUsage::TransferDst,
-        .sharingMode = vkb::SharingMode::Exclusive,
-    };
-    vkb::Buffer buffer;
-    VULL_ENSURE(m_context.vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
-    m_allocations.push(m_context.bind_memory(buffer, vk::MemoryUsage::DeviceOnly));
+vk::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream, uint32_t size,
+                              vkb::BufferUsage usage) {
+    auto staging_buffer = m_context.create_buffer(size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto buffer = m_context.create_buffer(size, usage | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
-    VULL_ENSURE(size <= k_staging_buffer_size);
-    VULL_EXPECT(stream.read({staging_data, size}));
-
-    queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
+    VULL_EXPECT(stream.read({staging_buffer.mapped_raw(), size}));
+    queue.immediate_submit(cmd_pool, [&](const vk::CommandBuffer &cmd_buf) {
         vkb::BufferCopy copy{
             .size = size,
         };
-        cmd_buf.copy_buffer(staging_buffer, buffer, copy);
+        cmd_buf.copy_buffer(*staging_buffer, *buffer, copy);
     });
     return buffer;
 }
 
-void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream,
-                       vkb::Buffer staging_buffer, void *staging_data) {
+void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
     const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -193,11 +175,12 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     for (uint32_t i = 0; i < mip_count; i++) {
         const uint32_t mip_size = block_compressed ? ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * unit_size
                                                    : mip_width * mip_height * unit_size;
-        VULL_ENSURE(mip_size <= k_staging_buffer_size);
-        VULL_EXPECT(stream.read({staging_data, mip_size}));
+        auto staging_buffer =
+            m_context.create_buffer(mip_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        VULL_EXPECT(stream.read({staging_buffer.mapped_raw(), mip_size}));
 
         // Perform CPU -> GPU copy.
-        queue.immediate_submit(cmd_pool, [=](const vk::CommandBuffer &cmd_buf) {
+        queue.immediate_submit(cmd_pool, [&](const vk::CommandBuffer &cmd_buf) {
             vkb::BufferImageCopy copy{
                 .imageSubresource{
                     .aspectMask = vkb::ImageAspect::Color,
@@ -206,7 +189,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
                 },
                 .imageExtent = {mip_width, mip_height, 1},
             };
-            cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
+            cmd_buf.copy_buffer_to_image(*staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
         });
         mip_width >>= 1;
         mip_height >>= 1;
@@ -271,18 +254,6 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_pa
     m_world.register_component<Material>();
     m_world.register_component<BoundingBox>();
 
-    // Allocate a temporary staging buffer used to upload data to VRAM.
-    vkb::BufferCreateInfo staging_buffer_ci{
-        .sType = vkb::StructureType::BufferCreateInfo,
-        .size = k_staging_buffer_size,
-        .usage = vkb::BufferUsage::TransferSrc,
-        .sharingMode = vkb::SharingMode::Exclusive,
-    };
-    vkb::Buffer staging_buffer;
-    VULL_ENSURE(m_context.vkCreateBuffer(&staging_buffer_ci, &staging_buffer) == vkb::Result::Success);
-    auto staging_allocation = m_context.bind_memory(staging_buffer, vk::MemoryUsage::HostOnly);
-    auto *staging_data = staging_allocation.mapped_data();
-
     // Load world.
     VULL_EXPECT(m_world.deserialise(pack_reader, scene_name));
 
@@ -291,16 +262,14 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_pa
         if (auto name = mesh.vertex_data_name(); !m_vertex_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, entry.size,
-                                       vkb::BufferUsage::VertexBuffer);
-            m_vertex_buffers.set(name, buffer);
+            auto buffer = load_buffer(cmd_pool, queue, stream, entry.size, vkb::BufferUsage::VertexBuffer);
+            m_vertex_buffers.set(name, vull::move(buffer));
         }
         if (auto name = mesh.index_data_name(); !m_index_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto *buffer = load_buffer(cmd_pool, queue, stream, staging_buffer, staging_data, entry.size,
-                                       vkb::BufferUsage::IndexBuffer);
-            m_index_buffers.set(name, buffer);
+            auto buffer = load_buffer(cmd_pool, queue, stream, entry.size, vkb::BufferUsage::IndexBuffer);
+            m_index_buffers.set(name, vull::move(buffer));
             m_index_counts.set(name, entry.size / sizeof(uint32_t));
         }
     }
@@ -311,11 +280,10 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_pa
         case vpak::EntryType::Image:
             auto stream = pack_reader.open(entry.name);
             m_texture_indices.set(entry.name, m_texture_images.size());
-            load_image(cmd_pool, queue, *stream, staging_buffer, staging_data);
+            load_image(cmd_pool, queue, *stream);
             break;
         }
     }
-    m_context.vkDestroyBuffer(staging_buffer);
 }
 
 void Scene::render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index) {
@@ -338,8 +306,8 @@ void Scene::render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index) {
             .normal_index = *normal_index,
             .cascade_index = cascade_index,
         };
-        cmd_buf.bind_vertex_buffer(*vertex_buffer);
-        cmd_buf.bind_index_buffer(*index_buffer, vkb::IndexType::Uint32);
+        cmd_buf.bind_vertex_buffer(**vertex_buffer);
+        cmd_buf.bind_index_buffer(**index_buffer, vkb::IndexType::Uint32);
         cmd_buf.push_constants(vkb::ShaderStage::AllGraphics, sizeof(PushConstantBlock), &push_constant_block);
         cmd_buf.draw_indexed(*m_index_counts.get(mesh.index_data_name()), 1);
     }
