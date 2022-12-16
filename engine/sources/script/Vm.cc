@@ -7,6 +7,7 @@
 #include <vull/support/Enum.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
 
 #include <stdint.h>
 
@@ -44,7 +45,7 @@ Value Vm::exec_frame(Frame &frame) {
         default:
             // TODO: This generates better code on GCC and clang < 15, but enables some very aggressive optimisation on
             //       clang 15.
-            __builtin_unreachable();
+            vull::unreachable();
         }
     }
 }

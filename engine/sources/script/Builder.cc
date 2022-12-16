@@ -23,7 +23,7 @@ Number fold_arith(Op op, Number lhs, Number rhs) {
     case Op::Div:
         return lhs / rhs;
     default:
-        __builtin_unreachable();
+        vull::unreachable();
     }
 }
 

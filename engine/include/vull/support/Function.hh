@@ -55,8 +55,9 @@ class Function<R(Args...)> { // NOLINT
             return reinterpret_cast<CallableBase *>(this->m_storage);
         case State::Outline:
             return *reinterpret_cast<CallableBase **>(this->m_storage);
+        default:
+            vull::unreachable();
         }
-        __builtin_unreachable();
     }
 
     const CallableBase *callable() const {
@@ -67,8 +68,9 @@ class Function<R(Args...)> { // NOLINT
             return reinterpret_cast<const CallableBase *>(this->m_storage);
         case State::Outline:
             return *reinterpret_cast<CallableBase *const *>(this->m_storage);
+        default:
+            vull::unreachable();
         }
-        __builtin_unreachable();
     }
 
     template <typename F>

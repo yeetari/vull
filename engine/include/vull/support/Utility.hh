@@ -262,6 +262,14 @@ inline constexpr auto &operator^=(auto &lhs, auto rhs) {
     return lhs = (lhs ^ rhs);
 }
 
+[[noreturn]] inline void unreachable() {
+#ifdef __GNUC__
+    __builtin_unreachable();
+#else
+    __assume(false);
+#endif
+}
+
 } // namespace vull
 
 #if !__has_include(<vector>)

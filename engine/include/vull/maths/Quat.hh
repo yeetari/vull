@@ -47,7 +47,7 @@ T &Quat<T>::operator[](unsigned index) {
     case 3:
         return m_w;
     default:
-        __builtin_unreachable();
+        vull::unreachable();
     }
 }
 

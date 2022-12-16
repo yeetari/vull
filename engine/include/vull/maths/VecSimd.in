@@ -65,7 +65,7 @@ inline float Vec<float, 4>::operator[](unsigned index) const {
     case 3:
         return elem_at<3>();
     default:
-        __builtin_unreachable();
+        vull::unreachable();
     }
 }
 

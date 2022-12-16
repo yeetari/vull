@@ -30,7 +30,7 @@ unsigned precedence(Op op) {
     case Op::Negate:
         return 3;
     default:
-        __builtin_unreachable();
+        vull::unreachable();
     }
 }
 

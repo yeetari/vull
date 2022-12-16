@@ -201,7 +201,7 @@ String Token::kind_string(TokenKind kind) {
         return "'return'";
 #if defined(__GNUC__) && !defined(__clang__)
     default:
-        __builtin_unreachable();
+        vull::unreachable();
 #endif
     }
 }
