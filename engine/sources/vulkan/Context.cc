@@ -18,6 +18,8 @@
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/ContextTable.hh>
+#include <vull/vulkan/Image.hh>
+#include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -93,6 +95,7 @@ Context::Context() : ContextTable{} {
         }
     }
     if (has_validation_layer) {
+        vull::info("[vulkan] Enabling validation layer");
         instance_ci.enabledLayerCount = 1;
         instance_ci.ppEnabledLayerNames = &validation_layer_name;
     } else {
@@ -344,6 +347,45 @@ Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, Memo
     const auto &info = allocation.info();
     VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
     return {vull::move(allocation), buffer, usage};
+}
+
+Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage) {
+    vkb::Image image;
+    VULL_ENSURE(vkCreateImage(&image_ci, &image) == vkb::Result::Success);
+
+    vkb::MemoryRequirements requirements{};
+    vkGetImageMemoryRequirements(image, &requirements);
+
+    auto allocation = allocate_memory(requirements, memory_usage);
+    const auto &info = allocation.info();
+    VULL_ENSURE(vkBindImageMemory(image, info.memory, info.offset) == vkb::Result::Success);
+
+    auto aspect = vkb::ImageAspect::Color;
+    switch (image_ci.format) {
+    case vkb::Format::D16Unorm:
+    case vkb::Format::D16UnormS8Uint:
+    case vkb::Format::D24UnormS8Uint:
+    case vkb::Format::D32Sfloat:
+    case vkb::Format::D32SfloatS8Uint:
+        aspect = vkb::ImageAspect::Depth;
+        break;
+    }
+
+    vkb::ImageSubresourceRange range{
+        .aspectMask = aspect,
+        .levelCount = image_ci.mipLevels,
+        .layerCount = image_ci.arrayLayers,
+    };
+    vkb::ImageViewCreateInfo view_ci{
+        .sType = vkb::StructureType::ImageViewCreateInfo,
+        .image = image,
+        .viewType = image_ci.arrayLayers > 1 ? vkb::ImageViewType::_2DArray : vkb::ImageViewType::_2D,
+        .format = image_ci.format,
+        .subresourceRange = range,
+    };
+    vkb::ImageView view;
+    VULL_ENSURE(vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
+    return {vull::move(allocation), ImageView(*this, view, range), image, image_ci.format};
 }
 
 size_t Context::descriptor_size(vkb::DescriptorType type) const {
