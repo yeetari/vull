@@ -23,10 +23,10 @@
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
-#include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -64,12 +64,6 @@ FormatInfo parse_format(uint8_t pack_format) {
 Scene::~Scene() {
     m_context.vkDestroySampler(m_nearest_sampler);
     m_context.vkDestroySampler(m_linear_sampler);
-    for (auto *texture_view : m_texture_views) {
-        m_context.vkDestroyImageView(texture_view);
-    }
-    for (auto *texture_image : m_texture_images) {
-        m_context.vkDestroyImage(texture_image);
-    }
 }
 
 Mat4f Scene::get_transform_matrix(EntityId entity) {
@@ -97,7 +91,7 @@ vk::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak:
     return buffer;
 }
 
-void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream) {
+vk::Image Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadStream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
     const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -123,22 +117,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    auto &image = m_texture_images.emplace();
-    VULL_ENSURE(m_context.vkCreateImage(&image_ci, &image) == vkb::Result::Success);
-    m_allocations.push(m_context.bind_memory(image, vk::MemoryUsage::DeviceOnly));
-
-    vkb::ImageViewCreateInfo image_view_ci{
-        .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = image,
-        .viewType = vkb::ImageViewType::_2D,
-        .format = format,
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Color,
-            .levelCount = mip_count,
-            .layerCount = 1,
-        },
-    };
-    VULL_ENSURE(m_context.vkCreateImageView(&image_view_ci, &m_texture_views.emplace()) == vkb::Result::Success);
+    auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
     switch (sampler_kind) {
     case vpak::SamplerKind::LinearRepeat:
@@ -153,14 +132,14 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
     }
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
-    queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
+    queue.immediate_submit(cmd_pool, [&image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Copy,
             .dstAccessMask = vkb::Access2::TransferWrite,
             .oldLayout = vkb::ImageLayout::Undefined,
             .newLayout = vkb::ImageLayout::TransferDstOptimal,
-            .image = image,
+            .image = *image,
             .subresourceRange{
                 .aspectMask = vkb::ImageAspect::Color,
                 .levelCount = mip_count,
@@ -189,14 +168,14 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
                 },
                 .imageExtent = {mip_width, mip_height, 1},
             };
-            cmd_buf.copy_buffer_to_image(*staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
+            cmd_buf.copy_buffer_to_image(*staging_buffer, *image, vkb::ImageLayout::TransferDstOptimal, copy);
         });
         mip_width >>= 1;
         mip_height >>= 1;
     }
 
     // Transition the whole image to ShaderReadOnlyOptimal.
-    queue.immediate_submit(cmd_pool, [image, mip_count](const vk::CommandBuffer &cmd_buf) {
+    queue.immediate_submit(cmd_pool, [&image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 image_read_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .srcStageMask = vkb::PipelineStage2::Copy,
@@ -205,7 +184,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
             .dstAccessMask = vkb::Access2::ShaderRead,
             .oldLayout = vkb::ImageLayout::TransferDstOptimal,
             .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-            .image = image,
+            .image = *image,
             .subresourceRange{
                 .aspectMask = vkb::ImageAspect::Color,
                 .levelCount = mip_count,
@@ -214,6 +193,7 @@ void Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::ReadSt
         };
         cmd_buf.image_barrier(image_read_barrier);
     });
+    return image;
 }
 
 void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_path, StringView scene_name) {
@@ -280,7 +260,7 @@ void Scene::load(vk::CommandPool &cmd_pool, vk::Queue &queue, StringView vpak_pa
         case vpak::EntryType::Image:
             auto stream = pack_reader.open(entry.name);
             m_texture_indices.set(entry.name, m_texture_images.size());
-            load_image(cmd_pool, queue, *stream);
+            m_texture_images.push(load_image(cmd_pool, queue, *stream));
             break;
         }
     }

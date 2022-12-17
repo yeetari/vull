@@ -31,6 +31,7 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
@@ -41,6 +42,8 @@
 #include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/Image.hh>
+#include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
@@ -487,23 +490,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    vkb::Image depth_image;
-    VULL_ENSURE(context.vkCreateImage(&depth_image_ci, &depth_image) == vkb::Result::Success);
-    auto depth_image_allocation = context.bind_memory(depth_image, vk::MemoryUsage::DeviceOnly);
-
-    vkb::ImageViewCreateInfo depth_image_view_ci{
-        .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = depth_image,
-        .viewType = vkb::ImageViewType::_2D,
-        .format = depth_format,
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Depth,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    vkb::ImageView depth_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&depth_image_view_ci, &depth_image_view) == vkb::Result::Success);
+    auto depth_image = context.create_image(depth_image_ci, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageCreateInfo albedo_image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
@@ -518,23 +505,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    vkb::Image albedo_image;
-    VULL_ENSURE(context.vkCreateImage(&albedo_image_ci, &albedo_image) == vkb::Result::Success);
-    auto albedo_image_allocation = context.bind_memory(albedo_image, vk::MemoryUsage::DeviceOnly);
-
-    vkb::ImageViewCreateInfo albedo_image_view_ci{
-        .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = albedo_image,
-        .viewType = vkb::ImageViewType::_2D,
-        .format = albedo_image_ci.format,
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Color,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    vkb::ImageView albedo_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&albedo_image_view_ci, &albedo_image_view) == vkb::Result::Success);
+    auto albedo_image = context.create_image(albedo_image_ci, vk::MemoryUsage::DeviceOnly);
 
     vkb::ImageCreateInfo normal_image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
@@ -549,26 +520,10 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    vkb::Image normal_image;
-    VULL_ENSURE(context.vkCreateImage(&normal_image_ci, &normal_image) == vkb::Result::Success);
-    auto normal_image_allocation = context.bind_memory(normal_image, vk::MemoryUsage::DeviceOnly);
-
-    vkb::ImageViewCreateInfo normal_image_view_ci{
-        .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = normal_image,
-        .viewType = vkb::ImageViewType::_2D,
-        .format = normal_image_ci.format,
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Color,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    vkb::ImageView normal_image_view;
-    VULL_ENSURE(context.vkCreateImageView(&normal_image_view_ci, &normal_image_view) == vkb::Result::Success);
+    auto normal_image = context.create_image(normal_image_ci, vk::MemoryUsage::DeviceOnly);
 
     constexpr uint32_t shadow_cascade_count = 4;
-    vkb::ImageCreateInfo shadow_map_ci{
+    vkb::ImageCreateInfo shadow_map_image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
         .imageType = vkb::ImageType::_2D,
         .format = vkb::Format::D32Sfloat,
@@ -581,39 +536,11 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    vkb::Image shadow_map;
-    VULL_ENSURE(context.vkCreateImage(&shadow_map_ci, &shadow_map) == vkb::Result::Success);
-    auto shadow_map_allocation = context.bind_memory(shadow_map, vk::MemoryUsage::DeviceOnly);
+    auto shadow_map_image = context.create_image(shadow_map_image_ci, vk::MemoryUsage::DeviceOnly);
 
-    vkb::ImageViewCreateInfo shadow_map_view_ci{
-        .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = shadow_map,
-        .viewType = vkb::ImageViewType::_2DArray,
-        .format = shadow_map_ci.format,
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Depth,
-            .levelCount = 1,
-            .layerCount = shadow_cascade_count,
-        },
-    };
-    vkb::ImageView shadow_map_view;
-    VULL_ENSURE(context.vkCreateImageView(&shadow_map_view_ci, &shadow_map_view) == vkb::Result::Success);
-
-    Vector<vkb::ImageView> shadow_cascade_views(shadow_cascade_count);
+    Vector<vk::ImageView> shadow_cascade_views;
     for (uint32_t i = 0; i < shadow_cascade_count; i++) {
-        vkb::ImageViewCreateInfo view_ci{
-            .sType = vkb::StructureType::ImageViewCreateInfo,
-            .image = shadow_map,
-            .viewType = vkb::ImageViewType::_2DArray,
-            .format = shadow_map_ci.format,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Depth,
-                .levelCount = 1,
-                .baseArrayLayer = i,
-                .layerCount = 1,
-            },
-        };
-        VULL_ENSURE(context.vkCreateImageView(&view_ci, &shadow_cascade_views[i]) == vkb::Result::Success);
+        shadow_cascade_views.push(shadow_map_image.create_layer_view(i, vkb::ImageUsage::Sampled));
     }
 
     vkb::SamplerCreateInfo shadow_sampler_ci{
@@ -781,20 +708,20 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     };
 
     vkb::DescriptorImageInfo depth_image_info{
-        .imageView = depth_image_view,
+        .imageView = *depth_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo albedo_image_info{
-        .imageView = albedo_image_view,
+        .imageView = *albedo_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo normal_image_info{
-        .imageView = normal_image_view,
+        .imageView = *normal_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo shadow_map_image_info{
         .sampler = shadow_sampler,
-        .imageView = shadow_map_view,
+        .imageView = *shadow_map_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorAddressInfoEXT light_visibility_buffer_info{
@@ -811,7 +738,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     for (uint32_t i = 0; i < scene.texture_count(); i++) {
         vkb::DescriptorImageInfo image_info{
             .sampler = scene.texture_samplers()[i],
-            .imageView = scene.texture_views()[i],
+            .imageView = *scene.texture_images()[i].full_view(),
             .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
         };
         put_desc(desc_ptr, vkb::DescriptorType::CombinedImageSampler, &image_info);
@@ -841,12 +768,13 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     auto &albedo_image_resource = render_graph.add_image("GBuffer albedo");
     auto &normal_image_resource = render_graph.add_image("GBuffer normal");
     auto &depth_image_resource = render_graph.add_image("GBuffer depth");
-    albedo_image_resource.set_image(albedo_image, albedo_image_view, albedo_image_view_ci.subresourceRange);
-    normal_image_resource.set_image(normal_image, normal_image_view, normal_image_view_ci.subresourceRange);
-    depth_image_resource.set_image(depth_image, depth_image_view, depth_image_view_ci.subresourceRange);
+    albedo_image_resource.set_image(*albedo_image, *albedo_image.full_view(), albedo_image.full_view().range());
+    normal_image_resource.set_image(*normal_image, *normal_image.full_view(), normal_image.full_view().range());
+    depth_image_resource.set_image(*depth_image, *depth_image.full_view(), depth_image.full_view().range());
 
     auto &shadow_map_resource = render_graph.add_image("Shadow map");
-    shadow_map_resource.set_image(shadow_map, shadow_map_view, shadow_map_view_ci.subresourceRange);
+    shadow_map_resource.set_image(*shadow_map_image, *shadow_map_image.full_view(),
+                                  shadow_map_image.full_view().range());
 
     auto &swapchain_resource = render_graph.add_image("Swapchain");
     swapchain_resource.set_image(nullptr, nullptr,
@@ -870,7 +798,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         Array colour_write_attachments{
             vkb::RenderingAttachmentInfo{
                 .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = albedo_image_view,
+                .imageView = *albedo_image.full_view(),
                 .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
                 .loadOp = vkb::AttachmentLoadOp::Clear,
                 .storeOp = vkb::AttachmentStoreOp::Store,
@@ -880,7 +808,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
             },
             vkb::RenderingAttachmentInfo{
                 .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = normal_image_view,
+                .imageView = *normal_image.full_view(),
                 .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
                 .loadOp = vkb::AttachmentLoadOp::Clear,
                 .storeOp = vkb::AttachmentStoreOp::Store,
@@ -891,7 +819,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         };
         vkb::RenderingAttachmentInfo depth_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = depth_image_view,
+            .imageView = *depth_image.full_view(),
             .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
             .loadOp = vkb::AttachmentLoadOp::Clear,
             .storeOp = vkb::AttachmentStoreOp::Store,
@@ -923,7 +851,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         for (uint32_t i = 0; i < shadow_cascade_count; i++) {
             vkb::RenderingAttachmentInfo shadow_map_write_attachment{
                 .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = shadow_cascade_views[i],
+                .imageView = *shadow_cascade_views[i],
                 .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
                 .loadOp = vkb::AttachmentLoadOp::Clear,
                 .storeOp = vkb::AttachmentStoreOp::Store,
@@ -1209,17 +1137,6 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     scheduler.stop();
     context.vkDeviceWaitIdle();
     context.vkDestroySampler(shadow_sampler);
-    for (auto *cascade_view : shadow_cascade_views) {
-        context.vkDestroyImageView(cascade_view);
-    }
-    context.vkDestroyImageView(shadow_map_view);
-    context.vkDestroyImage(shadow_map);
-    context.vkDestroyImageView(normal_image_view);
-    context.vkDestroyImage(normal_image);
-    context.vkDestroyImageView(albedo_image_view);
-    context.vkDestroyImage(albedo_image);
-    context.vkDestroyImageView(depth_image_view);
-    context.vkDestroyImage(depth_image);
     context.vkDestroyPipeline(deferred_pipeline);
     context.vkDestroyPipeline(light_cull_pipeline);
     context.vkDestroyPipeline(shadow_pass_pipeline);

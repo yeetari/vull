@@ -8,13 +8,13 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
-class Allocation;
 class CommandBuffer;
 class CommandPool;
 class Context;
@@ -40,19 +40,17 @@ struct PushConstantBlock {
 class Scene {
     vk::Context &m_context;
     World m_world;
-    Vector<vk::Allocation> m_allocations;
     HashMap<String, vk::Buffer> m_vertex_buffers;
     HashMap<String, vk::Buffer> m_index_buffers;
     HashMap<String, uint32_t> m_index_counts;
     HashMap<String, uint32_t> m_texture_indices;
-    Vector<vkb::Image> m_texture_images;
-    Vector<vkb::ImageView> m_texture_views;
+    Vector<vk::Image> m_texture_images;
     Vector<vkb::Sampler> m_texture_samplers;
     vkb::Sampler m_linear_sampler{nullptr};
     vkb::Sampler m_nearest_sampler{nullptr};
 
     vk::Buffer load_buffer(vk::CommandPool &, vk::Queue &, vpak::ReadStream &, uint32_t, vkb::BufferUsage);
-    void load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &);
+    vk::Image load_image(vk::CommandPool &, vk::Queue &, vpak::ReadStream &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}
@@ -69,7 +67,7 @@ public:
 
     World &world() { return m_world; }
     uint32_t texture_count() const { return m_texture_images.size(); }
-    const Vector<vkb::ImageView> &texture_views() const { return m_texture_views; }
+    const Vector<vk::Image> &texture_images() const { return m_texture_images; }
     const Vector<vkb::Sampler> &texture_samplers() const { return m_texture_samplers; }
 };
 
