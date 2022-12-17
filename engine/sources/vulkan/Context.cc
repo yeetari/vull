@@ -320,16 +320,6 @@ Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements,
     return allocator_for(requirements, usage).allocate(requirements);
 }
 
-Allocation Context::bind_memory(vkb::Image image, vk::MemoryUsage usage) {
-    vkb::MemoryRequirements requirements{};
-    vkGetImageMemoryRequirements(image, &requirements);
-
-    auto allocation = allocate_memory(requirements, usage);
-    const auto &info = allocation.info();
-    VULL_ENSURE(vkBindImageMemory(image, info.memory, info.offset) == vkb::Result::Success);
-    return allocation;
-}
-
 Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
     vkb::BufferCreateInfo buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,

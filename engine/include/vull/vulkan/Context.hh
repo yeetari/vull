@@ -35,7 +35,6 @@ public:
     Context &operator=(Context &&) = delete;
 
     Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
-    Allocation bind_memory(vkb::Image image, MemoryUsage usage);
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
     size_t descriptor_size(vkb::DescriptorType type) const;
