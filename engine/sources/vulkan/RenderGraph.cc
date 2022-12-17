@@ -11,7 +11,9 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
+#include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
@@ -25,7 +27,7 @@ Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &
         return vull::make_tuple(vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead);
     }
     if (auto image = resource.as_image()) {
-        if ((image->full_range().aspectMask & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
+        if ((image->range().aspectMask & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
             return vull::make_tuple(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
                                     vkb::Access2::DepthStencilAttachmentRead);
         }
@@ -47,7 +49,7 @@ Tuple<vkb::PipelineStage2, vkb::Access2> write_stage(const Pass &pass, Resource 
     }
 
     if (auto image = resource.as_image()) {
-        const auto aspect = image->full_range().aspectMask;
+        const auto aspect = image->range().aspectMask;
         if ((aspect & vkb::ImageAspect::Color) != vkb::ImageAspect::None) {
             return vull::make_tuple(vkb::PipelineStage2::ColorAttachmentOutput, vkb::Access2::ColorAttachmentWrite);
         }
@@ -116,6 +118,21 @@ StringView stage_string(vkb::PipelineStage2 stage) {
 }
 
 } // namespace
+
+void BufferResource::set(const Buffer &buffer) {
+    m_buffer = *buffer;
+}
+
+void ImageResource::set(const ImageView &view) {
+    m_image = view.image();
+    m_view = *view;
+    m_range = view.range();
+}
+
+void ImageResource::set(vkb::Image image, vkb::ImageView view) {
+    m_image = image;
+    m_view = view;
+}
 
 vkb::BufferMemoryBarrier2 GenericBarrier::buffer_barrier(vkb::Buffer buffer) const {
     return {
@@ -285,7 +302,7 @@ void RenderGraph::compile(Resource &target) {
             };
             if (const auto &image = resource->as_image()) {
                 barrier.old_layout = current_layout;
-                barrier.subresource_range = image->full_range();
+                barrier.subresource_range = image->range();
             }
 
             if (!is_read) {

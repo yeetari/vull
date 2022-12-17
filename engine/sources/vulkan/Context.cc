@@ -375,7 +375,7 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     };
     vkb::ImageView view;
     VULL_ENSURE(vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
-    return {vull::move(allocation), ImageView(*this, view, range), image, image_ci.format};
+    return {vull::move(allocation), ImageView(*this, image, view, range), image_ci.format};
 }
 
 size_t Context::descriptor_size(vkb::DescriptorType type) const {

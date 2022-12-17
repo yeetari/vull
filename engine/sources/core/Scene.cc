@@ -86,7 +86,7 @@ vk::Buffer Scene::load_buffer(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak:
         vkb::BufferCopy copy{
             .size = size,
         };
-        cmd_buf.copy_buffer(*staging_buffer, *buffer, copy);
+        cmd_buf.copy_buffer(staging_buffer, buffer, copy);
     });
     return buffer;
 }
@@ -168,7 +168,7 @@ vk::Image Scene::load_image(vk::CommandPool &cmd_pool, vk::Queue &queue, vpak::R
                 },
                 .imageExtent = {mip_width, mip_height, 1},
             };
-            cmd_buf.copy_buffer_to_image(*staging_buffer, *image, vkb::ImageLayout::TransferDstOptimal, copy);
+            cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
         });
         mip_width >>= 1;
         mip_height >>= 1;
@@ -286,8 +286,8 @@ void Scene::render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index) {
             .normal_index = *normal_index,
             .cascade_index = cascade_index,
         };
-        cmd_buf.bind_vertex_buffer(**vertex_buffer);
-        cmd_buf.bind_index_buffer(**index_buffer, vkb::IndexType::Uint32);
+        cmd_buf.bind_vertex_buffer(*vertex_buffer);
+        cmd_buf.bind_index_buffer(*index_buffer, vkb::IndexType::Uint32);
         cmd_buf.push_constants(vkb::ShaderStage::AllGraphics, sizeof(PushConstantBlock), &push_constant_block);
         cmd_buf.draw_indexed(*m_index_counts.get(mesh.index_data_name()), 1);
     }

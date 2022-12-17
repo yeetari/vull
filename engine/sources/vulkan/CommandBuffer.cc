@@ -6,6 +6,7 @@
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -34,6 +35,9 @@ CommandBuffer::CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf)
 CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context), m_cmd_buf(other.m_cmd_buf) {
     m_completion_semaphore = vull::exchange(other.m_completion_semaphore, nullptr);
     m_completion_value = vull::exchange(other.m_completion_value, 0u);
+    VULL_ASSERT(m_associated_buffers.empty());
+    VULL_ASSERT(m_descriptor_buffers.empty());
+    VULL_ASSERT(m_descriptor_buffer_bindings.empty());
 }
 
 CommandBuffer::~CommandBuffer() {
@@ -121,8 +125,8 @@ void CommandBuffer::bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, co
     }
 }
 
-void CommandBuffer::bind_index_buffer(vkb::Buffer buffer, vkb::IndexType index_type) const {
-    m_context.vkCmdBindIndexBuffer(m_cmd_buf, buffer, 0, index_type);
+void CommandBuffer::bind_index_buffer(const Buffer &buffer, vkb::IndexType index_type) const {
+    m_context.vkCmdBindIndexBuffer(m_cmd_buf, *buffer, 0, index_type);
 }
 
 void CommandBuffer::bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout) {
@@ -142,18 +146,19 @@ void CommandBuffer::bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeli
     m_context.vkCmdBindPipeline(m_cmd_buf, bind_point, pipeline);
 }
 
-void CommandBuffer::bind_vertex_buffer(vkb::Buffer buffer) const {
+void CommandBuffer::bind_vertex_buffer(const Buffer &buffer) const {
     const vkb::DeviceSize offset = 0;
-    m_context.vkCmdBindVertexBuffers(m_cmd_buf, 0, 1, &buffer, &offset);
+    auto *vk_buffer = *buffer;
+    m_context.vkCmdBindVertexBuffers(m_cmd_buf, 0, 1, &vk_buffer, &offset);
 }
 
-void CommandBuffer::copy_buffer(vkb::Buffer src, vkb::Buffer dst, Span<vkb::BufferCopy> regions) const {
-    m_context.vkCmdCopyBuffer(m_cmd_buf, src, dst, regions.size(), regions.data());
+void CommandBuffer::copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const {
+    m_context.vkCmdCopyBuffer(m_cmd_buf, *src, *dst, regions.size(), regions.data());
 }
 
-void CommandBuffer::copy_buffer_to_image(vkb::Buffer src, vkb::Image dst, vkb::ImageLayout dst_layout,
+void CommandBuffer::copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                                          Span<vkb::BufferImageCopy> regions) const {
-    m_context.vkCmdCopyBufferToImage(m_cmd_buf, src, dst, dst_layout, regions.size(), regions.data());
+    m_context.vkCmdCopyBufferToImage(m_cmd_buf, *src, *dst, dst_layout, regions.size(), regions.data());
 }
 
 void CommandBuffer::push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const {

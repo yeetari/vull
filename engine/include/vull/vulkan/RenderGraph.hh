@@ -12,9 +12,11 @@
 
 namespace vull::vk {
 
+class Buffer;
 class BufferResource;
 class CommandBuffer;
 class ImageResource;
+class ImageView;
 class QueryPool;
 class RenderGraph;
 class Pass;
@@ -58,27 +60,25 @@ class BufferResource : public Resource {
 public:
     BufferResource(ResourceKind kind, String &&name) : Resource(kind, vull::move(name)) {}
 
-    void set_buffer(vkb::Buffer buffer) { m_buffer = buffer; }
+    void set(const Buffer &buffer);
     operator vkb::Buffer() const { return m_buffer; }
 };
 
 class ImageResource : public Resource {
     vkb::Image m_image{nullptr};
     vkb::ImageView m_view{nullptr};
-    vkb::ImageSubresourceRange m_full_range;
+    vkb::ImageSubresourceRange m_range;
 
 public:
     ImageResource(String &&name) : Resource(ResourceKind::Image, vull::move(name)) {}
 
-    void set_image(vkb::Image image, vkb::ImageView view, const vkb::ImageSubresourceRange &full_range) {
-        m_image = image;
-        m_view = view;
-        m_full_range = full_range;
-    }
+    void set(const ImageView &view);
+    void set(vkb::Image image, vkb::ImageView view);
+    void set_range(const vkb::ImageSubresourceRange &range) { m_range = range; }
 
     operator vkb::Image() const { return m_image; }
     vkb::ImageView view() const { return m_view; }
-    const vkb::ImageSubresourceRange &full_range() const { return m_full_range; }
+    const vkb::ImageSubresourceRange &range() const { return m_range; }
 };
 
 struct GenericBarrier {

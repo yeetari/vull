@@ -748,7 +748,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         vkb::BufferCopy copy{
             .size = static_set_layout_size + texture_set_layout_size,
         };
-        cmd_buf.copy_buffer(*descriptor_staging_buffer, *static_descriptor_buffer, copy);
+        cmd_buf.copy_buffer(descriptor_staging_buffer, static_descriptor_buffer, copy);
     });
 
     Array dynamic_descriptor_buffers{
@@ -768,26 +768,24 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     auto &albedo_image_resource = render_graph.add_image("GBuffer albedo");
     auto &normal_image_resource = render_graph.add_image("GBuffer normal");
     auto &depth_image_resource = render_graph.add_image("GBuffer depth");
-    albedo_image_resource.set_image(*albedo_image, *albedo_image.full_view(), albedo_image.full_view().range());
-    normal_image_resource.set_image(*normal_image, *normal_image.full_view(), normal_image.full_view().range());
-    depth_image_resource.set_image(*depth_image, *depth_image.full_view(), depth_image.full_view().range());
+    albedo_image_resource.set(albedo_image.full_view());
+    normal_image_resource.set(normal_image.full_view());
+    depth_image_resource.set(depth_image.full_view());
 
     auto &shadow_map_resource = render_graph.add_image("Shadow map");
-    shadow_map_resource.set_image(*shadow_map_image, *shadow_map_image.full_view(),
-                                  shadow_map_image.full_view().range());
+    shadow_map_resource.set(shadow_map_image.full_view());
 
     auto &swapchain_resource = render_graph.add_image("Swapchain");
-    swapchain_resource.set_image(nullptr, nullptr,
-                                 {
-                                     .aspectMask = vkb::ImageAspect::Color,
-                                     .levelCount = 1,
-                                     .layerCount = 1,
-                                 });
+    swapchain_resource.set_range({
+        .aspectMask = vkb::ImageAspect::Color,
+        .levelCount = 1,
+        .layerCount = 1,
+    });
 
     auto &global_ubo_resource = render_graph.add_uniform_buffer("Global UBO");
     auto &light_data_resource = render_graph.add_storage_buffer("Light data");
     auto &light_visibility_data_resource = render_graph.add_storage_buffer("Light visibility data");
-    light_visibility_data_resource.set_buffer(*light_visibility_buffer);
+    light_visibility_data_resource.set(light_visibility_buffer);
 
     auto &geometry_pass = render_graph.add_graphics_pass("Geometry pass");
     geometry_pass.reads_from(global_ubo_resource);
@@ -1080,9 +1078,9 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
 
         vkb::Image swapchain_image = swapchain.image(image_index);
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
-        global_ubo_resource.set_buffer(*uniform_buffers[frame_index]);
-        light_data_resource.set_buffer(*light_buffers[frame_index]);
-        swapchain_resource.set_image(swapchain_image, swapchain_view, swapchain_resource.full_range());
+        global_ubo_resource.set(uniform_buffers[frame_index]);
+        light_data_resource.set(light_buffers[frame_index]);
+        swapchain_resource.set(swapchain_image, swapchain_view);
 
         cmd_buf.bind_layout(vkb::PipelineBindPoint::Compute, compute_pipeline_layout);
         cmd_buf.bind_layout(vkb::PipelineBindPoint::Graphics, geometry_pipeline_layout);
@@ -1113,7 +1111,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
             .oldLayout = vkb::ImageLayout::AttachmentOptimal,
             .newLayout = vkb::ImageLayout::PresentSrcKHR,
             .image = swapchain_image,
-            .subresourceRange = swapchain_resource.full_range(),
+            .subresourceRange = swapchain_resource.range(),
         };
         cmd_buf.image_barrier(swapchain_present_barrier);
 

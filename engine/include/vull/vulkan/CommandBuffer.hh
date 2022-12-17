@@ -11,6 +11,7 @@ namespace vull::vk {
 class Buffer;
 class CommandPool;
 class Context;
+class Image;
 class QueryPool;
 
 class CommandBuffer {
@@ -52,13 +53,13 @@ public:
     void bind_associated_buffer(Buffer &&buffer);
     void bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, const Buffer &buffer, uint32_t set,
                                 vkb::DeviceSize offset);
-    void bind_index_buffer(vkb::Buffer buffer, vkb::IndexType index_type) const;
+    void bind_index_buffer(const Buffer &buffer, vkb::IndexType index_type) const;
     void bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout);
     void bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeline pipeline) const;
-    void bind_vertex_buffer(vkb::Buffer buffer) const;
+    void bind_vertex_buffer(const Buffer &buffer) const;
 
-    void copy_buffer(vkb::Buffer src, vkb::Buffer dst, Span<vkb::BufferCopy> regions) const;
-    void copy_buffer_to_image(vkb::Buffer src, vkb::Image dst, vkb::ImageLayout dst_layout,
+    void copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const;
+    void copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                               Span<vkb::BufferImageCopy> regions) const;
     void push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const;
 
