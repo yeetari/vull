@@ -9,7 +9,7 @@ struct PointLight {
 
 struct LightVisibility {
     uint count;
-    uint indices[400];
+    uint indices[256];
 };
 
 vec3 compute_light(vec3 albedo, vec3 colour, vec3 direction, vec3 normal, vec3 view) {

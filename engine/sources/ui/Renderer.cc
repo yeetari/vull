@@ -13,8 +13,9 @@
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/MemoryUsage.hh>
+#include <vull/vulkan/Pipeline.hh>
+#include <vull/vulkan/PipelineBuilder.hh>
 #include <vull/vulkan/RenderGraph.hh>
-#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -76,76 +77,8 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
         descriptor_buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress,
         vk::MemoryUsage::HostToDevice);
 
-    vkb::PushConstantRange push_constant_range{
-        .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
-        .size = sizeof(vkb::DeviceAddress),
-    };
-    vkb::PipelineLayoutCreateInfo pipeline_layout_ci{
-        .sType = vkb::StructureType::PipelineLayoutCreateInfo,
-        .setLayoutCount = 1,
-        .pSetLayouts = &m_descriptor_set_layout,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push_constant_range,
-    };
-    VULL_ENSURE(context.vkCreatePipelineLayout(&pipeline_layout_ci, &m_pipeline_layout) == vkb::Result::Success);
-
-    vkb::PipelineVertexInputStateCreateInfo vertex_input_state{
-        .sType = vkb::StructureType::PipelineVertexInputStateCreateInfo,
-    };
-    vkb::PipelineInputAssemblyStateCreateInfo input_assembly_state{
-        .sType = vkb::StructureType::PipelineInputAssemblyStateCreateInfo,
-        .topology = vkb::PrimitiveTopology::TriangleList,
-    };
-
-    vkb::Rect2D scissor{
-        .extent = swapchain.extent_2D(),
-    };
-    vkb::Viewport viewport{
-        .width = static_cast<float>(swapchain.extent_2D().width),
-        .height = static_cast<float>(swapchain.extent_2D().height),
-        .maxDepth = 1.0f,
-    };
-    vkb::PipelineViewportStateCreateInfo viewport_state{
-        .sType = vkb::StructureType::PipelineViewportStateCreateInfo,
-        .viewportCount = 1,
-        .pViewports = &viewport,
-        .scissorCount = 1,
-        .pScissors = &scissor,
-    };
-
-    vkb::PipelineRasterizationStateCreateInfo rasterisation_state{
-        .sType = vkb::StructureType::PipelineRasterizationStateCreateInfo,
-        .polygonMode = vkb::PolygonMode::Fill,
-        .cullMode = vkb::CullMode::None,
-        .frontFace = vkb::FrontFace::Clockwise,
-        .lineWidth = 1.0f,
-    };
-
-    vkb::PipelineMultisampleStateCreateInfo multisample_state{
-        .sType = vkb::StructureType::PipelineMultisampleStateCreateInfo,
-        .rasterizationSamples = vkb::SampleCount::_1,
-        .minSampleShading = 1.0f,
-    };
-
-    vkb::PipelineColorBlendAttachmentState blend_attachment{
-        .blendEnable = true,
-        .srcColorBlendFactor = vkb::BlendFactor::SrcAlpha,
-        .dstColorBlendFactor = vkb::BlendFactor::OneMinusSrcAlpha,
-        .colorBlendOp = vkb::BlendOp::Add,
-        .srcAlphaBlendFactor = vkb::BlendFactor::One,
-        .dstAlphaBlendFactor = vkb::BlendFactor::Zero,
-        .alphaBlendOp = vkb::BlendOp::Add,
-        .colorWriteMask =
-            vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
-    };
-    vkb::PipelineColorBlendStateCreateInfo blend_state{
-        .sType = vkb::StructureType::PipelineColorBlendStateCreateInfo,
-        .attachmentCount = 1,
-        .pAttachments = &blend_attachment,
-    };
-
     Vec2f swapchain_dimensions = swapchain.dimensions();
-    Array specialisation_map_entries{
+    Array specialization_map_entries{
         vkb::SpecializationMapEntry{
             .constantID = 0,
             .size = sizeof(float),
@@ -156,41 +89,40 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
             .size = sizeof(float),
         },
     };
-    vkb::SpecializationInfo specialisation_info{
-        .mapEntryCount = specialisation_map_entries.size(),
-        .pMapEntries = specialisation_map_entries.data(),
+    vkb::SpecializationInfo specialization_info{
+        .mapEntryCount = specialization_map_entries.size(),
+        .pMapEntries = specialization_map_entries.data(),
         .dataSize = sizeof(Vec2f),
         .pData = &swapchain_dimensions,
     };
+    vkb::PushConstantRange push_constant_range{
+        .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
+        .size = sizeof(vkb::DeviceAddress),
+    };
 
-    Array shader_stage_cis{
-        vertex_shader.create_info(specialisation_info),
-        fragment_shader.create_info(specialisation_info),
+    vkb::PipelineColorBlendAttachmentState blend_state{
+        .blendEnable = true,
+        .srcColorBlendFactor = vkb::BlendFactor::SrcAlpha,
+        .dstColorBlendFactor = vkb::BlendFactor::OneMinusSrcAlpha,
+        .colorBlendOp = vkb::BlendOp::Add,
+        .srcAlphaBlendFactor = vkb::BlendFactor::One,
+        .dstAlphaBlendFactor = vkb::BlendFactor::Zero,
+        .alphaBlendOp = vkb::BlendOp::Add,
+        .colorWriteMask =
+            vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
     };
-    const auto colour_format = vkb::Format::B8G8R8A8Unorm;
-    vkb::PipelineRenderingCreateInfo rendering_create_info{
-        .sType = vkb::StructureType::PipelineRenderingCreateInfo,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &colour_format,
-    };
-    vkb::GraphicsPipelineCreateInfo pipeline_ci{
-        .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
-        .pNext = &rendering_create_info,
-        .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
-        .stageCount = shader_stage_cis.size(),
-        .pStages = shader_stage_cis.data(),
-        .pVertexInputState = &vertex_input_state,
-        .pInputAssemblyState = &input_assembly_state,
-        .pViewportState = &viewport_state,
-        .pRasterizationState = &rasterisation_state,
-        .pMultisampleState = &multisample_state,
-        .pColorBlendState = &blend_state,
-        .layout = m_pipeline_layout,
-    };
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &m_pipeline) == vkb::Result::Success);
+    m_pipeline = vk::PipelineBuilder()
+                     .add_colour_attachment(vkb::Format::B8G8R8A8Unorm, blend_state)
+                     .add_set_layout(m_descriptor_set_layout)
+                     .add_shader(vertex_shader, specialization_info)
+                     .add_shader(fragment_shader, specialization_info)
+                     .set_push_constant_range(push_constant_range)
+                     .set_topology(vkb::PrimitiveTopology::TriangleList)
+                     .set_viewport(swapchain.extent_2D())
+                     .build(m_context);
 
-    auto &ui_data_resource = render_graph.add_storage_buffer("UI data");
-    auto &ui_pass = render_graph.add_graphics_pass("UI pass");
+    auto &ui_data_resource = render_graph.add_storage_buffer("ui-data");
+    auto &ui_pass = render_graph.add_graphics_pass("ui-pass");
     ui_pass.reads_from(ui_data_resource);
     ui_pass.writes_to(swapchain_resource);
     ui_pass.set_on_record([this, &swapchain_resource](vk::CommandBuffer &cmd_buf) {
@@ -202,7 +134,6 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
 
         const auto buffer_address = object_buffer.device_address();
         cmd_buf.bind_associated_buffer(vull::move(object_buffer));
-        cmd_buf.bind_layout(vkb::PipelineBindPoint::Graphics, m_pipeline_layout);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 0, 0);
 
         vkb::RenderingAttachmentInfo colour_write_attachment{
@@ -221,7 +152,7 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
             .colorAttachmentCount = 1,
             .pColorAttachments = &colour_write_attachment,
         };
-        cmd_buf.bind_pipeline(vkb::PipelineBindPoint::Graphics, m_pipeline);
+        cmd_buf.bind_pipeline(m_pipeline);
         cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, sizeof(vkb::DeviceAddress),
                                &buffer_address);
         cmd_buf.begin_rendering(rendering_info);
@@ -232,8 +163,6 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
 }
 
 Renderer::~Renderer() {
-    m_context.vkDestroyPipeline(m_pipeline);
-    m_context.vkDestroyPipelineLayout(m_pipeline_layout);
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);

@@ -7,6 +7,7 @@
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
+#include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -129,21 +130,18 @@ void CommandBuffer::bind_index_buffer(const Buffer &buffer, vkb::IndexType index
     m_context.vkCmdBindIndexBuffer(m_cmd_buf, *buffer, 0, index_type);
 }
 
-void CommandBuffer::bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout) {
-    switch (bind_point) {
+void CommandBuffer::bind_pipeline(const Pipeline &pipeline) {
+    switch (pipeline.bind_point()) {
     case vkb::PipelineBindPoint::Compute:
-        m_compute_layout = layout;
+        m_compute_layout = pipeline.layout();
         break;
     case vkb::PipelineBindPoint::Graphics:
-        m_graphics_layout = layout;
+        m_graphics_layout = pipeline.layout();
         break;
     default:
-        VULL_ENSURE_NOT_REACHED();
+        vull::unreachable();
     }
-}
-
-void CommandBuffer::bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeline pipeline) const {
-    m_context.vkCmdBindPipeline(m_cmd_buf, bind_point, pipeline);
+    m_context.vkCmdBindPipeline(m_cmd_buf, pipeline.bind_point(), *pipeline);
 }
 
 void CommandBuffer::bind_vertex_buffer(const Buffer &buffer) const {

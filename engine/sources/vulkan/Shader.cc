@@ -1,7 +1,6 @@
 #include <vull/vulkan/Shader.hh>
 
 #include <vull/support/Array.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
@@ -104,23 +103,24 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
     return Shader(context, module, shader_stage);
 }
 
-Shader::Shader(Shader &&other) : m_context(other.m_context) {
+Shader::Shader(Shader &&other) {
+    m_context = vull::exchange(other.m_context, nullptr);
     m_module = vull::exchange(other.m_module, nullptr);
     m_stage = vull::exchange(other.m_stage, {});
 }
 
 Shader::~Shader() {
-    m_context.vkDestroyShaderModule(m_module);
+    if (m_context != nullptr) {
+        m_context->vkDestroyShaderModule(m_module);
+    }
 }
 
-vkb::PipelineShaderStageCreateInfo Shader::create_info(Optional<const vkb::SpecializationInfo &> si) const {
-    return {
-        .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-        .stage = m_stage,
-        .module = m_module,
-        .pName = "main",
-        .pSpecializationInfo = si ? &*si : nullptr,
-    };
+Shader &Shader::operator=(Shader &&other) {
+    Shader moved(vull::move(other));
+    vull::swap(m_context, moved.m_context);
+    vull::swap(m_module, moved.m_module);
+    vull::swap(m_stage, moved.m_stage);
+    return *this;
 }
 
 } // namespace vull::vk

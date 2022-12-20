@@ -7,6 +7,7 @@ target_sources(vull PRIVATE
     core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
+    graphics/DefaultRenderer.cc
     graphics/FramePacer.cc
     maths/Random.cc
     physics/Mpr.cc

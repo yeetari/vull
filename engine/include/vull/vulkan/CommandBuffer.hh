@@ -12,6 +12,7 @@ class Buffer;
 class CommandPool;
 class Context;
 class Image;
+class Pipeline;
 class QueryPool;
 
 class CommandBuffer {
@@ -54,8 +55,7 @@ public:
     void bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, const Buffer &buffer, uint32_t set,
                                 vkb::DeviceSize offset);
     void bind_index_buffer(const Buffer &buffer, vkb::IndexType index_type) const;
-    void bind_layout(vkb::PipelineBindPoint bind_point, vkb::PipelineLayout layout);
-    void bind_pipeline(vkb::PipelineBindPoint bind_point, vkb::Pipeline pipeline) const;
+    void bind_pipeline(const Pipeline &pipeline);
     void bind_vertex_buffer(const Buffer &buffer) const;
 
     void copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const;

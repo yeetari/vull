@@ -161,6 +161,7 @@ Context::Context() : ContextTable{} {
         .pNext = &device_10_features,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
+        .descriptorBindingVariableDescriptorCount = true,
         .runtimeDescriptorArray = true,
         .scalarBlockLayout = true,
         .timelineSemaphore = true,
@@ -321,6 +322,7 @@ Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements,
 }
 
 Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
+    VULL_ASSERT(size != 0);
     vkb::BufferCreateInfo buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
         .size = size,
@@ -336,7 +338,7 @@ Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, Memo
     auto allocation = allocate_memory(requirements, memory_usage);
     const auto &info = allocation.info();
     VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
-    return {vull::move(allocation), buffer, usage};
+    return {vull::move(allocation), buffer, usage, size};
 }
 
 Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage) {
