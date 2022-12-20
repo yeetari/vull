@@ -16,7 +16,7 @@ class Allocator {
     friend Allocation; // for free()
 
 private:
-    const Context &m_context;
+    Context &m_context;
     const uint32_t m_memory_type_index;
     Vector<UniquePtr<Heap>> m_heaps;
     vkb::DeviceSize m_heap_size;
@@ -26,7 +26,7 @@ private:
     void free(const Allocation &allocation);
 
 public:
-    Allocator(const Context &context, uint32_t memory_type_index);
+    Allocator(Context &context, uint32_t memory_type_index);
     Allocator(const Allocator &) = delete;
     Allocator(Allocator &&) = delete;
     ~Allocator();
@@ -36,7 +36,7 @@ public:
 
     [[nodiscard]] Allocation allocate(const vkb::MemoryRequirements &requirements);
 
-    const Context &context() const { return m_context; }
+    Context &context() const { return m_context; }
     uint32_t memory_type_index() const { return m_memory_type_index; }
 };
 

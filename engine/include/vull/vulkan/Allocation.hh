@@ -8,13 +8,12 @@
 namespace vull::vk {
 
 class Allocator;
-using BlockIndex = uint16_t;
 
 struct AllocationInfo {
     vkb::DeviceMemory memory;
-    uint32_t offset{0};
-    BlockIndex block_index{0};
+    void *block{nullptr};
     void *mapped_data{nullptr};
+    uint32_t offset{0};
     uint8_t heap_index;
 };
 

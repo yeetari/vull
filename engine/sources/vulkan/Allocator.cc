@@ -14,6 +14,28 @@
 
 #include <stdint.h>
 
+// An implementation of the TLSF memory allocation algorithm for video memory. Each Allocator manages a specific vulkan
+// memory type (e.g. HostVisible | HostCoherent), as well as a number of fixed-size heaps (n.b. the Heap class defined
+// below, not a full vulkan memory heap). The Heap class owns a fixed-size vkb::DeviceMemory object, and implements TLSF
+// for subdividing the device memory chunk into smaller blocks. TLSF works using a two-tiered hierarchy of block size
+// buckets. The first level is spread across power-of-twos. Each first level is made up of k_sl_count second levels,
+// which has linearly spaced block sizes. Each first level has a bitset representing which second levels have one or
+// more free blocks available for use. There is also a single bitset representing which first levels have one or more
+// free second levels available.
+
+// Each first and second level index pair represents a size bucket for blocks. Each bucket contains a linked list of
+// free blocks available to be allocated (the list links are actually stored in the block header, with an array in the
+// allocator to mark list heads). Upon allocation, a suitable bucket is found from the desired size. Since we have
+// bitsets indicating which free blocks are available, this can be done without having to check the free list.
+
+// Each block is also part of a circular linked list called the physical list, which retains the address order of the
+// allocated memory. It is used to coalesce free neighbouring blocks when a block is freed.
+
+// Since this is an external allocator (i.e. not one that manages normal RAM, where a block header can be placed before
+// or after the returned allocation bytes), the block header memory needs to be managed separately, which is currently
+// done by manual new and delete.
+// TODO: This can probably be improved.
+
 namespace vull::vk {
 namespace {
 
@@ -29,12 +51,12 @@ constexpr vkb::DeviceSize k_big_heap_size = 128 * 1024 * 1024;
 constexpr vkb::DeviceSize k_small_heap_cutoff = 1024 * 1024 * 1024;
 
 struct Block {
+    Block *prev_free;
+    Block *next_free;
+    Block *prev_phys;
+    Block *next_phys;
     uint32_t offset;
     uint32_t size; // LSb == free flag
-    BlockIndex prev_free;
-    BlockIndex next_free;
-    BlockIndex prev_phys;
-    BlockIndex next_phys;
 };
 
 struct BlockMapping {
@@ -43,10 +65,9 @@ struct BlockMapping {
 };
 
 BlockMapping mapping(uint32_t size) {
-    constexpr auto fl_index_offset = k_align_log2;
     const auto fl_index = vull::log2(size);
     const auto sl_index = (size >> (fl_index - k_sl_count_log2)) ^ k_sl_count;
-    return {fl_index - fl_index_offset, sl_index};
+    return {fl_index - k_align_log2, sl_index};
 }
 
 } // namespace
@@ -57,17 +78,16 @@ class Heap {
     void *const m_mapped_data;
     Bitset m_fl_bitset{};
     Array<Bitset, k_fl_count> m_sl_bitsets{};
-    Array<Array<BlockIndex, k_sl_count>, k_fl_count> m_block_map{};
-    Vector<Block, BlockIndex> m_blocks;
+    Array<Array<Block *, k_sl_count>, k_fl_count> m_block_map{};
 
-    void link_block(Block &, BlockIndex);
-    void unlink_block(const Block &, BlockIndex, uint32_t fl_index, uint32_t sl_index);
+    void link_block(Block *block);
+    void unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index);
 
 public:
     Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data);
     Heap(const Heap &) = delete;
     Heap(Heap &&) = delete;
-    ~Heap() = default;
+    ~Heap();
 
     Heap &operator=(const Heap &) = delete;
     Heap &operator=(Heap &&) = delete;
@@ -81,46 +101,60 @@ public:
 
 Heap::Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data)
     : m_memory(memory), m_mapped_data(mapped_data) {
-    // Push null block - BlockIndex(0) is used to represent absence.
-    m_blocks.emplace();
-
-    // Create initial block.
-    m_blocks.push(Block{
+    // Create initial block with full size.
+    auto *block = new Block{
         .size = static_cast<uint32_t>(size) | 1u,
-        .prev_phys = 1u,
-        .next_phys = 1u,
-    });
-    link_block(m_blocks.last(), 1u);
+    };
+    block->prev_phys = block;
+    block->next_phys = block;
+    link_block(block);
 }
 
-// Insert a block into its bucket's free list.
-void Heap::link_block(Block &block, BlockIndex index) {
-    const auto [fl_index, sl_index] = mapping(block.size & ~1u);
-    block.prev_free = 0;
-    block.next_free = vull::exchange(m_block_map[fl_index][sl_index], index);
-    if (block.next_free != 0) {
-        m_blocks[block.next_free].prev_free = index;
+Heap::~Heap() {
+    for (auto &sl : m_block_map) {
+        for (auto *block : sl) {
+            if (block != nullptr) {
+                VULL_ASSERT(block->prev_free == nullptr && block->next_free == nullptr);
+                VULL_ASSERT(block->prev_phys == block && block->next_phys == block);
+            }
+            delete block;
+        }
+    }
+}
+
+// Insert a block into its bucket's free list and make it the head.
+void Heap::link_block(Block *block) {
+    const auto [fl_index, sl_index] = mapping(block->size & ~1u);
+    block->prev_free = nullptr;
+    block->next_free = vull::exchange(m_block_map[fl_index][sl_index], block);
+    if (block->next_free != nullptr) {
+        block->next_free->prev_free = block;
     }
     m_fl_bitset |= (1ull << fl_index);
     m_sl_bitsets[fl_index] |= (1ull << sl_index);
 }
 
-void Heap::unlink_block(const Block &block, BlockIndex index, uint32_t fl_index, uint32_t sl_index) {
-    // Update free list.
-    if (block.prev_free != 0) {
-        m_blocks[block.prev_free].next_free = block.next_free;
+// Unlink block from free list.
+void Heap::unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index) {
+    auto *prev_free = block->prev_free;
+    auto *next_free = block->next_free;
+    VULL_ASSERT(prev_free != nullptr || next_free != nullptr || m_block_map[fl_index][sl_index] == block);
+
+    if (prev_free != nullptr) {
+        prev_free->next_free = next_free;
     }
-    if (block.next_free != 0) {
-        m_blocks[block.next_free].prev_free = block.prev_free;
+    if (next_free != nullptr) {
+        next_free->prev_free = prev_free;
     }
 
-    if (m_block_map[fl_index][sl_index] != index) {
+    if (m_block_map[fl_index][sl_index] != block) {
+        // Block wasn't head of free list.
         return;
     }
 
     // Update list head.
-    m_block_map[fl_index][sl_index] = block.next_free;
-    if (block.next_free == 0) {
+    m_block_map[fl_index][sl_index] = next_free;
+    if (next_free == nullptr) {
         // Last free block in list, clear bit in second level.
         m_sl_bitsets[fl_index] &= ~(1ull << sl_index);
         if (m_sl_bitsets[fl_index] == 0) {
@@ -138,88 +172,86 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     size = vull::align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
 
     auto [fl_index, sl_index] = mapping(size);
-    auto bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
-    if (bitset != 0) {
-        // Second level at sl_index has one or more free blocks.
-        sl_index = vull::ffs(bitset);
-    } else {
+    auto sl_bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
+    if (sl_bitset == 0) {
         // Second level exhausted, move up to the next first level.
-        bitset = m_fl_bitset & (~0u << (fl_index + 1));
-        fl_index = vull::ffs(bitset);
-        sl_index = vull::ffs(m_sl_bitsets[fl_index]);
+        const auto fl_bitset = m_fl_bitset & (~0u << (fl_index + 1));
+        if (fl_bitset == 0) {
+            // First level exhausted, heap is full.
+            return {};
+        }
+        fl_index = vull::ffs(fl_bitset);
+        sl_bitset = m_sl_bitsets[fl_index];
     }
+    sl_index = vull::ffs(sl_bitset);
 
-    if (fl_index == 0) {
-        // Heap exhausted.
-        return {};
-    }
-
-    const auto block_index = m_block_map[fl_index][sl_index];
-    auto *block = &m_blocks[block_index];
+    auto *block = m_block_map[fl_index][sl_index];
     VULL_ASSERT((block->size & 1u) == 1u, "Attempted allocation of non-free block");
 
     // Clear free flag. It's now safe to use block.size directly after this point.
     block->size &= ~1u;
-    unlink_block(*block, block_index, fl_index, sl_index);
+    unlink_block(block, fl_index, sl_index);
 
     VULL_ASSERT(block->size >= size);
-    if (block->size >= size + k_minimum_allocation_size) {
-        // Split block.
-        // TODO: This could do with some comments.
-        auto &new_block = m_blocks.emplace(Block{
+    if (block->size - size >= k_minimum_allocation_size) {
+        // Block is big enough to split, resize 'block' to be the size of the allocation (note not the exact size of the
+        // allocation at this point, rather the rounded-up size) and create a new block for the remainder of the free
+        // space.
+        auto *remainder_block = new Block{
             .offset = block->offset + size,
             .size = (block->size - size) | 1u,
-        });
-        block = &m_blocks[block_index];
+        };
         block->size = size;
 
-        BlockIndex new_block_index = m_blocks.size() - 1;
-        new_block.prev_phys = block_index;
-        new_block.next_phys = vull::exchange(block->next_phys, new_block_index);
-        m_blocks[new_block.next_phys].prev_phys = new_block_index;
-        link_block(new_block, new_block_index);
+        // Update physical linked list to place the new remainder block after our allocated block.
+        remainder_block->prev_phys = block;
+        remainder_block->next_phys = vull::exchange(block->next_phys, remainder_block);
+        remainder_block->next_phys->prev_phys = remainder_block;
+        link_block(remainder_block);
     }
 
     return AllocationInfo{
         .memory = m_memory,
+        .block = block,
         .offset = block->offset,
-        .block_index = block_index,
     };
 }
 
 void Heap::free(const AllocationInfo &allocation) {
-    auto &block = m_blocks[allocation.block_index];
-    VULL_ASSERT((block.size & 1u) == 0u, "Block already free");
+    auto *block = static_cast<Block *>(allocation.block);
+    VULL_ASSERT((block->size & 1u) == 0u, "Block already free");
 
-    // Try to coalesce free neighbouring blocks.
-    // TODO: Need to remove these blocks from the vector somehow, maybe m_blocks should be a linked list.
-    if (auto &prev = m_blocks[block.prev_phys]; (prev.size & 1u) == 1u && prev.offset < block.offset) {
-        VULL_ASSERT(block.prev_phys != 0);
-        prev.size &= ~1u;
+    // Try to coalesce free neighbouring blocks. The offset check is needed as the physical list is circular.
+    if (auto *prev = block->prev_phys; (prev->size & 1u) == 1u && prev->offset < block->offset) {
+        prev->size &= ~1u;
+        const auto [fl_index, sl_index] = mapping(prev->size);
+        unlink_block(prev, fl_index, sl_index);
 
-        const auto [fl_index, sl_index] = mapping(prev.size);
-        unlink_block(prev, block.prev_phys, fl_index, sl_index);
-        block.offset -= prev.size;
-        block.size += prev.size;
-        block.prev_phys = prev.prev_phys;
-        m_blocks[block.prev_phys].next_phys = allocation.block_index;
+        // Consume previous block into 'block'.
+        block->offset -= prev->size;
+        block->size += prev->size;
+        block->prev_phys = prev->prev_phys;
+        block->prev_phys->next_phys = block;
+        delete prev;
     }
-    if (auto &next = m_blocks[block.next_phys]; (next.size & 1u) == 1u && next.offset > block.offset) {
-        VULL_ASSERT(block.next_phys != 0);
-        next.size &= ~1u;
+    if (auto *next = block->next_phys; (next->size & 1u) == 1u && next->offset > block->offset) {
+        next->size &= ~1u;
+        const auto [fl_index, sl_index] = mapping(next->size);
+        unlink_block(next, fl_index, sl_index);
 
-        const auto [fl_index, sl_index] = mapping(next.size);
-        unlink_block(next, block.next_phys, fl_index, sl_index);
-        block.size += next.size;
-        block.next_phys = next.next_phys;
-        m_blocks[block.next_phys].prev_phys = allocation.block_index;
+        // Consume next block into 'block'.
+        block->size += next->size;
+        block->next_phys = next->next_phys;
+        block->next_phys->prev_phys = block;
+        delete next;
     }
 
-    block.size |= 1u;
-    link_block(block, allocation.block_index);
+    // Remark the block as free and insert it back into its bucket's free list.
+    block->size |= 1u;
+    link_block(block);
 }
 
-Allocator::Allocator(const Context &context, uint32_t memory_type_index)
+Allocator::Allocator(Context &context, uint32_t memory_type_index)
     : m_context(context), m_memory_type_index(memory_type_index), m_heap_size(k_big_heap_size) {
     vkb::PhysicalDeviceMemoryProperties memory_properties{};
     context.vkGetPhysicalDeviceMemoryProperties(&memory_properties);
