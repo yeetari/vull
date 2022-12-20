@@ -45,6 +45,7 @@ target_sources(vull PRIVATE
     vulkan/Fence.cc
     vulkan/Image.cc
     vulkan/ImageView.cc
+    vulkan/Pipeline.cc
     vulkan/QueryPool.cc
     vulkan/Queue.cc
     vulkan/RenderGraph.cc

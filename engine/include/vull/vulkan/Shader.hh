@@ -37,6 +37,8 @@ public:
     Shader &operator=(Shader &&) = delete;
 
     vkb::PipelineShaderStageCreateInfo create_info(Optional<const vkb::SpecializationInfo &> si = {}) const;
+    vkb::ShaderModule module() const { return m_module; }
+    vkb::ShaderStage stage() const { return m_stage; }
 };
 
 } // namespace vull::vk
