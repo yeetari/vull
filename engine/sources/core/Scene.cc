@@ -76,12 +76,12 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     return parent_matrix * transform.matrix();
 }
 
-vk::Buffer Scene::load_buffer(vk::Queue &queue, vpak::ReadStream &stream, uint32_t size, vkb::BufferUsage usage) {
+vk::Buffer Scene::load_buffer(vpak::ReadStream &stream, uint32_t size, vkb::BufferUsage usage) {
     auto staging_buffer = m_context.create_buffer(size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
     auto buffer = m_context.create_buffer(size, usage | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
     VULL_EXPECT(stream.read({staging_buffer.mapped_raw(), size}));
-    queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
         vkb::BufferCopy copy{
             .size = size,
         };
@@ -90,7 +90,7 @@ vk::Buffer Scene::load_buffer(vk::Queue &queue, vpak::ReadStream &stream, uint32
     return buffer;
 }
 
-vk::Image Scene::load_image(vk::Queue &queue, vpak::ReadStream &stream) {
+vk::Image Scene::load_image(vpak::ReadStream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
     const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -131,7 +131,7 @@ vk::Image Scene::load_image(vk::Queue &queue, vpak::ReadStream &stream) {
     }
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
-    queue.immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
+    m_context.graphics_queue().immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Copy,
@@ -158,7 +158,7 @@ vk::Image Scene::load_image(vk::Queue &queue, vpak::ReadStream &stream) {
         VULL_EXPECT(stream.read({staging_buffer.mapped_raw(), mip_size}));
 
         // Perform CPU -> GPU copy.
-        queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+        m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
             vkb::BufferImageCopy copy{
                 .imageSubresource{
                     .aspectMask = vkb::ImageAspect::Color,
@@ -174,7 +174,7 @@ vk::Image Scene::load_image(vk::Queue &queue, vpak::ReadStream &stream) {
     }
 
     // Transition the whole image to ShaderReadOnlyOptimal.
-    queue.immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
+    m_context.graphics_queue().immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 image_read_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .srcStageMask = vkb::PipelineStage2::Copy,
@@ -195,7 +195,7 @@ vk::Image Scene::load_image(vk::Queue &queue, vpak::ReadStream &stream) {
     return image;
 }
 
-void Scene::load(vk::Queue &queue, StringView vpak_path, StringView scene_name) {
+void Scene::load(StringView vpak_path, StringView scene_name) {
     vkb::SamplerCreateInfo linear_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -241,13 +241,13 @@ void Scene::load(vk::Queue &queue, StringView vpak_path, StringView scene_name) 
         if (auto name = mesh.vertex_data_name(); !m_vertex_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto buffer = load_buffer(queue, stream, entry.size, vkb::BufferUsage::VertexBuffer);
+            auto buffer = load_buffer(stream, entry.size, vkb::BufferUsage::VertexBuffer);
             m_vertex_buffers.set(name, vull::move(buffer));
         }
         if (auto name = mesh.index_data_name(); !m_index_buffers.contains(name)) {
             auto entry = *pack_reader.stat(name);
             auto stream = *pack_reader.open(name);
-            auto buffer = load_buffer(queue, stream, entry.size, vkb::BufferUsage::IndexBuffer);
+            auto buffer = load_buffer(stream, entry.size, vkb::BufferUsage::IndexBuffer);
             m_index_buffers.set(name, vull::move(buffer));
             m_index_counts.set(name, entry.size / sizeof(uint32_t));
         }
@@ -259,7 +259,7 @@ void Scene::load(vk::Queue &queue, StringView vpak_path, StringView scene_name) 
         case vpak::EntryType::Image:
             auto stream = pack_reader.open(entry.name);
             m_texture_indices.set(entry.name, m_texture_images.size());
-            m_texture_images.push(load_image(queue, *stream));
+            m_texture_images.push(load_image(*stream));
             break;
         }
     }

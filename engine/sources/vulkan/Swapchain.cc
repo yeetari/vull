@@ -8,6 +8,7 @@
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
@@ -48,7 +49,7 @@ unsigned rate_present_mode(vkb::PresentModeKHR present_mode, SwapchainMode swapc
 
 } // namespace
 
-Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode)
+Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vkb::SurfaceFormatKHR surface_format{
         .format = vkb::Format::B8G8R8A8Unorm,
@@ -107,16 +108,11 @@ Swapchain::Swapchain(const Context &context, vkb::Extent2D extent, vkb::SurfaceK
         VULL_ENSURE(context.vkCreateImageView(&image_view_ci, &m_image_views[i]) == vkb::Result::Success);
     }
 
-    // Find a present queue.
-    for (uint32_t i = 0; i < context.queue_families().size(); i++) {
-        vkb::Bool present_supported = false;
-        context.vkGetPhysicalDeviceSurfaceSupportKHR(i, m_surface, &present_supported);
-        if (present_supported) {
-            context.vkGetDeviceQueue(i, 0, &m_present_queue);
-            return;
-        }
-    }
-    VULL_ENSURE_NOT_REACHED("Failed to find a present queue");
+    // Ensure graphics queue supports presenting.
+    vkb::Bool present_supported = false;
+    context.vkGetPhysicalDeviceSurfaceSupportKHR(m_context.graphics_queue().family_index(), m_surface,
+                                                 &present_supported);
+    VULL_ENSURE(present_supported);
 }
 
 Swapchain::~Swapchain() {
@@ -142,7 +138,7 @@ void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphor
         .pSwapchains = &m_swapchain,
         .pImageIndices = &image_index,
     };
-    m_context.vkQueuePresentKHR(m_present_queue, &present_info);
+    m_context.vkQueuePresentKHR(*m_context.graphics_queue(), &present_info);
 }
 
 } // namespace vull::vk

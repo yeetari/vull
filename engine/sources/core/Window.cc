@@ -153,7 +153,7 @@ Key Window::translate_keycode(uint8_t keycode) {
     return keycode < m_keycode_map.size() ? m_keycode_map[keycode] : Key::Unknown;
 }
 
-vk::Swapchain Window::create_swapchain(const vk::Context &context, vk::SwapchainMode mode) {
+vk::Swapchain Window::create_swapchain(vk::Context &context, vk::SwapchainMode mode) {
     vkb::XcbSurfaceCreateInfoKHR surface_ci{
         .sType = vkb::StructureType::XcbSurfaceCreateInfoKHR,
         .connection = m_connection,

@@ -15,6 +15,7 @@
 namespace vull::vk {
 
 class Allocator;
+class Queue;
 
 class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceProperties m_properties{};
@@ -22,6 +23,7 @@ class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<vkb::QueueFamilyProperties> m_queue_families;
     Vector<UniquePtr<Allocator>> m_allocators;
+    Vector<Queue> m_queues;
 
     Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
 
@@ -39,7 +41,7 @@ public:
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
     size_t descriptor_size(vkb::DescriptorType type) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
-    const Vector<vkb::QueueFamilyProperties> &queue_families() const { return m_queue_families; }
+    Queue &graphics_queue();
 };
 
 } // namespace vull::vk

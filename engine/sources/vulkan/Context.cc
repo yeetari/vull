@@ -21,6 +21,7 @@
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
@@ -215,6 +216,10 @@ Context::Context() : ContextTable{} {
         m_allocators.emplace(new Allocator(*this, i));
     }
 
+    for (uint32_t i = 0; i < m_queue_families.size(); i++) {
+        m_queues.push(Queue(*this, i));
+    }
+
     vull::debug("[vulkan] Memory usage -> memory type mapping:");
     auto get_dummy_buffer_requirements = [this](vkb::BufferUsage usage) {
         vkb::BufferCreateInfo create_info{
@@ -265,6 +270,7 @@ Context::Context() : ContextTable{} {
 }
 
 Context::~Context() {
+    m_queues.clear();
     m_allocators.clear();
     vkDestroyDevice();
     vkDestroyInstance();
@@ -405,6 +411,11 @@ size_t Context::descriptor_size(vkb::DescriptorType type) const {
 
 float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {
     return (static_cast<float>(end - start) * m_properties.limits.timestampPeriod) / 1000000000.0f;
+}
+
+Queue &Context::graphics_queue() {
+    // TODO: Don't assume first.
+    return m_queues.first();
 }
 
 } // namespace vull::vk

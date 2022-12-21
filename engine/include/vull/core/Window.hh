@@ -54,7 +54,7 @@ public:
     Window &operator=(const Window &) = delete;
     Window &operator=(Window &&) = delete;
 
-    vk::Swapchain create_swapchain(const vk::Context &context, vk::SwapchainMode mode);
+    vk::Swapchain create_swapchain(vk::Context &context, vk::SwapchainMode mode);
     void close();
     void hide_cursor();
     void show_cursor();

@@ -57,16 +57,6 @@ using namespace vull;
 
 namespace {
 
-uint32_t find_graphics_family(const vk::Context &context) {
-    for (uint32_t i = 0; i < context.queue_families().size(); i++) {
-        const auto &family = context.queue_families()[i];
-        if ((family.queueFlags & vkb::QueueFlags::Graphics) != vkb::QueueFlags::None) {
-            return i;
-        }
-    }
-    VULL_ENSURE_NOT_REACHED();
-}
-
 Vector<uint8_t> load(const char *path) {
     FILE *file = fopen(path, "rb");
     fseek(file, 0, SEEK_END);
@@ -82,11 +72,8 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     vk::Context context;
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
-    const auto graphics_family_index = find_graphics_family(context);
-    vk::Queue queue(context, graphics_family_index);
-
     Scene scene(context);
-    scene.load(queue, "scene.vpak", scene_name);
+    scene.load("scene.vpak", scene_name);
 
     auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
     auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));
@@ -282,7 +269,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
 
         Timer record_timer;
-        auto &cmd_buf = queue.request_cmd_buf();
+        auto &cmd_buf = context.graphics_queue().request_cmd_buf();
         renderer.render(cmd_buf, projection, view_matrix, view_position, swapchain_image, swapchain_view,
                         frame.timestamp_pool());
 
@@ -314,7 +301,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
                 .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
             },
         };
-        queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
+        context.graphics_queue().submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
         cpu_time_graph.new_bar();
         cpu_time_graph.push_section("record", record_timer.elapsed());
     }

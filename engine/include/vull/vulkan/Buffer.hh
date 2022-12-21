@@ -31,7 +31,6 @@ public:
     Buffer &operator=(Buffer &&);
 
     Buffer create_staging() const;
-    // TODO: Shouldn't need to take in a queue.
     void copy_from(const Buffer &src, Queue &queue) const;
     void upload(LargeSpan<const void> data) const;
 

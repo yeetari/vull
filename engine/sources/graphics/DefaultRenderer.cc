@@ -17,7 +17,6 @@
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
-#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -293,9 +292,7 @@ void DefaultRenderer::create_resources() {
     descriptor_data =
         put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
-
-    vk::Queue queue(m_context, 0);
-    m_static_descriptor_buffer.copy_from(staging_buffer, queue);
+    m_static_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
 void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
@@ -700,9 +697,7 @@ void DefaultRenderer::load_scene(Scene &scene) {
         };
         descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &image_info);
     }
-
-    vk::Queue queue(m_context, 0);
-    m_texture_descriptor_buffer.copy_from(staging_buffer, queue);
+    m_texture_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
 void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,

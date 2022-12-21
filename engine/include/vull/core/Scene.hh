@@ -17,7 +17,6 @@ namespace vull::vk {
 
 class CommandBuffer;
 class Context;
-class Queue;
 
 } // namespace vull::vk
 
@@ -48,8 +47,8 @@ class Scene {
     vkb::Sampler m_linear_sampler{nullptr};
     vkb::Sampler m_nearest_sampler{nullptr};
 
-    vk::Buffer load_buffer(vk::Queue &, vpak::ReadStream &, uint32_t, vkb::BufferUsage);
-    vk::Image load_image(vk::Queue &, vpak::ReadStream &);
+    vk::Buffer load_buffer(vpak::ReadStream &, uint32_t, vkb::BufferUsage);
+    vk::Image load_image(vpak::ReadStream &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}
@@ -61,7 +60,7 @@ public:
     Scene &operator=(Scene &&) = delete;
 
     Mat4f get_transform_matrix(EntityId entity);
-    void load(vk::Queue &queue, StringView vpak_path, StringView scene_name);
+    void load(StringView vpak_path, StringView scene_name);
     void render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index);
 
     World &world() { return m_world; }
