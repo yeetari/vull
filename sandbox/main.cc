@@ -40,7 +40,6 @@
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vulkan/CommandBuffer.hh>
-#include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Queue.hh>
@@ -84,11 +83,10 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
     const auto graphics_family_index = find_graphics_family(context);
-    vk::CommandPool cmd_pool(context, graphics_family_index);
     vk::Queue queue(context, graphics_family_index);
 
     Scene scene(context);
-    scene.load(cmd_pool, queue, "scene.vpak", scene_name);
+    scene.load(queue, "scene.vpak", scene_name);
 
     auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
     auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));
@@ -284,7 +282,7 @@ void main_task(Scheduler &scheduler, StringView scene_name) {
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
 
         Timer record_timer;
-        auto &cmd_buf = cmd_pool.request_cmd_buf();
+        auto &cmd_buf = queue.request_cmd_buf();
         renderer.render(cmd_buf, projection, view_matrix, view_position, swapchain_image, swapchain_view,
                         frame.timestamp_pool());
 

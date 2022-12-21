@@ -6,7 +6,6 @@
 
 namespace vull::vk {
 
-class CommandPool;
 class Context;
 class Queue;
 
@@ -32,8 +31,8 @@ public:
     Buffer &operator=(Buffer &&);
 
     Buffer create_staging() const;
-    // TODO: Shouldn't need to take in queue or command pool.
-    void copy_from(const Buffer &src, Queue &queue, CommandPool &cmd_pool) const;
+    // TODO: Shouldn't need to take in a queue.
+    void copy_from(const Buffer &src, Queue &queue) const;
     void upload(LargeSpan<const void> data) const;
 
     vkb::Buffer operator*() const { return m_buffer; }

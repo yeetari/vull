@@ -40,7 +40,6 @@ target_sources(vull PRIVATE
     vulkan/Allocator.cc
     vulkan/Buffer.cc
     vulkan/CommandBuffer.cc
-    vulkan/CommandPool.cc
     vulkan/Context.cc
     vulkan/ContextTable.cc
     vulkan/Fence.cc

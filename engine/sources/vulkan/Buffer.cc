@@ -56,8 +56,8 @@ Buffer Buffer::create_staging() const {
     return context.create_buffer(m_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
 }
 
-void Buffer::copy_from(const Buffer &src, Queue &queue, CommandPool &cmd_pool) const {
-    queue.immediate_submit(cmd_pool, [&](const CommandBuffer &cmd_buf) {
+void Buffer::copy_from(const Buffer &src, Queue &queue) const {
+    queue.immediate_submit([&](const CommandBuffer &cmd_buf) {
         vkb::BufferCopy copy{
             .size = vull::min(src.size(), m_size),
         };

@@ -9,14 +9,14 @@
 namespace vull::vk {
 
 class Buffer;
-class CommandPool;
 class Context;
 class Image;
 class Pipeline;
 class QueryPool;
+class Queue;
 
 class CommandBuffer {
-    friend CommandPool;
+    friend Queue;
 
     struct DescriptorBufferBinding {
         vkb::PipelineBindPoint bind_point;

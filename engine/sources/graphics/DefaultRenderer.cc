@@ -11,7 +11,6 @@
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
-#include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/ImageView.hh>
@@ -295,9 +294,8 @@ void DefaultRenderer::create_resources() {
         put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
 
-    vk::CommandPool cmd_pool(m_context, 0);
     vk::Queue queue(m_context, 0);
-    m_static_descriptor_buffer.copy_from(staging_buffer, queue, cmd_pool);
+    m_static_descriptor_buffer.copy_from(staging_buffer, queue);
 }
 
 void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
@@ -686,11 +684,11 @@ void DefaultRenderer::compile_render_graph() {
 
 void DefaultRenderer::load_scene(Scene &scene) {
     m_scene = &scene;
-    m_texture_descriptor_buffer =
-        m_context.create_buffer(m_texture_set_layout_size,
-                                vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress |
-                                    vkb::BufferUsage::TransferDst,
-                                vk::MemoryUsage::DeviceOnly);
+    m_texture_descriptor_buffer = m_context.create_buffer(
+        scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
+        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress |
+            vkb::BufferUsage::TransferDst,
+        vk::MemoryUsage::DeviceOnly);
 
     auto staging_buffer = m_texture_descriptor_buffer.create_staging();
     auto *descriptor_data = staging_buffer.mapped<uint8_t>();
@@ -703,9 +701,8 @@ void DefaultRenderer::load_scene(Scene &scene) {
         descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &image_info);
     }
 
-    vk::CommandPool cmd_pool(m_context, 0);
     vk::Queue queue(m_context, 0);
-    m_texture_descriptor_buffer.copy_from(staging_buffer, queue, cmd_pool);
+    m_texture_descriptor_buffer.copy_from(staging_buffer, queue);
 }
 
 void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,

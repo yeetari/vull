@@ -10,10 +10,10 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
-#include <vull/vulkan/CommandPool.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/QueryPool.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Swapchain.hh>
@@ -30,8 +30,8 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
     auto &first_frame = m_frames.first();
     m_image_index = swapchain.acquire_image(*first_frame.acquire_semaphore());
 
-    vk::CommandPool cmd_pool(swapchain.context(), 0);
-    auto &cmd_buf = cmd_pool.request_cmd_buf();
+    vk::Queue queue(swapchain.context(), 0);
+    auto &cmd_buf = queue.request_cmd_buf();
     vkb::ImageMemoryBarrier2 swapchain_present_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .oldLayout = vkb::ImageLayout::Undefined,
