@@ -174,6 +174,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .sType = vkb::StructureType::PhysicalDeviceVulkan13Features,
         .pNext = &device_12_features,
         .synchronization2 = true,
+        .shaderZeroInitializeWorkgroupMemory = true,
         .dynamicRendering = true,
     };
     vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
