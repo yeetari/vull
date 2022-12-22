@@ -28,7 +28,7 @@ class Context : public vkb::ContextTable {
     Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
 
 public:
-    Context();
+    explicit Context(bool enable_validation);
     Context(const Context &) = delete;
     Context(Context &&) = delete;
     ~Context();

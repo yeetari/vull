@@ -56,7 +56,7 @@ vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
 
 } // namespace
 
-Context::Context() : ContextTable{} {
+Context::Context(bool enable_validation) : ContextTable{} {
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
         libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
@@ -81,28 +81,28 @@ Context::Context() : ContextTable{} {
         .enabledExtensionCount = enabled_instance_extensions.size(),
         .ppEnabledExtensionNames = enabled_instance_extensions.data(),
     };
-#ifndef NDEBUG
-    uint32_t layer_count = 0;
-    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-    Vector<vkb::LayerProperties> layers(layer_count);
-    vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
-
     const char *validation_layer_name = "VK_LAYER_KHRONOS_validation";
-    bool has_validation_layer = false;
-    for (const auto &layer : layers) {
-        if (vull::StringView(static_cast<const char *>(layer.layerName)) == validation_layer_name) {
-            has_validation_layer = true;
-            break;
+    if (enable_validation) {
+        uint32_t layer_count = 0;
+        vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+        Vector<vkb::LayerProperties> layers(layer_count);
+        vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
+
+        bool has_validation_layer = false;
+        for (const auto &layer : layers) {
+            if (vull::StringView(static_cast<const char *>(layer.layerName)) == validation_layer_name) {
+                has_validation_layer = true;
+                break;
+            }
+        }
+        if (has_validation_layer) {
+            vull::info("[vulkan] Enabling validation layer");
+            instance_ci.enabledLayerCount = 1;
+            instance_ci.ppEnabledLayerNames = &validation_layer_name;
+        } else {
+            vull::warn("[vulkan] Validation layer not present");
         }
     }
-    if (has_validation_layer) {
-        vull::info("[vulkan] Enabling validation layer");
-        instance_ci.enabledLayerCount = 1;
-        instance_ci.ppEnabledLayerNames = &validation_layer_name;
-    } else {
-        vull::warn("[vulkan] Validation layer not present");
-    }
-#endif
     VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
     load_instance(vkGetInstanceProcAddr);
 
