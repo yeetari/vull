@@ -24,8 +24,8 @@ struct ViewFrustum {
 };
 
 shared float g_min_depth;
-shared float g_max_depth;
-shared uint g_tile_light_count;
+shared float g_max_depth = {};
+shared uint g_tile_light_count = {};
 shared ViewFrustum g_frustum;
 
 ViewFrustum create_frustum(ivec2 tile_id) {
@@ -65,8 +65,6 @@ void main() {
     uint tile_index = tile_id.y * gl_NumWorkGroups.x + tile_id.x;
     if (gl_LocalInvocationIndex == 0) {
         g_min_depth = 1.0f / 0.0f;
-        g_max_depth = 0.0f;
-        g_tile_light_count = 0;
     }
     barrier();
     if (gl_LocalInvocationIndex == 0) {
