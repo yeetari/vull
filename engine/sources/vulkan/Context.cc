@@ -2,6 +2,7 @@
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
+#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
@@ -216,10 +217,6 @@ Context::Context(bool enable_validation) : ContextTable{} {
         m_allocators.emplace(new Allocator(*this, i));
     }
 
-    for (uint32_t i = 0; i < m_queue_families.size(); i++) {
-        m_queues.push(Queue(*this, i));
-    }
-
     vull::debug("[vulkan] Memory usage -> memory type mapping:");
     auto get_dummy_buffer_requirements = [this](vkb::BufferUsage usage) {
         vkb::BufferCreateInfo create_info{
@@ -414,8 +411,14 @@ float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {
 }
 
 Queue &Context::graphics_queue() {
-    // TODO: Don't assume first.
-    return m_queues.first();
+    thread_local Queue *thread_queue = nullptr;
+    if (thread_queue == nullptr) {
+        // TODO: Don't assume family 0!
+        thread_queue = new Queue(*this, 0);
+        ScopedLock lock(m_queues_mutex);
+        m_queues.emplace(thread_queue);
+    }
+    return *thread_queue;
 }
 
 } // namespace vull::vk

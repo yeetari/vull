@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/platform/Mutex.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocation.hh>
@@ -23,7 +24,8 @@ class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<vkb::QueueFamilyProperties> m_queue_families;
     Vector<UniquePtr<Allocator>> m_allocators;
-    Vector<Queue> m_queues;
+    Vector<UniquePtr<Queue>> m_queues;
+    Mutex m_queues_mutex;
 
     Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
 
