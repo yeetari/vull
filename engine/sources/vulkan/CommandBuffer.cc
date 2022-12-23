@@ -36,9 +36,7 @@ CommandBuffer::CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf)
 CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context), m_cmd_buf(other.m_cmd_buf) {
     m_completion_semaphore = vull::exchange(other.m_completion_semaphore, nullptr);
     m_completion_value = vull::exchange(other.m_completion_value, 0u);
-    VULL_ASSERT(m_associated_buffers.empty());
-    VULL_ASSERT(m_descriptor_buffers.empty());
-    VULL_ASSERT(m_descriptor_buffer_bindings.empty());
+    m_associated_buffers = vull::move(other.m_associated_buffers);
 }
 
 CommandBuffer::~CommandBuffer() {
