@@ -155,12 +155,18 @@ Context::Context(bool enable_validation) : ContextTable{} {
     vkb::PhysicalDeviceFeatures2 device_10_features{
         .sType = vkb::StructureType::PhysicalDeviceFeatures2,
         .features{
+            .multiDrawIndirect = true,
             .samplerAnisotropy = true,
         },
     };
+    vkb::PhysicalDeviceVulkan11Features device_11_features{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan11Features,
+        .pNext = &device_10_features,
+        .shaderDrawParameters = true,
+    };
     vkb::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
-        .pNext = &device_10_features,
+        .pNext = &device_11_features,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
         .descriptorBindingVariableDescriptorCount = true,
