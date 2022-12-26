@@ -7,6 +7,7 @@
 #include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/maths/Projection.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
