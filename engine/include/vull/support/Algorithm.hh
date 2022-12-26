@@ -19,7 +19,7 @@ class ReverseIterator {
 public:
     explicit ReverseIterator(It it) : m_it(it) {}
 
-    bool operator!=(const ReverseIterator &other) const { return m_it != other.m_it; }
+    bool operator==(const ReverseIterator &other) const { return m_it == other.m_it; }
 
     auto &operator++();
     auto &operator*() const;

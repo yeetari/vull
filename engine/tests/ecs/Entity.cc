@@ -182,6 +182,6 @@ TEST_SUITE(Entity, {
         entity.add<Foo>();
 
         auto view = manager.view<Foo, Bar>();
-        EXPECT(!(view.begin() != view.end()));
+        EXPECT(view.begin() == view.end());
     }
 })

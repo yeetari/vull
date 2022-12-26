@@ -53,7 +53,7 @@ protected:
         : m_manager(manager), m_current_id(current_id), m_current_component(current_component) {}
 
 public:
-    bool operator!=(const EntityIterator &) const;
+    bool operator==(const EntityIterator &) const;
     EntityIterator &operator++();
     Tuple<Entity, C &> operator*() const;
 };
@@ -159,8 +159,8 @@ inline void Entity::destroy() {
 }
 
 template <typename C>
-bool EntityIterator<C>::operator!=(const EntityIterator &other) const {
-    return m_current_id != other.m_current_id;
+bool EntityIterator<C>::operator==(const EntityIterator &other) const {
+    return m_current_id == other.m_current_id;
 }
 
 template <typename C>
