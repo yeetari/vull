@@ -680,7 +680,7 @@ void DefaultRenderer::update_cascades() {
     const float near_plane = 0.1f;
     const float shadow_distance = 2000.0f;
     const float clip_range = shadow_distance - near_plane;
-    const float split_lambda = 0.95f;
+    const float split_lambda = 0.85f;
     Array<float, 4> split_distances;
     for (uint32_t i = 0; i < k_cascade_count; i++) {
         float p = static_cast<float>(i + 1) / static_cast<float>(k_cascade_count);
