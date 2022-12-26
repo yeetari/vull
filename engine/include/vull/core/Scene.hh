@@ -23,6 +23,7 @@ class Context;
 namespace vull::vpak {
 
 class ReadStream;
+class Reader;
 
 } // namespace vull::vpak
 
@@ -60,7 +61,7 @@ public:
     Scene &operator=(Scene &&) = delete;
 
     Mat4f get_transform_matrix(EntityId entity);
-    void load(StringView vpak_path, StringView scene_name);
+    void load(vpak::Reader &pack_reader, StringView scene_name);
     void render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index);
 
     World &world() { return m_world; }

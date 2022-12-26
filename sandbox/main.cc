@@ -22,6 +22,7 @@
 #include <vull/physics/PhysicsEngine.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/Shape.hh>
+#include <vull/platform/File.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
@@ -41,6 +42,7 @@
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
+#include <vull/vpak/Reader.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
@@ -74,8 +76,9 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file("scene.vpak", OpenMode::Read)));
     Scene scene(context);
-    scene.load("scene.vpak", scene_name);
+    scene.load(pack_reader, scene_name);
 
     auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
     auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));

@@ -10,7 +10,6 @@
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
-#include <vull/platform/File.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>
@@ -195,7 +194,7 @@ vk::Image Scene::load_image(vpak::ReadStream &stream) {
     return image;
 }
 
-void Scene::load(StringView vpak_path, StringView scene_name) {
+void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
     vkb::SamplerCreateInfo linear_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -226,8 +225,7 @@ void Scene::load(StringView vpak_path, StringView scene_name) {
     };
     VULL_ENSURE(m_context.vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
 
-    // Read pack header and register default components. Note that the order currently matters.
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Read)));
+    // Register default components. Note that the order currently matters.
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
     m_world.register_component<Material>();
