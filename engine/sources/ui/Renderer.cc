@@ -73,9 +73,8 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
 
     vkb::DeviceSize descriptor_buffer_size;
     context.vkGetDescriptorSetLayoutSizeEXT(m_descriptor_set_layout, &descriptor_buffer_size);
-    m_descriptor_buffer = context.create_buffer(
-        descriptor_buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress,
-        vk::MemoryUsage::HostToDevice);
+    m_descriptor_buffer = context.create_buffer(descriptor_buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
+                                                vk::MemoryUsage::HostToDevice);
 
     Vec2f swapchain_dimensions = swapchain.dimensions();
     Array specialization_map_entries{

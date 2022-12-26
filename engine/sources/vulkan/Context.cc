@@ -333,6 +333,8 @@ Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements,
 
 Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
     VULL_ASSERT(size != 0);
+    // TODO: Is it bad on any driver to always create a buffer with ShaderDeviceAddress?
+    usage |= vkb::BufferUsage::ShaderDeviceAddress;
     vkb::BufferCreateInfo buffer_ci{
         .sType = vkb::StructureType::BufferCreateInfo,
         .size = size,

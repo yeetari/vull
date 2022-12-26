@@ -272,15 +272,14 @@ void DefaultRenderer::create_resources() {
 
     const auto light_visibility_buffer_size =
         (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width * m_tile_extent.height;
-    m_light_visibility_buffer = m_context.create_buffer(
-        light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::ShaderDeviceAddress,
-        vk::MemoryUsage::DeviceOnly);
+    m_light_visibility_buffer = m_context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
+                                                        vk::MemoryUsage::DeviceOnly);
 
-    m_static_descriptor_buffer = m_context.create_buffer(
-        m_static_set_layout_size,
-        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT |
-            vkb::BufferUsage::ShaderDeviceAddress | vkb::BufferUsage::TransferDst,
-        vk::MemoryUsage::DeviceOnly);
+    m_static_descriptor_buffer =
+        m_context.create_buffer(m_static_set_layout_size,
+                                vkb::BufferUsage::SamplerDescriptorBufferEXT |
+                                    vkb::BufferUsage::ResourceDescriptorBufferEXT | vkb::BufferUsage::TransferDst,
+                                vk::MemoryUsage::DeviceOnly);
 
     vkb::DescriptorImageInfo albedo_image_info{
         .imageView = *m_albedo_image.full_view(),
@@ -532,9 +531,8 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
         },
     };
 
-    auto uniform_buffer = m_context.create_buffer(
-        sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer | vkb::BufferUsage::ShaderDeviceAddress,
-        vk::MemoryUsage::HostToDevice);
+    auto uniform_buffer =
+        m_context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice);
     m_uniform_buffer_resource->set(uniform_buffer);
     *uniform_buffer.mapped<UniformBuffer>() = {
         .proj = m_proj,
@@ -545,8 +543,7 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
 
     // TODO: Light buffer may benefit from being DeviceOnly and transferred to.
     auto light_buffer = m_context.create_buffer(lights.size_bytes() + 4 * sizeof(float),
-                                                vkb::BufferUsage::UniformBuffer | vkb::BufferUsage::ShaderDeviceAddress,
-                                                vk::MemoryUsage::HostToDevice);
+                                                vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice);
     m_light_buffer_resource->set(light_buffer);
     uint32_t light_count = lights.size();
     memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
@@ -559,8 +556,7 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
     }
 
     m_draw_buffer = m_context.create_buffer(object_count * sizeof(DrawCmd),
-                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
-                                                vkb::BufferUsage::ShaderDeviceAddress,
+                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer,
                                             vk::MemoryUsage::DeviceOnly);
     auto draw_staging_buffer = m_draw_buffer.create_staging();
     memset(draw_staging_buffer.mapped_raw(), 0, object_count * sizeof(DrawCmd));
@@ -590,8 +586,7 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
 
     m_dynamic_descriptor_buffer = m_context.create_buffer(m_dynamic_set_layout_size,
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
-                                                              vkb::BufferUsage::ResourceDescriptorBufferEXT |
-                                                              vkb::BufferUsage::ShaderDeviceAddress,
+                                                              vkb::BufferUsage::ResourceDescriptorBufferEXT,
                                                           vk::MemoryUsage::HostToDevice);
     cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
     cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
@@ -759,9 +754,7 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
     m_scene = &scene;
     m_texture_descriptor_buffer = m_context.create_buffer(
         scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
-        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ShaderDeviceAddress |
-            vkb::BufferUsage::TransferDst,
-        vk::MemoryUsage::DeviceOnly);
+        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
     auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
     auto *descriptor_data = texture_descriptor_staging_buffer.mapped<uint8_t>();
