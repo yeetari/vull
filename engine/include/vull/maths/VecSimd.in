@@ -1,4 +1,7 @@
 #ifdef __SSE__
+#include <xmmintrin.h>
+
+namespace vull {
 
 template <>
 class [[gnu::packed]] Vec<float, 4> : public VecBase<Vec<float, 4>> {
@@ -69,4 +72,5 @@ inline float Vec<float, 4>::operator[](unsigned index) const {
     }
 }
 
+} // namespace vull
 #endif

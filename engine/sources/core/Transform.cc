@@ -1,6 +1,5 @@
 #include <vull/core/Transform.hh>
 
-#include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Quat.hh>
 #include <vull/maths/Vec.hh>
