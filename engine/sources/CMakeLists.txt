@@ -1,7 +1,5 @@
 target_sources(vull PRIVATE
     core/Log.cc
-    core/Material.cc
-    core/Mesh.cc
     core/Scene.cc
     core/Transform.cc
     core/Window.cc
@@ -9,6 +7,8 @@ target_sources(vull PRIVATE
     ecs/World.cc
     graphics/DefaultRenderer.cc
     graphics/FramePacer.cc
+    graphics/Material.cc
+    graphics/Mesh.cc
     maths/Random.cc
     physics/Mpr.cc
     physics/PhysicsEngine.cc

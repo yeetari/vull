@@ -2,8 +2,6 @@
 
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
-#include <vull/core/Material.hh>
-#include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/Window.hh>
@@ -13,6 +11,8 @@
 #include <vull/graphics/DefaultRenderer.hh>
 #include <vull/graphics/Frame.hh>
 #include <vull/graphics/FramePacer.hh>
+#include <vull/graphics/Material.hh>
+#include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Quat.hh>

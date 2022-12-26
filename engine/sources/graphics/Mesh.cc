@@ -1,4 +1,4 @@
-#include <vull/core/Mesh.hh>
+#include <vull/graphics/Mesh.hh>
 
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>

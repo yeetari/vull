@@ -2,11 +2,11 @@
 
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/Log.hh>
-#include <vull/core/Material.hh>
-#include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/Material.hh>
+#include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/support/Array.hh>

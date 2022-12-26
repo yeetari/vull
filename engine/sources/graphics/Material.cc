@@ -1,4 +1,4 @@
-#include <vull/core/Material.hh>
+#include <vull/graphics/Material.hh>
 
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>

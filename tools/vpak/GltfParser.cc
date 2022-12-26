@@ -2,10 +2,10 @@
 
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/Log.hh>
-#include <vull/core/Material.hh>
-#include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/Material.hh>
+#include <vull/graphics/Mesh.hh>
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/platform/Latch.hh>

@@ -1,10 +1,10 @@
 #include <vull/graphics/DefaultRenderer.hh>
 
-#include <vull/core/Material.hh>
-#include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/Material.hh>
+#include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
