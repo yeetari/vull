@@ -5,7 +5,6 @@
 #include <vull/core/Material.hh>
 #include <vull/core/Mesh.hh>
 #include <vull/core/Transform.hh>
-#include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
@@ -17,7 +16,6 @@
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
@@ -73,20 +71,6 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     }
     const auto parent_matrix = get_transform_matrix(transform.parent());
     return parent_matrix * transform.matrix();
-}
-
-vk::Buffer Scene::load_buffer(vpak::ReadStream &stream, uint32_t size, vkb::BufferUsage usage) {
-    auto staging_buffer = m_context.create_buffer(size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-    auto buffer = m_context.create_buffer(size, usage | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-
-    VULL_EXPECT(stream.read({staging_buffer.mapped_raw(), size}));
-    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
-        vkb::BufferCopy copy{
-            .size = size,
-        };
-        cmd_buf.copy_buffer(staging_buffer, buffer, copy);
-    });
-    return buffer;
 }
 
 vk::Image Scene::load_image(vpak::ReadStream &stream) {
@@ -234,23 +218,6 @@ void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
     // Load world.
     VULL_EXPECT(m_world.deserialise(pack_reader, scene_name));
 
-    // Preload all meshes.
-    for (auto [entity, mesh] : m_world.view<Mesh>()) {
-        if (auto name = mesh.vertex_data_name(); !m_vertex_buffers.contains(name)) {
-            auto entry = *pack_reader.stat(name);
-            auto stream = *pack_reader.open(name);
-            auto buffer = load_buffer(stream, entry.size, vkb::BufferUsage::VertexBuffer);
-            m_vertex_buffers.set(name, vull::move(buffer));
-        }
-        if (auto name = mesh.index_data_name(); !m_index_buffers.contains(name)) {
-            auto entry = *pack_reader.stat(name);
-            auto stream = *pack_reader.open(name);
-            auto buffer = load_buffer(stream, entry.size, vkb::BufferUsage::IndexBuffer);
-            m_index_buffers.set(name, vull::move(buffer));
-            m_index_counts.set(name, entry.size / sizeof(uint32_t));
-        }
-    }
-
     // Load textures.
     for (const auto &entry : pack_reader.entries()) {
         switch (entry.type) {
@@ -260,33 +227,6 @@ void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
             m_texture_images.push(load_image(*stream));
             break;
         }
-    }
-}
-
-void Scene::render(vk::CommandBuffer &cmd_buf, uint32_t cascade_index) {
-    for (auto [entity, mesh, material] : m_world.view<Mesh, Material>()) {
-        auto vertex_buffer = m_vertex_buffers.get(mesh.vertex_data_name());
-        auto index_buffer = m_index_buffers.get(mesh.index_data_name());
-        if (!vertex_buffer || !index_buffer) {
-            continue;
-        }
-
-        auto albedo_index = m_texture_indices.get(material.albedo_name());
-        auto normal_index = m_texture_indices.get(material.normal_name());
-        if (!albedo_index || !normal_index) {
-            continue;
-        }
-
-        PushConstantBlock push_constant_block{
-            .transform = get_transform_matrix(entity),
-            .albedo_index = *albedo_index,
-            .normal_index = *normal_index,
-            .cascade_index = cascade_index,
-        };
-        cmd_buf.bind_vertex_buffer(*vertex_buffer);
-        cmd_buf.bind_index_buffer(*index_buffer, vkb::IndexType::Uint32);
-        cmd_buf.push_constants(vkb::ShaderStage::AllGraphics, sizeof(PushConstantBlock), &push_constant_block);
-        cmd_buf.draw_indexed(*m_index_counts.get(mesh.index_data_name()), 1);
     }
 }
 

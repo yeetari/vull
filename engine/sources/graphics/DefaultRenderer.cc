@@ -1,14 +1,25 @@
 #include <vull/graphics/DefaultRenderer.hh>
 
+#include <vull/core/Material.hh>
+#include <vull/core/Mesh.hh>
 #include <vull/core/Scene.hh>
+#include <vull/ecs/Entity.hh>
+#include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/HashMap.hh>
+#include <vull/support/HashSet.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
+#include <vull/support/String.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
@@ -17,6 +28,7 @@
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -33,13 +45,15 @@ constexpr uint32_t k_texture_limit = 32768;
 constexpr uint32_t k_tile_size = 32;
 constexpr uint32_t k_tile_max_light_count = 256;
 
-// TODO
-// struct PushConstantBlock {
-//    Mat4f transform;
-//    uint32_t albedo_index;
-//    uint32_t normal_index;
-//    uint32_t cascade_index;
-//};
+struct DrawCmd : vkb::DrawIndexedIndirectCommand {
+    uint32_t albedo_index;
+    uint32_t normal_index;
+    Mat4f transform;
+};
+
+struct ShadowPushConstantBlock {
+    uint32_t cascade_index;
+};
 
 struct PointLight {
     Vec3f position;
@@ -135,6 +149,12 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorType = vkb::DescriptorType::StorageImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 3,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Vertex,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo dynamic_set_layout_ci{
@@ -343,11 +363,6 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
         .pData = &specialization_data,
     };
 
-    vkb::PushConstantRange push_constant_range{
-        .stageFlags = vkb::ShaderStage::AllGraphics,
-        .size = sizeof(PushConstantBlock),
-    };
-
     m_gbuffer_pipeline = vk::PipelineBuilder()
                              .add_colour_attachment(m_albedo_image.format())
                              .add_colour_attachment(m_normal_image.format())
@@ -361,7 +376,6 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                              .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                              .set_depth_format(m_depth_image.format())
                              .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
-                             .set_push_constant_range(push_constant_range)
                              .set_topology(vkb::PrimitiveTopology::TriangleList)
                              .set_vertex_binding(sizeof(Vertex))
                              .set_viewport(m_viewport_extent)
@@ -375,7 +389,10 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                             .set_depth_bias(2.0f, 5.0f)
                             .set_depth_format(vkb::Format::D32Sfloat)
                             .set_depth_params(vkb::CompareOp::LessOrEqual, true, true)
-                            .set_push_constant_range(push_constant_range)
+                            .set_push_constant_range({
+                                .stageFlags = vkb::ShaderStage::Vertex,
+                                .size = sizeof(ShadowPushConstantBlock),
+                            })
                             .set_topology(vkb::PrimitiveTopology::TriangleList)
                             .set_vertex_binding(sizeof(Vertex))
                             .set_viewport(vkb::Extent2D{k_shadow_resolution, k_shadow_resolution})
@@ -448,10 +465,15 @@ void DefaultRenderer::create_render_graph() {
                 .layerCount = 1,
                 .pDepthAttachment = &shadow_map_write_attachment,
             };
+            ShadowPushConstantBlock push_constant_block{
+                .cascade_index = i,
+            };
             cmd_buf.begin_rendering(rendering_info);
-            m_scene->render(cmd_buf, i);
+            cmd_buf.push_constants(vkb::ShaderStage::Vertex, sizeof(ShadowPushConstantBlock), &push_constant_block);
+            record_draws(cmd_buf);
             cmd_buf.end_rendering();
         }
+        cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
     });
 
     auto &light_cull_pass = m_render_graph.add_compute_pass("light-cull");
@@ -495,6 +517,12 @@ uint8_t *DefaultRenderer::put_descriptor(uint8_t *dst, vkb::DescriptorType type,
     return dst + size;
 }
 
+void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf) {
+    cmd_buf.bind_vertex_buffer(m_vertex_buffer);
+    cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
+    cmd_buf.draw_indexed_indirect(m_draw_buffer, sizeof(DrawCmd));
+}
+
 void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
     Array lights{
         PointLight{
@@ -524,6 +552,42 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
     memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
     memcpy(light_buffer.mapped<uint8_t>() + 4 * sizeof(float), lights.data(), lights.size_bytes());
 
+    uint32_t object_count = 0;
+    for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
+        VULL_IGNORE(entity);
+        object_count++;
+    }
+
+    m_draw_buffer = m_context.create_buffer(object_count * sizeof(DrawCmd),
+                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
+                                                vkb::BufferUsage::ShaderDeviceAddress,
+                                            vk::MemoryUsage::DeviceOnly);
+    auto draw_staging_buffer = m_draw_buffer.create_staging();
+    memset(draw_staging_buffer.mapped_raw(), 0, object_count * sizeof(DrawCmd));
+    auto *draw_cmd = draw_staging_buffer.mapped<DrawCmd>();
+    for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
+        const auto mesh_info = m_mesh_infos.get(mesh.vertex_data_name());
+        if (!mesh_info) {
+            continue;
+        }
+
+        auto albedo_index = m_scene->texture_index(material.albedo_name());
+        auto normal_index = m_scene->texture_index(material.normal_name());
+        if (!albedo_index || !normal_index) {
+            continue;
+        }
+
+        draw_cmd->indexCount = mesh_info->index_count;
+        draw_cmd->instanceCount = 1;
+        draw_cmd->firstIndex = mesh_info->index_offset;
+        draw_cmd->vertexOffset = mesh_info->vertex_offset;
+        draw_cmd->firstInstance = 0;
+        draw_cmd->albedo_index = *albedo_index;
+        draw_cmd->normal_index = *normal_index;
+        draw_cmd->transform = m_scene->get_transform_matrix(entity);
+        draw_cmd++;
+    }
+
     m_dynamic_descriptor_buffer = m_context.create_buffer(m_dynamic_set_layout_size,
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
                                                               vkb::BufferUsage::ResourceDescriptorBufferEXT |
@@ -546,11 +610,22 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
         .imageView = m_output_view,
         .imageLayout = vkb::ImageLayout::General,
     };
+    vkb::DescriptorAddressInfoEXT draw_buffer_ai{
+        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+        .address = m_draw_buffer.device_address(),
+        .range = m_draw_buffer.size(),
+    };
 
     auto *descriptor_data = m_dynamic_descriptor_buffer.mapped<uint8_t>();
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::UniformBuffer, &uniform_buffer_ai);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_buffer_ai);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageImage, &output_image_info);
+    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &draw_buffer_ai);
+
+    vkb::BufferCopy draw_buffer_copy{
+        .size = m_draw_buffer.size(),
+    };
+    cmd_buf.copy_buffer(draw_staging_buffer, m_draw_buffer, draw_buffer_copy);
 
     Array colour_write_attachments{
         vkb::RenderingAttachmentInfo{
@@ -596,12 +671,13 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
     };
     cmd_buf.bind_pipeline(m_gbuffer_pipeline);
     cmd_buf.begin_rendering(rendering_info);
-    m_scene->render(cmd_buf, 0);
+    record_draws(cmd_buf);
     cmd_buf.end_rendering();
 
     // Release ownership to command buffer.
     cmd_buf.bind_associated_buffer(vull::move(uniform_buffer));
     cmd_buf.bind_associated_buffer(vull::move(light_buffer));
+    cmd_buf.bind_associated_buffer(vull::move(draw_staging_buffer));
 }
 
 void DefaultRenderer::update_cascades() {
@@ -679,7 +755,7 @@ void DefaultRenderer::compile_render_graph() {
     m_render_graph.compile(*m_output_image_resource);
 }
 
-void DefaultRenderer::load_scene(Scene &scene) {
+void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
     m_scene = &scene;
     m_texture_descriptor_buffer = m_context.create_buffer(
         scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
@@ -687,8 +763,8 @@ void DefaultRenderer::load_scene(Scene &scene) {
             vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
 
-    auto staging_buffer = m_texture_descriptor_buffer.create_staging();
-    auto *descriptor_data = staging_buffer.mapped<uint8_t>();
+    auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
+    auto *descriptor_data = texture_descriptor_staging_buffer.mapped<uint8_t>();
     for (uint32_t i = 0; i < scene.texture_count(); i++) {
         vkb::DescriptorImageInfo image_info{
             .sampler = scene.texture_samplers()[i],
@@ -697,7 +773,73 @@ void DefaultRenderer::load_scene(Scene &scene) {
         };
         descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &image_info);
     }
-    m_texture_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
+    m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
+
+    vkb::DeviceSize vertex_buffer_size = 0;
+    vkb::DeviceSize index_buffer_size = 0;
+    HashSet<String> seen_vertex_buffers;
+    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
+        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
+            continue;
+        }
+        const auto vertices_size = pack_reader.stat(mesh.vertex_data_name())->size;
+        const auto indices_size = pack_reader.stat(mesh.index_data_name())->size;
+        m_mesh_infos.set(mesh.vertex_data_name(),
+                         MeshInfo{
+                             .index_count = static_cast<uint32_t>(indices_size / sizeof(uint32_t)),
+                             .index_offset = static_cast<uint32_t>(index_buffer_size / sizeof(uint32_t)),
+                             .vertex_offset = static_cast<int32_t>(vertex_buffer_size / sizeof(Vertex)),
+                         });
+        vertex_buffer_size += vertices_size;
+        index_buffer_size += indices_size;
+    }
+
+    m_vertex_buffer =
+        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::VertexBuffer | vkb::BufferUsage::TransferDst,
+                                vk::MemoryUsage::DeviceOnly);
+    m_index_buffer = m_context.create_buffer(
+        index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
+
+    seen_vertex_buffers.clear();
+    vkb::DeviceSize vertex_buffer_offset = 0;
+    vkb::DeviceSize index_buffer_offset = 0;
+    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
+        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
+            continue;
+        }
+
+        auto vertex_entry = *pack_reader.stat(mesh.vertex_data_name());
+        auto vertex_stream = *pack_reader.open(mesh.vertex_data_name());
+        auto staging_buffer =
+            m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        VULL_EXPECT(vertex_stream.read({staging_buffer.mapped_raw(), vertex_entry.size}));
+
+        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+            vkb::BufferCopy copy{
+                .dstOffset = vertex_buffer_offset,
+                .size = vertex_entry.size,
+            };
+            cmd_buf.copy_buffer(staging_buffer, m_vertex_buffer, copy);
+        });
+        vertex_buffer_offset += vertex_entry.size;
+
+        auto index_entry = *pack_reader.stat(mesh.index_data_name());
+        auto index_stream = *pack_reader.open(mesh.index_data_name());
+        staging_buffer =
+            m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        VULL_EXPECT(index_stream.read({staging_buffer.mapped_raw(), index_entry.size}));
+
+        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+            vkb::BufferCopy copy{
+                .dstOffset = index_buffer_offset,
+                .size = index_entry.size,
+            };
+            cmd_buf.copy_buffer(staging_buffer, m_index_buffer, copy);
+        });
+        index_buffer_offset += index_entry.size;
+    }
+    VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
+    VULL_ENSURE(index_buffer_offset == index_buffer_size);
 }
 
 void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,

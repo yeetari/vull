@@ -184,6 +184,12 @@ void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) 
     m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, 0, 0, 0);
 }
 
+void CommandBuffer::draw_indexed_indirect(const Buffer &buffer, uint32_t stride) {
+    emit_descriptor_binds();
+    const auto draw_count = static_cast<uint32_t>(buffer.size() / stride);
+    m_context.vkCmdDrawIndexedIndirect(m_cmd_buf, *buffer, 0, draw_count, stride);
+}
+
 void CommandBuffer::image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const {
     pipeline_barrier({
         .sType = vkb::StructureType::DependencyInfo,

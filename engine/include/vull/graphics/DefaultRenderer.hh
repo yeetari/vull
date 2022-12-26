@@ -26,6 +26,12 @@ class Shader; // IWYU pragma: keep
 
 } // namespace vull::vk
 
+namespace vull::vpak {
+
+class Reader;
+
+} // namespace vull::vpak
+
 namespace vull {
 
 class Scene;
@@ -64,7 +70,11 @@ class DefaultRenderer {
     vk::Buffer m_light_visibility_buffer;
     vk::Buffer m_static_descriptor_buffer;
     vk::Buffer m_texture_descriptor_buffer;
+    vk::Buffer m_vertex_buffer;
+    vk::Buffer m_index_buffer;
+
     vk::Buffer m_dynamic_descriptor_buffer;
+    vk::Buffer m_draw_buffer;
 
     vk::Pipeline m_gbuffer_pipeline;
     vk::Pipeline m_shadow_pipeline;
@@ -82,7 +92,12 @@ class DefaultRenderer {
     vkb::ImageView m_output_view;
     ShadowInfo m_shadow_info;
 
-    // TODO
+    struct MeshInfo {
+        uint32_t index_count;
+        uint32_t index_offset;
+        int32_t vertex_offset;
+    };
+    HashMap<String, MeshInfo> m_mesh_infos;
     Scene *m_scene{nullptr};
 
     void create_set_layouts();
@@ -90,6 +105,7 @@ class DefaultRenderer {
     void create_pipelines(ShaderMap &&shader_map);
     void create_render_graph();
     uint8_t *put_descriptor(uint8_t *dst, vkb::DescriptorType type, void *info);
+    void record_draws(vk::CommandBuffer &cmd_buf);
     void record_geometry_pass(vk::CommandBuffer &cmd_buf);
     void update_cascades();
 
@@ -103,7 +119,7 @@ public:
     DefaultRenderer &operator=(DefaultRenderer &&) = delete;
 
     void compile_render_graph();
-    void load_scene(Scene &scene);
+    void load_scene(Scene &scene, vpak::Reader &pack_reader);
     void render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view, const Vec3f &view_position,
                 vkb::Image output_image, vkb::ImageView output_view,
                 Optional<const vk::QueryPool &> timestamp_pool = {});

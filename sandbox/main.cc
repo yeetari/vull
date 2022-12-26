@@ -94,8 +94,9 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     shader_map.set("shadow", vull::move(shadow_shader));
     shader_map.set("light-cull", vull::move(light_cull_shader));
     shader_map.set("deferred", vull::move(deferred_shader));
+
     DefaultRenderer renderer(context, vull::move(shader_map), swapchain.extent_3D());
-    renderer.load_scene(scene);
+    renderer.load_scene(scene, pack_reader);
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
