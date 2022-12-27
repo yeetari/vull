@@ -79,6 +79,7 @@ class Heap {
     Bitset m_fl_bitset{};
     Array<Bitset, k_fl_count> m_sl_bitsets{};
     Array<Array<Block *, k_sl_count>, k_fl_count> m_block_map{};
+    Block *m_root_block;
 
     void link_block(Block *block);
     void unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index);
@@ -94,6 +95,7 @@ public:
 
     Optional<AllocationInfo> allocate(uint32_t);
     void free(const AllocationInfo &);
+    Vector<HeapRange> ranges() const;
 
     vkb::DeviceMemory memory() const { return m_memory; }
     void *mapped_data() const { return m_mapped_data; }
@@ -107,7 +109,7 @@ Heap::Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data)
     };
     block->prev_phys = block;
     block->next_phys = block;
-    link_block(block);
+    link_block(m_root_block = block);
 }
 
 Heap::~Heap() {
@@ -251,6 +253,20 @@ void Heap::free(const AllocationInfo &allocation) {
     link_block(block);
 }
 
+Vector<HeapRange> Heap::ranges() const {
+    Block *block = m_root_block;
+    Vector<HeapRange> ranges;
+    do {
+        ranges.push({
+            .start = block->offset,
+            .size = block->size & ~1u,
+            .free = (block->size & 1u) == 1u,
+        });
+        block = block->next_phys;
+    } while (block != m_root_block);
+    return ranges;
+}
+
 Allocator::Allocator(Context &context, uint32_t memory_type_index)
     : m_context(context), m_memory_type_index(memory_type_index), m_heap_size(k_big_heap_size) {
     vkb::PhysicalDeviceMemoryProperties memory_properties{};
@@ -369,6 +385,15 @@ void Allocator::free(const Allocation &allocation) {
     }
     m_heaps[allocation.info().heap_index]->free(allocation.info());
     // TODO: Shrink heaps based on heuristic.
+}
+
+Vector<Vector<HeapRange>> Allocator::heap_ranges() const {
+    Vector<Vector<HeapRange>> ranges;
+    ranges.ensure_capacity(m_heaps.size());
+    for (const auto &heap : m_heaps) {
+        ranges.push(heap->ranges());
+    }
+    return ranges;
 }
 
 Allocation::~Allocation() {

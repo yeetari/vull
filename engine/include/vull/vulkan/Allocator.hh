@@ -12,6 +12,12 @@ namespace vull::vk {
 class Context;
 class Heap;
 
+struct HeapRange {
+    uint32_t start;
+    uint32_t size;
+    bool free;
+};
+
 class Allocator {
     friend Allocation; // for free()
 
@@ -35,9 +41,12 @@ public:
     Allocator &operator=(Allocator &&) = delete;
 
     [[nodiscard]] Allocation allocate(const vkb::MemoryRequirements &requirements);
+    Vector<Vector<HeapRange>> heap_ranges() const;
 
     Context &context() const { return m_context; }
     uint32_t memory_type_index() const { return m_memory_type_index; }
+    uint32_t heap_count() const { return m_heaps.size(); }
+    vkb::DeviceSize heap_size() const { return m_heap_size; }
 };
 
 } // namespace vull::vk

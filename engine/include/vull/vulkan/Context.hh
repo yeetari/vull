@@ -44,6 +44,7 @@ public:
     size_t descriptor_size(vkb::DescriptorType type) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     Queue &graphics_queue();
+    const Vector<UniquePtr<Allocator>> &allocators() const { return m_allocators; }
 };
 
 } // namespace vull::vk
