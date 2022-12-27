@@ -438,7 +438,54 @@ void DefaultRenderer::create_render_graph() {
     gbuffer_pass.writes_to(normal_image_resource);
     gbuffer_pass.writes_to(depth_image_resource);
     gbuffer_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        record_geometry_pass(cmd_buf);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        Array colour_write_attachments{
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *m_albedo_image.full_view(),
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *m_normal_image.full_view(),
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+        };
+        vkb::RenderingAttachmentInfo depth_write_attachment{
+            .sType = vkb::StructureType::RenderingAttachmentInfo,
+            .imageView = *m_depth_image.full_view(),
+            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
+            .loadOp = vkb::AttachmentLoadOp::Clear,
+            .storeOp = vkb::AttachmentStoreOp::Store,
+            .clearValue{
+                .depthStencil{0.0f, 0},
+            },
+        };
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = colour_write_attachments.size(),
+            .pColorAttachments = colour_write_attachments.data(),
+            .pDepthAttachment = &depth_write_attachment,
+        };
+        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+        cmd_buf.begin_rendering(rendering_info);
+        record_draws(cmd_buf);
+        cmd_buf.end_rendering();
     });
 
     auto &shadow_pass = m_render_graph.add_graphics_pass("shadow-pass");
@@ -473,7 +520,6 @@ void DefaultRenderer::create_render_graph() {
             record_draws(cmd_buf);
             cmd_buf.end_rendering();
         }
-        cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
     });
 
     auto &light_cull_pass = m_render_graph.add_compute_pass("light-cull");
@@ -484,7 +530,6 @@ void DefaultRenderer::create_render_graph() {
     light_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
-        cmd_buf.bind_associated_buffer(vull::move(m_dynamic_descriptor_buffer));
         cmd_buf.bind_pipeline(m_light_cull_pipeline);
         cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
     });
@@ -523,7 +568,7 @@ void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf) {
     cmd_buf.draw_indexed_indirect(m_draw_buffer, sizeof(DrawCmd));
 }
 
-void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
+void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     Array lights{
         PointLight{
             .position = Vec3f(0.0f),
@@ -557,7 +602,8 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
     }
 
     m_draw_buffer = m_context.create_buffer(object_count * sizeof(DrawCmd),
-                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer,
+                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
+                                                vkb::BufferUsage::TransferDst,
                                             vk::MemoryUsage::DeviceOnly);
     auto draw_staging_buffer = m_draw_buffer.create_staging();
     memset(draw_staging_buffer.mapped_raw(), 0, object_count * sizeof(DrawCmd));
@@ -622,53 +668,6 @@ void DefaultRenderer::record_geometry_pass(vk::CommandBuffer &cmd_buf) {
         .size = m_draw_buffer.size(),
     };
     cmd_buf.copy_buffer(draw_staging_buffer, m_draw_buffer, draw_buffer_copy);
-
-    Array colour_write_attachments{
-        vkb::RenderingAttachmentInfo{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = *m_albedo_image.full_view(),
-            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Clear,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-            .clearValue{
-                .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-            },
-        },
-        vkb::RenderingAttachmentInfo{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = *m_normal_image.full_view(),
-            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Clear,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-            .clearValue{
-                .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-            },
-        },
-    };
-    vkb::RenderingAttachmentInfo depth_write_attachment{
-        .sType = vkb::StructureType::RenderingAttachmentInfo,
-        .imageView = *m_depth_image.full_view(),
-        .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-        .loadOp = vkb::AttachmentLoadOp::Clear,
-        .storeOp = vkb::AttachmentStoreOp::Store,
-        .clearValue{
-            .depthStencil{0.0f, 0},
-        },
-    };
-    vkb::RenderingInfo rendering_info{
-        .sType = vkb::StructureType::RenderingInfo,
-        .renderArea{
-            .extent = {m_viewport_extent.width, m_viewport_extent.height},
-        },
-        .layerCount = 1,
-        .colorAttachmentCount = colour_write_attachments.size(),
-        .pColorAttachments = colour_write_attachments.data(),
-        .pDepthAttachment = &depth_write_attachment,
-    };
-    cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-    cmd_buf.begin_rendering(rendering_info);
-    record_draws(cmd_buf);
-    cmd_buf.end_rendering();
 
     // Release ownership to command buffer.
     cmd_buf.bind_associated_buffer(vull::move(uniform_buffer));
@@ -858,7 +857,10 @@ void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, cons
         .memoryBarrierCount = 1,
         .pMemoryBarriers = &memory_barrier,
     });
+    update_buffers(cmd_buf);
     m_render_graph.record(cmd_buf, timestamp_pool);
+    cmd_buf.bind_associated_buffer(vull::move(m_dynamic_descriptor_buffer));
+    cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
 }
 
 } // namespace vull
