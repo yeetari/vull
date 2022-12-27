@@ -44,6 +44,7 @@
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vpak/Reader.hh>
+#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
@@ -262,14 +263,57 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
             }
         }
 
-        // Draw UI.
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 25.0f});
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 125.0f}, {1000.0f, 750.0f});
+        // Draw frame time window.
+        constexpr Vec3f text_colour(0.949f, 0.96f, 0.98f);
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 40.0f});
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 140.0f}, {1000.0f, 750.0f});
+        ui.draw_text(font, text_colour, {100.0f, 125.0f}, "Frame time");
         cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
         gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
-        ui.draw_text(font, {0.949f, 0.96f, 0.98f}, {95.0f, 140.0f},
-                     vull::format("Camera position: ({}, {}, {}) {} {}", view_position.x(), view_position.y(),
-                                  view_position.z(), camera_pitch, camera_yaw));
+
+        // Draw allocator information window.
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 900.0f}, {1000.0f, 40.0f});
+        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 940.0f}, {1000.0f, 1000.0f});
+        ui.draw_text(font, text_colour, {100.0f, 920.0f}, "Allocator info");
+        float y_pos = 960.0f;
+        for (const auto &allocator : context.allocators()) {
+            if (allocator->heap_count() == 0) {
+                continue;
+            }
+
+            const auto heap_size_mib = allocator->heap_size() / 1024 / 1024;
+            ui.draw_text(font, text_colour, {120.0f, y_pos},
+                         vull::format("Memory Type {} ({} MiB * {} heaps)", allocator->memory_type_index(),
+                                      heap_size_mib, allocator->heap_count()));
+            y_pos += 20.0f;
+
+            constexpr float graph_width = 960.0f;
+            constexpr float graph_height = 50.0f;
+            const float scale = graph_width / static_cast<float>(allocator->heap_size());
+
+            const auto heap_ranges = allocator->heap_ranges();
+            for (const auto &range : heap_ranges) {
+                uint32_t allocated = 0;
+                uint32_t allocations = 0;
+                for (float x_pos = 0.0f; const auto &block : range) {
+                    const float block_width = static_cast<float>(block.size) * scale;
+                    Vec3f colour = block.free ? Vec3f(0.6f) : Vec3f(0.2f, 0.8f, 0.2f);
+                    ui.draw_rect(Vec4f(colour, 1.0f), {120.0f + x_pos, y_pos}, {block_width, graph_height});
+                    x_pos += block_width;
+                    if (!block.free) {
+                        allocated += block.size;
+                        allocations++;
+                    }
+                }
+                y_pos += graph_height + 20.0f;
+                ui.draw_text(
+                    font, text_colour, {120.0f, y_pos},
+                    vull::format("Allocations: {}    Used: {} B ({}%)", allocations, allocated,
+                                 static_cast<double>(allocated) / static_cast<double>(allocator->heap_size()) * 100.0));
+                y_pos += 20.0f;
+            }
+            y_pos += 40.0f;
+        }
 
         const auto image_index = frame_pacer.image_index();
         vkb::Image swapchain_image = swapchain.image(image_index);
