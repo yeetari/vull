@@ -62,6 +62,8 @@ public:
     void copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                               Span<vkb::BufferImageCopy> regions) const;
     void push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const;
+    template <typename T>
+    void push_constants(vkb::ShaderStage stage, const T &data) const;
 
     void dispatch(uint32_t x, uint32_t y = 1, uint32_t z = 1);
     void draw(uint32_t vertex_count, uint32_t instance_count);
@@ -77,5 +79,10 @@ public:
     vkb::Semaphore completion_semaphore() const { return m_completion_semaphore; }
     uint64_t completion_value() const { return m_completion_value; }
 };
+
+template <typename T>
+void CommandBuffer::push_constants(vkb::ShaderStage stage, const T &data) const {
+    push_constants(stage, sizeof(T), &data);
+}
 
 } // namespace vull::vk
