@@ -234,9 +234,15 @@ void Heap::free(const AllocationInfo &allocation) {
         block->size += prev->size;
         block->prev_phys = prev->prev_phys;
         block->prev_phys->next_phys = block;
+
+        // Update m_root_block if needed.
+        if (m_root_block == prev) {
+            m_root_block = block;
+        }
         delete prev;
     }
     if (auto *next = block->next_phys; (next->size & 1u) == 1u && next->offset > block->offset) {
+        VULL_ASSERT(m_root_block != next);
         next->size &= ~1u;
         const auto [fl_index, sl_index] = mapping(next->size);
         unlink_block(next, fl_index, sl_index);
