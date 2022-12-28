@@ -156,9 +156,8 @@ public:
     void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool = {}) const;
     String to_dot() const;
 
-    const Vector<UniquePtr<Pass>> &passes() const { return m_passes; }
-    const Vector<UniquePtr<Resource>> &resources() const { return m_resources; }
     uint32_t pass_count() const { return m_pass_order.size(); }
+    const Vector<Pass &> &pass_order() const { return m_pass_order; }
 };
 
 inline Optional<BufferResource &> Resource::as_buffer() {

@@ -108,8 +108,9 @@ HashMap<StringView, float> Frame::pass_times(const vk::RenderGraph &render_graph
 
     HashMap<StringView, float> times;
     for (uint32_t i = 0; i < m_timestamp_pool.count() - 1; i++) {
+        const vk::Pass &pass = render_graph.pass_order()[i];
         float time = m_timestamp_pool.context().timestamp_elapsed(timestamp_data[i], timestamp_data[i + 1]);
-        times.set(render_graph.passes()[i]->name(), time);
+        times.set(pass.name(), time);
     }
     return times;
 }
