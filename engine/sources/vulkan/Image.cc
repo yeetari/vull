@@ -36,6 +36,20 @@ ImageView Image::create_layer_view(uint32_t layer, vkb::ImageUsage usage) {
         .baseArrayLayer = layer,
         .layerCount = 1,
     };
+    return create_view(range, usage);
+}
+
+ImageView Image::create_level_view(uint32_t level, vkb::ImageUsage usage) {
+    vkb::ImageSubresourceRange range{
+        .aspectMask = m_full_view.range().aspectMask,
+        .baseMipLevel = level,
+        .levelCount = 1,
+        .layerCount = 1,
+    };
+    return create_view(range, usage);
+}
+
+ImageView Image::create_view(const vkb::ImageSubresourceRange &range, vkb::ImageUsage usage) {
     vkb::ImageViewUsageCreateInfo usage_ci{
         .sType = vkb::StructureType::ImageViewUsageCreateInfo,
         .usage = usage,

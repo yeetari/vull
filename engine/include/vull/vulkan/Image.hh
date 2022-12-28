@@ -31,7 +31,10 @@ public:
     Image &operator=(const Image &) = delete;
     Image &operator=(Image &&);
 
+    // TODO: Create and cache these on image creation?
     ImageView create_layer_view(uint32_t layer, vkb::ImageUsage usage);
+    ImageView create_level_view(uint32_t level, vkb::ImageUsage usage);
+    ImageView create_view(const vkb::ImageSubresourceRange &range, vkb::ImageUsage usage);
 
     vkb::Image operator*() const { return m_full_view.image(); }
     vkb::Format format() const { return m_format; }

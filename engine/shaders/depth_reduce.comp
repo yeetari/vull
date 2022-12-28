@@ -1,0 +1,17 @@
+#version 460
+
+layout (local_size_x = 32, local_size_y = 32) in;
+
+layout (binding = 0) uniform sampler2D g_input;
+layout (binding = 1, r16f) writeonly uniform image2D g_output;
+
+layout (push_constant) uniform PushConstant {
+    uvec2 g_mip_size;
+};
+
+// TODO: Single pass downsample.
+void main() {
+    ivec2 position = ivec2(gl_GlobalInvocationID.xy);
+    float depth = texture(g_input, (vec2(position) + vec2(0.5f)) / vec2(g_mip_size)).r;
+    imageStore(g_output, position, vec4(depth));
+}

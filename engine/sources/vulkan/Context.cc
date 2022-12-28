@@ -171,6 +171,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .descriptorBindingPartiallyBound = true,
         .descriptorBindingVariableDescriptorCount = true,
         .runtimeDescriptorArray = true,
+        .samplerFilterMinmax = true,
         .scalarBlockLayout = true,
         .timelineSemaphore = true,
         // Extension promoted to vk 1.2, feature must be supported in vk 1.3

@@ -57,13 +57,19 @@ class DefaultRenderer {
     vkb::DescriptorSetLayout m_static_set_layout;
     vkb::DescriptorSetLayout m_dynamic_set_layout;
     vkb::DescriptorSetLayout m_texture_set_layout;
+    vkb::DescriptorSetLayout m_reduce_set_layout;
     vkb::DeviceSize m_static_set_layout_size{0};
     vkb::DeviceSize m_dynamic_set_layout_size{0};
     vkb::DeviceSize m_texture_set_layout_size{0};
+    vkb::DeviceSize m_reduce_set_layout_size{0};
 
     vk::Image m_albedo_image;
     vk::Image m_normal_image;
     vk::Image m_depth_image;
+    vkb::Extent2D m_depth_pyramid_extent;
+    vk::Image m_depth_pyramid_image;
+    Vector<vk::ImageView> m_depth_pyramid_views;
+    vkb::Sampler m_depth_reduce_sampler;
     vk::Image m_shadow_map_image;
     Vector<vk::ImageView> m_shadow_cascade_views;
     vkb::Sampler m_shadow_sampler;
@@ -78,6 +84,7 @@ class DefaultRenderer {
 
     vk::Pipeline m_gbuffer_pipeline;
     vk::Pipeline m_shadow_pipeline;
+    vk::Pipeline m_depth_reduce_pipeline;
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
 

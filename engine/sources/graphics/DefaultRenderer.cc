@@ -46,6 +46,10 @@ constexpr uint32_t k_texture_limit = 32768;
 constexpr uint32_t k_tile_size = 32;
 constexpr uint32_t k_tile_max_light_count = 256;
 
+struct DepthReduceData {
+    Vec2u mip_size;
+};
+
 struct DrawCmd : vkb::DrawIndexedIndirectCommand {
     uint32_t albedo_index;
     uint32_t normal_index;
@@ -85,6 +89,8 @@ DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, v
 
 DefaultRenderer::~DefaultRenderer() {
     m_context.vkDestroySampler(m_shadow_sampler);
+    m_context.vkDestroySampler(m_depth_reduce_sampler);
+    m_context.vkDestroyDescriptorSetLayout(m_reduce_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_texture_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_dynamic_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_static_set_layout);
@@ -112,12 +118,18 @@ void DefaultRenderer::create_set_layouts() {
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 3,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorType = vkb::DescriptorType::SampledImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 4,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 5,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
@@ -189,9 +201,33 @@ void DefaultRenderer::create_set_layouts() {
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&texture_set_layout_ci, &m_texture_set_layout) ==
                 vkb::Result::Success);
 
+    Array reduce_set_bindings{
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vkb::DescriptorType::StorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+    };
+    vkb::DescriptorSetLayoutCreateInfo reduce_set_layout_ci{
+        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
+        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
+        .bindingCount = reduce_set_bindings.size(),
+        .pBindings = reduce_set_bindings.data(),
+    };
+    VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&reduce_set_layout_ci, &m_reduce_set_layout) ==
+                vkb::Result::Success);
+
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_static_set_layout, &m_static_set_layout_size);
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_dynamic_set_layout, &m_dynamic_set_layout_size);
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_texture_set_layout, &m_texture_set_layout_size);
+    m_context.vkGetDescriptorSetLayoutSizeEXT(m_reduce_set_layout, &m_reduce_set_layout_size);
 }
 
 void DefaultRenderer::create_resources() {
@@ -239,6 +275,45 @@ void DefaultRenderer::create_resources() {
         .initialLayout = vkb::ImageLayout::Undefined,
     };
     m_depth_image = m_context.create_image(depth_image_ci, vk::MemoryUsage::DeviceOnly);
+
+    // Round down viewport to previous power of two.
+    m_depth_pyramid_extent = {1u << vull::log2(m_viewport_extent.width), 1u << vull::log2(m_viewport_extent.height)};
+    const auto depth_pyramid_mip_count =
+        vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
+    vkb::ImageCreateInfo depth_pyramid_image_ci{
+        .sType = vkb::StructureType::ImageCreateInfo,
+        .imageType = vkb::ImageType::_2D,
+        .format = vkb::Format::R16Sfloat,
+        .extent = {m_depth_pyramid_extent.width, m_depth_pyramid_extent.height, 1},
+        .mipLevels = depth_pyramid_mip_count,
+        .arrayLayers = 1,
+        .samples = vkb::SampleCount::_1,
+        .tiling = vkb::ImageTiling::Optimal,
+        .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
+        .sharingMode = vkb::SharingMode::Exclusive,
+        .initialLayout = vkb::ImageLayout::Undefined,
+    };
+    m_depth_pyramid_image = m_context.create_image(depth_pyramid_image_ci, vk::MemoryUsage::DeviceOnly);
+    for (uint32_t i = 0; i < depth_pyramid_mip_count; i++) {
+        m_depth_pyramid_views.push(
+            m_depth_pyramid_image.create_level_view(i, vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled));
+    }
+    vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
+        .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
+        .reductionMode = vkb::SamplerReductionMode::Min,
+    };
+    vkb::SamplerCreateInfo depth_reduce_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .pNext = &depth_reduction_mode_ci,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
+        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
+        .maxLod = vkb::k_lod_clamp_none,
+    };
+    VULL_ENSURE(m_context.vkCreateSampler(&depth_reduce_sampler_ci, &m_depth_reduce_sampler) == vkb::Result::Success);
 
     vkb::ImageCreateInfo shadow_map_image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
@@ -294,6 +369,10 @@ void DefaultRenderer::create_resources() {
         .imageView = *m_depth_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
+    vkb::DescriptorImageInfo depth_pyramid_image_info{
+        .imageView = *m_depth_pyramid_image.full_view(),
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
     vkb::DescriptorImageInfo shadow_map_image_info{
         .sampler = m_shadow_sampler,
         .imageView = *m_shadow_map_image.full_view(),
@@ -309,6 +388,7 @@ void DefaultRenderer::create_resources() {
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &albedo_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &normal_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &depth_image_info);
+    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &depth_pyramid_image_info);
     descriptor_data =
         put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
@@ -398,6 +478,15 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                             .set_viewport(vkb::Extent2D{k_shadow_resolution, k_shadow_resolution})
                             .build(m_context);
 
+    m_depth_reduce_pipeline = vk::PipelineBuilder()
+                                  .add_set_layout(m_reduce_set_layout)
+                                  .add_shader(*shader_map.get("depth-reduce"))
+                                  .set_push_constant_range({
+                                      .stageFlags = vkb::ShaderStage::Compute,
+                                      .size = sizeof(DepthReduceData),
+                                  })
+                                  .build(m_context);
+
     m_light_cull_pipeline = vk::PipelineBuilder()
                                 .add_set_layout(m_dynamic_set_layout)
                                 .add_set_layout(m_static_set_layout)
@@ -415,11 +504,13 @@ void DefaultRenderer::create_render_graph() {
     auto &albedo_image_resource = m_render_graph.add_image("gbuffer-albedo");
     auto &normal_image_resource = m_render_graph.add_image("gbuffer-normal");
     auto &depth_image_resource = m_render_graph.add_image("gbuffer-depth");
+    auto &depth_pyramid_resource = m_render_graph.add_image("depth-pyramid");
     auto &shadow_map_resource = m_render_graph.add_image("shadow-map");
     auto &light_visibility_buffer_resource = m_render_graph.add_storage_buffer("light-visibility-buffer");
     albedo_image_resource.set(m_albedo_image.full_view());
     normal_image_resource.set(m_normal_image.full_view());
     depth_image_resource.set(m_depth_image.full_view());
+    depth_pyramid_resource.set(m_depth_pyramid_image.full_view());
     shadow_map_resource.set(m_shadow_map_image.full_view());
     light_visibility_buffer_resource.set(m_light_visibility_buffer);
 
@@ -516,10 +607,86 @@ void DefaultRenderer::create_render_graph() {
                 .cascade_index = i,
             };
             cmd_buf.begin_rendering(rendering_info);
-            cmd_buf.push_constants(vkb::ShaderStage::Vertex, sizeof(ShadowPushConstantBlock), &push_constant_block);
+            cmd_buf.push_constants(vkb::ShaderStage::Vertex, push_constant_block);
             record_draws(cmd_buf);
             cmd_buf.end_rendering();
         }
+    });
+
+    auto &depth_reduce_pass = m_render_graph.add_compute_pass("depth-reduce");
+    depth_reduce_pass.reads_from(depth_image_resource);
+    depth_reduce_pass.writes_to(depth_pyramid_resource);
+    depth_reduce_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        const uint32_t level_count = m_depth_pyramid_image.full_view().range().levelCount;
+        auto descriptor_buffer =
+            m_context.create_buffer(m_reduce_set_layout_size * level_count,
+                                    vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
+        auto *descriptor_data = descriptor_buffer.mapped<uint8_t>();
+
+        cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
+        for (uint32_t i = 0; i < level_count; i++) {
+            const auto descriptor_offset =
+                static_cast<vkb::DeviceSize>(descriptor_data - descriptor_buffer.mapped<uint8_t>());
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
+
+            DepthReduceData shader_data{
+                .mip_size{
+                    vull::max(m_depth_pyramid_extent.width >> i, 1u),
+                    vull::max(m_depth_pyramid_extent.height >> i, 1u),
+                },
+            };
+            cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
+
+            // Update descriptors.
+            vkb::DescriptorImageInfo input_image_info{
+                .sampler = m_depth_reduce_sampler,
+                .imageView = i != 0 ? *m_depth_pyramid_views[i - 1] : *m_depth_image.full_view(),
+                .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+            };
+            vkb::DescriptorImageInfo output_image_info{
+                .imageView = *m_depth_pyramid_views[i],
+                .imageLayout = vkb::ImageLayout::General,
+            };
+            descriptor_data =
+                put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &input_image_info);
+            descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageImage, &output_image_info);
+
+            vkb::ImageMemoryBarrier2 sample_barrier{
+                .sType = vkb::StructureType::ImageMemoryBarrier2,
+                .srcStageMask = vkb::PipelineStage2::ComputeShader,
+                .srcAccessMask = vkb::Access2::ShaderStorageWrite,
+                .dstStageMask = vkb::PipelineStage2::ComputeShader,
+                .dstAccessMask = vkb::Access2::ShaderSampledRead,
+                .oldLayout = vkb::ImageLayout::General,
+                .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+                .image = *m_depth_pyramid_image,
+                .subresourceRange{
+                    .aspectMask = vkb::ImageAspect::Color,
+                    .baseMipLevel = i,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            };
+            cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
+                             vull::ceil_div(shader_data.mip_size.y(), 32u));
+            cmd_buf.image_barrier(sample_barrier);
+        }
+        cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
+
+        // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we must
+        //       transition it back to General.
+        vkb::ImageMemoryBarrier2 general_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::ComputeShader,
+            .srcAccessMask = vkb::Access2::ShaderStorageWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::ShaderSampledRead,
+            .oldLayout = vkb::ImageLayout::ReadOnlyOptimal,
+            .newLayout = vkb::ImageLayout::General,
+            .image = *m_depth_pyramid_image,
+            .subresourceRange = m_depth_pyramid_image.full_view().range(),
+        };
+        cmd_buf.image_barrier(general_barrier);
     });
 
     auto &light_cull_pass = m_render_graph.add_compute_pass("light-cull");
@@ -540,6 +707,7 @@ void DefaultRenderer::create_render_graph() {
     deferred_pass.reads_from(albedo_image_resource);
     deferred_pass.reads_from(normal_image_resource);
     deferred_pass.reads_from(depth_image_resource);
+    deferred_pass.reads_from(depth_pyramid_resource);
     deferred_pass.reads_from(shadow_map_resource);
     deferred_pass.reads_from(light_visibility_buffer_resource);
     deferred_pass.writes_to(*m_output_image_resource);
@@ -572,7 +740,7 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     Array lights{
         PointLight{
             .position = Vec3f(0.0f),
-            .radius = 0.0f,
+            .radius = 1.0f,
             .colour = Vec3f(1.0f),
         },
     };
@@ -635,8 +803,6 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
                                                               vkb::BufferUsage::ResourceDescriptorBufferEXT,
                                                           vk::MemoryUsage::HostToDevice);
-    cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
-    cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
 
     vkb::DescriptorAddressInfoEXT uniform_buffer_ai{
         .sType = vkb::StructureType::DescriptorAddressInfoEXT,
