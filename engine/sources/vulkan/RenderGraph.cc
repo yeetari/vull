@@ -1,5 +1,6 @@
 #include <vull/vulkan/RenderGraph.hh>
 
+#include <vull/core/Log.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Function.hh>
@@ -26,13 +27,19 @@ Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &
         // TODO: Finer grained access.
         return vull::make_tuple(vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead);
     }
+    if (resource.kind() == ResourceKind::StorageBuffer) {
+        // TODO: Finer grained stage.
+        return vull::make_tuple(vkb::PipelineStage2::AllGraphics, vkb::Access2::ShaderStorageRead);
+    }
     if (auto image = resource.as_image()) {
         if ((image->range().aspectMask & vkb::ImageAspect::Depth) != vkb::ImageAspect::None) {
             return vull::make_tuple(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests,
                                     vkb::Access2::DepthStencilAttachmentRead);
         }
     }
-    VULL_ENSURE_NOT_REACHED("TODO");
+    vull::warn("[vulkan] Unhandled case for {} read from {}, falling back to full barrier", resource.name(),
+               pass.name());
+    return vull::make_tuple(vkb::PipelineStage2::AllCommands, vkb::Access2::MemoryRead);
 }
 
 vkb::ImageLayout write_layout(const Pass &writer) {
@@ -74,6 +81,10 @@ StringView access_string(vkb::Access2 access) {
         return "ColorAttachmentWrite";
     case vkb::Access2::DepthStencilAttachmentWrite:
         return "DepthStencilAttachmentWrite";
+    case vkb::Access2::MemoryRead:
+        return "MemoryRead";
+    case vkb::Access2::ShaderStorageRead:
+        return "ShaderStorageRead";
     default:
         VULL_ENSURE_NOT_REACHED();
     }
@@ -110,6 +121,8 @@ StringView stage_string(vkb::PipelineStage2 stage) {
         return "ColorAttachmentOutput";
     case vkb::PipelineStage2::ComputeShader:
         return "ComputeShader";
+    case vkb::PipelineStage2::AllGraphics:
+        return "AllGraphics";
     case vkb::PipelineStage2::AllCommands:
         return "AllCommands";
     default:
