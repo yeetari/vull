@@ -15,28 +15,28 @@ class Quat {
 public:
     static constexpr unsigned length = 4;
 
-    Quat() = default;
+    constexpr Quat() = default;
     template <typename U>
-    Quat(U x, U y, U z, U w) : m_x(T(x)), m_y(T(y)), m_z(T(z)), m_w(T(w)) {}
-    Quat(const Vec<T, 3> &xyz, T w) : m_x(xyz.x()), m_y(xyz.y()), m_z(xyz.z()), m_w(w) {}
-    Quat(const Vec<T, 4> &xyzw) : m_x(xyzw.x()), m_y(xyzw.y()), m_z(xyzw.z()), m_w(xyzw.w()) {}
+    constexpr Quat(U x, U y, U z, U w) : m_x(T(x)), m_y(T(y)), m_z(T(z)), m_w(T(w)) {}
+    constexpr Quat(const Vec<T, 3> &xyz, T w) : m_x(xyz.x()), m_y(xyz.y()), m_z(xyz.z()), m_w(w) {}
+    constexpr Quat(const Vec<T, 4> &xyzw) : m_x(xyzw.x()), m_y(xyzw.y()), m_z(xyzw.z()), m_w(xyzw.w()) {}
 
     void set_x(T x) { m_x = x; }
     void set_y(T y) { m_y = y; }
     void set_z(T z) { m_z = z; }
     void set_w(T w) { m_w = w; }
 
-    T &operator[](unsigned index);
-    T x() const { return m_x; }
-    T y() const { return m_y; }
-    T z() const { return m_z; }
-    T w() const { return m_w; }
+    constexpr T &operator[](unsigned index);
+    constexpr T x() const { return m_x; }
+    constexpr T y() const { return m_y; }
+    constexpr T z() const { return m_z; }
+    constexpr T w() const { return m_w; }
 };
 
 using Quatf = Quat<float>;
 
 template <typename T>
-T &Quat<T>::operator[](unsigned index) {
+constexpr T &Quat<T>::operator[](unsigned index) {
     switch (index) {
     case 0:
         return m_x;
@@ -52,22 +52,22 @@ T &Quat<T>::operator[](unsigned index) {
 }
 
 template <typename T>
-Quat<T> operator+(const Quat<T> &lhs, const Quat<T> &rhs) {
+constexpr Quat<T> operator+(const Quat<T> &lhs, const Quat<T> &rhs) {
     return Quat<T>(lhs.x() + rhs.x(), lhs.y() + rhs.y(), lhs.z() + rhs.z(), lhs.w() + rhs.w());
 }
 
 template <typename T>
-Quat<T> operator*(const Quat<T> &lhs, T rhs) {
+constexpr Quat<T> operator*(const Quat<T> &lhs, T rhs) {
     return Quat<T>(lhs.x() * rhs, lhs.y() * rhs, lhs.z() * rhs, lhs.w() * rhs);
 }
 
 template <typename T>
-Quat<T> operator/(const Quat<T> &lhs, T rhs) {
+constexpr Quat<T> operator/(const Quat<T> &lhs, T rhs) {
     return Quat<T>(lhs.x() / rhs, lhs.y() / rhs, lhs.z() / rhs, lhs.w() / rhs);
 }
 
 template <typename T>
-Quat<T> operator*(const Quat<T> &lhs, const Quat<T> &rhs) {
+constexpr Quat<T> operator*(const Quat<T> &lhs, const Quat<T> &rhs) {
     return {
         lhs.w() * rhs.x() + lhs.x() * rhs.w() + lhs.y() * rhs.z() - lhs.z() * rhs.y(),
         lhs.w() * rhs.y() + lhs.y() * rhs.w() + lhs.z() * rhs.x() - lhs.x() * rhs.z(),
@@ -77,33 +77,33 @@ Quat<T> operator*(const Quat<T> &lhs, const Quat<T> &rhs) {
 }
 
 template <typename T>
-Quat<T> angle_axis(T angle, const Vec<T, 3> &axis) {
+constexpr Quat<T> angle_axis(T angle, const Vec<T, 3> &axis) {
     T half_angle = angle * T(0.5);
     return Quat<T>(axis * sin(half_angle), cos(half_angle));
 }
 
 template <typename T>
-Quat<T> conjugate(const Quat<T> &quat) {
+constexpr Quat<T> conjugate(const Quat<T> &quat) {
     return Quat<T>(-quat.x(), -quat.y(), -quat.z(), quat.w());
 }
 
 template <typename T>
-T dot(const Quat<T> &lhs, const Quat<T> &rhs) {
+constexpr T dot(const Quat<T> &lhs, const Quat<T> &rhs) {
     return lhs.x() * rhs.x() + lhs.y() * rhs.y() + lhs.z() * rhs.z() + lhs.w() * rhs.w();
 }
 
 template <typename T>
-Quat<T> inverse(const Quat<T> &quat) {
+constexpr Quat<T> inverse(const Quat<T> &quat) {
     return conjugate(quat) / square_magnitude(quat);
 }
 
 template <typename T>
-T magnitude(const Quat<T> &quat) {
+constexpr T magnitude(const Quat<T> &quat) {
     return sqrt(square_magnitude(quat));
 }
 
 template <typename T>
-Quat<T> normalise(const Quat<T> &quat) {
+constexpr Quat<T> normalise(const Quat<T> &quat) {
     T mag = magnitude(quat);
     if (mag <= T(0)) {
         return {};
@@ -114,19 +114,19 @@ Quat<T> normalise(const Quat<T> &quat) {
 // Faster quaternion-vector rotation from
 // https://blog.molecular-matters.com/2013/05/24/a-faster-quaternion-vector-multiplication/
 template <typename T>
-Vec<T, 3> rotate(const Quat<T> &quat, const Vec<T, 3> &vec) {
+constexpr Vec<T, 3> rotate(const Quat<T> &quat, const Vec<T, 3> &vec) {
     Vec<T, 3> quat_vec(quat.x(), quat.y(), quat.z());
     auto t = cross(quat_vec, vec) * T(2);
     return vec + t * quat.w() + cross(quat_vec, t);
 }
 
 template <typename T>
-T square_magnitude(const Quat<T> &quat) {
+constexpr T square_magnitude(const Quat<T> &quat) {
     return dot(quat, quat);
 }
 
 template <typename T>
-Mat<T, 3, 3> to_mat3(const Quat<T> &quat) {
+constexpr Mat<T, 3, 3> to_mat3(const Quat<T> &quat) {
     Mat<T, 3, 3> ret(T(1));
     const T xx = quat.x() * quat.x();
     const T xy = quat.x() * quat.y();
@@ -153,7 +153,7 @@ Mat<T, 3, 3> to_mat3(const Quat<T> &quat) {
 }
 
 template <typename T>
-Mat<T, 4, 4> to_mat4(const Quat<T> &quat) {
+constexpr Mat<T, 4, 4> to_mat4(const Quat<T> &quat) {
     const auto mat = to_mat3(quat);
     return Mat<T, 4, 4>(
         {Vec<T, 4>(mat[0], T(0)), Vec<T, 4>(mat[1], T(0)), Vec<T, 4>(mat[2], T(0)), Vec<T, 4>(T(0), T(0), T(0), T(1))});

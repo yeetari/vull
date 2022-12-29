@@ -5,7 +5,7 @@
 namespace vull {
 
 template <unsigned L>
-bool all(const Vec<bool, L> &vec) {
+constexpr bool all(const Vec<bool, L> &vec) {
     bool ret = true;
     for (unsigned i = 0; i < L; i++) {
         ret &= vec[i];
@@ -14,7 +14,7 @@ bool all(const Vec<bool, L> &vec) {
 }
 
 template <unsigned L>
-bool any(const Vec<bool, L> &vec) {
+constexpr bool any(const Vec<bool, L> &vec) {
     bool ret = false;
     for (unsigned i = 0; i < L; i++) {
         ret |= vec[i];
@@ -24,7 +24,7 @@ bool any(const Vec<bool, L> &vec) {
 
 #define DEFINE_CMP(name, op)                                                                                           \
     template <typename T, unsigned L>                                                                                  \
-    Vec<bool, L> name(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {                                                    \
+    constexpr Vec<bool, L> name(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {                                          \
         Vec<bool, L> ret;                                                                                              \
         for (unsigned i = 0; i < L; i++) {                                                                             \
             ret[i] = lhs[i] op rhs[i];                                                                                 \
