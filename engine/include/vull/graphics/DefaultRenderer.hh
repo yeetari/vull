@@ -47,6 +47,7 @@ class DefaultRenderer {
         Mat4f proj;
         Mat4f view;
         Vec3f view_position;
+        uint32_t object_count;
         ShadowInfo shadow_info;
     };
 
@@ -81,16 +82,19 @@ class DefaultRenderer {
 
     vk::Buffer m_dynamic_descriptor_buffer;
     vk::Buffer m_draw_buffer;
+    uint32_t m_object_count{0};
 
     vk::Pipeline m_gbuffer_pipeline;
     vk::Pipeline m_shadow_pipeline;
     vk::Pipeline m_depth_reduce_pipeline;
+    vk::Pipeline m_draw_cull_pipeline;
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
 
     vk::RenderGraph m_render_graph;
     vk::BufferResource *m_uniform_buffer_resource;
     vk::BufferResource *m_light_buffer_resource;
+    vk::BufferResource *m_draw_buffer_resource;
     vk::ImageResource *m_output_image_resource;
 
     Mat4f m_proj;

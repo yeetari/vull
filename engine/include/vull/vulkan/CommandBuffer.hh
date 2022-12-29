@@ -68,7 +68,8 @@ public:
     void dispatch(uint32_t x, uint32_t y = 1, uint32_t z = 1);
     void draw(uint32_t vertex_count, uint32_t instance_count);
     void draw_indexed(uint32_t index_count, uint32_t instance_count);
-    void draw_indexed_indirect(const Buffer &buffer, uint32_t stride);
+    void draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset, const Buffer &count_buffer,
+                                     vkb::DeviceSize count_offset, uint32_t max_draw_count, uint32_t stride);
 
     void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
     void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;

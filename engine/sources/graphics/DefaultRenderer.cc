@@ -51,9 +51,16 @@ struct DepthReduceData {
 };
 
 struct DrawCmd : vkb::DrawIndexedIndirectCommand {
+    uint32_t object_index;
+};
+
+struct Object {
+    Mat4f transform;
     uint32_t albedo_index;
     uint32_t normal_index;
-    Mat4f transform;
+    uint32_t index_count;
+    uint32_t first_index;
+    uint32_t vertex_offset;
 };
 
 struct ShadowPushConstantBlock {
@@ -167,7 +174,13 @@ void DefaultRenderer::create_set_layouts() {
             .binding = 3,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Vertex,
+            .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 4,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo dynamic_set_layout_ci{
@@ -487,6 +500,11 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                                   })
                                   .build(m_context);
 
+    m_draw_cull_pipeline = vk::PipelineBuilder()
+                               .add_set_layout(m_dynamic_set_layout)
+                               .add_shader(*shader_map.get("draw-cull"))
+                               .build(m_context);
+
     m_light_cull_pipeline = vk::PipelineBuilder()
                                 .add_set_layout(m_dynamic_set_layout)
                                 .add_set_layout(m_static_set_layout)
@@ -516,6 +534,7 @@ void DefaultRenderer::create_render_graph() {
 
     m_uniform_buffer_resource = &m_render_graph.add_uniform_buffer("global-ubo");
     m_light_buffer_resource = &m_render_graph.add_storage_buffer("light-buffer");
+    m_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer");
     m_output_image_resource = &m_render_graph.add_image("output-image");
     m_output_image_resource->set_range({
         .aspectMask = vkb::ImageAspect::Color,
@@ -523,8 +542,18 @@ void DefaultRenderer::create_render_graph() {
         .layerCount = 1,
     });
 
+    auto &early_cull_pass = m_render_graph.add_compute_pass("early-cull");
+    early_cull_pass.reads_from(*m_uniform_buffer_resource);
+    early_cull_pass.writes_to(*m_draw_buffer_resource);
+    early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_pipeline(m_draw_cull_pipeline);
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
+    });
+
     auto &gbuffer_pass = m_render_graph.add_graphics_pass("gbuffer-pass");
     gbuffer_pass.reads_from(*m_uniform_buffer_resource);
+    gbuffer_pass.reads_from(*m_draw_buffer_resource);
     gbuffer_pass.writes_to(albedo_image_resource);
     gbuffer_pass.writes_to(normal_image_resource);
     gbuffer_pass.writes_to(depth_image_resource);
@@ -581,6 +610,7 @@ void DefaultRenderer::create_render_graph() {
 
     auto &shadow_pass = m_render_graph.add_graphics_pass("shadow-pass");
     shadow_pass.reads_from(*m_uniform_buffer_resource);
+    shadow_pass.reads_from(*m_draw_buffer_resource);
     shadow_pass.writes_to(shadow_map_resource);
     shadow_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(m_shadow_pipeline);
@@ -733,7 +763,8 @@ uint8_t *DefaultRenderer::put_descriptor(uint8_t *dst, vkb::DescriptorType type,
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf) {
     cmd_buf.bind_vertex_buffer(m_vertex_buffer);
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
-    cmd_buf.draw_indexed_indirect(m_draw_buffer, sizeof(DrawCmd));
+    cmd_buf.draw_indexed_indirect_count(m_draw_buffer, sizeof(uint32_t), m_draw_buffer, 0, m_object_count,
+                                        sizeof(DrawCmd));
 }
 
 void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
@@ -748,12 +779,6 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     auto uniform_buffer =
         m_context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice);
     m_uniform_buffer_resource->set(uniform_buffer);
-    *uniform_buffer.mapped<UniformBuffer>() = {
-        .proj = m_proj,
-        .view = m_view,
-        .view_position = m_view_position,
-        .shadow_info = m_shadow_info,
-    };
 
     // TODO: Light buffer may benefit from being DeviceOnly and transferred to.
     auto light_buffer = m_context.create_buffer(lights.size_bytes() + 4 * sizeof(float),
@@ -763,19 +788,7 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
     memcpy(light_buffer.mapped<uint8_t>() + 4 * sizeof(float), lights.data(), lights.size_bytes());
 
-    uint32_t object_count = 0;
-    for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
-        VULL_IGNORE(entity);
-        object_count++;
-    }
-
-    m_draw_buffer = m_context.create_buffer(object_count * sizeof(DrawCmd),
-                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
-                                                vkb::BufferUsage::TransferDst,
-                                            vk::MemoryUsage::DeviceOnly);
-    auto draw_staging_buffer = m_draw_buffer.create_staging();
-    memset(draw_staging_buffer.mapped_raw(), 0, object_count * sizeof(DrawCmd));
-    auto *draw_cmd = draw_staging_buffer.mapped<DrawCmd>();
+    Vector<Object> objects;
     for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
         const auto mesh_info = m_mesh_infos.get(mesh.vertex_data_name());
         if (!mesh_info) {
@@ -788,22 +801,39 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
             continue;
         }
 
-        draw_cmd->indexCount = mesh_info->index_count;
-        draw_cmd->instanceCount = 1;
-        draw_cmd->firstIndex = mesh_info->index_offset;
-        draw_cmd->vertexOffset = mesh_info->vertex_offset;
-        draw_cmd->firstInstance = 0;
-        draw_cmd->albedo_index = *albedo_index;
-        draw_cmd->normal_index = *normal_index;
-        draw_cmd->transform = m_scene->get_transform_matrix(entity);
-        draw_cmd++;
+        objects.push({
+            .transform = m_scene->get_transform_matrix(entity),
+            .albedo_index = *albedo_index,
+            .normal_index = *normal_index,
+            .index_count = mesh_info->index_count,
+            .first_index = mesh_info->index_offset,
+            .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),
+        });
     }
+    m_object_count = objects.size();
+
+    *uniform_buffer.mapped<UniformBuffer>() = {
+        .proj = m_proj,
+        .view = m_view,
+        .view_position = m_view_position,
+        .object_count = m_object_count,
+        .shadow_info = m_shadow_info,
+    };
+    m_draw_buffer = m_context.create_buffer(sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
+                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
+                                                vkb::BufferUsage::TransferDst,
+                                            vk::MemoryUsage::DeviceOnly);
+    m_draw_buffer_resource->set(m_draw_buffer);
+
+    auto object_buffer =
+        m_context.create_buffer(objects.size_bytes(), vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice);
+    memcpy(object_buffer.mapped<Object>(), objects.data(), objects.size_bytes());
+    m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
 
     m_dynamic_descriptor_buffer = m_context.create_buffer(m_dynamic_set_layout_size,
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
                                                               vkb::BufferUsage::ResourceDescriptorBufferEXT,
                                                           vk::MemoryUsage::HostToDevice);
-
     vkb::DescriptorAddressInfoEXT uniform_buffer_ai{
         .sType = vkb::StructureType::DescriptorAddressInfoEXT,
         .address = uniform_buffer.device_address(),
@@ -823,22 +853,23 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
         .address = m_draw_buffer.device_address(),
         .range = m_draw_buffer.size(),
     };
+    vkb::DescriptorAddressInfoEXT object_buffer_ai{
+        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+        .address = object_buffer.device_address(),
+        .range = object_buffer.size(),
+    };
 
     auto *descriptor_data = m_dynamic_descriptor_buffer.mapped<uint8_t>();
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::UniformBuffer, &uniform_buffer_ai);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_buffer_ai);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageImage, &output_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &draw_buffer_ai);
-
-    vkb::BufferCopy draw_buffer_copy{
-        .size = m_draw_buffer.size(),
-    };
-    cmd_buf.copy_buffer(draw_staging_buffer, m_draw_buffer, draw_buffer_copy);
+    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &object_buffer_ai);
 
     // Release ownership to command buffer.
     cmd_buf.bind_associated_buffer(vull::move(uniform_buffer));
     cmd_buf.bind_associated_buffer(vull::move(light_buffer));
-    cmd_buf.bind_associated_buffer(vull::move(draw_staging_buffer));
+    cmd_buf.bind_associated_buffer(vull::move(object_buffer));
 }
 
 void DefaultRenderer::update_cascades() {

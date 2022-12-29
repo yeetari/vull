@@ -167,6 +167,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
     vkb::PhysicalDeviceVulkan12Features device_12_features{
         .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
         .pNext = &device_11_features,
+        .drawIndirectCount = true,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
         .descriptorBindingVariableDescriptorCount = true,

@@ -184,10 +184,12 @@ void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) 
     m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, 0, 0, 0);
 }
 
-void CommandBuffer::draw_indexed_indirect(const Buffer &buffer, uint32_t stride) {
+void CommandBuffer::draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset,
+                                                const Buffer &count_buffer, vkb::DeviceSize count_offset,
+                                                uint32_t max_draw_count, uint32_t stride) {
     emit_descriptor_binds();
-    const auto draw_count = static_cast<uint32_t>(buffer.size() / stride);
-    m_context.vkCmdDrawIndexedIndirect(m_cmd_buf, *buffer, 0, draw_count, stride);
+    m_context.vkCmdDrawIndexedIndirectCount(m_cmd_buf, *buffer, offset, *count_buffer, count_offset, max_draw_count,
+                                            stride);
 }
 
 void CommandBuffer::image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const {

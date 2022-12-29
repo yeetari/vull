@@ -7,7 +7,7 @@
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
-DECLARE_UBO(0);
+DECLARE_UBO(0, 0);
 layout (binding = 1, std430) readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
