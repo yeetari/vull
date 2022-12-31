@@ -3,6 +3,8 @@
 #include "lib/object.glsl"
 #include "lib/ubo.glsl"
 
+layout (constant_id = 0) const bool k_late = false;
+
 layout (local_size_x = 64) in;
 
 DECLARE_UBO(0, 0);
@@ -12,6 +14,11 @@ DECLARE_OBJECT_BUFFER(0, 4);
 void main() {
     uint object_index = gl_GlobalInvocationID.x;
     if (object_index >= g_object_count) {
+        return;
+    }
+
+    if (k_late) {
+        g_draw_count = 0;
         return;
     }
 

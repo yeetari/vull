@@ -87,14 +87,16 @@ class DefaultRenderer {
     vk::Pipeline m_gbuffer_pipeline;
     vk::Pipeline m_shadow_pipeline;
     vk::Pipeline m_depth_reduce_pipeline;
-    vk::Pipeline m_draw_cull_pipeline;
+    vk::Pipeline m_early_cull_pipeline;
+    vk::Pipeline m_late_cull_pipeline;
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
 
     vk::RenderGraph m_render_graph;
     vk::BufferResource *m_uniform_buffer_resource;
     vk::BufferResource *m_light_buffer_resource;
-    vk::BufferResource *m_draw_buffer_resource;
+    vk::BufferResource *m_early_draw_buffer_resource;
+    vk::BufferResource *m_late_draw_buffer_resource;
     vk::ImageResource *m_output_image_resource;
 
     Mat4f m_proj;

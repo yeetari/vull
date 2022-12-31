@@ -456,6 +456,18 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
         .pData = &specialization_data,
     };
 
+    vkb::SpecializationMapEntry late_map_entry{
+        .constantID = 0,
+        .size = sizeof(vkb::Bool),
+    };
+    vkb::Bool late = true;
+    vkb::SpecializationInfo late_specialization_info{
+        .mapEntryCount = 1,
+        .pMapEntries = &late_map_entry,
+        .dataSize = sizeof(vkb::Bool),
+        .pData = &late,
+    };
+
     m_gbuffer_pipeline = vk::PipelineBuilder()
                              .add_colour_attachment(m_albedo_image.format())
                              .add_colour_attachment(m_normal_image.format())
@@ -500,9 +512,14 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                                   })
                                   .build(m_context);
 
-    m_draw_cull_pipeline = vk::PipelineBuilder()
+    m_early_cull_pipeline = vk::PipelineBuilder()
+                                .add_set_layout(m_dynamic_set_layout)
+                                .add_shader(*shader_map.get("draw-cull"))
+                                .build(m_context);
+
+    m_late_cull_pipeline = vk::PipelineBuilder()
                                .add_set_layout(m_dynamic_set_layout)
-                               .add_shader(*shader_map.get("draw-cull"))
+                               .add_shader(*shader_map.get("draw-cull"), late_specialization_info)
                                .build(m_context);
 
     m_light_cull_pipeline = vk::PipelineBuilder()
@@ -534,7 +551,8 @@ void DefaultRenderer::create_render_graph() {
 
     m_uniform_buffer_resource = &m_render_graph.add_uniform_buffer("global-ubo");
     m_light_buffer_resource = &m_render_graph.add_storage_buffer("light-buffer");
-    m_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer");
+    m_early_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer-1");
+    m_late_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer-2");
     m_output_image_resource = &m_render_graph.add_image("output-image");
     m_output_image_resource->set_range({
         .aspectMask = vkb::ImageAspect::Color,
@@ -544,20 +562,20 @@ void DefaultRenderer::create_render_graph() {
 
     auto &early_cull_pass = m_render_graph.add_compute_pass("early-cull");
     early_cull_pass.reads_from(*m_uniform_buffer_resource);
-    early_cull_pass.writes_to(*m_draw_buffer_resource);
+    early_cull_pass.writes_to(*m_early_draw_buffer_resource);
     early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_pipeline(m_draw_cull_pipeline);
+        cmd_buf.bind_pipeline(m_early_cull_pipeline);
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
     });
 
-    auto &gbuffer_pass = m_render_graph.add_graphics_pass("gbuffer-pass");
-    gbuffer_pass.reads_from(*m_uniform_buffer_resource);
-    gbuffer_pass.reads_from(*m_draw_buffer_resource);
-    gbuffer_pass.writes_to(albedo_image_resource);
-    gbuffer_pass.writes_to(normal_image_resource);
-    gbuffer_pass.writes_to(depth_image_resource);
-    gbuffer_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+    auto &early_draw_pass = m_render_graph.add_graphics_pass("early-draw");
+    early_draw_pass.reads_from(*m_uniform_buffer_resource);
+    early_draw_pass.reads_from(*m_early_draw_buffer_resource);
+    early_draw_pass.writes_to(albedo_image_resource);
+    early_draw_pass.writes_to(normal_image_resource);
+    early_draw_pass.writes_to(depth_image_resource);
+    early_draw_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
         Array colour_write_attachments{
@@ -682,6 +700,73 @@ void DefaultRenderer::create_render_graph() {
             .subresourceRange = m_depth_pyramid_image.full_view().range(),
         };
         cmd_buf.image_barrier(general_barrier);
+    });
+
+    auto &late_cull_pass = m_render_graph.add_compute_pass("late-cull");
+    late_cull_pass.reads_from(*m_uniform_buffer_resource);
+    late_cull_pass.reads_from(depth_pyramid_resource);
+    late_cull_pass.writes_to(*m_late_draw_buffer_resource);
+    late_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_pipeline(m_late_cull_pipeline);
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
+    });
+
+    auto &late_draw_pass = m_render_graph.add_graphics_pass("late-draw");
+    late_draw_pass.reads_from(*m_uniform_buffer_resource);
+    late_draw_pass.reads_from(*m_late_draw_buffer_resource);
+    late_draw_pass.writes_to(albedo_image_resource);
+    late_draw_pass.writes_to(normal_image_resource);
+    late_draw_pass.writes_to(depth_image_resource);
+    late_draw_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        Array colour_write_attachments{
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *m_albedo_image.full_view(),
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Load,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+            vkb::RenderingAttachmentInfo{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *m_normal_image.full_view(),
+                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Load,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                },
+            },
+        };
+        vkb::RenderingAttachmentInfo depth_write_attachment{
+            .sType = vkb::StructureType::RenderingAttachmentInfo,
+            .imageView = *m_depth_image.full_view(),
+            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
+            .loadOp = vkb::AttachmentLoadOp::Load,
+            .storeOp = vkb::AttachmentStoreOp::Store,
+            .clearValue{
+                .depthStencil{0.0f, 0},
+            },
+        };
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = colour_write_attachments.size(),
+            .pColorAttachments = colour_write_attachments.data(),
+            .pDepthAttachment = &depth_write_attachment,
+        };
+        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+        cmd_buf.begin_rendering(rendering_info);
+        record_draws(cmd_buf);
+        cmd_buf.end_rendering();
     });
 
 #if 0
@@ -825,7 +910,8 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
                                             vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
                                                 vkb::BufferUsage::TransferDst,
                                             vk::MemoryUsage::DeviceOnly);
-    m_draw_buffer_resource->set(m_draw_buffer);
+    m_early_draw_buffer_resource->set(m_draw_buffer);
+    m_late_draw_buffer_resource->set(m_draw_buffer);
 
     auto object_buffer =
         m_context.create_buffer(objects.size_bytes(), vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice);
