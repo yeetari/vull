@@ -253,14 +253,25 @@ void RenderGraph::compile(Resource &target) {
     // Post-order traversal to build a linear pass order.
     Function<void(Pass &)> dfs = [&](Pass &pass) {
         // Ignore already visited passes.
-        if (pass.order_index() != ~0u) {
+        if (pass.m_colour == Pass::Colour::Visited) {
             return;
         }
+        pass.m_colour = Pass::Colour::Visiting;
+
+        // Traverse dependant passes (those that write to a resource we read from).
         for (const auto &access : pass.reads()) {
             for (Pass &writer : access.resource.writers()) {
+                if (writer.m_colour == Pass::Colour::Visiting) {
+                    // If a writer pass is currently being visited, we know that its order index (which we don't
+                    // concretely know yet), must be >= than us. Therefore, the writer pass writes to the resource after
+                    // we read from it.
+                    continue;
+                }
                 dfs(writer);
             }
         }
+
+        pass.m_colour = Pass::Colour::Visited;
         pass.set_order_index(m_pass_order.size());
         m_pass_order.push(pass);
     };

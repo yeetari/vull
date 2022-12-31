@@ -121,7 +121,12 @@ private:
     Vector<ResourceUse> m_reads;
     Vector<ResourceUse> m_writes;
     Function<void(CommandBuffer &)> m_on_record;
-    uint32_t m_order_index{~0u};
+    uint32_t m_order_index{0u};
+    enum class Colour {
+        Unvisited,
+        Visiting,
+        Visited,
+    } m_colour{Colour::Unvisited};
 
     bool does_write_to(Resource &resource);
     void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool);
