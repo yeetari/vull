@@ -50,7 +50,11 @@ void main() {
 
     // Sun.
     const vec3 sun_direction = vec3(0.6f, 0.6f, -0.6f);
+#if 0
     float sun_shadow = compute_shadow(world_position, g_view, g_shadow_map, g_shadow_info);
+#else
+    float sun_shadow = 1.0f;
+#endif
     illuminance += compute_light(albedo.rgb, vec3(1.0f), sun_direction, normal, view) * sun_shadow;
 
     // Point lights.

@@ -608,41 +608,6 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.end_rendering();
     });
 
-    auto &shadow_pass = m_render_graph.add_graphics_pass("shadow-pass");
-    shadow_pass.reads_from(*m_uniform_buffer_resource);
-    shadow_pass.reads_from(*m_draw_buffer_resource);
-    shadow_pass.writes_to(shadow_map_resource);
-    shadow_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_pipeline(m_shadow_pipeline);
-        for (uint32_t i = 0; i < k_cascade_count; i++) {
-            vkb::RenderingAttachmentInfo shadow_map_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_shadow_cascade_views[i],
-                .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .depthStencil{1.0f, 0},
-                },
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {k_shadow_resolution, k_shadow_resolution},
-                },
-                .layerCount = 1,
-                .pDepthAttachment = &shadow_map_write_attachment,
-            };
-            ShadowPushConstantBlock push_constant_block{
-                .cascade_index = i,
-            };
-            cmd_buf.begin_rendering(rendering_info);
-            cmd_buf.push_constants(vkb::ShaderStage::Vertex, push_constant_block);
-            record_draws(cmd_buf);
-            cmd_buf.end_rendering();
-        }
-    });
-
     auto &depth_reduce_pass = m_render_graph.add_compute_pass("depth-reduce");
     depth_reduce_pass.reads_from(depth_image_resource);
     depth_reduce_pass.writes_to(depth_pyramid_resource);
@@ -718,6 +683,43 @@ void DefaultRenderer::create_render_graph() {
         };
         cmd_buf.image_barrier(general_barrier);
     });
+
+#if 0
+    auto &shadow_pass = m_render_graph.add_graphics_pass("shadow-pass");
+    shadow_pass.reads_from(*m_uniform_buffer_resource);
+    shadow_pass.reads_from(*m_draw_buffer_resource);
+    shadow_pass.writes_to(shadow_map_resource);
+    shadow_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_pipeline(m_shadow_pipeline);
+        for (uint32_t i = 0; i < k_cascade_count; i++) {
+            vkb::RenderingAttachmentInfo shadow_map_write_attachment{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *m_shadow_cascade_views[i],
+                .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .depthStencil{1.0f, 0},
+                },
+            };
+            vkb::RenderingInfo rendering_info{
+                .sType = vkb::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = {k_shadow_resolution, k_shadow_resolution},
+                },
+                .layerCount = 1,
+                .pDepthAttachment = &shadow_map_write_attachment,
+            };
+            ShadowPushConstantBlock push_constant_block{
+                .cascade_index = i,
+            };
+            cmd_buf.begin_rendering(rendering_info);
+            cmd_buf.push_constants(vkb::ShaderStage::Vertex, push_constant_block);
+            record_draws(cmd_buf);
+            cmd_buf.end_rendering();
+        }
+    });
+#endif
 
     auto &light_cull_pass = m_render_graph.add_compute_pass("light-cull");
     light_cull_pass.reads_from(*m_uniform_buffer_resource);
