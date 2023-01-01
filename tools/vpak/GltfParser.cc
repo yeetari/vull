@@ -64,8 +64,12 @@ class Converter {
     vull::HashMap<uint64_t, vull::String> m_normal_paths;
     vull::Mutex m_material_map_mutex;
 
-    vull::HashMap<vull::String, vull::BoundingBox> m_bounding_boxes;
-    vull::Mutex m_bounding_boxes_mutex;
+    struct MeshBounds {
+        vull::BoundingBox box;
+        vull::BoundingSphere sphere;
+    };
+    vull::HashMap<vull::String, MeshBounds> m_mesh_bounds;
+    vull::Mutex m_mesh_bounds_mutex;
 
     vull::Material make_material(simdjson::simdjson_result<simdjson::dom::element> primitive);
 
@@ -617,14 +621,23 @@ bool Converter::process_primitive(const simdjson::dom::object &primitive, vull::
 
     vull::Vec3f aabb_min(FLT_MAX);
     vull::Vec3f aabb_max(FLT_MIN);
+    vull::Vec3f sphere_center;
     for (const auto &vertex : vertices) {
         aabb_min = vull::min(aabb_min, vertex.position);
         aabb_max = vull::max(aabb_max, vertex.position);
+        sphere_center += vertex.position;
+    }
+    sphere_center /= static_cast<float>(vertices.size());
+
+    float sphere_radius = 0;
+    for (const auto &vertex : vertices) {
+        sphere_radius = vull::max(sphere_radius, vull::distance(sphere_center, vertex.position));
     }
 
     vull::BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
-    vull::ScopedLock lock(m_bounding_boxes_mutex);
-    m_bounding_boxes.set(vull::move(name), bounding_box);
+    vull::BoundingSphere bounding_sphere(sphere_center, sphere_radius);
+    vull::ScopedLock lock(m_mesh_bounds_mutex);
+    m_mesh_bounds.set(vull::move(name), {bounding_box, bounding_sphere});
     return true;
 }
 
@@ -701,8 +714,9 @@ bool Converter::visit_node(vull::World &world, uint64_t index, vull::EntityId pa
             entity.add<vull::Mesh>(vull::format("/meshes/{}.0/vertex", mesh_name),
                                    vull::format("/meshes/{}.0/index", mesh_name));
             entity.add<vull::Material>(make_material(primitives.at(0)));
-            if (auto box = m_bounding_boxes.get(vull::format("{}.0", mesh_name))) {
-                entity.add<vull::BoundingBox>(*box);
+            if (auto bounds = m_mesh_bounds.get(vull::format("{}.0", mesh_name))) {
+                entity.add<vull::BoundingBox>(bounds->box);
+                entity.add<vull::BoundingSphere>(bounds->sphere);
             }
         } else {
             for (uint64_t i = 0; i < primitives.size(); i++) {
@@ -711,8 +725,9 @@ bool Converter::visit_node(vull::World &world, uint64_t index, vull::EntityId pa
                 sub_entity.add<vull::Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, i),
                                            vull::format("/meshes/{}.{}/index", mesh_name, i));
                 sub_entity.add<vull::Material>(make_material(primitives.at(i)));
-                if (auto box = m_bounding_boxes.get(vull::format("{}.{}", mesh_name, i))) {
-                    sub_entity.add<vull::BoundingBox>(*box);
+                if (auto bounds = m_mesh_bounds.get(vull::format("{}.{}", mesh_name, i))) {
+                    sub_entity.add<vull::BoundingBox>(bounds->box);
+                    sub_entity.add<vull::BoundingSphere>(bounds->sphere);
                 }
             }
         }
