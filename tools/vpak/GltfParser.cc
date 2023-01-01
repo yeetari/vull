@@ -1,6 +1,7 @@
 #include "GltfParser.hh"
 
 #include <vull/core/BoundingBox.hh>
+#include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/World.hh>
@@ -867,6 +868,7 @@ bool GltfParser::convert(vull::vpak::Writer &pack_writer, bool max_resolution, b
             world.register_component<vull::Mesh>();
             world.register_component<vull::Material>();
             world.register_component<vull::BoundingBox>();
+            world.register_component<vull::BoundingSphere>();
 
             if (simdjson::dom::array root_nodes; scene["nodes"].get(root_nodes) == simdjson::SUCCESS) {
                 for (auto node : root_nodes) {

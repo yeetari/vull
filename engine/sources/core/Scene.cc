@@ -1,6 +1,7 @@
 #include <vull/core/Scene.hh>
 
 #include <vull/core/BoundingBox.hh>
+#include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/EntityId.hh>
@@ -214,6 +215,7 @@ void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
     m_world.register_component<Mesh>();
     m_world.register_component<Material>();
     m_world.register_component<BoundingBox>();
+    m_world.register_component<BoundingSphere>();
 
     // Load world.
     VULL_EXPECT(m_world.deserialise(pack_reader, scene_name));
