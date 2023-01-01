@@ -45,9 +45,11 @@ class DefaultRenderer {
     };
     struct UniformBuffer {
         Mat4f proj;
+        Mat4f cull_view;
         Mat4f view;
         Vec3f view_position;
         uint32_t object_count;
+        Array<Vec4f, 4> frustum_planes;
         ShadowInfo shadow_info;
     };
 
@@ -75,6 +77,7 @@ class DefaultRenderer {
     Vector<vk::ImageView> m_shadow_cascade_views;
     vkb::Sampler m_shadow_sampler;
     vk::Buffer m_light_visibility_buffer;
+    vk::Buffer m_object_visibility_buffer;
     vk::Buffer m_static_descriptor_buffer;
     vk::Buffer m_texture_descriptor_buffer;
     vk::Buffer m_vertex_buffer;
@@ -104,6 +107,10 @@ class DefaultRenderer {
     Vec3f m_view_position;
     vkb::ImageView m_output_view;
     ShadowInfo m_shadow_info;
+
+    Mat4f m_cull_view;
+    Array<Vec4f, 4> m_frustum_planes;
+    bool m_cull_view_locked{false};
 
     struct MeshInfo {
         uint32_t index_count;
@@ -136,6 +143,7 @@ public:
     void render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view, const Vec3f &view_position,
                 vkb::Image output_image, vkb::ImageView output_view,
                 Optional<const vk::QueryPool &> timestamp_pool = {});
+    void set_cull_view_locked(bool locked) { m_cull_view_locked = locked; }
 
     vk::RenderGraph &render_graph() { return m_render_graph; }
     vk::ImageResource &output_image_resource() { return *m_output_image_resource; }

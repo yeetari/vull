@@ -258,6 +258,8 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         }
         fire_time += dt;
 
+        renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
+
         // Destroy far away entities.
         for (auto [entity, body, transform] : world.view<RigidBody, Transform>()) {
             if (entity == player) {

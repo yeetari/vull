@@ -12,6 +12,8 @@ struct DrawCmd {
 
 struct Object {
     mat4 transform;
+    float center[3];
+    float radius;
     uint albedo_index;
     uint normal_index;
     uint index_count;

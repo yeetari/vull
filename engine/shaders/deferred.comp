@@ -17,7 +17,6 @@ layout (binding = 2, rgba8) writeonly uniform image2D g_output_image;
 layout (set = 1, binding = 0) uniform texture2D g_albedo_image;
 layout (set = 1, binding = 1) uniform texture2D g_normal_image;
 layout (set = 1, binding = 2) uniform texture2D g_depth_image;
-layout (set = 1, binding = 3) uniform texture2D g_depth_pyramid_image;
 layout (set = 1, binding = 4) uniform sampler2DArrayShadow g_shadow_map;
 layout (set = 1, binding = 5) readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];

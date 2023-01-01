@@ -10,6 +10,36 @@ layout (local_size_x = 64) in;
 DECLARE_UBO(0, 0);
 DECLARE_DRAW_BUFFER(0, 3);
 DECLARE_OBJECT_BUFFER(0, 4);
+layout (set = 1, binding = 3) uniform sampler2D g_depth_pyramid;
+layout (set = 1, binding = 6) buffer ObjectVisibility {
+    uint g_visibility[];
+};
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere
+// https://jcgt.org/published/0002/02/05/paper.pdf
+bool project_sphere(vec3 center, float radius, out vec4 ndc_aabb) {
+    float near_plane = g_proj[3][2];
+    if (-center.z < radius + near_plane) {
+        return false;
+    }
+
+    vec2 cx = -center.xz;
+    vec2 vx = vec2(sqrt(dot(cx, cx) - radius * radius), radius);
+    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+    vec2 cy = -center.yz;
+    vec2 vy = vec2(sqrt(dot(cy, cy) - radius * radius), radius);
+    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+    float P00 = g_proj[0][0];
+    float P11 = g_proj[1][1];
+    ndc_aabb = 0.5f - 0.5f * vec4(
+        minx.x / minx.y * P00, miny.x / miny.y * P11,
+        maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+    return true;
+}
 
 void main() {
     uint object_index = gl_GlobalInvocationID.x;
@@ -17,17 +47,54 @@ void main() {
         return;
     }
 
-    if (k_late) {
-        g_draw_count = 0;
+    // Early pass - ignore objects not visible last frame.
+    if (!k_late && g_visibility[object_index] == 0) {
         return;
     }
 
     Object object = g_objects[object_index];
-    uint draw_index = atomicAdd(g_draw_count, 1);
-    g_draws[draw_index].index_count = object.index_count;
-    g_draws[draw_index].instance_count = 1;
-    g_draws[draw_index].first_index = object.first_index;
-    g_draws[draw_index].vertex_offset = object.vertex_offset;
-    g_draws[draw_index].first_instance = 0;
-    g_draws[draw_index].object_index = object_index;
+    mat4 transform = object.transform;
+    vec4 center = transform * vec4(object.center[0], object.center[1], object.center[2], 1.0f);
+
+    // Calculate sphere radius, making sure to take object scale into account.
+    vec3 scale = vec3(length(transform[0].xyz), length(transform[1].xyz), length(transform[2].xyz));
+    float radius = object.radius * max(scale.x, max(scale.y, scale.z));
+
+    // Frustum cull against the bounding sphere.
+    bool visible = true;
+    for (uint i = 0; i < 4; i++) {
+        visible = visible && dot(center, g_frustum_planes[i]) + radius >= 0.0f;
+    }
+
+    // Late pass - do occlusion culling.
+    if (k_late) {
+        // Reproject sphere center into view space.
+        center = g_cull_view * center;
+
+        vec4 ndc_aabb;
+        if (project_sphere(center.xyz, radius, ndc_aabb)) {
+            // Inside view.
+            vec2 size = (ndc_aabb.zw - ndc_aabb.xy) * textureSize(g_depth_pyramid, 0);
+            float level = floor(log2(max(size.x, size.y)));
+            float occluder_depth = textureLod(g_depth_pyramid, (ndc_aabb.xy + ndc_aabb.zw) * 0.5f, level).r;
+            float sphere_depth = g_proj[3][2] / (-center.z - radius);
+            visible = visible && occluder_depth < sphere_depth;
+        }
+    }
+
+    // Early pass - draw all visible objects.
+    // Late pass - only draw if visible *and* not visible last frame (and therefore wasn't drawn in the early pass).
+    if (visible && (!k_late || g_visibility[object_index] == 0)) {
+        uint draw_index = atomicAdd(g_draw_count, 1);
+        g_draws[draw_index].index_count = object.index_count;
+        g_draws[draw_index].instance_count = 1;
+        g_draws[draw_index].first_index = object.first_index;
+        g_draws[draw_index].vertex_offset = object.vertex_offset;
+        g_draws[draw_index].first_instance = 0;
+        g_draws[draw_index].object_index = object_index;
+    }
+
+    if (k_late) {
+        g_visibility[object_index] = visible ? 1 : 0;
+    }
 }

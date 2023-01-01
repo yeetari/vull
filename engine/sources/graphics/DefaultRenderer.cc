@@ -1,5 +1,6 @@
 #include <vull/graphics/DefaultRenderer.hh>
 
+#include <vull/core/BoundingSphere.hh>
 #include <vull/core/Scene.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
@@ -34,6 +35,7 @@
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
+#include <float.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -46,6 +48,9 @@ constexpr uint32_t k_texture_limit = 32768;
 constexpr uint32_t k_tile_size = 32;
 constexpr uint32_t k_tile_max_light_count = 256;
 
+// Minimum required maximum work group count * minimum cull work group size that would be used.
+constexpr uint32_t k_object_limit = 65535 * 32;
+
 struct DepthReduceData {
     Vec2u mip_size;
 };
@@ -56,6 +61,8 @@ struct DrawCmd : vkb::DrawIndexedIndirectCommand {
 
 struct Object {
     Mat4f transform;
+    Vec3f center;
+    float radius;
     uint32_t albedo_index;
     uint32_t normal_index;
     uint32_t index_count;
@@ -125,7 +132,7 @@ void DefaultRenderer::create_set_layouts() {
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 3,
-            .descriptorType = vkb::DescriptorType::SampledImage,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
@@ -137,6 +144,12 @@ void DefaultRenderer::create_set_layouts() {
         },
         vkb::DescriptorSetLayoutBinding{
             .binding = 5,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 6,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
@@ -364,6 +377,14 @@ void DefaultRenderer::create_resources() {
     m_light_visibility_buffer = m_context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
                                                         vk::MemoryUsage::DeviceOnly);
 
+    // TODO: Use a single bit to represent object visibility which would reduce the size from ~8 MiB to ~0.25 MiB.
+    m_object_visibility_buffer = m_context.create_buffer(
+        k_object_limit * sizeof(uint32_t), vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
+        vk::MemoryUsage::DeviceOnly);
+    m_context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
+        m_context.vkCmdFillBuffer(*cmd_buf, *m_object_visibility_buffer, 0, m_object_visibility_buffer.size(), 0);
+    });
+
     m_static_descriptor_buffer =
         m_context.create_buffer(m_static_set_layout_size,
                                 vkb::BufferUsage::SamplerDescriptorBufferEXT |
@@ -383,6 +404,7 @@ void DefaultRenderer::create_resources() {
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorImageInfo depth_pyramid_image_info{
+        .sampler = m_depth_reduce_sampler,
         .imageView = *m_depth_pyramid_image.full_view(),
         .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
@@ -396,15 +418,22 @@ void DefaultRenderer::create_resources() {
         .address = m_light_visibility_buffer.device_address(),
         .range = m_light_visibility_buffer.size(),
     };
+    vkb::DescriptorAddressInfoEXT object_visibility_buffer_ai{
+        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+        .address = m_object_visibility_buffer.device_address(),
+        .range = m_object_visibility_buffer.size(),
+    };
     auto staging_buffer = m_static_descriptor_buffer.create_staging();
     auto *descriptor_data = staging_buffer.mapped<uint8_t>();
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &albedo_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &normal_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &depth_image_info);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &depth_pyramid_image_info);
+    descriptor_data =
+        put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &depth_pyramid_image_info);
     descriptor_data =
         put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
+    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &object_visibility_buffer_ai);
     m_static_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
@@ -514,11 +543,13 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
 
     m_early_cull_pipeline = vk::PipelineBuilder()
                                 .add_set_layout(m_dynamic_set_layout)
+                                .add_set_layout(m_static_set_layout)
                                 .add_shader(*shader_map.get("draw-cull"))
                                 .build(m_context);
 
     m_late_cull_pipeline = vk::PipelineBuilder()
                                .add_set_layout(m_dynamic_set_layout)
+                               .add_set_layout(m_static_set_layout)
                                .add_shader(*shader_map.get("draw-cull"), late_specialization_info)
                                .build(m_context);
 
@@ -542,12 +573,14 @@ void DefaultRenderer::create_render_graph() {
     auto &depth_pyramid_resource = m_render_graph.add_image("depth-pyramid");
     auto &shadow_map_resource = m_render_graph.add_image("shadow-map");
     auto &light_visibility_buffer_resource = m_render_graph.add_storage_buffer("light-visibility-buffer");
+    auto &object_visibility_buffer_resource = m_render_graph.add_storage_buffer("object-visibility-buffer");
     albedo_image_resource.set(m_albedo_image.full_view());
     normal_image_resource.set(m_normal_image.full_view());
     depth_image_resource.set(m_depth_image.full_view());
     depth_pyramid_resource.set(m_depth_pyramid_image.full_view());
     shadow_map_resource.set(m_shadow_map_image.full_view());
     light_visibility_buffer_resource.set(m_light_visibility_buffer);
+    object_visibility_buffer_resource.set(m_object_visibility_buffer);
 
     m_uniform_buffer_resource = &m_render_graph.add_uniform_buffer("global-ubo");
     m_light_buffer_resource = &m_render_graph.add_storage_buffer("light-buffer");
@@ -560,11 +593,17 @@ void DefaultRenderer::create_render_graph() {
         .layerCount = 1,
     });
 
+    // TODO: object_visibility_buffer_resource should be read from early_cull_pass and written from late_cull_pass, but
+    //       since the render graph isn't interframe then it wouldn't be correct. Sync is currently fine because of the
+    //       big frame barrier.
+
     auto &early_cull_pass = m_render_graph.add_compute_pass("early-cull");
     early_cull_pass.reads_from(*m_uniform_buffer_resource);
     early_cull_pass.writes_to(*m_early_draw_buffer_resource);
     early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_early_cull_pipeline);
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
     });
@@ -630,6 +669,11 @@ void DefaultRenderer::create_render_graph() {
     depth_reduce_pass.reads_from(depth_image_resource);
     depth_reduce_pass.writes_to(depth_pyramid_resource);
     depth_reduce_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        // TODO(rg-conditional)
+        if (m_cull_view_locked) {
+            return;
+        }
+
         const uint32_t level_count = m_depth_pyramid_image.full_view().range().levelCount;
         auto descriptor_buffer =
             m_context.create_buffer(m_reduce_set_layout_size * level_count,
@@ -707,7 +751,9 @@ void DefaultRenderer::create_render_graph() {
     late_cull_pass.reads_from(depth_pyramid_resource);
     late_cull_pass.writes_to(*m_late_draw_buffer_resource);
     late_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_late_cull_pipeline);
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
     });
@@ -888,8 +934,11 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
             continue;
         }
 
+        auto bounding_sphere = entity.try_get<BoundingSphere>();
         objects.push({
             .transform = m_scene->get_transform_matrix(entity),
+            .center = bounding_sphere ? bounding_sphere->center() : Vec3f(0.0f),
+            .radius = bounding_sphere ? bounding_sphere->radius() : FLT_MAX,
             .albedo_index = *albedo_index,
             .normal_index = *normal_index,
             .index_count = mesh_info->index_count,
@@ -897,13 +946,28 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
             .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),
         });
     }
-    m_object_count = objects.size();
 
+    // Cap object count just in case.
+    m_object_count = vull::min(objects.size(), k_object_limit);
+
+    if (!m_cull_view_locked) {
+        auto proj_view_t = vull::transpose(m_proj * m_view);
+        m_frustum_planes[0] = proj_view_t[3] + proj_view_t[0]; // left
+        m_frustum_planes[1] = proj_view_t[3] - proj_view_t[0]; // right
+        m_frustum_planes[2] = proj_view_t[3] + proj_view_t[1]; // bottom
+        m_frustum_planes[3] = proj_view_t[3] - proj_view_t[1]; // top
+        for (auto &plane : m_frustum_planes) {
+            plane /= vull::magnitude(Vec3f(plane));
+        }
+        m_cull_view = m_view;
+    }
     *uniform_buffer.mapped<UniformBuffer>() = {
         .proj = m_proj,
+        .cull_view = m_cull_view,
         .view = m_view,
         .view_position = m_view_position,
         .object_count = m_object_count,
+        .frustum_planes = m_frustum_planes,
         .shadow_info = m_shadow_info,
     };
     m_draw_buffer = m_context.create_buffer(sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
@@ -916,7 +980,6 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     auto object_buffer =
         m_context.create_buffer(objects.size_bytes(), vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice);
     memcpy(object_buffer.mapped<Object>(), objects.data(), objects.size_bytes());
-    m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
 
     m_dynamic_descriptor_buffer = m_context.create_buffer(m_dynamic_set_layout_size,
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
