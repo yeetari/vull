@@ -1,5 +1,4 @@
 #include "shadow_info.glsl"
-#extension GL_EXT_scalar_block_layout : enable
 
 #define DECLARE_UBO(s, b)  \
 layout (set = s, binding = b, scalar) readonly uniform UniformBuffer { \

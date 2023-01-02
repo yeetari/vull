@@ -6,6 +6,7 @@
 #extension GL_EXT_null_initializer : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
 
 mat3 adjugate(mat3 mat) {
     return mat3(cross(mat[1], mat[2]), cross(mat[2], mat[0]), cross(mat[0], mat[1]));

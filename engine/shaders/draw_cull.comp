@@ -15,6 +15,8 @@ layout (set = 1, binding = 6) buffer ObjectVisibility {
     uint g_visibility[];
 };
 
+shared uint s_draw_offset;
+
 // 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere
 // https://jcgt.org/published/0002/02/05/paper.pdf
 bool project_sphere(vec3 center, float radius, out vec4 ndc_aabb) {
@@ -84,8 +86,16 @@ void main() {
 
     // Early pass - draw all visible objects.
     // Late pass - only draw if visible *and* not visible last frame (and therefore wasn't drawn in the early pass).
-    if (visible && (!k_late || g_visibility[object_index] == 0)) {
-        uint draw_index = atomicAdd(g_draw_count, 1);
+    bool should_draw = visible && (!k_late || g_visibility[object_index] == 0);
+    uvec4 should_draw_ballot = subgroupBallot(should_draw);
+    if (subgroupElect()) {
+        uint subgroup_draw_count = subgroupBallotBitCount(should_draw_ballot);
+        s_draw_offset = atomicAdd(g_draw_count, subgroup_draw_count);
+    }
+    subgroupMemoryBarrierShared();
+
+    if (should_draw) {
+        uint draw_index = s_draw_offset + subgroupBallotExclusiveBitCount(should_draw_ballot);
         g_draws[draw_index].index_count = object.index_count;
         g_draws[draw_index].instance_count = 1;
         g_draws[draw_index].first_index = object.first_index;
