@@ -136,6 +136,11 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     player.get<RigidBody>().set_shape(player.get<Collider>().shape());
 
     FreeCamera free_camera;
+    free_camera.set_position(50.0f);
+    free_camera.set_pitch(-0.2f);
+    free_camera.set_yaw(-2.0f);
+    free_camera.handle_mouse_move({});
+
     bool free_camera_active = false;
     window.on_key_release(Key::F, [&](ModifierMask) {
         free_camera_active = !free_camera_active;
