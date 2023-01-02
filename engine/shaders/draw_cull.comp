@@ -5,7 +5,7 @@
 
 layout (constant_id = 0) const bool k_late = false;
 
-layout (local_size_x = 64) in;
+layout (local_size_x = 32) in;
 
 DECLARE_UBO(0, 0);
 DECLARE_DRAW_BUFFER(0, 3);
@@ -50,7 +50,10 @@ void main() {
     }
 
     // Early pass - ignore objects not visible last frame.
-    if (!k_late && g_visibility[object_index] == 0) {
+    uint object_bit = object_index % gl_WorkGroupSize.x;
+    uint object_mask = 1 << object_bit;
+    bool culled_last_frame = (g_visibility[gl_WorkGroupID.x] & object_mask) == 0;
+    if (!k_late && culled_last_frame) {
         return;
     }
 
@@ -86,7 +89,7 @@ void main() {
 
     // Early pass - draw all visible objects.
     // Late pass - only draw if visible *and* not visible last frame (and therefore wasn't drawn in the early pass).
-    bool should_draw = visible && (!k_late || g_visibility[object_index] == 0);
+    bool should_draw = visible && (!k_late || culled_last_frame);
     uvec4 should_draw_ballot = subgroupBallot(should_draw);
     if (subgroupElect()) {
         uint subgroup_draw_count = subgroupBallotBitCount(should_draw_ballot);
@@ -95,6 +98,8 @@ void main() {
     subgroupMemoryBarrierShared();
 
     if (should_draw) {
+        // subgroupBallotExclusiveBitCount == how many invocations before us (those with a lower id), have their bit set
+        // in the ballot (where set means they need a draw index reserving).
         uint draw_index = s_draw_offset + subgroupBallotExclusiveBitCount(should_draw_ballot);
         g_draws[draw_index].index_count = object.index_count;
         g_draws[draw_index].instance_count = 1;
@@ -105,6 +110,7 @@ void main() {
     }
 
     if (k_late) {
-        g_visibility[object_index] = visible ? 1 : 0;
+        // Optimised version of if (visible) visibility |= object_mask;
+        g_visibility[gl_WorkGroupID.x] = subgroupOr(uint(visible) << object_bit);
     }
 }

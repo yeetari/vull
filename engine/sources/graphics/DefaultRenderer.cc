@@ -377,9 +377,8 @@ void DefaultRenderer::create_resources() {
     m_light_visibility_buffer = m_context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
                                                         vk::MemoryUsage::DeviceOnly);
 
-    // TODO: Use a single bit to represent object visibility which would reduce the size from ~8 MiB to ~0.25 MiB.
     m_object_visibility_buffer = m_context.create_buffer(
-        k_object_limit * sizeof(uint32_t), vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
+        (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
     m_context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
         m_context.vkCmdFillBuffer(*cmd_buf, *m_object_visibility_buffer, 0, m_object_visibility_buffer.size(), 0);
@@ -605,7 +604,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_early_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
     });
 
     auto &early_draw_pass = m_render_graph.add_graphics_pass("early-draw");
@@ -755,7 +754,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_late_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 64u));
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
     });
 
     auto &late_draw_pass = m_render_graph.add_graphics_pass("late-draw");
