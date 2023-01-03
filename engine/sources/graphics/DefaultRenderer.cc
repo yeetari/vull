@@ -275,7 +275,7 @@ void DefaultRenderer::create_resources() {
     vkb::ImageCreateInfo normal_image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
         .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::R32G32B32A32Sfloat,
+        .format = vkb::Format::R16G16Sfloat,
         .extent = m_viewport_extent,
         .mipLevels = 1,
         .arrayLayers = 1,
