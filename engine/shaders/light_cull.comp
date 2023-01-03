@@ -29,7 +29,6 @@ shared uint g_tile_light_count = {};
 shared ViewFrustum g_frustum;
 
 ViewFrustum create_frustum(ivec2 tile_id) {
-    mat4 inv_proj = inverse(g_proj);
     vec2 ndc_tile_size = 2.0f * vec2(k_tile_size) / vec2(k_viewport_width, k_viewport_height);
     vec4 ndc_points[4];
     ndc_points[0] = vec4(tile_id * ndc_tile_size - 1.0f, 1.0f, 1.0f);
@@ -37,7 +36,7 @@ ViewFrustum create_frustum(ivec2 tile_id) {
     ndc_points[2] = vec4(ndc_points[0].xy + ndc_tile_size, 1.0f, 1.0f);
     ndc_points[3] = vec4(vec2(ndc_points[0].x + ndc_tile_size.x, ndc_points[0].y), 1.0f, 1.0f);
     for (uint i = 0; i < 4; i++) {
-        ndc_points[i] = inv_proj * ndc_points[i];
+        ndc_points[i] = g_inv_proj * ndc_points[i];
         ndc_points[i] /= ndc_points[i].w;
     }
     ViewFrustum frustum;
@@ -48,7 +47,7 @@ ViewFrustum create_frustum(ivec2 tile_id) {
 }
 
 bool is_light_visible(PointLight light) {
-    vec3 position = (g_view * vec4(light.position, 1.0f)).xyz;
+    vec3 position = (g_cull_view * vec4(light.position, 1.0f)).xyz;
     for (uint i = 0; i < 4; i++) {
         if (dot(position, g_frustum.planes[i]) > light.radius) {
             return false;

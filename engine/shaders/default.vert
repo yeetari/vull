@@ -21,5 +21,5 @@ void main() {
     g_out_position = vec4(world_position.xyz, g_uv.x);
     g_out_normal = vec4(adjugate(object.transform) * g_normal, g_uv.y);
     g_out_texture_indices = uvec2(object.albedo_index, object.normal_index);
-    gl_Position = g_proj * g_view * world_position;
+    gl_Position = g_proj_view * world_position;
 }

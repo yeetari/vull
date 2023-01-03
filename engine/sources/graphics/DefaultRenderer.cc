@@ -962,8 +962,10 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     }
     *uniform_buffer.mapped<UniformBuffer>() = {
         .proj = m_proj,
+        .inv_proj = vull::inverse(m_proj),
+        .proj_view = m_proj * m_view,
+        .inv_proj_view = vull::inverse(m_proj * m_view),
         .cull_view = m_cull_view,
-        .view = m_view,
         .view_position = m_view_position,
         .object_count = m_object_count,
         .frustum_planes = m_frustum_planes,

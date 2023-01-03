@@ -45,8 +45,10 @@ class DefaultRenderer {
     };
     struct UniformBuffer {
         Mat4f proj;
+        Mat4f inv_proj;
+        Mat4f proj_view;
+        Mat4f inv_proj_view;
         Mat4f cull_view;
-        Mat4f view;
         Vec3f view_position;
         uint32_t object_count;
         Array<Vec4f, 4> frustum_planes;

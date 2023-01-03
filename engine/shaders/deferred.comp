@@ -41,7 +41,7 @@ void main() {
 
     float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
     vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
-    world_position = inverse(g_proj * g_view) * world_position;
+    world_position = g_inv_proj_view * world_position;
     world_position /= world_position.w;
 
     vec3 illuminance = albedo.rgb * 0.02f;
