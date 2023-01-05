@@ -165,7 +165,7 @@ Pipeline PipelineBuilder::build(const Context &context) {
     };
     vkb::PipelineVertexInputStateCreateInfo vertex_input_state_ci{
         .sType = vkb::StructureType::PipelineVertexInputStateCreateInfo,
-        .vertexBindingDescriptionCount = 1,
+        .vertexBindingDescriptionCount = !m_vertex_attributes.empty() ? 1u : 0u,
         .pVertexBindingDescriptions = &vertex_binding,
         .vertexAttributeDescriptionCount = m_vertex_attributes.size(),
         .pVertexAttributeDescriptions = m_vertex_attributes.data(),
