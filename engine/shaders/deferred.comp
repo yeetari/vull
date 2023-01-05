@@ -25,11 +25,6 @@ layout (set = 1, binding = 5) readonly buffer LightVisibilities {
 
 const vec3 k_clear_colour = vec3(0.47f, 0.5f, 0.67f);
 
-float compute_fog(float density, float dist) {
-    float d = density * dist;
-    return 1.0f - clamp(exp2(d * d * -1.442695f), 0.0f, 1.0f);
-}
-
 void main() {
     vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     if (albedo.a == 0.0f) {
@@ -66,8 +61,6 @@ void main() {
         illuminance += compute_light(albedo.rgb, light.colour, direction, normal, view) * attenuation;
     }
 
-    // Final output with fog blended.
-    float fog_factor = compute_fog(0.01f, distance(world_position.xyz, g_view_position));
-    vec3 final_colour = mix(illuminance, k_clear_colour, fog_factor);
-    imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(final_colour, 1.0f)));
+    // Final output.
+    imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(illuminance, 1.0f)));
 }
