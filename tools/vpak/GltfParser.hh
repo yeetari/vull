@@ -5,6 +5,8 @@
 
 #include <stdint.h>
 
+namespace vull {
+
 class FileMmap {
     uint8_t *m_data{nullptr};
     size_t m_size{0};
@@ -25,12 +27,14 @@ public:
 
 class GltfParser {
     FileMmap m_data;
-    vull::StringView m_json;
+    StringView m_json;
     const uint8_t *m_binary_blob;
 
 public:
-    bool parse_glb(vull::StringView input_path);
-    bool convert(vull::vpak::Writer &pack_writer, bool max_resolution, bool reproducible);
+    bool parse_glb(StringView input_path);
+    bool convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible);
 
-    vull::StringView json() const { return m_json; }
+    StringView json() const { return m_json; }
 };
+
+} // namespace vull

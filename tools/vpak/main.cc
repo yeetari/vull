@@ -6,6 +6,7 @@
 #include <vull/maths/Common.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
+#include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Optional.hh>
@@ -25,13 +26,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+using namespace vull;
+
 namespace {
 
-void print_usage(vull::StringView executable) {
-    vull::String whitespace(executable.length());
+void print_usage(StringView executable) {
+    String whitespace(executable.length());
     memset(whitespace.data(), ' ', whitespace.length());
 
-    vull::StringBuilder sb;
+    StringBuilder sb;
     sb.append("usage:\n");
     sb.append("  {} <command> [<args>]\n", executable);
     sb.append("  {} add [--fast|--ultra] <vpak> <file> <name>\n", executable);
@@ -59,12 +62,12 @@ void print_usage(vull::StringView executable) {
     vull::println(sb.build());
 }
 
-int add(const vull::Vector<vull::StringView> &args) {
+int add(const Vector<StringView> &args) {
     bool fast = false;
     bool ultra = false;
-    vull::StringView vpak_path;
-    vull::StringView input_path;
-    vull::StringView entry_name;
+    StringView vpak_path;
+    StringView input_path;
+    StringView entry_name;
     for (const auto arg : vull::slice(args, 2u)) {
         if (arg == "--fast") {
             fast = true;
@@ -103,15 +106,15 @@ int add(const vull::Vector<vull::StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    auto compression_level = vull::vpak::CompressionLevel::Normal;
+    auto compression_level = vpak::CompressionLevel::Normal;
     if (fast) {
-        compression_level = vull::vpak::CompressionLevel::Fast;
+        compression_level = vpak::CompressionLevel::Fast;
     }
     if (ultra) {
-        compression_level = vull::vpak::CompressionLevel::Ultra;
+        compression_level = vpak::CompressionLevel::Ultra;
     }
 
-    auto input_file_or_error = vull::open_file(input_path, vull::OpenMode::Read);
+    auto input_file_or_error = vull::open_file(input_path, OpenMode::Read);
     if (input_file_or_error.is_error()) {
         vull::println("fatal: failed to open input file {}", input_path);
         return EXIT_FAILURE;
@@ -119,13 +122,12 @@ int add(const vull::Vector<vull::StringView> &args) {
     auto input_file = input_file_or_error.disown_value();
     auto input_stream = input_file.create_stream();
 
-    auto vpak_file =
-        VULL_EXPECT(vull::open_file(vpak_path, vull::OpenMode::Create | vull::OpenMode::Read | vull::OpenMode::Write));
-    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(vpak_file.create_stream()), compression_level);
+    auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
+    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
 
-    auto entry_stream = pack_writer.start_entry(entry_name, vull::vpak::EntryType::Blob);
+    auto entry_stream = pack_writer.start_entry(entry_name, vpak::EntryType::Blob);
 
-    vull::Array<uint8_t, 128 * 1024> buffer;
+    Array<uint8_t, 128 * 1024> buffer;
     size_t bytes_read = 0;
     while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
         VULL_EXPECT(entry_stream.write({buffer.data(), static_cast<uint32_t>(bytes_read)}));
@@ -136,14 +138,14 @@ int add(const vull::Vector<vull::StringView> &args) {
 }
 
 #ifdef BUILD_GLTF
-int add_gltf(const vull::Vector<vull::StringView> &args) {
+int add_gltf(const Vector<StringView> &args) {
     bool dump_json = false;
     bool fast = false;
     bool max_resolution = false;
     bool reproducible = false;
     bool ultra = false;
-    vull::StringView vpak_path;
-    vull::StringView gltf_path;
+    StringView vpak_path;
+    StringView gltf_path;
     for (const auto arg : vull::slice(args, 2u)) {
         if (arg == "--dump-json") {
             dump_json = true;
@@ -182,12 +184,12 @@ int add_gltf(const vull::Vector<vull::StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    auto compression_level = vull::vpak::CompressionLevel::Normal;
+    auto compression_level = vpak::CompressionLevel::Normal;
     if (fast) {
-        compression_level = vull::vpak::CompressionLevel::Fast;
+        compression_level = vpak::CompressionLevel::Fast;
     }
     if (ultra) {
-        compression_level = vull::vpak::CompressionLevel::Ultra;
+        compression_level = vpak::CompressionLevel::Ultra;
     }
 
     GltfParser gltf_parser;
@@ -200,9 +202,8 @@ int add_gltf(const vull::Vector<vull::StringView> &args) {
         return EXIT_SUCCESS;
     }
 
-    auto vpak_file =
-        VULL_EXPECT(vull::open_file(vpak_path, vull::OpenMode::Create | vull::OpenMode::Read | vull::OpenMode::Write));
-    vull::vpak::Writer pack_writer(vull::make_unique<vull::FileStream>(vpak_file.create_stream()), compression_level);
+    auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
+    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
     if (!gltf_parser.convert(pack_writer, max_resolution, reproducible)) {
         return EXIT_FAILURE;
     }
@@ -212,26 +213,25 @@ int add_gltf(const vull::Vector<vull::StringView> &args) {
     return EXIT_SUCCESS;
 }
 #else
-int add_gltf(const vull::Vector<vull::StringView> &) {
+int add_gltf(const Vector<StringView> &) {
     vull::println("fatal: not built with gltf support");
     return EXIT_FAILURE;
 }
 #endif
 
-int get(const vull::Vector<vull::StringView> &args) {
+int get(const Vector<StringView> &args) {
     if (args.size() != 5) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
     auto entry_stream = pack_reader.open(args[3]);
     if (!entry_stream) {
         vull::println("fatal: no entry named {}", args[3]);
         return EXIT_FAILURE;
     }
 
-    auto output_file_or_error =
-        vull::open_file(args[4], vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write);
+    auto output_file_or_error = vull::open_file(args[4], OpenMode::Create | OpenMode::Truncate | OpenMode::Write);
     if (output_file_or_error.is_error()) {
         vull::println("fatal: failed to create output file {}", args[4]);
         return EXIT_FAILURE;
@@ -243,7 +243,7 @@ int get(const vull::Vector<vull::StringView> &args) {
     // TODO: Do this in a nicer way.
     uint32_t size = pack_reader.stat(args[3])->size;
     while (size > 0) {
-        vull::Array<uint8_t, 64 * 1024> buffer;
+        Array<uint8_t, 64 * 1024> buffer;
         const auto to_read = vull::min(buffer.size(), size);
         VULL_EXPECT(entry_stream->read({buffer.data(), to_read}));
         VULL_EXPECT(output_stream.write({buffer.data(), to_read}));
@@ -252,37 +252,37 @@ int get(const vull::Vector<vull::StringView> &args) {
     return EXIT_SUCCESS;
 }
 
-int ls(const vull::Vector<vull::StringView> &args) {
+int ls(const Vector<StringView> &args) {
     if (args.size() != 3) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
     for (const auto &entry : pack_reader.entries()) {
         vull::println("{}", entry.name);
     }
     return EXIT_SUCCESS;
 }
 
-vull::StringView type_string(vull::vpak::EntryType type) {
+StringView type_string(vpak::EntryType type) {
     switch (type) {
-    case vull::vpak::EntryType::Blob:
+    case vpak::EntryType::Blob:
         return "blob";
-    case vull::vpak::EntryType::Image:
+    case vpak::EntryType::Image:
         return "image";
-    case vull::vpak::EntryType::World:
+    case vpak::EntryType::World:
         return "world";
     default:
         return "unknown";
     }
 }
 
-int stat(const vull::Vector<vull::StringView> &args) {
+int stat(const Vector<StringView> &args) {
     if (args.size() != 4) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vull::vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], vull::OpenMode::Read)));
+    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
     auto entry = pack_reader.stat(args[3]);
     if (!entry) {
         vull::println("fatal: no entry named {}", args[3]);
@@ -296,7 +296,7 @@ int stat(const vull::Vector<vull::StringView> &args) {
 } // namespace
 
 int main(int argc, char **argv) {
-    vull::Vector<vull::StringView> args(argv, argv + argc);
+    Vector<StringView> args(argv, argv + argc);
     if (args.size() < 2 || args[1] == "help") {
         print_usage(argv[0]);
         return EXIT_SUCCESS;
