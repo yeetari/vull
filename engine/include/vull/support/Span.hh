@@ -26,6 +26,8 @@ public:
     template <typename U, typename SizeU = SizeT>
     constexpr Span<U, SizeU> as() const;
     constexpr const_t<uint8_t> *byte_offset(SizeT offset) const;
+    constexpr Span<T, SizeT> subspan(SizeT offset) const;
+    constexpr Span<T, SizeT> subspan(SizeT offset, SizeT size) const;
 
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
     constexpr operator Span<void, SizeT>() const requires(!is_const<T>) { return {data(), size_bytes()}; }
@@ -58,9 +60,24 @@ constexpr typename Span<T, SizeT>::template const_t<uint8_t> *Span<T, SizeT>::by
 }
 
 template <typename T, typename SizeT>
+constexpr Span<T, SizeT> Span<T, SizeT>::subspan(SizeT offset) const {
+    return {m_data + offset, m_size - offset};
+}
+
+template <typename T, typename SizeT>
+constexpr Span<T, SizeT> Span<T, SizeT>::subspan(SizeT offset, SizeT size) const {
+    return {m_data + offset, size};
+}
+
+template <typename T, typename SizeT>
 template <typename U>
 constexpr U &Span<T, SizeT>::operator[](SizeT index) const requires(!is_void) {
     return begin()[index];
+}
+
+template <typename T, typename SizeT>
+constexpr Span<T, SizeT> make_span(T *data, SizeT size) {
+    return {data, size};
 }
 
 } // namespace vull
