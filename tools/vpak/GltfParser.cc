@@ -1,5 +1,7 @@
 #include "GltfParser.hh"
 
+#include "PngStream.hh"
+
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
@@ -19,6 +21,7 @@
 #include <vull/support/HashMap.hh>
 #include <vull/support/PerfectMap.hh>
 #include <vull/support/ScopeGuard.hh>
+#include <vull/support/SpanStream.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>
@@ -29,7 +32,6 @@
 #define STBD_FABS vull::abs
 #include <linux/futex.h>
 #include <meshoptimizer.h>
-#include <png.h>
 #include <simdjson.h>
 #include <stb_dxt.h>
 #include <stdio.h>
@@ -157,20 +159,6 @@ bool Converter::convert(Latch &latch) {
     return true;
 }
 
-struct PngStream {
-    const uint8_t *blob;
-    size_t position;
-};
-
-void png_read_fn(png_structp png_ptr, png_bytep out_data, size_t size) {
-    png_voidp io_ptr = png_get_io_ptr(png_ptr);
-    VULL_ASSERT(io_ptr != nullptr);
-
-    auto &stream = *static_cast<PngStream *>(io_ptr);
-    memcpy(out_data, &stream.blob[stream.position], size);
-    stream.position += size;
-}
-
 void Converter::process_texture(uint64_t index, String &path, String desired_path, TextureType type) {
     simdjson::dom::object texture;
     if (auto error = m_document["textures"].at(index).get(texture)) {
@@ -264,42 +252,16 @@ void Converter::process_texture(uint64_t index, String &path, String desired_pat
         return;
     }
 
-    if (png_sig_cmp(&m_binary_blob[byte_offset], 0, 8) != 0) {
-        vull::error("[gltf] Image '{}' failed PNG signature check", image_name);
+    auto span_stream =
+        vull::make_unique<SpanStream>(vull::make_span(&m_binary_blob[byte_offset], static_cast<uint32_t>(byte_length)));
+    auto png_stream_or_error = PngStream::create(vull::move(span_stream));
+    if (png_stream_or_error.is_error()) {
+        vull::error("[gltf] Failed to load image '{}'", image_name);
         return;
     }
+    auto png_stream = png_stream_or_error.disown_value();
 
-    auto *png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (png_ptr == nullptr) {
-        vull::error("[gltf] Couldn't allocate PNG read struct for image '{}'", image_name);
-        return;
-    }
-    ScopeGuard read_struct_free_guard([&] {
-        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
-    });
-
-    auto *info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == nullptr) {
-        vull::error("[gltf] Couldn't allocate PNG info struct for image '{}'", image_name);
-        return;
-    }
-    ScopeGuard info_struct_free_guard([&] {
-        png_destroy_info_struct(png_ptr, &info_ptr);
-    });
-
-    PngStream stream{&m_binary_blob[byte_offset], 0};
-    png_set_read_fn(png_ptr, &stream, &png_read_fn);
-    png_read_info(png_ptr, info_ptr);
-
-    uint32_t width;
-    uint32_t height;
-    if (png_get_IHDR(png_ptr, info_ptr, &width, &height, nullptr, nullptr, nullptr, nullptr, nullptr) != 1) {
-        vull::error("[gltf] Failed to get PNG IHDR for image '{}'", image_name);
-        return;
-    }
-
-    const auto row_byte_count = static_cast<uint32_t>(png_get_rowbytes(png_ptr, info_ptr));
-    const auto pixel_byte_count = row_byte_count / width;
+    const auto pixel_byte_count = png_stream.pixel_byte_count();
     if (pixel_byte_count != 3 && pixel_byte_count != 4) {
         vull::error("[gltf] Image '{}' has a pixel byte count of {}", image_name, pixel_byte_count);
         return;
@@ -308,19 +270,22 @@ void Converter::process_texture(uint64_t index, String &path, String desired_pat
     vpak::ImageFormat format;
     switch (type) {
     case TextureType::Albedo:
-        format = pixel_byte_count == 4 ? vpak::ImageFormat::Bc3Srgba : vpak::ImageFormat::Bc1Srgb;
+        format = png_stream.pixel_byte_count() == 4 ? vpak::ImageFormat::Bc3Srgba : vpak::ImageFormat::Bc1Srgb;
         break;
     case TextureType::Normal:
         format = vpak::ImageFormat::Bc5Unorm;
         break;
     }
 
-    const auto mip_count = 32u - vull::clz(vull::max(width, height));
+    auto width = png_stream.width();
+    auto height = png_stream.height();
+    const auto row_byte_count = png_stream.row_byte_count();
+    const auto mip_count = vull::log2(vull::max(width, height)) + 1u;
     Vector<Vector<uint8_t>> mip_buffers(mip_count);
 
     mip_buffers[0].resize_unsafe(width * height * pixel_byte_count);
     for (uint32_t y = 0; y < height; y++) {
-        png_read_row(png_ptr, &mip_buffers[0][y * row_byte_count], nullptr);
+        png_stream.read_row(mip_buffers[0].span().subspan(y * row_byte_count));
     }
 
     Vec2u source_size(width, height);

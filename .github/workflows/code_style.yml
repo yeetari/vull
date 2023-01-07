@@ -65,6 +65,7 @@ jobs:
             -name '*.cc' \
             -and -not -name 'ContextTable.cc' \
             -and -not -name 'GltfParser.cc' \
+            -and -not -name 'PngStream.cc' \
             -print0 |
           parallel -0 \
             include-what-you-use \

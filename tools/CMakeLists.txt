@@ -3,6 +3,7 @@ target_compile_features(vpak PRIVATE cxx_std_20)
 target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
 target_link_libraries(vpak PRIVATE vull)
 
+# TODO: Split options, PNG support should be available regardless via another option.
 if(VULL_BUILD_GLTF)
     include(FetchContent)
     FetchContent_Declare(meshoptimizer
@@ -29,7 +30,7 @@ if(VULL_BUILD_GLTF)
     target_compile_definitions(vpak PRIVATE BUILD_GLTF)
     target_include_directories(vpak SYSTEM PRIVATE vpak/stb)
     target_link_libraries(vpak PRIVATE meshoptimizer PNG::PNG simdjson)
-    target_sources(vpak PRIVATE vpak/GltfParser.cc)
+    target_sources(vpak PRIVATE vpak/GltfParser.cc vpak/PngStream.cc)
 endif()
 
 add_executable(vsi vsi/main.cc)
