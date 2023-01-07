@@ -14,7 +14,6 @@ target_sources(vull PRIVATE
     physics/PhysicsEngine.cc
     physics/RigidBody.cc
     physics/Shape.cc
-    platform/FileStream.cc
     platform/Linux.cc
     script/Builder.cc
     script/ConstantPool.cc

@@ -16,13 +16,20 @@ class FileStream final : public Stream {
     friend File;
 
 private:
-    const int m_fd;
+    int m_fd;
     const bool m_seekable;
     size_t m_head{0};
 
     FileStream(int fd, bool seekable) : m_fd(fd), m_seekable(seekable) {}
 
 public:
+    FileStream(const FileStream &) = delete;
+    FileStream(FileStream &&other) : m_fd(vull::exchange(other.m_fd, -1)), m_seekable(other.m_seekable) {}
+    ~FileStream() override;
+
+    FileStream &operator=(const FileStream &) = delete;
+    FileStream &operator=(FileStream &&) = delete;
+
     UniquePtr<Stream> clone_unique() const override;
     Result<size_t, StreamError> seek(StreamOffset offset, SeekMode mode) override;
     Result<size_t, StreamError> read(Span<void> data) override;

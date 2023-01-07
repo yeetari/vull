@@ -11,6 +11,7 @@
 #include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
+#include <vull/support/UniquePtr.hh>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -32,7 +33,7 @@ File::~File() {
 FileStream File::create_stream() const {
     struct stat stat_buf {};
     fstat(m_fd, &stat_buf);
-    return {m_fd, (stat_buf.st_mode & S_IFREG) != 0};
+    return {dup(m_fd), (stat_buf.st_mode & S_IFREG) != 0};
 }
 
 Result<File, OpenError> open_file(String path, OpenMode mode) {
@@ -58,6 +59,16 @@ Result<File, OpenError> open_file(String path, OpenMode mode) {
         return OpenError::Unknown;
     }
     return File::from_fd(rc);
+}
+
+FileStream::~FileStream() {
+    if (m_fd >= 0) {
+        close(m_fd);
+    }
+}
+
+UniquePtr<Stream> FileStream::clone_unique() const {
+    return vull::make_unique<FileStream>(FileStream(dup(m_fd), m_seekable));
 }
 
 Result<size_t, StreamError> FileStream::seek(StreamOffset offset, SeekMode mode) {
