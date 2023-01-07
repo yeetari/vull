@@ -355,6 +355,17 @@ Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, Memo
     return {vull::move(allocation), buffer, usage, size};
 }
 
+static vkb::ImageViewType pick_view_type(const vkb::ImageCreateInfo &image_ci) {
+    if ((image_ci.flags & vkb::ImageCreateFlags::CubeCompatible) != vkb::ImageCreateFlags::None) {
+        VULL_ASSERT(image_ci.arrayLayers == 6);
+        return vkb::ImageViewType::Cube;
+    }
+    if (image_ci.arrayLayers > 1) {
+        return vkb::ImageViewType::_2DArray;
+    }
+    return vkb::ImageViewType::_2D;
+}
+
 Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage) {
     vkb::Image image;
     VULL_ENSURE(vkCreateImage(&image_ci, &image) == vkb::Result::Success);
@@ -385,7 +396,7 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     vkb::ImageViewCreateInfo view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
         .image = image,
-        .viewType = image_ci.arrayLayers > 1 ? vkb::ImageViewType::_2DArray : vkb::ImageViewType::_2D,
+        .viewType = pick_view_type(image_ci),
         .format = image_ci.format,
         .subresourceRange = range,
     };

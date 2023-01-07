@@ -1,14 +1,15 @@
 #ifdef BUILD_GLTF
 #include "GltfParser.hh"
 #endif
+#include "PngStream.hh"
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
-#include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
+#include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -40,6 +41,7 @@ void print_usage(StringView executable) {
     sb.append("  {} add [--fast|--ultra] <vpak> <file> <name>\n", executable);
     sb.append("  {} add-gltf [--dump-json] [--fast|--ultra] [--max-resolution]\n", executable);
     sb.append("  {}          [--reproducible] <vpak> <gltf>\n", whitespace);
+    sb.append("  {} add-skybox <vpak> <entry> <faces>\n");
     sb.append("  {} get <vpak> <name> <file>\n", executable);
     sb.append("  {} help\n", executable);
     sb.append("  {} ls <vpak>\n", executable);
@@ -219,6 +221,38 @@ int add_gltf(const Vector<StringView> &) {
 }
 #endif
 
+int add_skybox(const Vector<StringView> &args) {
+    if (args.size() != 10) {
+        vull::println("fatal: invalid usage");
+        return EXIT_FAILURE;
+    }
+
+    Vector<FileStream> face_streams;
+    for (const auto face_path : vull::slice(args, 4u)) {
+        auto file_or_error = vull::open_file(face_path, OpenMode::Read);
+        if (file_or_error.is_error()) {
+            vull::println("fatal: failed to open file {}", face_path);
+            return EXIT_FAILURE;
+        }
+        face_streams.push(file_or_error.disown_value().create_stream());
+    }
+
+    auto vpak_file = VULL_EXPECT(vull::open_file(args[2], OpenMode::Create | OpenMode::Read | OpenMode::Write));
+    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), vpak::CompressionLevel::Normal);
+    auto entry_stream = pack_writer.start_entry(args[3], vpak::EntryType::Blob);
+    for (auto &stream : face_streams) {
+        auto png_stream = VULL_EXPECT(PngStream::create(stream.clone_unique()));
+        for (uint32_t y = 0; y < png_stream.height(); y++) {
+            Array<uint8_t, 32768> row_buffer;
+            png_stream.read_row(row_buffer.span());
+            VULL_EXPECT(entry_stream.write(row_buffer.span().subspan(0, png_stream.row_byte_count())));
+        }
+    }
+    entry_stream.finish();
+    pack_writer.finish();
+    return EXIT_SUCCESS;
+}
+
 int get(const Vector<StringView> &args) {
     if (args.size() != 5) {
         vull::println("fatal: invalid usage");
@@ -308,6 +342,9 @@ int main(int argc, char **argv) {
     }
     if (command == "add-gltf") {
         return add_gltf(args);
+    }
+    if (command == "add-skybox") {
+        return add_skybox(args);
     }
     if (command == "get") {
         return get(args);

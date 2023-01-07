@@ -102,6 +102,7 @@ DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, v
 }
 
 DefaultRenderer::~DefaultRenderer() {
+    m_context.vkDestroySampler(m_skybox_sampler);
     m_context.vkDestroySampler(m_shadow_sampler);
     m_context.vkDestroySampler(m_depth_reduce_sampler);
     m_context.vkDestroyDescriptorSetLayout(m_reduce_set_layout);
@@ -153,6 +154,12 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
+        },
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 7,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo static_set_layout_ci{
@@ -372,6 +379,33 @@ void DefaultRenderer::create_resources() {
     };
     VULL_ENSURE(m_context.vkCreateSampler(&shadow_sampler_ci, &m_shadow_sampler) == vkb::Result::Success);
 
+    vkb::ImageCreateInfo skybox_image_ci{
+        .sType = vkb::StructureType::ImageCreateInfo,
+        .flags = vkb::ImageCreateFlags::CubeCompatible,
+        .imageType = vkb::ImageType::_2D,
+        .format = vkb::Format::R8G8B8A8Srgb,
+        .extent = {1024, 1024, 1},
+        .mipLevels = 1,
+        .arrayLayers = 6,
+        .samples = vkb::SampleCount::_1,
+        .tiling = vkb::ImageTiling::Optimal,
+        .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::TransferDst,
+        .sharingMode = vkb::SharingMode::Exclusive,
+        .initialLayout = vkb::ImageLayout::Undefined,
+    };
+    m_skybox_image = m_context.create_image(skybox_image_ci, vk::MemoryUsage::DeviceOnly);
+    vkb::SamplerCreateInfo skybox_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
+        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
+        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
+    };
+    VULL_ENSURE(m_context.vkCreateSampler(&skybox_sampler_ci, &m_skybox_sampler) == vkb::Result::Success);
+
     const auto light_visibility_buffer_size =
         (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width * m_tile_extent.height;
     m_light_visibility_buffer = m_context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
@@ -422,6 +456,11 @@ void DefaultRenderer::create_resources() {
         .address = m_object_visibility_buffer.device_address(),
         .range = m_object_visibility_buffer.size(),
     };
+    vkb::DescriptorImageInfo skybox_image_info{
+        .sampler = m_skybox_sampler,
+        .imageView = *m_skybox_image.full_view(),
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
     auto staging_buffer = m_static_descriptor_buffer.create_staging();
     auto *descriptor_data = staging_buffer.mapped<uint8_t>();
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &albedo_image_info);
@@ -433,6 +472,7 @@ void DefaultRenderer::create_resources() {
         put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
     descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &object_visibility_buffer_ai);
+    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &skybox_image_info);
     m_static_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
@@ -495,6 +535,16 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
         .dataSize = sizeof(vkb::Bool),
         .pData = &late,
     };
+
+    m_skybox_pipeline = vk::PipelineBuilder()
+                            .add_colour_attachment(vkb::Format::B8G8R8A8Unorm)
+                            .add_set_layout(m_dynamic_set_layout)
+                            .add_set_layout(m_static_set_layout)
+                            .add_shader(*shader_map.get("skybox-vert"))
+                            .add_shader(*shader_map.get("skybox-frag"))
+                            .set_topology(vkb::PrimitiveTopology::TriangleList)
+                            .set_viewport(m_viewport_extent)
+                            .build(m_context);
 
     m_gbuffer_pipeline = vk::PipelineBuilder()
                              .add_colour_attachment(m_albedo_image.format())
@@ -590,6 +640,35 @@ void DefaultRenderer::create_render_graph() {
         .aspectMask = vkb::ImageAspect::Color,
         .levelCount = 1,
         .layerCount = 1,
+    });
+
+    // TODO: Rendering the skybox last may be faster.
+    auto &skybox_pass = m_render_graph.add_graphics_pass("skybox");
+    skybox_pass.reads_from(*m_uniform_buffer_resource);
+    skybox_pass.writes_to(*m_output_image_resource);
+    skybox_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_static_descriptor_buffer, 1, 0);
+        vkb::RenderingAttachmentInfo colour_write_attachment{
+            .sType = vkb::StructureType::RenderingAttachmentInfo,
+            .imageView = m_output_image_resource->view(),
+            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
+            .loadOp = vkb::AttachmentLoadOp::DontCare,
+            .storeOp = vkb::AttachmentStoreOp::Store,
+        };
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &colour_write_attachment,
+        };
+        cmd_buf.bind_pipeline(m_skybox_pipeline);
+        cmd_buf.begin_rendering(rendering_info);
+        cmd_buf.draw(36, 1);
+        cmd_buf.end_rendering();
     });
 
     // TODO: object_visibility_buffer_resource should be read from early_cull_pass and written from late_cull_pass, but
@@ -963,6 +1042,7 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     *uniform_buffer.mapped<UniformBuffer>() = {
         .proj = m_proj,
         .inv_proj = vull::inverse(m_proj),
+        .view = m_view,
         .proj_view = m_proj * m_view,
         .inv_proj_view = vull::inverse(m_proj * m_view),
         .cull_view = m_cull_view,
@@ -1182,6 +1262,50 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
     }
     VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
     VULL_ENSURE(index_buffer_offset == index_buffer_size);
+}
+
+void DefaultRenderer::load_skybox(vpak::ReadStream &stream) {
+    const auto pixel_count = 1024 * 1024 * 6;
+    auto staging_buffer =
+        m_context.create_buffer(pixel_count * 4, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto *staging_data = staging_buffer.mapped<uint8_t>();
+    for (uint32_t i = 0; i < pixel_count; i++) {
+        VULL_EXPECT(stream.read({staging_data, 3}));
+        staging_data += 4;
+    }
+
+    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+        vkb::ImageMemoryBarrier2 transfer_write_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstAccessMask = vkb::Access2::TransferWrite,
+            .oldLayout = vkb::ImageLayout::Undefined,
+            .newLayout = vkb::ImageLayout::TransferDstOptimal,
+            .image = *m_skybox_image,
+            .subresourceRange = m_skybox_image.full_view().range(),
+        };
+        vkb::BufferImageCopy copy{
+            .imageSubresource{
+                .aspectMask = vkb::ImageAspect::Color,
+                .layerCount = 6,
+            },
+            .imageExtent = {1024, 1024, 1},
+        };
+        vkb::ImageMemoryBarrier2 image_read_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::ShaderRead,
+            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
+            .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+            .image = *m_skybox_image,
+            .subresourceRange = m_skybox_image.full_view().range(),
+        };
+        cmd_buf.image_barrier(transfer_write_barrier);
+        cmd_buf.copy_buffer_to_image(staging_buffer, m_skybox_image, vkb::ImageLayout::TransferDstOptimal, copy);
+        cmd_buf.image_barrier(image_read_barrier);
+    });
 }
 
 void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,

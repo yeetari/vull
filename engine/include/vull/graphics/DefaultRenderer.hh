@@ -28,6 +28,7 @@ class Shader; // IWYU pragma: keep
 
 namespace vull::vpak {
 
+class ReadStream;
 class Reader;
 
 } // namespace vull::vpak
@@ -46,6 +47,7 @@ class DefaultRenderer {
     struct UniformBuffer {
         Mat4f proj;
         Mat4f inv_proj;
+        Mat4f view;
         Mat4f proj_view;
         Mat4f inv_proj_view;
         Mat4f cull_view;
@@ -78,6 +80,8 @@ class DefaultRenderer {
     vk::Image m_shadow_map_image;
     Vector<vk::ImageView> m_shadow_cascade_views;
     vkb::Sampler m_shadow_sampler;
+    vk::Image m_skybox_image;
+    vkb::Sampler m_skybox_sampler;
     vk::Buffer m_light_visibility_buffer;
     vk::Buffer m_object_visibility_buffer;
     vk::Buffer m_static_descriptor_buffer;
@@ -89,6 +93,7 @@ class DefaultRenderer {
     vk::Buffer m_draw_buffer;
     uint32_t m_object_count{0};
 
+    vk::Pipeline m_skybox_pipeline;
     vk::Pipeline m_gbuffer_pipeline;
     vk::Pipeline m_shadow_pipeline;
     vk::Pipeline m_depth_reduce_pipeline;
@@ -142,6 +147,7 @@ public:
 
     void compile_render_graph();
     void load_scene(Scene &scene, vpak::Reader &pack_reader);
+    void load_skybox(vpak::ReadStream &stream);
     void render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view, const Vec3f &view_position,
                 vkb::Image output_image, vkb::ImageView output_view,
                 Optional<const vk::QueryPool &> timestamp_pool = {});

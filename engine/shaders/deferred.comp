@@ -28,7 +28,6 @@ const vec3 k_clear_colour = vec3(0.47f, 0.5f, 0.67f);
 void main() {
     vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     if (albedo.a == 0.0f) {
-        imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), linear_to_srgb(vec4(k_clear_colour, 1.0f)));
         return;
     }
     ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);

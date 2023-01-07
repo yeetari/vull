@@ -31,6 +31,7 @@
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
@@ -90,6 +91,8 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     auto draw_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/draw_cull.comp.spv").span()));
     auto light_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/light_cull.comp.spv").span()));
     auto shadow_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/shadow.vert.spv").span()));
+    auto skybox_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/skybox.vert.spv").span()));
+    auto skybox_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/skybox.frag.spv").span()));
     auto ui_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.vert.spv").span()));
     auto ui_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.frag.spv").span()));
 
@@ -101,9 +104,14 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     shader_map.set("draw-cull", vull::move(draw_cull_shader));
     shader_map.set("light-cull", vull::move(light_cull_shader));
     shader_map.set("shadow", vull::move(shadow_shader));
+    shader_map.set("skybox-vert", vull::move(skybox_vs));
+    shader_map.set("skybox-frag", vull::move(skybox_fs));
 
     DefaultRenderer renderer(context, vull::move(shader_map), swapchain.extent_3D());
     renderer.load_scene(scene, pack_reader);
+    if (auto entry = pack_reader.open("/skybox")) {
+        renderer.load_skybox(*entry);
+    }
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 

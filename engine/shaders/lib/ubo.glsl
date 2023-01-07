@@ -4,6 +4,7 @@
 layout (set = s, binding = b, scalar) readonly uniform UniformBuffer { \
     mat4 g_proj; \
     mat4 g_inv_proj; \
+    mat4 g_view; \
     mat4 g_proj_view; \
     mat4 g_inv_proj_view; \
     mat4 g_cull_view; \
