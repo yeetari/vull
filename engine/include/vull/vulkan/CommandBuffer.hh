@@ -61,6 +61,8 @@ public:
     void copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const;
     void copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                               Span<vkb::BufferImageCopy> regions) const;
+    void zero_buffer(const Buffer &buffer, vkb::DeviceSize offset, vkb::DeviceSize size);
+
     void push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const;
     template <typename T>
     void push_constants(vkb::ShaderStage stage, const T &data) const;
@@ -71,6 +73,7 @@ public:
     void draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset, const Buffer &count_buffer,
                                      vkb::DeviceSize count_offset, uint32_t max_draw_count, uint32_t stride);
 
+    void buffer_barrier(const vkb::BufferMemoryBarrier2 &barrier) const;
     void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
     void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;
     void reset_query_pool(const QueryPool &query_pool) const;

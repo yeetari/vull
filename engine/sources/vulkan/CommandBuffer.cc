@@ -157,6 +157,10 @@ void CommandBuffer::copy_buffer_to_image(const Buffer &src, const Image &dst, vk
     m_context.vkCmdCopyBufferToImage(m_cmd_buf, *src, *dst, dst_layout, regions.size(), regions.data());
 }
 
+void CommandBuffer::zero_buffer(const Buffer &buffer, vkb::DeviceSize offset, vkb::DeviceSize size) {
+    m_context.vkCmdFillBuffer(m_cmd_buf, *buffer, offset, size, 0);
+}
+
 void CommandBuffer::push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const {
     VULL_ASSERT(stage != vkb::ShaderStage::All);
     if (stage == vkb::ShaderStage::Compute) {
@@ -190,6 +194,14 @@ void CommandBuffer::draw_indexed_indirect_count(const Buffer &buffer, vkb::Devic
     emit_descriptor_binds();
     m_context.vkCmdDrawIndexedIndirectCount(m_cmd_buf, *buffer, offset, *count_buffer, count_offset, max_draw_count,
                                             stride);
+}
+
+void CommandBuffer::buffer_barrier(const vkb::BufferMemoryBarrier2 &barrier) const {
+    pipeline_barrier({
+        .sType = vkb::StructureType::DependencyInfo,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &barrier,
+    });
 }
 
 void CommandBuffer::image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const {
