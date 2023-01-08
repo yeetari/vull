@@ -9,13 +9,13 @@
 layout (local_size_x_id = 2) in;
 
 DECLARE_UBO(0, 0);
-layout (binding = 1, std430) readonly buffer Lights {
+layout (binding = 1, std430) restrict readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
 
 layout (set = 1, binding = 2) uniform texture2D g_depth_image;
-layout (set = 1, binding = 5) writeonly buffer LightVisibilities {
+layout (set = 1, binding = 5) restrict writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
 

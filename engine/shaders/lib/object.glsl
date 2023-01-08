@@ -22,13 +22,13 @@ struct Object {
 };
 
 #define DECLARE_DRAW_BUFFER(s, b) \
-layout (set = s, binding = b) buffer DrawBuffer { \
+layout (set = s, binding = b) restrict buffer DrawBuffer { \
     uint g_draw_count; \
     DrawCmd g_draws[]; \
 };
 
 #define DECLARE_OBJECT_BUFFER(s, b) \
-layout (set = s, binding = b, scalar) readonly buffer ObjectBuffer { \
+layout (set = s, binding = b, scalar) restrict readonly buffer ObjectBuffer { \
     Object g_objects[]; \
 };
 

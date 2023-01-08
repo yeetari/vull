@@ -1,7 +1,7 @@
 #include "shadow_info.glsl"
 
 #define DECLARE_UBO(s, b)  \
-layout (set = s, binding = b, scalar) readonly uniform UniformBuffer { \
+layout (set = s, binding = b, scalar) restrict readonly uniform UniformBuffer { \
     mat4 g_proj; \
     mat4 g_inv_proj; \
     mat4 g_view; \

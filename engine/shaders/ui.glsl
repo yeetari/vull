@@ -9,7 +9,7 @@ struct UiObject {
     uint type;
 };
 
-layout (buffer_reference, scalar) readonly buffer UiData {
+layout (buffer_reference, scalar) restrict readonly buffer UiData {
     float global_scale;
     UiObject objects[];
 };
