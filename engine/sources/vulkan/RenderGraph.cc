@@ -28,6 +28,10 @@ Tuple<vkb::PipelineStage2, vkb::Access2> read_stage(const Pass &pass, Resource &
         return vull::make_tuple(vkb::PipelineStage2::ComputeShader, vkb::Access2::ShaderRead);
     }
     if (resource.kind() == ResourceKind::StorageBuffer) {
+        if (resource.as_buffer()->is_indirect_draw()) {
+            // TODO: The shader could be reading the buffer through indirect or as a storage buffer.
+            return vull::make_tuple(vkb::PipelineStage2::AllGraphics, vkb::Access2::MemoryRead);
+        }
         // TODO: Finer grained stage.
         return vull::make_tuple(vkb::PipelineStage2::AllGraphics, vkb::Access2::ShaderStorageRead);
     }

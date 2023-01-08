@@ -417,7 +417,7 @@ void DefaultRenderer::create_resources() {
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
     m_context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
-        m_context.vkCmdFillBuffer(*cmd_buf, *m_object_visibility_buffer, 0, m_object_visibility_buffer.size(), 0);
+        cmd_buf.zero_buffer(m_object_visibility_buffer, 0, m_object_visibility_buffer.size());
     });
 
     m_static_descriptor_buffer =
@@ -635,8 +635,10 @@ void DefaultRenderer::create_render_graph() {
 
     m_uniform_buffer_resource = &m_render_engine.add_uniform_buffer("global-ubo");
     m_light_buffer_resource = &m_render_engine.add_storage_buffer("light-buffer");
-    m_early_draw_buffer_resource = &m_render_engine.add_storage_buffer("draw-buffer-1");
-    m_late_draw_buffer_resource = &m_render_engine.add_storage_buffer("draw-buffer-2");
+    m_early_draw_buffer_resource = &m_render_engine.add_storage_buffer("early-draw-buffer");
+    m_late_draw_buffer_resource = &m_render_engine.add_storage_buffer("late-draw-buffer");
+    m_early_draw_buffer_resource->set_is_indirect_draw(true);
+    m_late_draw_buffer_resource->set_is_indirect_draw(true);
 
     // TODO: Rendering the skybox last may be faster.
     auto &skybox_pass = m_render_engine.add_graphics_pass("skybox");
@@ -675,7 +677,17 @@ void DefaultRenderer::create_render_graph() {
     early_cull_pass.reads_from(*m_uniform_buffer_resource);
     early_cull_pass.writes_to(*m_early_draw_buffer_resource);
     early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
+        cmd_buf.zero_buffer(m_draw_buffer, 0, sizeof(uint32_t));
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::ComputeShader,
+            .dstAccessMask = vkb::Access2::ShaderStorageRead,
+            .buffer = *m_draw_buffer,
+            .size = sizeof(uint32_t),
+        });
+
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_early_cull_pipeline);
@@ -825,7 +837,27 @@ void DefaultRenderer::create_render_graph() {
     late_cull_pass.reads_from(depth_pyramid_resource);
     late_cull_pass.writes_to(*m_late_draw_buffer_resource);
     late_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        m_context.vkCmdFillBuffer(*cmd_buf, *m_draw_buffer, 0, sizeof(uint32_t), 0);
+        // Prevent write-after-read.
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::DrawIndirect,
+            .srcAccessMask = vkb::Access2::IndirectCommandRead,
+            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstAccessMask = vkb::Access2::TransferWrite,
+            .buffer = *m_draw_buffer,
+            .size = vkb::k_whole_size,
+        });
+        cmd_buf.zero_buffer(m_draw_buffer, 0, sizeof(uint32_t));
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::ComputeShader,
+            .dstAccessMask = vkb::Access2::ShaderStorageRead,
+            .buffer = *m_draw_buffer,
+            .size = sizeof(uint32_t),
+        });
+
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
         cmd_buf.bind_pipeline(m_late_cull_pipeline);

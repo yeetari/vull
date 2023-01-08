@@ -56,12 +56,16 @@ public:
 
 class BufferResource : public Resource {
     vkb::Buffer m_buffer{nullptr};
+    bool m_is_indirect_draw{false};
 
 public:
     BufferResource(ResourceKind kind, String &&name) : Resource(kind, vull::move(name)) {}
 
     void set(const Buffer &buffer);
+    void set_is_indirect_draw(bool is_indirect_draw) { m_is_indirect_draw = is_indirect_draw; }
+
     operator vkb::Buffer() const { return m_buffer; }
+    bool is_indirect_draw() const { return m_is_indirect_draw; }
 };
 
 class ImageResource : public Resource {
