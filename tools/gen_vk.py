@@ -66,6 +66,7 @@ def is_parent_of(parent_name, derived_name):
 desired_extensions = OrderedSet([
     'VK_EXT_descriptor_buffer',
     'VK_EXT_shader_atomic_float2',
+    'VK_EXT_validation_features',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
     'VK_KHR_xcb_surface',
