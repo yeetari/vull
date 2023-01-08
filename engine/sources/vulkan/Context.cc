@@ -76,8 +76,15 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .sType = vkb::StructureType::ApplicationInfo,
         .apiVersion = VK_MAKE_VERSION(1, 3, 0),
     };
+    const auto enable_sync_validation = vkb::ValidationFeatureEnableEXT::SynchronizationValidation;
+    vkb::ValidationFeaturesEXT validation_features{
+        .sType = vkb::StructureType::ValidationFeaturesEXT,
+        .enabledValidationFeatureCount = 1,
+        .pEnabledValidationFeatures = &enable_sync_validation,
+    };
     vkb::InstanceCreateInfo instance_ci{
         .sType = vkb::StructureType::InstanceCreateInfo,
+        .pNext = &validation_features,
         .pApplicationInfo = &application_info,
         .enabledExtensionCount = enabled_instance_extensions.size(),
         .ppEnabledExtensionNames = enabled_instance_extensions.data(),
