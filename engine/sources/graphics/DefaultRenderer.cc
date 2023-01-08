@@ -6,6 +6,7 @@
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
+#include <vull/graphics/RenderEngine.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Projection.hh>
@@ -89,8 +90,9 @@ struct Vertex {
 
 } // namespace
 
-DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, vkb::Extent3D viewport_extent)
-    : m_context(context), m_viewport_extent(viewport_extent) {
+DefaultRenderer::DefaultRenderer(vk::Context &context, RenderEngine &render_engine, ShaderMap &&shader_map,
+                                 vkb::Extent3D viewport_extent)
+    : m_context(context), m_render_engine(render_engine), m_viewport_extent(viewport_extent) {
     m_tile_extent = {
         .width = vull::ceil_div(m_viewport_extent.width, k_tile_size),
         .height = vull::ceil_div(m_viewport_extent.height, k_tile_size),
@@ -616,13 +618,13 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
 }
 
 void DefaultRenderer::create_render_graph() {
-    auto &albedo_image_resource = m_render_graph.add_image("gbuffer-albedo");
-    auto &normal_image_resource = m_render_graph.add_image("gbuffer-normal");
-    auto &depth_image_resource = m_render_graph.add_image("gbuffer-depth");
-    auto &depth_pyramid_resource = m_render_graph.add_image("depth-pyramid");
-    auto &shadow_map_resource = m_render_graph.add_image("shadow-map");
-    auto &light_visibility_buffer_resource = m_render_graph.add_storage_buffer("light-visibility-buffer");
-    auto &object_visibility_buffer_resource = m_render_graph.add_storage_buffer("object-visibility-buffer");
+    auto &albedo_image_resource = m_render_engine.add_image("gbuffer-albedo");
+    auto &normal_image_resource = m_render_engine.add_image("gbuffer-normal");
+    auto &depth_image_resource = m_render_engine.add_image("gbuffer-depth");
+    auto &depth_pyramid_resource = m_render_engine.add_image("depth-pyramid");
+    auto &shadow_map_resource = m_render_engine.add_image("shadow-map");
+    auto &light_visibility_buffer_resource = m_render_engine.add_storage_buffer("light-visibility-buffer");
+    auto &object_visibility_buffer_resource = m_render_engine.add_storage_buffer("object-visibility-buffer");
     albedo_image_resource.set(m_albedo_image.full_view());
     normal_image_resource.set(m_normal_image.full_view());
     depth_image_resource.set(m_depth_image.full_view());
@@ -631,27 +633,21 @@ void DefaultRenderer::create_render_graph() {
     light_visibility_buffer_resource.set(m_light_visibility_buffer);
     object_visibility_buffer_resource.set(m_object_visibility_buffer);
 
-    m_uniform_buffer_resource = &m_render_graph.add_uniform_buffer("global-ubo");
-    m_light_buffer_resource = &m_render_graph.add_storage_buffer("light-buffer");
-    m_early_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer-1");
-    m_late_draw_buffer_resource = &m_render_graph.add_storage_buffer("draw-buffer-2");
-    m_output_image_resource = &m_render_graph.add_image("output-image");
-    m_output_image_resource->set_range({
-        .aspectMask = vkb::ImageAspect::Color,
-        .levelCount = 1,
-        .layerCount = 1,
-    });
+    m_uniform_buffer_resource = &m_render_engine.add_uniform_buffer("global-ubo");
+    m_light_buffer_resource = &m_render_engine.add_storage_buffer("light-buffer");
+    m_early_draw_buffer_resource = &m_render_engine.add_storage_buffer("draw-buffer-1");
+    m_late_draw_buffer_resource = &m_render_engine.add_storage_buffer("draw-buffer-2");
 
     // TODO: Rendering the skybox last may be faster.
-    auto &skybox_pass = m_render_graph.add_graphics_pass("skybox");
+    auto &skybox_pass = m_render_engine.add_graphics_pass("skybox");
     skybox_pass.reads_from(*m_uniform_buffer_resource);
-    skybox_pass.writes_to(*m_output_image_resource);
+    skybox_pass.writes_to(m_render_engine.output_image());
     skybox_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_static_descriptor_buffer, 1, 0);
         vkb::RenderingAttachmentInfo colour_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = m_output_image_resource->view(),
+            .imageView = m_render_engine.output_image().view(),
             .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
             .loadOp = vkb::AttachmentLoadOp::DontCare,
             .storeOp = vkb::AttachmentStoreOp::Store,
@@ -675,7 +671,7 @@ void DefaultRenderer::create_render_graph() {
     //       since the render graph isn't interframe then it wouldn't be correct. Sync is currently fine because of the
     //       big frame barrier.
 
-    auto &early_cull_pass = m_render_graph.add_compute_pass("early-cull");
+    auto &early_cull_pass = m_render_engine.add_compute_pass("early-cull");
     early_cull_pass.reads_from(*m_uniform_buffer_resource);
     early_cull_pass.writes_to(*m_early_draw_buffer_resource);
     early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
@@ -686,7 +682,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
     });
 
-    auto &early_draw_pass = m_render_graph.add_graphics_pass("early-draw");
+    auto &early_draw_pass = m_render_engine.add_graphics_pass("early-draw");
     early_draw_pass.reads_from(*m_uniform_buffer_resource);
     early_draw_pass.reads_from(*m_early_draw_buffer_resource);
     early_draw_pass.writes_to(albedo_image_resource);
@@ -743,7 +739,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.end_rendering();
     });
 
-    auto &depth_reduce_pass = m_render_graph.add_compute_pass("depth-reduce");
+    auto &depth_reduce_pass = m_render_engine.add_compute_pass("depth-reduce");
     depth_reduce_pass.reads_from(depth_image_resource);
     depth_reduce_pass.writes_to(depth_pyramid_resource);
     depth_reduce_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
@@ -824,7 +820,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.image_barrier(general_barrier);
     });
 
-    auto &late_cull_pass = m_render_graph.add_compute_pass("late-cull");
+    auto &late_cull_pass = m_render_engine.add_compute_pass("late-cull");
     late_cull_pass.reads_from(*m_uniform_buffer_resource);
     late_cull_pass.reads_from(depth_pyramid_resource);
     late_cull_pass.writes_to(*m_late_draw_buffer_resource);
@@ -836,7 +832,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
     });
 
-    auto &late_draw_pass = m_render_graph.add_graphics_pass("late-draw");
+    auto &late_draw_pass = m_render_engine.add_graphics_pass("late-draw");
     late_draw_pass.reads_from(*m_uniform_buffer_resource);
     late_draw_pass.reads_from(*m_late_draw_buffer_resource);
     late_draw_pass.writes_to(albedo_image_resource);
@@ -930,7 +926,7 @@ void DefaultRenderer::create_render_graph() {
     });
 #endif
 
-    auto &light_cull_pass = m_render_graph.add_compute_pass("light-cull");
+    auto &light_cull_pass = m_render_engine.add_compute_pass("light-cull");
     light_cull_pass.reads_from(*m_uniform_buffer_resource);
     light_cull_pass.reads_from(*m_light_buffer_resource);
     light_cull_pass.reads_from(depth_image_resource);
@@ -942,7 +938,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
     });
 
-    auto &deferred_pass = m_render_graph.add_compute_pass("deferred-pass");
+    auto &deferred_pass = m_render_engine.add_compute_pass("deferred-pass");
     deferred_pass.reads_from(*m_uniform_buffer_resource);
     deferred_pass.reads_from(*m_light_buffer_resource);
     deferred_pass.reads_from(albedo_image_resource);
@@ -951,10 +947,12 @@ void DefaultRenderer::create_render_graph() {
     deferred_pass.reads_from(depth_pyramid_resource);
     deferred_pass.reads_from(shadow_map_resource);
     deferred_pass.reads_from(light_visibility_buffer_resource);
-    deferred_pass.writes_to(*m_output_image_resource);
+    deferred_pass.writes_to(m_render_engine.output_image());
     deferred_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(m_deferred_pipeline);
         cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
+        cmd_buf.bind_associated_buffer(vull::move(m_dynamic_descriptor_buffer));
+        cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
     });
 }
 
@@ -1077,7 +1075,7 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
         .range = light_buffer.size(),
     };
     vkb::DescriptorImageInfo output_image_info{
-        .imageView = m_output_view,
+        .imageView = m_render_engine.output_image().view(),
         .imageLayout = vkb::ImageLayout::General,
     };
     vkb::DescriptorAddressInfoEXT draw_buffer_ai{
@@ -1173,10 +1171,6 @@ void DefaultRenderer::update_cascades() {
         m_shadow_info.cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
         last_split_distance = split_distances[i];
     }
-}
-
-void DefaultRenderer::compile_render_graph() {
-    m_render_graph.compile(*m_output_image_resource);
 }
 
 void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
@@ -1308,14 +1302,11 @@ void DefaultRenderer::load_skybox(vpak::ReadStream &stream) {
     });
 }
 
-void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,
-                             const Vec3f &view_position, vkb::Image output_image, vkb::ImageView output_view,
-                             Optional<const vk::QueryPool &> timestamp_pool) {
+void DefaultRenderer::update(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,
+                             const Vec3f &view_position) {
     m_proj = proj;
     m_view = view;
     m_view_position = view_position;
-    m_output_view = output_view;
-    m_output_image_resource->set(output_image, output_view);
     update_cascades();
 
     vkb::MemoryBarrier2 memory_barrier{
@@ -1331,9 +1322,6 @@ void DefaultRenderer::render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, cons
         .pMemoryBarriers = &memory_barrier,
     });
     update_buffers(cmd_buf);
-    m_render_graph.record(cmd_buf, timestamp_pool);
-    cmd_buf.bind_associated_buffer(vull::move(m_dynamic_descriptor_buffer));
-    cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
 }
 
 } // namespace vull

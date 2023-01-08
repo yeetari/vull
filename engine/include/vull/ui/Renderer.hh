@@ -13,11 +13,15 @@
 
 using FT_Library = struct FT_LibraryRec_ *;
 
+namespace vull {
+
+class RenderEngine;
+
+} // namespace vull
+
 namespace vull::vk {
 
 class Context;
-class ImageResource;
-class RenderGraph;
 class Shader;
 class Swapchain;
 
@@ -51,8 +55,8 @@ class Renderer {
     Vector<Object> m_objects;
 
 public:
-    Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
-             vk::ImageResource &swapchain_resource, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
+    Renderer(vk::Context &context, RenderEngine &render_engine, const vk::Swapchain &swapchain,
+             const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();

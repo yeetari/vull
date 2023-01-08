@@ -13,6 +13,7 @@
 #include <vull/graphics/FramePacer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
+#include <vull/graphics/RenderEngine.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Projection.hh>
@@ -107,21 +108,23 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     shader_map.set("skybox-vert", vull::move(skybox_vs));
     shader_map.set("skybox-frag", vull::move(skybox_fs));
 
-    DefaultRenderer renderer(context, vull::move(shader_map), swapchain.extent_3D());
-    renderer.load_scene(scene, pack_reader);
+    RenderEngine render_engine;
+    render_engine.link_swapchain(swapchain);
+
+    DefaultRenderer default_renderer(context, render_engine, vull::move(shader_map), swapchain.extent_3D());
+    default_renderer.load_scene(scene, pack_reader);
     if (auto entry = pack_reader.open("/skybox")) {
-        renderer.load_skybox(*entry);
+        default_renderer.load_skybox(*entry);
     }
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
-    ui::Renderer ui(context, renderer.render_graph(), swapchain, renderer.output_image_resource(), ui_vs, ui_fs);
+    ui::Renderer ui(context, render_engine, swapchain, ui_vs, ui_fs);
     ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.7f, 0.2f, 0.3f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
-
-    renderer.compile_render_graph();
+    render_engine.compile();
 
     auto &world = scene.world();
     world.register_component<RigidBody>();
@@ -202,7 +205,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         window.poll_events();
 
         // Collect previous frame N's timestamp data.
-        const auto pass_times = frame.pass_times(renderer.render_graph());
+        const auto pass_times = frame.pass_times(render_engine);
         gpu_time_graph.new_bar();
         for (const auto &[name, time] : pass_times) {
             gpu_time_graph.push_section(name, time);
@@ -271,7 +274,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         }
         fire_time += dt;
 
-        renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
+        default_renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
 
         // Destroy far away entities.
         for (auto [entity, body, transform] : world.view<RigidBody, Transform>()) {
@@ -338,11 +341,12 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         const auto image_index = frame_pacer.image_index();
         vkb::Image swapchain_image = swapchain.image(image_index);
         vkb::ImageView swapchain_view = swapchain.image_view(image_index);
+        render_engine.set_output(swapchain_image, swapchain_view);
 
         Timer record_timer;
         auto &cmd_buf = context.graphics_queue().request_cmd_buf();
-        renderer.render(cmd_buf, projection, view_matrix, view_position, swapchain_image, swapchain_view,
-                        frame.timestamp_pool());
+        default_renderer.update(cmd_buf, projection, view_matrix, view_position);
+        render_engine.record(cmd_buf, frame.timestamp_pool());
 
         vkb::ImageMemoryBarrier2 swapchain_present_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,

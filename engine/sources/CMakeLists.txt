@@ -9,6 +9,7 @@ target_sources(vull PRIVATE
     graphics/FramePacer.cc
     graphics/Material.cc
     graphics/Mesh.cc
+    graphics/RenderEngine.cc
     maths/Random.cc
     physics/Mpr.cc
     physics/PhysicsEngine.cc

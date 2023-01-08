@@ -4,13 +4,11 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/HashMap.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Pipeline.hh>
-#include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -18,10 +16,10 @@
 
 namespace vull::vk {
 
+class BufferResource;
 class CommandBuffer;
 class Context;
 class ImageView;
-class QueryPool;
 class Shader; // IWYU pragma: keep
 
 } // namespace vull::vk
@@ -35,6 +33,7 @@ class Reader;
 
 namespace vull {
 
+class RenderEngine;
 class Scene;
 
 using ShaderMap = HashMap<String, vk::Shader>;
@@ -58,6 +57,7 @@ class DefaultRenderer {
     };
 
     vk::Context &m_context;
+    RenderEngine &m_render_engine;
     vkb::Extent2D m_tile_extent{};
     vkb::Extent3D m_viewport_extent{};
 
@@ -102,17 +102,14 @@ class DefaultRenderer {
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
 
-    vk::RenderGraph m_render_graph;
     vk::BufferResource *m_uniform_buffer_resource;
     vk::BufferResource *m_light_buffer_resource;
     vk::BufferResource *m_early_draw_buffer_resource;
     vk::BufferResource *m_late_draw_buffer_resource;
-    vk::ImageResource *m_output_image_resource;
 
     Mat4f m_proj;
     Mat4f m_view;
     Vec3f m_view_position;
-    vkb::ImageView m_output_view;
     ShadowInfo m_shadow_info;
 
     Mat4f m_cull_view;
@@ -137,7 +134,8 @@ class DefaultRenderer {
     void update_cascades();
 
 public:
-    DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, vkb::Extent3D viewport_extent);
+    DefaultRenderer(vk::Context &context, RenderEngine &render_engine, ShaderMap &&shader_map,
+                    vkb::Extent3D viewport_extent);
     DefaultRenderer(const DefaultRenderer &) = delete;
     DefaultRenderer(DefaultRenderer &&) = delete;
     ~DefaultRenderer();
@@ -145,16 +143,10 @@ public:
     DefaultRenderer &operator=(const DefaultRenderer &) = delete;
     DefaultRenderer &operator=(DefaultRenderer &&) = delete;
 
-    void compile_render_graph();
     void load_scene(Scene &scene, vpak::Reader &pack_reader);
     void load_skybox(vpak::ReadStream &stream);
-    void render(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view, const Vec3f &view_position,
-                vkb::Image output_image, vkb::ImageView output_view,
-                Optional<const vk::QueryPool &> timestamp_pool = {});
+    void update(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view, const Vec3f &view_position);
     void set_cull_view_locked(bool locked) { m_cull_view_locked = locked; }
-
-    vk::RenderGraph &render_graph() { return m_render_graph; }
-    vk::ImageResource &output_image_resource() { return *m_output_image_resource; }
 };
 
 } // namespace vull

@@ -1,5 +1,6 @@
 #include <vull/ui/Renderer.hh>
 
+#include <vull/graphics/RenderEngine.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -28,9 +29,8 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk::Swapchain &swapchain,
-                   vk::ImageResource &swapchain_resource, const vk::Shader &vertex_shader,
-                   const vk::Shader &fragment_shader)
+Renderer::Renderer(vk::Context &context, RenderEngine &render_engine, const vk::Swapchain &swapchain,
+                   const vk::Shader &vertex_shader, const vk::Shader &fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
 
@@ -120,11 +120,11 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
                      .set_viewport(swapchain.extent_2D())
                      .build(m_context);
 
-    auto &ui_data_resource = render_graph.add_storage_buffer("ui-data");
-    auto &ui_pass = render_graph.add_graphics_pass("ui-pass");
+    auto &ui_data_resource = render_engine.add_storage_buffer("ui-data");
+    auto &ui_pass = render_engine.add_graphics_pass("ui-pass");
     ui_pass.reads_from(ui_data_resource);
-    ui_pass.writes_to(swapchain_resource);
-    ui_pass.set_on_record([this, &swapchain_resource](vk::CommandBuffer &cmd_buf) {
+    ui_pass.writes_to(render_engine.output_image());
+    ui_pass.set_on_record([this, &output_image = render_engine.output_image()](vk::CommandBuffer &cmd_buf) {
         auto object_buffer =
             m_context.create_buffer(sizeof(float) + m_objects.size_bytes(), vkb::BufferUsage::ShaderDeviceAddress,
                                     vk::MemoryUsage::HostToDevice);
@@ -137,7 +137,7 @@ Renderer::Renderer(vk::Context &context, vk::RenderGraph &render_graph, const vk
 
         vkb::RenderingAttachmentInfo colour_write_attachment{
             .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = swapchain_resource.view(),
+            .imageView = output_image.view(),
             .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
             .loadOp = vkb::AttachmentLoadOp::Load,
             .storeOp = vkb::AttachmentStoreOp::Store,
