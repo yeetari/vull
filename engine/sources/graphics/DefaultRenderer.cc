@@ -26,6 +26,7 @@
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/DescriptorBuilder.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
@@ -426,55 +427,17 @@ void DefaultRenderer::create_resources() {
                                     vkb::BufferUsage::ResourceDescriptorBufferEXT | vkb::BufferUsage::TransferDst,
                                 vk::MemoryUsage::DeviceOnly);
 
-    vkb::DescriptorImageInfo albedo_image_info{
-        .imageView = *m_albedo_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo normal_image_info{
-        .imageView = *m_normal_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo depth_image_info{
-        .imageView = *m_depth_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo depth_pyramid_image_info{
-        .sampler = m_depth_reduce_sampler,
-        .imageView = *m_depth_pyramid_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorImageInfo shadow_map_image_info{
-        .sampler = m_shadow_sampler,
-        .imageView = *m_shadow_map_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
-    vkb::DescriptorAddressInfoEXT light_visibility_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = m_light_visibility_buffer.device_address(),
-        .range = m_light_visibility_buffer.size(),
-    };
-    vkb::DescriptorAddressInfoEXT object_visibility_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = m_object_visibility_buffer.device_address(),
-        .range = m_object_visibility_buffer.size(),
-    };
-    vkb::DescriptorImageInfo skybox_image_info{
-        .sampler = m_skybox_sampler,
-        .imageView = *m_skybox_image.full_view(),
-        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-    };
+    // Fill static descriptor buffer now.
     auto staging_buffer = m_static_descriptor_buffer.create_staging();
-    auto *descriptor_data = staging_buffer.mapped<uint8_t>();
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &albedo_image_info);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &normal_image_info);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::SampledImage, &depth_image_info);
-    descriptor_data =
-        put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &depth_pyramid_image_info);
-    descriptor_data =
-        put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &shadow_map_image_info);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_visibility_buffer_ai);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &object_visibility_buffer_ai);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &skybox_image_info);
+    vk::DescriptorBuilder builder(staging_buffer);
+    builder.put(m_albedo_image.full_view(), false);
+    builder.put(m_normal_image.full_view(), false);
+    builder.put(m_depth_image.full_view(), false);
+    builder.put(m_depth_reduce_sampler, m_depth_pyramid_image.full_view());
+    builder.put(m_shadow_sampler, m_shadow_map_image.full_view());
+    builder.put(m_light_visibility_buffer);
+    builder.put(m_object_visibility_buffer);
+    builder.put(m_skybox_sampler, m_skybox_image.full_view());
     m_static_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
@@ -764,12 +727,17 @@ void DefaultRenderer::create_render_graph() {
         auto descriptor_buffer =
             m_context.create_buffer(m_reduce_set_layout_size * level_count,
                                     vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
-        auto *descriptor_data = descriptor_buffer.mapped<uint8_t>();
 
+        vk::DescriptorBuilder descriptor_builder(descriptor_buffer);
+        for (uint32_t i = 0; i < level_count; i++) {
+            const auto &input_view = i != 0 ? m_depth_pyramid_views[i - 1] : m_depth_image.full_view();
+            descriptor_builder.put(m_depth_reduce_sampler, input_view);
+            descriptor_builder.put(m_depth_pyramid_views[i], true);
+        }
+
+        vkb::DeviceSize descriptor_offset = 0;
         cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
         for (uint32_t i = 0; i < level_count; i++) {
-            const auto descriptor_offset =
-                static_cast<vkb::DeviceSize>(descriptor_data - descriptor_buffer.mapped<uint8_t>());
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
 
             DepthReduceData shader_data{
@@ -779,20 +747,6 @@ void DefaultRenderer::create_render_graph() {
                 },
             };
             cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
-
-            // Update descriptors.
-            vkb::DescriptorImageInfo input_image_info{
-                .sampler = m_depth_reduce_sampler,
-                .imageView = i != 0 ? *m_depth_pyramid_views[i - 1] : *m_depth_image.full_view(),
-                .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            };
-            vkb::DescriptorImageInfo output_image_info{
-                .imageView = *m_depth_pyramid_views[i],
-                .imageLayout = vkb::ImageLayout::General,
-            };
-            descriptor_data =
-                put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &input_image_info);
-            descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageImage, &output_image_info);
 
             vkb::ImageMemoryBarrier2 sample_barrier{
                 .sType = vkb::StructureType::ImageMemoryBarrier2,
@@ -813,6 +767,7 @@ void DefaultRenderer::create_render_graph() {
             cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
                              vull::ceil_div(shader_data.mip_size.y(), 32u));
             cmd_buf.image_barrier(sample_barrier);
+            descriptor_offset += m_reduce_set_layout_size;
         }
         cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
 
@@ -988,19 +943,6 @@ void DefaultRenderer::create_render_graph() {
     });
 }
 
-uint8_t *DefaultRenderer::put_descriptor(uint8_t *dst, vkb::DescriptorType type, void *info) {
-    const auto size = m_context.descriptor_size(type);
-    vkb::DescriptorGetInfoEXT get_info{
-        .sType = vkb::StructureType::DescriptorGetInfoEXT,
-        .type = type,
-        .data{
-            .pSampler = static_cast<vkb::Sampler *>(info),
-        },
-    };
-    m_context.vkGetDescriptorEXT(&get_info, size, dst);
-    return dst + size;
-}
-
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf) {
     cmd_buf.bind_vertex_buffer(m_vertex_buffer);
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
@@ -1096,37 +1038,12 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
                                                           vkb::BufferUsage::SamplerDescriptorBufferEXT |
                                                               vkb::BufferUsage::ResourceDescriptorBufferEXT,
                                                           vk::MemoryUsage::HostToDevice);
-    vkb::DescriptorAddressInfoEXT uniform_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = uniform_buffer.device_address(),
-        .range = uniform_buffer.size(),
-    };
-    vkb::DescriptorAddressInfoEXT light_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = light_buffer.device_address(),
-        .range = light_buffer.size(),
-    };
-    vkb::DescriptorImageInfo output_image_info{
-        .imageView = m_render_engine.output_image().view(),
-        .imageLayout = vkb::ImageLayout::General,
-    };
-    vkb::DescriptorAddressInfoEXT draw_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = m_draw_buffer.device_address(),
-        .range = m_draw_buffer.size(),
-    };
-    vkb::DescriptorAddressInfoEXT object_buffer_ai{
-        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
-        .address = object_buffer.device_address(),
-        .range = object_buffer.size(),
-    };
-
-    auto *descriptor_data = m_dynamic_descriptor_buffer.mapped<uint8_t>();
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::UniformBuffer, &uniform_buffer_ai);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &light_buffer_ai);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageImage, &output_image_info);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &draw_buffer_ai);
-    descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::StorageBuffer, &object_buffer_ai);
+    vk::DescriptorBuilder descriptor_builder(m_dynamic_descriptor_buffer);
+    descriptor_builder.put(uniform_buffer);
+    descriptor_builder.put(light_buffer);
+    descriptor_builder.put(m_render_engine.output_image().view());
+    descriptor_builder.put(m_draw_buffer);
+    descriptor_builder.put(object_buffer);
 
     // Release ownership to command buffer.
     cmd_buf.bind_associated_buffer(vull::move(uniform_buffer));
@@ -1212,14 +1129,9 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
         vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
     auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
-    auto *descriptor_data = texture_descriptor_staging_buffer.mapped<uint8_t>();
+    vk::DescriptorBuilder descriptor_builder(texture_descriptor_staging_buffer);
     for (uint32_t i = 0; i < scene.texture_count(); i++) {
-        vkb::DescriptorImageInfo image_info{
-            .sampler = scene.texture_samplers()[i],
-            .imageView = *scene.texture_images()[i].full_view(),
-            .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
-        };
-        descriptor_data = put_descriptor(descriptor_data, vkb::DescriptorType::CombinedImageSampler, &image_info);
+        descriptor_builder.put(scene.texture_samplers()[i], scene.texture_images()[i].full_view());
     }
     m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
 

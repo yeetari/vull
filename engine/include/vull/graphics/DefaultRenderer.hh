@@ -128,7 +128,6 @@ class DefaultRenderer {
     void create_resources();
     void create_pipelines(ShaderMap &&shader_map);
     void create_render_graph();
-    uint8_t *put_descriptor(uint8_t *dst, vkb::DescriptorType type, void *info);
     void record_draws(vk::CommandBuffer &cmd_buf);
     void update_buffers(vk::CommandBuffer &cmd_buf);
     void update_cascades();
