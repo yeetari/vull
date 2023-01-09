@@ -52,8 +52,7 @@ Buffer &Buffer::operator=(Buffer &&other) {
 }
 
 Buffer Buffer::create_staging() const {
-    auto &context = m_allocation.allocator()->context();
-    return context.create_buffer(m_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    return context().create_buffer(m_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
 }
 
 void Buffer::copy_from(const Buffer &src, Queue &queue) const {
@@ -68,6 +67,10 @@ void Buffer::copy_from(const Buffer &src, Queue &queue) const {
 void Buffer::upload(LargeSpan<const void> data) const {
     VULL_ASSERT(mapped_raw() != nullptr);
     memcpy(mapped_raw(), data.data(), vull::min(data.size(), m_size));
+}
+
+Context &Buffer::context() const {
+    return m_allocation.allocator()->context();
 }
 
 vkb::DeviceAddress Buffer::device_address() const {

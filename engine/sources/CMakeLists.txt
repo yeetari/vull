@@ -42,6 +42,7 @@ target_sources(vull PRIVATE
     vulkan/CommandBuffer.cc
     vulkan/Context.cc
     vulkan/ContextTable.cc
+    vulkan/DescriptorBuilder.cc
     vulkan/Fence.cc
     vulkan/Image.cc
     vulkan/ImageView.cc

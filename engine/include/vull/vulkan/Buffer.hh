@@ -34,6 +34,7 @@ public:
     void copy_from(const Buffer &src, Queue &queue) const;
     void upload(LargeSpan<const void> data) const;
 
+    Context &context() const;
     vkb::Buffer operator*() const { return m_buffer; }
     vkb::BufferUsage usage() const { return m_usage; }
     vkb::DeviceAddress device_address() const;
