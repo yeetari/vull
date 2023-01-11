@@ -27,7 +27,7 @@ function(target_add_shader target shader)
     file(MAKE_DIRECTORY ${parent_dir})
     add_custom_command(
         OUTPUT ${output}
-        COMMAND ${GLSLC} -MD -O -g -D${extension}_SHADER --target-env=vulkan1.2 ${source} -o ${output}
+        COMMAND ${GLSLC} -MD -O -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${output}
         DEPENDS ${source}
         DEPFILE ${output}.d
         VERBATIM)
