@@ -191,6 +191,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .synchronization2 = true,
         .shaderZeroInitializeWorkgroupMemory = true,
         .dynamicRendering = true,
+        .maintenance4 = true,
     };
     vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
         .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
