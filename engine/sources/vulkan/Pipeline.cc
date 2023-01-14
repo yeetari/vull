@@ -9,8 +9,6 @@
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-#include <stdint.h>
-
 namespace vull::vk {
 
 Pipeline::Pipeline(Pipeline &&other) : m_bind_point(other.m_bind_point) {
@@ -54,21 +52,13 @@ PipelineBuilder &PipelineBuilder::add_set_layout(vkb::DescriptorSetLayout set_la
 }
 
 PipelineBuilder &PipelineBuilder::add_shader(const Shader &shader, Optional<const vkb::SpecializationInfo &> si) {
+    m_shaders.push(shader);
     m_shader_cis.push({
         .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
         .stage = shader.stage(),
         .module = shader.module(),
         .pName = "main",
         .pSpecializationInfo = si ? &*si : nullptr,
-    });
-    return *this;
-}
-
-PipelineBuilder &PipelineBuilder::add_vertex_attribute(vkb::Format format, uint32_t offset) {
-    m_vertex_attributes.push({
-        .location = m_vertex_attributes.size(),
-        .format = format,
-        .offset = offset,
     });
     return *this;
 }
@@ -109,11 +99,6 @@ PipelineBuilder &PipelineBuilder::set_push_constant_range(const vkb::PushConstan
 
 PipelineBuilder &PipelineBuilder::set_topology(vkb::PrimitiveTopology topology) {
     m_topology = topology;
-    return *this;
-}
-
-PipelineBuilder &PipelineBuilder::set_vertex_binding(uint32_t stride) {
-    m_vertex_stride = stride;
     return *this;
 }
 
@@ -159,16 +144,23 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .depthAttachmentFormat = m_depth_format,
     };
 
+    const Shader *vertex_shader = nullptr;
+    for (const Shader &shader : m_shaders) {
+        if (shader.stage() == vkb::ShaderStage::Vertex) {
+            vertex_shader = &shader;
+        }
+    }
+    const auto &vertex_attributes = vertex_shader->vertex_attributes();
     vkb::VertexInputBindingDescription vertex_binding{
-        .stride = m_vertex_stride,
+        .stride = vertex_shader->vertex_stride(),
         .inputRate = vkb::VertexInputRate::Vertex,
     };
     vkb::PipelineVertexInputStateCreateInfo vertex_input_state_ci{
         .sType = vkb::StructureType::PipelineVertexInputStateCreateInfo,
-        .vertexBindingDescriptionCount = !m_vertex_attributes.empty() ? 1u : 0u,
+        .vertexBindingDescriptionCount = !vertex_attributes.empty() ? 1u : 0u,
         .pVertexBindingDescriptions = &vertex_binding,
-        .vertexAttributeDescriptionCount = m_vertex_attributes.size(),
-        .pVertexAttributeDescriptions = m_vertex_attributes.data(),
+        .vertexAttributeDescriptionCount = vertex_attributes.size(),
+        .pVertexAttributeDescriptions = vertex_attributes.data(),
     };
 
     vkb::PipelineInputAssemblyStateCreateInfo input_assembly_state_ci{

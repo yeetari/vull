@@ -518,21 +518,16 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                              .add_set_layout(m_texture_set_layout)
                              .add_shader(*shader_map.get("gbuffer-vert"), specialization_info)
                              .add_shader(*shader_map.get("gbuffer-frag"), specialization_info)
-                             .add_vertex_attribute(vkb::Format::R32G32B32Sfloat, offsetof(Vertex, position))
-                             .add_vertex_attribute(vkb::Format::R32G32B32Sfloat, offsetof(Vertex, normal))
-                             .add_vertex_attribute(vkb::Format::R32G32Sfloat, offsetof(Vertex, uv))
                              .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                              .set_depth_format(m_depth_image.format())
                              .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
                              .set_topology(vkb::PrimitiveTopology::TriangleList)
-                             .set_vertex_binding(sizeof(Vertex))
                              .set_viewport(m_viewport_extent)
                              .build(m_context);
 
     m_shadow_pipeline = vk::PipelineBuilder()
                             .add_set_layout(m_dynamic_set_layout)
                             .add_shader(*shader_map.get("shadow"), specialization_info)
-                            .add_vertex_attribute(vkb::Format::R32G32B32Sfloat, offsetof(Vertex, position))
                             .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                             .set_depth_bias(2.0f, 5.0f)
                             .set_depth_format(vkb::Format::D32Sfloat)
@@ -542,7 +537,6 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                                 .size = sizeof(ShadowPushConstantBlock),
                             })
                             .set_topology(vkb::PrimitiveTopology::TriangleList)
-                            .set_vertex_binding(sizeof(Vertex))
                             .set_viewport(vkb::Extent2D{k_shadow_resolution, k_shadow_resolution})
                             .build(m_context);
 

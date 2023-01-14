@@ -44,6 +44,7 @@ enum class MemoryModel {
 };
 
 enum class Op {
+    Nop = 0,
     MemoryModel = 14,
     EntryPoint = 15,
     Capability = 17,
