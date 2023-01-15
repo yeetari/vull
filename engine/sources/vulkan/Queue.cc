@@ -32,15 +32,26 @@ Queue::~Queue() {
 }
 
 CommandBuffer &Queue::request_cmd_buf() {
-    // Reuse any completed command buffers.
+    // Reset any completed command buffers.
+    CommandBuffer *available_cmd_buf = nullptr;
     for (auto &cmd_buf : m_cmd_bufs) {
+        if (!cmd_buf.m_in_flight) {
+            // Command buffer already in recording state.
+            available_cmd_buf = &cmd_buf;
+            continue;
+        }
         uint64_t value;
         VULL_ENSURE(m_context.vkGetSemaphoreCounterValue(cmd_buf.completion_semaphore(), &value) ==
                     vkb::Result::Success);
         if (value == cmd_buf.completion_value()) {
             cmd_buf.reset();
-            return cmd_buf;
+            available_cmd_buf = &cmd_buf;
         }
+    }
+
+    // Reuse any completed command buffers.
+    if (available_cmd_buf != nullptr) {
+        return *available_cmd_buf;
     }
 
     // Else, allocate a new command buffer.
@@ -81,9 +92,10 @@ void Queue::immediate_submit(Function<void(CommandBuffer &)> callback) {
     wait_idle();
 }
 
-void Queue::submit(const CommandBuffer &cmd_buf, vkb::Fence signal_fence,
+void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence,
                    Span<vkb::SemaphoreSubmitInfo> signal_semaphores, Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
     m_context.vkEndCommandBuffer(*cmd_buf);
+    cmd_buf.m_in_flight = true;
 
     // TODO(small-vector)
     Vector<vkb::SemaphoreSubmitInfo> signal_sems;

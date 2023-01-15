@@ -35,6 +35,7 @@ private:
     Vector<DescriptorBufferBinding> m_descriptor_buffer_bindings;
     vkb::PipelineLayout m_compute_layout;
     vkb::PipelineLayout m_graphics_layout;
+    bool m_in_flight{false};
 
     void reset();
     void emit_descriptor_binds();

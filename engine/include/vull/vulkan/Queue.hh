@@ -34,7 +34,7 @@ public:
 
     CommandBuffer &request_cmd_buf();
     void immediate_submit(Function<void(CommandBuffer &)> callback);
-    void submit(const CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
+    void submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
                 Span<vkb::SemaphoreSubmitInfo> wait_semaphores);
     void wait_idle();
 

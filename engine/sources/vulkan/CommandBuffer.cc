@@ -37,6 +37,7 @@ CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context)
     m_completion_semaphore = vull::exchange(other.m_completion_semaphore, nullptr);
     m_completion_value = vull::exchange(other.m_completion_value, 0u);
     m_associated_buffers = vull::move(other.m_associated_buffers);
+    m_in_flight = vull::exchange(other.m_in_flight, false);
 }
 
 CommandBuffer::~CommandBuffer() {
@@ -67,6 +68,7 @@ void CommandBuffer::reset() {
         .flags = vkb::CommandBufferUsage::OneTimeSubmit,
     };
     m_context.vkBeginCommandBuffer(m_cmd_buf, &cmd_buf_bi);
+    m_in_flight = false;
 }
 
 void CommandBuffer::emit_descriptor_binds() {
