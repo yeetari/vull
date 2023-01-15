@@ -26,7 +26,6 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
     m_frames.ensure_size(queue_length, swapchain.context());
 
     // Dummy first frame.
-    // TODO: This code is ugly.
     auto &first_frame = m_frames.first();
     m_image_index = swapchain.acquire_image(*first_frame.acquire_semaphore());
 
@@ -44,37 +43,16 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
         },
     };
     cmd_buf.image_barrier(swapchain_present_barrier);
-    swapchain.context().vkEndCommandBuffer(*cmd_buf);
 
-    vkb::CommandBufferSubmitInfo cmd_buf_si{
-        .sType = vkb::StructureType::CommandBufferSubmitInfo,
-        .commandBuffer = *cmd_buf,
-    };
     vkb::SemaphoreSubmitInfo wait_semaphore_info{
         .sType = vkb::StructureType::SemaphoreSubmitInfo,
         .semaphore = *first_frame.acquire_semaphore(),
     };
-    Array signal_semaphore_infos{
-        vkb::SemaphoreSubmitInfo{
-            .sType = vkb::StructureType::SemaphoreSubmitInfo,
-            .semaphore = *first_frame.present_semaphore(),
-        },
-        vkb::SemaphoreSubmitInfo{
-            .sType = vkb::StructureType::SemaphoreSubmitInfo,
-            .semaphore = cmd_buf.completion_semaphore(),
-            .value = cmd_buf.completion_value(),
-        },
+    vkb::SemaphoreSubmitInfo signal_semaphore_info{
+        .sType = vkb::StructureType::SemaphoreSubmitInfo,
+        .semaphore = *first_frame.present_semaphore(),
     };
-    vkb::SubmitInfo2 submit_info{
-        .sType = vkb::StructureType::SubmitInfo2,
-        .waitSemaphoreInfoCount = 1,
-        .pWaitSemaphoreInfos = &wait_semaphore_info,
-        .commandBufferInfoCount = 1,
-        .pCommandBufferInfos = &cmd_buf_si,
-        .signalSemaphoreInfoCount = signal_semaphore_infos.size(),
-        .pSignalSemaphoreInfos = signal_semaphore_infos.data(),
-    };
-    swapchain.context().vkQueueSubmit2(*queue, 1, &submit_info, nullptr);
+    queue.submit(cmd_buf, nullptr, signal_semaphore_info, wait_semaphore_info);
     queue.wait_idle();
 }
 

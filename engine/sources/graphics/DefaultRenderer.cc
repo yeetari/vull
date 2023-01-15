@@ -733,6 +733,7 @@ void DefaultRenderer::create_render_graph() {
         cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
         for (uint32_t i = 0; i < level_count; i++) {
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
+            descriptor_offset += m_reduce_set_layout_size;
 
             DepthReduceData shader_data{
                 .mip_size{
@@ -761,7 +762,6 @@ void DefaultRenderer::create_render_graph() {
             cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
                              vull::ceil_div(shader_data.mip_size.y(), 32u));
             cmd_buf.image_barrier(sample_barrier);
-            descriptor_offset += m_reduce_set_layout_size;
         }
         cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
 
