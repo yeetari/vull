@@ -30,7 +30,7 @@ def convert_type(orig):
         # Hardcoded list of enum endings to omit the Flags suffix from.
         if not orig.endswith('Access') and not orig.endswith('Aspect') and not orig.endswith(
                 'Component') and not orig.endswith('Count') and not orig.endswith('Feature') and not orig.endswith(
-                'Mode') and not orig.endswith('Stage') and not orig.endswith('Usage'):
+            'Mode') and not orig.endswith('Stage') and not orig.endswith('Usage'):
             orig += 'Flags'
         orig += new_suffix
     return orig[2:] if orig.startswith('Vk') else orig
@@ -459,13 +459,14 @@ namespace vull::vkb {
 
         # Emit operators for flags.
         if 'FlagBits' in type_name:
+            underlying_type_string = 'uint{}_t'.format(bitwidth)
             file.write('inline constexpr {0} operator&({0} lhs, {0} rhs) {{\n'.format(converted_type_name))
-            file.write('    return static_cast<{}>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));\n'.format(
-                converted_type_name))
+            file.write('    return static_cast<{0}>(static_cast<{1}>(lhs) & static_cast<{1}>(rhs));\n'.format(
+                converted_type_name, underlying_type_string))
             file.write('}\n')
             file.write('inline constexpr {0} operator|({0} lhs, {0} rhs) {{\n'.format(converted_type_name))
-            file.write('    return static_cast<{}>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));\n'.format(
-                converted_type_name))
+            file.write('    return static_cast<{0}>(static_cast<{1}>(lhs) | static_cast<{1}>(rhs));\n'.format(
+                converted_type_name, underlying_type_string))
             file.write('}\n')
         file.write('\n')
 

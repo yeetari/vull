@@ -164,10 +164,10 @@ enum class Access2 : uint64_t {
     DescriptorBufferReadEXT = 1ull << 41ull,
 };
 inline constexpr Access2 operator&(Access2 lhs, Access2 rhs) {
-    return static_cast<Access2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+    return static_cast<Access2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
 }
 inline constexpr Access2 operator|(Access2 lhs, Access2 rhs) {
-    return static_cast<Access2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+    return static_cast<Access2>(static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }
 
 enum class AttachmentDescriptionFlags {
@@ -511,6 +511,7 @@ enum class DriverId {
     MesaVenus = 22,
     MesaDozen = 23,
     MesaNvk = 24,
+    ImaginationOpenSourceMESA = 25,
 };
 
 enum class DynamicState {
@@ -962,10 +963,10 @@ enum class FormatFeature2 : uint64_t {
     SampledImageDepthComparison = 1ull << 33ull,
 };
 inline constexpr FormatFeature2 operator&(FormatFeature2 lhs, FormatFeature2 rhs) {
-    return static_cast<FormatFeature2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+    return static_cast<FormatFeature2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
 }
 inline constexpr FormatFeature2 operator|(FormatFeature2 lhs, FormatFeature2 rhs) {
-    return static_cast<FormatFeature2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+    return static_cast<FormatFeature2>(static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }
 
 enum class FramebufferCreateFlags {
@@ -1325,10 +1326,10 @@ enum class PipelineStage2 : uint64_t {
     PreRasterizationShaders = 1ull << 38ull,
 };
 inline constexpr PipelineStage2 operator&(PipelineStage2 lhs, PipelineStage2 rhs) {
-    return static_cast<PipelineStage2>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+    return static_cast<PipelineStage2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
 }
 inline constexpr PipelineStage2 operator|(PipelineStage2 lhs, PipelineStage2 rhs) {
-    return static_cast<PipelineStage2>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+    return static_cast<PipelineStage2>(static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }
 
 enum class PointClippingBehavior {
