@@ -24,7 +24,7 @@ class Function<R(Args...)> { // NOLINT
         CallableBase &operator=(const CallableBase &) = default;
         CallableBase &operator=(CallableBase &&) = default;
 
-        virtual R call(Args...) const = 0;
+        virtual R call(Args...) = 0;
         virtual void move_to(void *) = 0;
     };
 
@@ -35,7 +35,7 @@ class Function<R(Args...)> { // NOLINT
     public:
         explicit Callable(F &&callable) : m_callable(move(callable)) {}
 
-        R call(Args... args) const override { return m_callable(forward<Args>(args)...); }
+        R call(Args... args) override { return m_callable(forward<Args>(args)...); }
         void move_to(void *dst) override { new (dst) Callable{move(m_callable)}; }
     };
 
@@ -47,27 +47,14 @@ class Function<R(Args...)> { // NOLINT
         Outline,
     } m_state{State::Null};
 
-    CallableBase *callable() {
+    CallableBase *callable() const {
         switch (m_state) {
         case State::Null:
             return nullptr;
         case State::Inline:
-            return reinterpret_cast<CallableBase *>(this->m_storage);
+            return __builtin_bit_cast(CallableBase *, &m_storage);
         case State::Outline:
-            return *reinterpret_cast<CallableBase **>(this->m_storage);
-        default:
-            vull::unreachable();
-        }
-    }
-
-    const CallableBase *callable() const {
-        switch (m_state) {
-        case State::Null:
-            return nullptr;
-        case State::Inline:
-            return reinterpret_cast<const CallableBase *>(this->m_storage);
-        case State::Outline:
-            return *reinterpret_cast<CallableBase *const *>(this->m_storage);
+            return *__builtin_bit_cast(CallableBase **, &m_storage);
         default:
             vull::unreachable();
         }
