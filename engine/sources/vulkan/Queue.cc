@@ -92,8 +92,8 @@ void Queue::immediate_submit(Function<void(CommandBuffer &)> callback) {
     wait_idle();
 }
 
-void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence,
-                   Span<vkb::SemaphoreSubmitInfo> signal_semaphores, Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
+void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
+                   Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
     m_context.vkEndCommandBuffer(*cmd_buf);
     cmd_buf.m_in_flight = true;
 
