@@ -14,7 +14,7 @@
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
-#include <vull/vulkan/ImageView.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>

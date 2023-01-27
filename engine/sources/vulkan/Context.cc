@@ -20,7 +20,6 @@
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/Image.hh>
-#include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -410,7 +409,7 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     };
     vkb::ImageView view;
     VULL_ENSURE(vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
-    return {vull::move(allocation), ImageView(*this, image, view, range), image_ci.format};
+    return {vull::move(allocation), image_ci.format, ImageView(image, view, range)};
 }
 
 size_t Context::descriptor_size(vkb::DescriptorType type) const {

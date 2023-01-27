@@ -5,7 +5,6 @@
 #include <vull/support/Array.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/String.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Pipeline.hh>
@@ -19,7 +18,6 @@ namespace vull::vk {
 class BufferResource;
 class CommandBuffer;
 class Context;
-class ImageView;
 class Shader; // IWYU pragma: keep
 
 } // namespace vull::vk
@@ -75,10 +73,8 @@ class DefaultRenderer {
     vk::Image m_depth_image;
     vkb::Extent2D m_depth_pyramid_extent;
     vk::Image m_depth_pyramid_image;
-    Vector<vk::ImageView> m_depth_pyramid_views;
     vkb::Sampler m_depth_reduce_sampler;
     vk::Image m_shadow_map_image;
-    Vector<vk::ImageView> m_shadow_cascade_views;
     vkb::Sampler m_shadow_sampler;
     vk::Image m_skybox_image;
     vkb::Sampler m_skybox_sampler;

@@ -28,7 +28,6 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/DescriptorBuilder.hh>
 #include <vull/vulkan/Image.hh>
-#include <vull/vulkan/ImageView.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
@@ -330,10 +329,6 @@ void DefaultRenderer::create_resources() {
         .initialLayout = vkb::ImageLayout::Undefined,
     };
     m_depth_pyramid_image = m_context.create_image(depth_pyramid_image_ci, vk::MemoryUsage::DeviceOnly);
-    for (uint32_t i = 0; i < depth_pyramid_mip_count; i++) {
-        m_depth_pyramid_views.push(
-            m_depth_pyramid_image.create_level_view(i, vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled));
-    }
     vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
         .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
         .reductionMode = vkb::SamplerReductionMode::Min,
@@ -365,9 +360,6 @@ void DefaultRenderer::create_resources() {
         .initialLayout = vkb::ImageLayout::Undefined,
     };
     m_shadow_map_image = m_context.create_image(shadow_map_image_ci, vk::MemoryUsage::DeviceOnly);
-    for (uint32_t i = 0; i < k_cascade_count; i++) {
-        m_shadow_cascade_views.push(m_shadow_map_image.create_layer_view(i, vkb::ImageUsage::Sampled));
-    }
     vkb::SamplerCreateInfo shadow_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -724,9 +716,9 @@ void DefaultRenderer::create_render_graph() {
 
         vk::DescriptorBuilder descriptor_builder(descriptor_buffer);
         for (uint32_t i = 0; i < level_count; i++) {
-            const auto &input_view = i != 0 ? m_depth_pyramid_views[i - 1] : m_depth_image.full_view();
+            const auto &input_view = i != 0 ? m_depth_pyramid_image.level_view(i - 1) : m_depth_image.full_view();
             descriptor_builder.put(m_depth_reduce_sampler, input_view);
-            descriptor_builder.put(m_depth_pyramid_views[i], true);
+            descriptor_builder.put(m_depth_pyramid_image.level_view(i), true);
         }
 
         vkb::DeviceSize descriptor_offset = 0;

@@ -4,7 +4,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
-#include <vull/vulkan/ImageView.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
