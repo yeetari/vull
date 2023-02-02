@@ -33,9 +33,12 @@ public:
     template <typename... Args>
     void append(StringView fmt, const Args &...args);
     void append(char ch);
+    void truncate(size_t by);
 
     String build();
     String build_copy() const;
+
+    bool empty() const { return m_buffer.empty(); }
     size_t length() const { return m_buffer.size(); }
 };
 

@@ -52,6 +52,12 @@ void StringBuilder::append(char ch) {
     m_buffer.push(ch);
 }
 
+void StringBuilder::truncate(size_t by) {
+    for (size_t i = 0; i < by; i++) {
+        m_buffer.pop();
+    }
+}
+
 String StringBuilder::build() {
     m_buffer.push('\0');
     auto buffer = m_buffer.take_all();
