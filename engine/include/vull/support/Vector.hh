@@ -57,7 +57,7 @@ public:
     Span<StorageType, SizeType> span() { return {m_data, m_size}; }
     Span<const StorageType, SizeType> span() const { return {m_data, m_size}; }
     Span<StorageType, SizeType> take_all();
-    T take_last();
+    StorageType take_last();
 
     StorageType *begin() { return m_data; }
     StorageType *end() { return m_data + m_size; }
@@ -243,7 +243,7 @@ Span<typename Vector<T, SizeType>::StorageType, SizeType> Vector<T, SizeType>::t
 }
 
 template <typename T, typename SizeType>
-T Vector<T, SizeType>::take_last() {
+typename Vector<T, SizeType>::StorageType Vector<T, SizeType>::take_last() {
     VULL_ASSERT(!empty());
     m_size--;
     auto value = move(*end());
@@ -251,7 +251,7 @@ T Vector<T, SizeType>::take_last() {
         end()->~T();
         return value;
     } else {
-        return *value;
+        return value;
     }
 }
 
