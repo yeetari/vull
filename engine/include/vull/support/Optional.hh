@@ -52,6 +52,8 @@ public:
     Optional &operator=(const Optional &) = default;
     Optional &operator=(Optional &&);
 
+    T value_or(T fallback) const;
+
     explicit operator bool() const { return m_ptr != nullptr; }
     bool has_value() const { return m_ptr != nullptr; }
 
@@ -148,6 +150,11 @@ template <typename T>
 Optional<T &> &Optional<T &>::operator=(Optional &&other) {
     m_ptr = exchange(other.m_ptr, nullptr);
     return *this;
+}
+
+template <typename T>
+T Optional<T &>::value_or(T fallback) const {
+    return m_ptr != nullptr ? *m_ptr : fallback;
 }
 
 template <typename T>
