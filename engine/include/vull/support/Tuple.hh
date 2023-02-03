@@ -28,12 +28,16 @@ struct TupleBase<IntegerSequence<size_t, Is...>, Ts...> : TupleElem<Is, Ts>... {
     using TupleElem<Is, Ts>::operator[]...;
 
     TupleBase() = default;
+    explicit TupleBase(const Ts &...ts) requires(!is_ref<Ts> && ...) : TupleElem<Is, Ts>{ts}... {}
     explicit TupleBase(Ts &&...ts) : TupleElem<Is, Ts>{forward<Ts>(ts)}... {}
 };
 
 template <typename... Ts>
-struct Tuple : TupleBase<make_integer_sequence<size_t, sizeof...(Ts)>, Ts...> {
-    using TupleBase<make_integer_sequence<size_t, sizeof...(Ts)>, Ts...>::TupleBase;
+using tuple_sequence_t = make_integer_sequence<size_t, sizeof...(Ts)>;
+
+template <typename... Ts>
+struct Tuple : TupleBase<tuple_sequence_t<Ts...>, Ts...> {
+    using TupleBase<tuple_sequence_t<Ts...>, Ts...>::TupleBase;
 };
 
 template <size_t I, typename T>
@@ -43,7 +47,7 @@ constexpr decltype(auto) get(T &&tuple) {
 
 template <typename... Ts>
 constexpr auto forward_as_tuple(Ts &&...ts) {
-    return Tuple<Ts &&...>{forward<Ts>(ts)...};
+    return Tuple<Ts &&...>(forward<Ts>(ts)...);
 }
 
 template <typename... Ts>
