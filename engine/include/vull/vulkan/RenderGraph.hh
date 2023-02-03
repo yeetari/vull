@@ -1,183 +1,255 @@
 #pragma once
 
+#include <vull/support/Enum.hh>
 #include <vull/support/Function.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vulkan/QueryPool.hh>
+#include <vull/vulkan/RenderGraphDefs.hh> // IWYU pragma: export
 #include <vull/vulkan/Vulkan.hh>
+// IWYU pragma: no_include "vull/vulkan/RenderGraphDefs.hh"
 
 #include <stdint.h>
 
 namespace vull::vk {
 
 class Buffer;
-class BufferResource;
 class CommandBuffer;
-class ImageResource;
-class ImageView;
-class QueryPool;
-class RenderGraph;
+class Context;
+class Image;
 class Pass;
+class RenderGraph;
 
-enum class ResourceKind {
-    Image,
-    StorageBuffer,
-    UniformBuffer,
+struct AttachmentDescription {
+    vkb::Extent2D extent;
+    vkb::Format format;
+    vkb::ImageUsage usage;
+    uint32_t mip_levels{1};
+};
+
+struct BufferDescription {
+    vkb::DeviceSize size;
+    vkb::BufferUsage usage;
+    bool host_accessible{false};
+};
+
+enum class ResourceFlags {
+    None = 0u,
+    Buffer = 1u << 0u,
+    Image = 1u << 1u,
+    Imported = 1u << 2u,
+    Kind = Buffer | Image,
+};
+
+class PhysicalResource {
+    String m_name;
+    Function<const void *()> m_materialise;
+    const void *m_materialised{nullptr};
+
+public:
+    PhysicalResource(String &&name, Function<const void *()> &&materialise)
+        : m_name(vull::move(name)), m_materialise(vull::move(materialise)) {}
+
+    const void *materialised();
+    const String &name() const { return m_name; }
 };
 
 class Resource {
-    friend Pass;
-
-private:
-    const ResourceKind m_kind;
-    const String m_name;
-    Vector<Pass &> m_readers;
-    Vector<Pass &> m_writers;
-
-public:
-    Resource(ResourceKind kind, String &&name) : m_kind(kind), m_name(vull::move(name)) {}
-    Resource(const Resource &) = delete;
-    Resource(Resource &&) = delete;
-    virtual ~Resource() = default;
-
-    Resource &operator=(const Resource &) = delete;
-    Resource &operator=(Resource &&) = delete;
-
-    Optional<BufferResource &> as_buffer();
-    Optional<ImageResource &> as_image();
-
-    ResourceKind kind() const { return m_kind; }
-    const String &name() const { return m_name; }
-    const Vector<Pass &> &readers() const { return m_readers; }
-    const Vector<Pass &> &writers() const { return m_writers; }
-};
-
-class BufferResource : public Resource {
-    vkb::Buffer m_buffer{nullptr};
-    bool m_is_indirect_draw{false};
+    // TODO: Remove m_physical_index and split ResourceId so it has a physical and virtual part?
+    Pass *m_producer{nullptr};
+    ResourceFlags m_flags;
+    uint32_t m_physical_index{0};
+    vkb::PipelineStage2 m_write_stage{};
+    vkb::Access2 m_write_access{};
+    vkb::ImageLayout m_write_layout{};
 
 public:
-    BufferResource(ResourceKind kind, String &&name) : Resource(kind, vull::move(name)) {}
+    Resource(Pass *producer, ResourceFlags flags, uint32_t physical_index)
+        : m_producer(producer), m_flags(flags), m_physical_index(physical_index) {}
 
-    void set(const Buffer &buffer);
-    void set_is_indirect_draw(bool is_indirect_draw) { m_is_indirect_draw = is_indirect_draw; }
+    void set_write_stage(vkb::PipelineStage2 stage) { m_write_stage = stage; }
+    void set_write_access(vkb::Access2 access) { m_write_access = access; }
+    void set_write_layout(vkb::ImageLayout layout) { m_write_layout = layout; }
 
-    operator vkb::Buffer() const { return m_buffer; }
-    bool is_indirect_draw() const { return m_is_indirect_draw; }
+    Pass &producer() const { return *m_producer; }
+    ResourceFlags flags() const { return m_flags; }
+    uint32_t physical_index() const { return m_physical_index; }
+    vkb::PipelineStage2 write_stage() const { return m_write_stage; }
+    vkb::Access2 write_access() const { return m_write_access; }
+    vkb::ImageLayout write_layout() const { return m_write_layout; }
 };
 
-class ImageResource : public Resource {
-    vkb::Image m_image{nullptr};
-    vkb::ImageView m_view{nullptr};
-    vkb::ImageSubresourceRange m_range;
-
-public:
-    ImageResource(String &&name) : Resource(ResourceKind::Image, vull::move(name)) {}
-
-    void set(const ImageView &view);
-    void set(vkb::Image image, vkb::ImageView view);
-    void set_range(const vkb::ImageSubresourceRange &range) { m_range = range; }
-
-    operator vkb::Image() const { return m_image; }
-    vkb::ImageView view() const { return m_view; }
-    const vkb::ImageSubresourceRange &range() const { return m_range; }
+enum class PassFlags {
+    None = 0u,
+    Compute = 1u << 0u,
+    Graphics = 1u << 1u,
+    Transfer = 1u << 2u,
+    Kind = Compute | Graphics | Transfer,
 };
 
-struct GenericBarrier {
-    vkb::PipelineStage2 src_stage;
-    vkb::PipelineStage2 dst_stage;
-    vkb::Access2 src_access;
-    vkb::Access2 dst_access;
-    union {
-        struct {
-            vkb::DeviceSize buffer_offset;
-            vkb::DeviceSize buffer_size;
-        };
-        struct {
-            vkb::ImageLayout old_layout;
-            vkb::ImageLayout new_layout;
-            vkb::ImageSubresourceRange subresource_range;
-        };
-    };
-
-    vkb::BufferMemoryBarrier2 buffer_barrier(vkb::Buffer buffer) const;
-    vkb::ImageMemoryBarrier2 image_barrier(vkb::Image image) const;
+enum class ReadFlags {
+    None = 0u,
+    Additive = 1u << 0u,
+    Present = 1u << 1u,
+    Indirect = 1u << 2u,
 };
 
-enum class PassKind {
-    Compute,
-    Graphics,
-};
-
-struct ResourceUse {
-    Resource &resource;
-    Optional<GenericBarrier> barrier;
+enum class WriteFlags {
+    None = 0u,
+    Additive = 1u << 0u,
 };
 
 class Pass {
+    friend class PassBuilder;
+    friend RenderGraph;
+
+    struct Transition {
+        ResourceId id;
+        vkb::ImageLayout old_layout;
+        vkb::ImageLayout new_layout;
+    };
+
+private:
+    const String m_name;
+    const PassFlags m_flags;
+    Vector<ResourceId> m_creates;
+    Vector<Tuple<ResourceId, ReadFlags>> m_reads;
+    Vector<Tuple<ResourceId, WriteFlags>> m_writes;
+    vkb::MemoryBarrier2 m_memory_barrier{.sType = vkb::StructureType::MemoryBarrier2};
+    Vector<Transition> m_transitions;
+    bool m_visited{false};
+
+public:
+    Pass(String &&name, PassFlags flags) : m_name(vull::move(name)), m_flags(flags) {}
+    Pass(const Pass &) = delete;
+    Pass(Pass &&) = delete;
+    virtual ~Pass() = default;
+
+    Pass &operator=(const Pass &) = delete;
+    Pass &operator=(Pass &&) = delete;
+
+    void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
+    vkb::DependencyInfo dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const;
+    virtual void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const = 0;
+
+    const String &name() const { return m_name; }
+    PassFlags flags() const { return m_flags; }
+    const Vector<ResourceId> &creates() const { return m_creates; }
+    const Vector<Tuple<ResourceId, ReadFlags>> &reads() const { return m_reads; }
+    const Vector<Tuple<ResourceId, WriteFlags>> &writes() const { return m_writes; }
+};
+
+class PassBuilder {
     friend RenderGraph;
 
 private:
-    const PassKind m_kind;
-    const String m_name;
-    Vector<ResourceUse> m_reads;
-    Vector<ResourceUse> m_writes;
-    Function<void(CommandBuffer &)> m_on_record;
-    uint32_t m_order_index{0u};
-    enum class Colour {
-        Unvisited,
-        Visiting,
-        Visited,
-    } m_colour{Colour::Unvisited};
+    RenderGraph &m_graph;
+    Pass &m_pass;
 
-    bool does_write_to(Resource &resource);
-    void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool);
-    void set_order_index(uint32_t order_index) { m_order_index = order_index; }
+    PassBuilder(RenderGraph &graph, Pass &pass) : m_graph(graph), m_pass(pass) {}
 
 public:
-    Pass(PassKind kind, String &&name) : m_kind(kind), m_name(vull::move(name)) {}
-
-    void reads_from(Resource &resource);
-    void writes_to(Resource &resource);
-    void set_on_record(Function<void(CommandBuffer &)> on_record) { m_on_record = vull::move(on_record); }
-
-    PassKind kind() const { return m_kind; }
-    const String &name() const { return m_name; }
-    const Vector<ResourceUse> &reads() const { return m_reads; }
-    const Vector<ResourceUse> &writes() const { return m_writes; }
-    uint32_t order_index() const { return m_order_index; }
+    ResourceId new_attachment(String name, const AttachmentDescription &description);
+    ResourceId new_buffer(String name, const BufferDescription &description);
+    ResourceId read(ResourceId id, ReadFlags flags = ReadFlags::None);
+    ResourceId write(ResourceId id, WriteFlags flags = WriteFlags::None);
 };
 
 class RenderGraph {
+    friend PassBuilder;
+
+    struct NoData {};
+
+    template <typename T, typename ExecuteFn>
+    class TypedPass final : public Pass {
+        mutable T m_data{};
+        ExecuteFn m_execute_fn;
+
+    public:
+        TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
+            : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
+        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const override {
+            m_execute_fn(graph, cmd_buf, m_data);
+        }
+        T &data() { return m_data; }
+    };
+
+    template <typename ExecuteFn>
+    class TypedPass<NoData, ExecuteFn> final : public Pass {
+        ExecuteFn m_execute_fn;
+
+    public:
+        TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
+            : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
+        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const override { m_execute_fn(graph, cmd_buf); }
+    };
+
+private:
+    Context &m_context;
     Vector<UniquePtr<Pass>> m_passes;
-    Vector<UniquePtr<Resource>> m_resources;
     Vector<Pass &> m_pass_order;
+    Vector<Resource, ResourceId> m_resources;
+    Vector<PhysicalResource, ResourceId> m_physical_resources;
+    vk::QueryPool m_timestamp_pool;
+
+    ResourceId create_resource(String &&name, ResourceFlags flags, Pass *producer,
+                               Function<const void *()> &&materialise);
+    ResourceId clone_resource(ResourceId id, Pass &producer);
+    void build_order(ResourceId target);
+    void build_sync();
+    void record_pass(CommandBuffer &cmd_buf, Pass &pass);
 
 public:
-    Pass &add_compute_pass(String name);
-    Pass &add_graphics_pass(String name);
-    ImageResource &add_image(String name);
-    BufferResource &add_storage_buffer(String name);
-    BufferResource &add_uniform_buffer(String name);
-    void compile(Resource &target);
-    void record(CommandBuffer &cmd_buf, Optional<const QueryPool &> timestamp_pool = {}) const;
-    String to_dot() const;
+    explicit RenderGraph(Context &context);
+    RenderGraph(const RenderGraph &) = delete;
+    RenderGraph(RenderGraph &&) = delete;
+    ~RenderGraph();
 
+    RenderGraph &operator=(const RenderGraph &) = delete;
+    RenderGraph &operator=(RenderGraph &&) = delete;
+
+    template <typename T, typename SetupFn, typename ExecuteFn>
+    T &add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn);
+    template <typename SetupFn, typename ExecuteFn>
+    void add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn);
+    ResourceId import(String name, const Buffer &buffer);
+    ResourceId import(String name, const Image &image);
+    const Buffer &get_buffer(ResourceId id);
+    const Image &get_image(ResourceId id);
+
+    void compile(ResourceId target);
+    void execute(CommandBuffer &cmd_buf, bool record_timestamps);
+    String to_json() const;
+
+    Context &context() const { return m_context; }
     uint32_t pass_count() const { return m_pass_order.size(); }
     const Vector<Pass &> &pass_order() const { return m_pass_order; }
+    vk::QueryPool &timestamp_pool() { return m_timestamp_pool; }
 };
 
-inline Optional<BufferResource &> Resource::as_buffer() {
-    if (m_kind != ResourceKind::StorageBuffer && m_kind != ResourceKind::UniformBuffer) {
-        return {};
-    }
-    return static_cast<BufferResource &>(*this);
+template <typename T, typename SetupFn, typename ExecuteFn>
+T &RenderGraph::add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn) {
+    auto *pass = new TypedPass<T, ExecuteFn>(vull::move(name), flags, vull::move(execute_fn));
+    m_passes.push(vull::adopt_unique(pass));
+    PassBuilder builder(*this, *pass);
+    setup_fn(builder, pass->data());
+    return pass->data();
 }
 
-inline Optional<ImageResource &> Resource::as_image() {
-    return m_kind == ResourceKind::Image ? static_cast<ImageResource &>(*this) : Optional<ImageResource &>();
+template <typename SetupFn, typename ExecuteFn>
+void RenderGraph::add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn) {
+    auto *pass = new TypedPass<NoData, ExecuteFn>(vull::move(name), flags, vull::move(execute_fn));
+    m_passes.push(vull::adopt_unique(pass));
+    PassBuilder builder(*this, *pass);
+    setup_fn(builder);
 }
+
+VULL_DEFINE_FLAG_ENUM_OPS(ResourceFlags)
+VULL_DEFINE_FLAG_ENUM_OPS(PassFlags)
+VULL_DEFINE_FLAG_ENUM_OPS(ReadFlags)
+VULL_DEFINE_FLAG_ENUM_OPS(WriteFlags)
 
 } // namespace vull::vk

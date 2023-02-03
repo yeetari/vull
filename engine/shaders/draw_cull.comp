@@ -8,10 +8,10 @@ layout (constant_id = 0) const bool k_late = false;
 layout (local_size_x = 32) in;
 
 DECLARE_UBO(0, 0);
-DECLARE_DRAW_BUFFER(0, 3);
-DECLARE_OBJECT_BUFFER(0, 4);
-layout (set = 1, binding = 3) uniform sampler2D g_depth_pyramid;
-layout (set = 1, binding = 6) restrict buffer ObjectVisibility {
+DECLARE_DRAW_BUFFER(0, 4);
+DECLARE_OBJECT_BUFFER(0, 2);
+layout (binding = 8) uniform sampler2D g_depth_pyramid;
+layout (binding = 3) restrict buffer ObjectVisibility {
     uint g_visibility[];
 };
 

@@ -8,8 +8,8 @@ layout (location = 1) in vec3 g_normal;
 layout (location = 2) in vec2 g_uv;
 
 DECLARE_UBO(0, 0);
-DECLARE_DRAW_BUFFER(0, 3);
-DECLARE_OBJECT_BUFFER(0, 4);
+DECLARE_DRAW_BUFFER(0, 4);
+DECLARE_OBJECT_BUFFER(0, 2);
 
 layout (location = 0) out vec4 g_out_position;
 layout (location = 1) out vec4 g_out_normal;

@@ -41,12 +41,6 @@ CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context)
 }
 
 CommandBuffer::~CommandBuffer() {
-    if (m_completion_semaphore == nullptr) {
-        return;
-    }
-    [[maybe_unused]] uint64_t value;
-    VULL_ASSERT(m_context.vkGetSemaphoreCounterValue(m_completion_semaphore, &value) == vkb::Result::Success);
-    VULL_ASSERT(value == m_completion_value);
     m_context.vkDestroySemaphore(m_completion_semaphore);
 }
 

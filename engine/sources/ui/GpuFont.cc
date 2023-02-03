@@ -81,7 +81,7 @@ void GpuFont::rasterise(uint32_t glyph_index, uint8_t *descriptor_data, vkb::Sam
     vkb::DescriptorImageInfo image_info{
         .sampler = sampler,
         .imageView = m_image_views[glyph_index],
-        .imageLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
     };
     vkb::DescriptorGetInfoEXT descriptor_info{
         .sType = vkb::StructureType::DescriptorGetInfoEXT,

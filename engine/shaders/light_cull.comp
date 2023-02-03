@@ -14,8 +14,8 @@ layout (binding = 1, std430) restrict readonly buffer Lights {
     PointLight g_lights[];
 };
 
-layout (set = 1, binding = 2) uniform texture2D g_depth_image;
-layout (set = 1, binding = 5) restrict writeonly buffer LightVisibilities {
+layout (binding = 7) uniform texture2D g_depth_image;
+layout (binding = 9) restrict writeonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
 

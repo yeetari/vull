@@ -166,7 +166,7 @@ vk::Image Scene::load_image(vpak::ReadStream &stream) {
             .dstStageMask = vkb::PipelineStage2::AllCommands,
             .dstAccessMask = vkb::Access2::ShaderRead,
             .oldLayout = vkb::ImageLayout::TransferDstOptimal,
-            .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
+            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
             .image = *image,
             .subresourceRange{
                 .aspectMask = vkb::ImageAspect::Color,

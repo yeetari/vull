@@ -2,7 +2,7 @@
 #include "lib/common.glsl"
 
 layout (location = 0) in vec3 g_position;
-layout (set = 1, binding = 7) uniform samplerCube g_cube_map;
+layout (set = 1, binding = 0) uniform samplerCube g_cube_map;
 layout (location = 0) out vec4 g_out_colour;
 
 void main() {

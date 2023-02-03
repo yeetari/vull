@@ -1,6 +1,5 @@
 #include <vull/ui/Renderer.hh>
 
-#include <vull/graphics/RenderEngine.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -13,6 +12,7 @@
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
@@ -29,8 +29,8 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context, RenderEngine &render_engine, const vk::Swapchain &swapchain,
-                   const vk::Shader &vertex_shader, const vk::Shader &fragment_shader)
+Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
+                   const vk::Shader &fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
     VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
 
@@ -119,52 +119,54 @@ Renderer::Renderer(vk::Context &context, RenderEngine &render_engine, const vk::
                      .set_topology(vkb::PrimitiveTopology::TriangleList)
                      .set_viewport(swapchain.extent_2D())
                      .build(m_context);
-
-    auto &ui_data_resource = render_engine.add_storage_buffer("ui-data");
-    auto &ui_pass = render_engine.add_graphics_pass("ui-pass");
-    ui_pass.reads_from(ui_data_resource);
-    ui_pass.writes_to(render_engine.output_image());
-    ui_pass.set_on_record([this, &output_image = render_engine.output_image()](vk::CommandBuffer &cmd_buf) {
-        auto object_buffer =
-            m_context.create_buffer(sizeof(float) + m_objects.size_bytes(), vkb::BufferUsage::ShaderDeviceAddress,
-                                    vk::MemoryUsage::HostToDevice);
-        memcpy(object_buffer.mapped<float>(), &m_global_scale, sizeof(float));
-        memcpy(object_buffer.mapped<float>() + 1, m_objects.data(), m_objects.size_bytes());
-
-        const auto buffer_address = object_buffer.device_address();
-        cmd_buf.bind_associated_buffer(vull::move(object_buffer));
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 0, 0);
-
-        vkb::RenderingAttachmentInfo colour_write_attachment{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = output_image.view(),
-            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Load,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-        };
-        vkb::RenderingInfo rendering_info{
-            .sType = vkb::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = m_swapchain.extent_2D(),
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colour_write_attachment,
-        };
-        cmd_buf.bind_pipeline(m_pipeline);
-        cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, sizeof(vkb::DeviceAddress),
-                               &buffer_address);
-        cmd_buf.begin_rendering(rendering_info);
-        cmd_buf.draw(6, m_objects.size());
-        cmd_buf.end_rendering();
-        m_objects.clear();
-    });
 }
 
 Renderer::~Renderer() {
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
     m_context.vkDestroySampler(m_font_sampler);
     FT_Done_FreeType(m_ft_library);
+}
+
+vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target) {
+    return graph.add_pass<vk::ResourceId>(
+        "ui-pass", vk::PassFlags::Graphics,
+        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+            output = builder.write(target, vk::WriteFlags::Additive);
+        },
+        [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
+            auto object_buffer =
+                m_context.create_buffer(sizeof(float) + m_objects.size_bytes(), vkb::BufferUsage::ShaderDeviceAddress,
+                                        vk::MemoryUsage::HostToDevice);
+            memcpy(object_buffer.mapped<float>(), &m_global_scale, sizeof(float));
+            memcpy(object_buffer.mapped<float>() + 1, m_objects.data(), m_objects.size_bytes());
+
+            const auto buffer_address = object_buffer.device_address();
+            cmd_buf.bind_associated_buffer(vull::move(object_buffer));
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 0, 0);
+
+            vkb::RenderingAttachmentInfo colour_write_attachment{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *graph.get_image(output).full_view(),
+                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Load,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+            };
+            vkb::RenderingInfo rendering_info{
+                .sType = vkb::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = m_swapchain.extent_2D(),
+                },
+                .layerCount = 1,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = &colour_write_attachment,
+            };
+            cmd_buf.bind_pipeline(m_pipeline);
+            cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, buffer_address);
+            cmd_buf.begin_rendering(rendering_info);
+            cmd_buf.draw(6, m_objects.size());
+            cmd_buf.end_rendering();
+            m_objects.clear();
+        });
 }
 
 GpuFont Renderer::load_font(StringView path, ssize_t size) {

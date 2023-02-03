@@ -6,7 +6,6 @@
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
-#include <vull/graphics/RenderEngine.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Projection.hh>
@@ -90,129 +89,112 @@ struct Vertex {
 
 } // namespace
 
-DefaultRenderer::DefaultRenderer(vk::Context &context, RenderEngine &render_engine, ShaderMap &&shader_map,
-                                 vkb::Extent3D viewport_extent)
-    : m_context(context), m_render_engine(render_engine), m_viewport_extent(viewport_extent) {
+DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, vkb::Extent3D viewport_extent)
+    : m_context(context), m_viewport_extent(viewport_extent), m_shader_map(vull::move(shader_map)) {
     m_tile_extent = {
         .width = vull::ceil_div(m_viewport_extent.width, k_tile_size),
         .height = vull::ceil_div(m_viewport_extent.height, k_tile_size),
     };
     create_set_layouts();
     create_resources();
-    create_pipelines(vull::move(shader_map));
-    create_render_graph();
+    create_pipelines();
 }
 
 DefaultRenderer::~DefaultRenderer() {
-    m_context.vkDestroySampler(m_skybox_sampler);
     m_context.vkDestroySampler(m_shadow_sampler);
     m_context.vkDestroySampler(m_depth_reduce_sampler);
     m_context.vkDestroyDescriptorSetLayout(m_reduce_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_texture_set_layout);
-    m_context.vkDestroyDescriptorSetLayout(m_dynamic_set_layout);
-    m_context.vkDestroyDescriptorSetLayout(m_static_set_layout);
+    m_context.vkDestroyDescriptorSetLayout(m_main_set_layout);
 }
 
 void DefaultRenderer::create_set_layouts() {
-    Array static_set_bindings{
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 0,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 1,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 3,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 4,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 5,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 6,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 7,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Fragment,
-        },
-    };
-    vkb::DescriptorSetLayoutCreateInfo static_set_layout_ci{
-        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
-        .bindingCount = static_set_bindings.size(),
-        .pBindings = static_set_bindings.data(),
-    };
-    VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&static_set_layout_ci, &m_static_set_layout) ==
-                vkb::Result::Success);
-
-    Array dynamic_set_bindings{
+    Array main_set_bindings{
+        // Frame UBO.
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vkb::DescriptorType::UniformBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::All,
         },
+        // Light buffer.
         vkb::DescriptorSetLayoutBinding{
             .binding = 1,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
+        // Object buffer.
         vkb::DescriptorSetLayoutBinding{
             .binding = 2,
-            .descriptorType = vkb::DescriptorType::StorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 3,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
         },
+        // Object visibility.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 3,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Draw buffer.
         vkb::DescriptorSetLayoutBinding{
             .binding = 4,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
         },
+        // Albedo image.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 5,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Normal image.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 6,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Depth image.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 7,
+            .descriptorType = vkb::DescriptorType::SampledImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Depth pyramid.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 8,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Light visibility.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 9,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // Output image.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 10,
+            .descriptorType = vkb::DescriptorType::StorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute,
+        },
     };
-    vkb::DescriptorSetLayoutCreateInfo dynamic_set_layout_ci{
+    vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
         .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
-        .bindingCount = dynamic_set_bindings.size(),
-        .pBindings = dynamic_set_bindings.data(),
+        .bindingCount = main_set_bindings.size(),
+        .pBindings = main_set_bindings.data(),
     };
-    VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&dynamic_set_layout_ci, &m_dynamic_set_layout) ==
-                vkb::Result::Success);
+    VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&main_set_layout_ci, &m_main_set_layout) == vkb::Result::Success);
 
     vkb::DescriptorSetLayoutBinding texture_set_binding{
         .binding = 0,
@@ -259,76 +241,15 @@ void DefaultRenderer::create_set_layouts() {
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&reduce_set_layout_ci, &m_reduce_set_layout) ==
                 vkb::Result::Success);
 
-    m_context.vkGetDescriptorSetLayoutSizeEXT(m_static_set_layout, &m_static_set_layout_size);
-    m_context.vkGetDescriptorSetLayoutSizeEXT(m_dynamic_set_layout, &m_dynamic_set_layout_size);
+    // TODO: Align up sizes to descriptorBufferOffsetAlignment.
+    m_context.vkGetDescriptorSetLayoutSizeEXT(m_main_set_layout, &m_main_set_layout_size);
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_texture_set_layout, &m_texture_set_layout_size);
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_reduce_set_layout, &m_reduce_set_layout_size);
 }
 
 void DefaultRenderer::create_resources() {
-    vkb::ImageCreateInfo albedo_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::R8G8B8A8Unorm,
-        .extent = m_viewport_extent,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_albedo_image = m_context.create_image(albedo_image_ci, vk::MemoryUsage::DeviceOnly);
-
-    vkb::ImageCreateInfo normal_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::R16G16Sfloat,
-        .extent = m_viewport_extent,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_normal_image = m_context.create_image(normal_image_ci, vk::MemoryUsage::DeviceOnly);
-
-    vkb::ImageCreateInfo depth_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::D32Sfloat,
-        .extent = m_viewport_extent,
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_depth_image = m_context.create_image(depth_image_ci, vk::MemoryUsage::DeviceOnly);
-
     // Round down viewport to previous power of two.
     m_depth_pyramid_extent = {1u << vull::log2(m_viewport_extent.width), 1u << vull::log2(m_viewport_extent.height)};
-    const auto depth_pyramid_mip_count =
-        vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
-    vkb::ImageCreateInfo depth_pyramid_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::R16Sfloat,
-        .extent = {m_depth_pyramid_extent.width, m_depth_pyramid_extent.height, 1},
-        .mipLevels = depth_pyramid_mip_count,
-        .arrayLayers = 1,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_depth_pyramid_image = m_context.create_image(depth_pyramid_image_ci, vk::MemoryUsage::DeviceOnly);
     vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
         .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
         .reductionMode = vkb::SamplerReductionMode::Min,
@@ -346,20 +267,6 @@ void DefaultRenderer::create_resources() {
     };
     VULL_ENSURE(m_context.vkCreateSampler(&depth_reduce_sampler_ci, &m_depth_reduce_sampler) == vkb::Result::Success);
 
-    vkb::ImageCreateInfo shadow_map_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::D32Sfloat,
-        .extent = {k_shadow_resolution, k_shadow_resolution, 1},
-        .mipLevels = 1,
-        .arrayLayers = k_cascade_count,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_shadow_map_image = m_context.create_image(shadow_map_image_ci, vk::MemoryUsage::DeviceOnly);
     vkb::SamplerCreateInfo shadow_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Linear,
@@ -374,66 +281,15 @@ void DefaultRenderer::create_resources() {
     };
     VULL_ENSURE(m_context.vkCreateSampler(&shadow_sampler_ci, &m_shadow_sampler) == vkb::Result::Success);
 
-    vkb::ImageCreateInfo skybox_image_ci{
-        .sType = vkb::StructureType::ImageCreateInfo,
-        .flags = vkb::ImageCreateFlags::CubeCompatible,
-        .imageType = vkb::ImageType::_2D,
-        .format = vkb::Format::R8G8B8A8Srgb,
-        .extent = {1024, 1024, 1},
-        .mipLevels = 1,
-        .arrayLayers = 6,
-        .samples = vkb::SampleCount::_1,
-        .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::TransferDst,
-        .sharingMode = vkb::SharingMode::Exclusive,
-        .initialLayout = vkb::ImageLayout::Undefined,
-    };
-    m_skybox_image = m_context.create_image(skybox_image_ci, vk::MemoryUsage::DeviceOnly);
-    vkb::SamplerCreateInfo skybox_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&skybox_sampler_ci, &m_skybox_sampler) == vkb::Result::Success);
-
-    const auto light_visibility_buffer_size =
-        (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width * m_tile_extent.height;
-    m_light_visibility_buffer = m_context.create_buffer(light_visibility_buffer_size, vkb::BufferUsage::StorageBuffer,
-                                                        vk::MemoryUsage::DeviceOnly);
-
     m_object_visibility_buffer = m_context.create_buffer(
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
     m_context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.zero_buffer(m_object_visibility_buffer, 0, m_object_visibility_buffer.size());
     });
-
-    m_static_descriptor_buffer =
-        m_context.create_buffer(m_static_set_layout_size,
-                                vkb::BufferUsage::SamplerDescriptorBufferEXT |
-                                    vkb::BufferUsage::ResourceDescriptorBufferEXT | vkb::BufferUsage::TransferDst,
-                                vk::MemoryUsage::DeviceOnly);
-
-    // Fill static descriptor buffer now.
-    auto staging_buffer = m_static_descriptor_buffer.create_staging();
-    vk::DescriptorBuilder builder(staging_buffer);
-    builder.put(m_albedo_image.full_view(), false);
-    builder.put(m_normal_image.full_view(), false);
-    builder.put(m_depth_image.full_view(), false);
-    builder.put(m_depth_reduce_sampler, m_depth_pyramid_image.full_view());
-    builder.put(m_shadow_sampler, m_shadow_map_image.full_view());
-    builder.put(m_light_visibility_buffer);
-    builder.put(m_object_visibility_buffer);
-    builder.put(m_skybox_sampler, m_skybox_image.full_view());
-    m_static_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
-void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
+void DefaultRenderer::create_pipelines() {
     struct SpecializationData {
         uint32_t viewport_width;
         uint32_t viewport_height;
@@ -493,33 +349,23 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
         .pData = &late,
     };
 
-    m_skybox_pipeline = vk::PipelineBuilder()
-                            .add_colour_attachment(vkb::Format::B8G8R8A8Unorm)
-                            .add_set_layout(m_dynamic_set_layout)
-                            .add_set_layout(m_static_set_layout)
-                            .add_shader(*shader_map.get("skybox-vert"))
-                            .add_shader(*shader_map.get("skybox-frag"))
-                            .set_topology(vkb::PrimitiveTopology::TriangleList)
-                            .set_viewport(m_viewport_extent)
-                            .build(m_context);
-
     m_gbuffer_pipeline = vk::PipelineBuilder()
-                             .add_colour_attachment(m_albedo_image.format())
-                             .add_colour_attachment(m_normal_image.format())
-                             .add_set_layout(m_dynamic_set_layout)
+                             .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
+                             .add_colour_attachment(vkb::Format::R16G16Sfloat)
+                             .add_set_layout(m_main_set_layout)
                              .add_set_layout(m_texture_set_layout)
-                             .add_shader(*shader_map.get("gbuffer-vert"), specialization_info)
-                             .add_shader(*shader_map.get("gbuffer-frag"), specialization_info)
+                             .add_shader(*m_shader_map.get("gbuffer-vert"), specialization_info)
+                             .add_shader(*m_shader_map.get("gbuffer-frag"), specialization_info)
                              .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
-                             .set_depth_format(m_depth_image.format())
+                             .set_depth_format(vkb::Format::D32Sfloat)
                              .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
                              .set_topology(vkb::PrimitiveTopology::TriangleList)
                              .set_viewport(m_viewport_extent)
                              .build(m_context);
 
     m_shadow_pipeline = vk::PipelineBuilder()
-                            .add_set_layout(m_dynamic_set_layout)
-                            .add_shader(*shader_map.get("shadow"), specialization_info)
+                            .add_set_layout(m_main_set_layout)
+                            .add_shader(*m_shader_map.get("shadow"), specialization_info)
                             .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                             .set_depth_bias(2.0f, 5.0f)
                             .set_depth_format(vkb::Format::D32Sfloat)
@@ -534,7 +380,7 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
 
     m_depth_reduce_pipeline = vk::PipelineBuilder()
                                   .add_set_layout(m_reduce_set_layout)
-                                  .add_shader(*shader_map.get("depth-reduce"))
+                                  .add_shader(*m_shader_map.get("depth-reduce"))
                                   .set_push_constant_range({
                                       .stageFlags = vkb::ShaderStage::Compute,
                                       .size = sizeof(DepthReduceData),
@@ -542,420 +388,120 @@ void DefaultRenderer::create_pipelines(ShaderMap &&shader_map) {
                                   .build(m_context);
 
     m_early_cull_pipeline = vk::PipelineBuilder()
-                                .add_set_layout(m_dynamic_set_layout)
-                                .add_set_layout(m_static_set_layout)
-                                .add_shader(*shader_map.get("draw-cull"))
+                                .add_set_layout(m_main_set_layout)
+                                .add_shader(*m_shader_map.get("draw-cull"))
                                 .build(m_context);
 
     m_late_cull_pipeline = vk::PipelineBuilder()
-                               .add_set_layout(m_dynamic_set_layout)
-                               .add_set_layout(m_static_set_layout)
-                               .add_shader(*shader_map.get("draw-cull"), late_specialization_info)
+                               .add_set_layout(m_main_set_layout)
+                               .add_shader(*m_shader_map.get("draw-cull"), late_specialization_info)
                                .build(m_context);
 
     m_light_cull_pipeline = vk::PipelineBuilder()
-                                .add_set_layout(m_dynamic_set_layout)
-                                .add_set_layout(m_static_set_layout)
-                                .add_shader(*shader_map.get("light-cull"), specialization_info)
+                                .add_set_layout(m_main_set_layout)
+                                .add_shader(*m_shader_map.get("light-cull"), specialization_info)
                                 .build(m_context);
 
     m_deferred_pipeline = vk::PipelineBuilder()
-                              .add_set_layout(m_dynamic_set_layout)
-                              .add_set_layout(m_static_set_layout)
-                              .add_shader(*shader_map.get("deferred"), specialization_info)
+                              .add_set_layout(m_main_set_layout)
+                              .add_shader(*m_shader_map.get("deferred"), specialization_info)
                               .build(m_context);
 }
 
-void DefaultRenderer::create_render_graph() {
-    auto &albedo_image_resource = m_render_engine.add_image("gbuffer-albedo");
-    auto &normal_image_resource = m_render_engine.add_image("gbuffer-normal");
-    auto &depth_image_resource = m_render_engine.add_image("gbuffer-depth");
-    auto &depth_pyramid_resource = m_render_engine.add_image("depth-pyramid");
-    auto &shadow_map_resource = m_render_engine.add_image("shadow-map");
-    auto &light_visibility_buffer_resource = m_render_engine.add_storage_buffer("light-visibility-buffer");
-    auto &object_visibility_buffer_resource = m_render_engine.add_storage_buffer("object-visibility-buffer");
-    albedo_image_resource.set(m_albedo_image.full_view());
-    normal_image_resource.set(m_normal_image.full_view());
-    depth_image_resource.set(m_depth_image.full_view());
-    depth_pyramid_resource.set(m_depth_pyramid_image.full_view());
-    shadow_map_resource.set(m_shadow_map_image.full_view());
-    light_visibility_buffer_resource.set(m_light_visibility_buffer);
-    object_visibility_buffer_resource.set(m_object_visibility_buffer);
+void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
+    m_scene = &scene;
+    m_texture_descriptor_buffer = m_context.create_buffer(
+        scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
+        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
-    m_uniform_buffer_resource = &m_render_engine.add_uniform_buffer("global-ubo");
-    m_light_buffer_resource = &m_render_engine.add_storage_buffer("light-buffer");
-    m_early_draw_buffer_resource = &m_render_engine.add_storage_buffer("early-draw-buffer");
-    m_late_draw_buffer_resource = &m_render_engine.add_storage_buffer("late-draw-buffer");
-    m_early_draw_buffer_resource->set_is_indirect_draw(true);
-    m_late_draw_buffer_resource->set_is_indirect_draw(true);
+    auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
+    vk::DescriptorBuilder descriptor_builder(m_texture_set_layout, texture_descriptor_staging_buffer);
+    for (uint32_t i = 0; i < scene.texture_count(); i++) {
+        descriptor_builder.set(0, i, scene.texture_samplers()[i], scene.texture_images()[i].full_view());
+    }
+    m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
 
-    // TODO: Rendering the skybox last may be faster.
-    auto &skybox_pass = m_render_engine.add_graphics_pass("skybox");
-    skybox_pass.reads_from(*m_uniform_buffer_resource);
-    skybox_pass.writes_to(m_render_engine.output_image());
-    skybox_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_static_descriptor_buffer, 1, 0);
-        vkb::RenderingAttachmentInfo colour_write_attachment{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = m_render_engine.output_image().view(),
-            .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::DontCare,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-        };
-        vkb::RenderingInfo rendering_info{
-            .sType = vkb::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = &colour_write_attachment,
-        };
-        cmd_buf.bind_pipeline(m_skybox_pipeline);
-        cmd_buf.begin_rendering(rendering_info);
-        cmd_buf.draw(36, 1);
-        cmd_buf.end_rendering();
-    });
+    vkb::DeviceSize vertex_buffer_size = 0;
+    vkb::DeviceSize index_buffer_size = 0;
+    HashSet<String> seen_vertex_buffers;
+    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
+        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
+            continue;
+        }
+        const auto vertices_size = pack_reader.stat(mesh.vertex_data_name())->size;
+        const auto indices_size = pack_reader.stat(mesh.index_data_name())->size;
+        m_mesh_infos.set(mesh.vertex_data_name(),
+                         MeshInfo{
+                             .index_count = static_cast<uint32_t>(indices_size / sizeof(uint32_t)),
+                             .index_offset = static_cast<uint32_t>(index_buffer_size / sizeof(uint32_t)),
+                             .vertex_offset = static_cast<int32_t>(vertex_buffer_size / sizeof(Vertex)),
+                         });
+        vertex_buffer_size += vertices_size;
+        index_buffer_size += indices_size;
+    }
 
-    // TODO: object_visibility_buffer_resource should be read from early_cull_pass and written from late_cull_pass, but
-    //       since the render graph isn't interframe then it wouldn't be correct. Sync is currently fine because of the
-    //       big frame barrier.
+    m_vertex_buffer =
+        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::VertexBuffer | vkb::BufferUsage::TransferDst,
+                                vk::MemoryUsage::DeviceOnly);
+    m_index_buffer = m_context.create_buffer(
+        index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
 
-    auto &early_cull_pass = m_render_engine.add_compute_pass("early-cull");
-    early_cull_pass.reads_from(*m_uniform_buffer_resource);
-    early_cull_pass.writes_to(*m_early_draw_buffer_resource);
-    early_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.zero_buffer(m_draw_buffer, 0, sizeof(uint32_t));
-        cmd_buf.buffer_barrier({
-            .sType = vkb::StructureType::BufferMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::ComputeShader,
-            .dstAccessMask = vkb::Access2::ShaderStorageRead,
-            .buffer = *m_draw_buffer,
-            .size = sizeof(uint32_t),
+    seen_vertex_buffers.clear();
+    vkb::DeviceSize vertex_buffer_offset = 0;
+    vkb::DeviceSize index_buffer_offset = 0;
+    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
+        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
+            continue;
+        }
+
+        auto vertex_entry = *pack_reader.stat(mesh.vertex_data_name());
+        auto vertex_stream = *pack_reader.open(mesh.vertex_data_name());
+        auto staging_buffer =
+            m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        VULL_EXPECT(vertex_stream.read({staging_buffer.mapped_raw(), vertex_entry.size}));
+
+        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+            vkb::BufferCopy copy{
+                .dstOffset = vertex_buffer_offset,
+                .size = vertex_entry.size,
+            };
+            cmd_buf.copy_buffer(staging_buffer, m_vertex_buffer, copy);
         });
+        vertex_buffer_offset += vertex_entry.size;
 
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
-        cmd_buf.bind_pipeline(m_early_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
-    });
+        auto index_entry = *pack_reader.stat(mesh.index_data_name());
+        auto index_stream = *pack_reader.open(mesh.index_data_name());
+        staging_buffer =
+            m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        VULL_EXPECT(index_stream.read({staging_buffer.mapped_raw(), index_entry.size}));
 
-    auto &early_draw_pass = m_render_engine.add_graphics_pass("early-draw");
-    early_draw_pass.reads_from(*m_uniform_buffer_resource);
-    early_draw_pass.reads_from(*m_early_draw_buffer_resource);
-    early_draw_pass.writes_to(albedo_image_resource);
-    early_draw_pass.writes_to(normal_image_resource);
-    early_draw_pass.writes_to(depth_image_resource);
-    early_draw_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-        Array colour_write_attachments{
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_albedo_image.full_view(),
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_normal_image.full_view(),
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-        };
-        vkb::RenderingAttachmentInfo depth_write_attachment{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = *m_depth_image.full_view(),
-            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Clear,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-            .clearValue{
-                .depthStencil{0.0f, 0},
-            },
-        };
-        vkb::RenderingInfo rendering_info{
-            .sType = vkb::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = colour_write_attachments.size(),
-            .pColorAttachments = colour_write_attachments.data(),
-            .pDepthAttachment = &depth_write_attachment,
-        };
-        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-        cmd_buf.begin_rendering(rendering_info);
-        record_draws(cmd_buf);
-        cmd_buf.end_rendering();
-    });
-
-    auto &depth_reduce_pass = m_render_engine.add_compute_pass("depth-reduce");
-    depth_reduce_pass.reads_from(depth_image_resource);
-    depth_reduce_pass.writes_to(depth_pyramid_resource);
-    depth_reduce_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        // TODO(rg-conditional)
-        if (m_cull_view_locked) {
-            return;
-        }
-
-        const uint32_t level_count = m_depth_pyramid_image.full_view().range().levelCount;
-        auto descriptor_buffer =
-            m_context.create_buffer(m_reduce_set_layout_size * level_count,
-                                    vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
-
-        vk::DescriptorBuilder descriptor_builder(descriptor_buffer);
-        for (uint32_t i = 0; i < level_count; i++) {
-            const auto &input_view = i != 0 ? m_depth_pyramid_image.level_view(i - 1) : m_depth_image.full_view();
-            descriptor_builder.put(m_depth_reduce_sampler, input_view);
-            descriptor_builder.put(m_depth_pyramid_image.level_view(i), true);
-        }
-
-        vkb::DeviceSize descriptor_offset = 0;
-        cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
-        for (uint32_t i = 0; i < level_count; i++) {
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
-            descriptor_offset += m_reduce_set_layout_size;
-
-            DepthReduceData shader_data{
-                .mip_size{
-                    vull::max(m_depth_pyramid_extent.width >> i, 1u),
-                    vull::max(m_depth_pyramid_extent.height >> i, 1u),
-                },
+        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+            vkb::BufferCopy copy{
+                .dstOffset = index_buffer_offset,
+                .size = index_entry.size,
             };
-            cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
-
-            vkb::ImageMemoryBarrier2 sample_barrier{
-                .sType = vkb::StructureType::ImageMemoryBarrier2,
-                .srcStageMask = vkb::PipelineStage2::ComputeShader,
-                .srcAccessMask = vkb::Access2::ShaderStorageWrite,
-                .dstStageMask = vkb::PipelineStage2::ComputeShader,
-                .dstAccessMask = vkb::Access2::ShaderSampledRead,
-                .oldLayout = vkb::ImageLayout::General,
-                .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-                .image = *m_depth_pyramid_image,
-                .subresourceRange{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .baseMipLevel = i,
-                    .levelCount = 1,
-                    .layerCount = 1,
-                },
-            };
-            cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
-                             vull::ceil_div(shader_data.mip_size.y(), 32u));
-            cmd_buf.image_barrier(sample_barrier);
-        }
-        cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
-
-        // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we must
-        //       transition it back to General.
-        vkb::ImageMemoryBarrier2 general_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::ComputeShader,
-            .srcAccessMask = vkb::Access2::ShaderStorageWrite,
-            .dstStageMask = vkb::PipelineStage2::AllCommands,
-            .dstAccessMask = vkb::Access2::ShaderSampledRead,
-            .oldLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            .newLayout = vkb::ImageLayout::General,
-            .image = *m_depth_pyramid_image,
-            .subresourceRange = m_depth_pyramid_image.full_view().range(),
-        };
-        cmd_buf.image_barrier(general_barrier);
-    });
-
-    auto &late_cull_pass = m_render_engine.add_compute_pass("late-cull");
-    late_cull_pass.reads_from(*m_uniform_buffer_resource);
-    late_cull_pass.reads_from(depth_pyramid_resource);
-    late_cull_pass.writes_to(*m_late_draw_buffer_resource);
-    late_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        // Prevent write-after-read.
-        cmd_buf.buffer_barrier({
-            .sType = vkb::StructureType::BufferMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::DrawIndirect,
-            .srcAccessMask = vkb::Access2::IndirectCommandRead,
-            .dstStageMask = vkb::PipelineStage2::Copy,
-            .dstAccessMask = vkb::Access2::TransferWrite,
-            .buffer = *m_draw_buffer,
-            .size = vkb::k_whole_size,
+            cmd_buf.copy_buffer(staging_buffer, m_index_buffer, copy);
         });
-        cmd_buf.zero_buffer(m_draw_buffer, 0, sizeof(uint32_t));
-        cmd_buf.buffer_barrier({
-            .sType = vkb::StructureType::BufferMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::ComputeShader,
-            .dstAccessMask = vkb::Access2::ShaderStorageRead,
-            .buffer = *m_draw_buffer,
-            .size = sizeof(uint32_t),
-        });
-
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
-        cmd_buf.bind_pipeline(m_late_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
-    });
-
-    auto &late_draw_pass = m_render_engine.add_graphics_pass("late-draw");
-    late_draw_pass.reads_from(*m_uniform_buffer_resource);
-    late_draw_pass.reads_from(*m_late_draw_buffer_resource);
-    late_draw_pass.writes_to(albedo_image_resource);
-    late_draw_pass.writes_to(normal_image_resource);
-    late_draw_pass.writes_to(depth_image_resource);
-    late_draw_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-        Array colour_write_attachments{
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_albedo_image.full_view(),
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-            vkb::RenderingAttachmentInfo{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_normal_image.full_view(),
-                .imageLayout = vkb::ImageLayout::ColorAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                },
-            },
-        };
-        vkb::RenderingAttachmentInfo depth_write_attachment{
-            .sType = vkb::StructureType::RenderingAttachmentInfo,
-            .imageView = *m_depth_image.full_view(),
-            .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-            .loadOp = vkb::AttachmentLoadOp::Load,
-            .storeOp = vkb::AttachmentStoreOp::Store,
-            .clearValue{
-                .depthStencil{0.0f, 0},
-            },
-        };
-        vkb::RenderingInfo rendering_info{
-            .sType = vkb::StructureType::RenderingInfo,
-            .renderArea{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-            },
-            .layerCount = 1,
-            .colorAttachmentCount = colour_write_attachments.size(),
-            .pColorAttachments = colour_write_attachments.data(),
-            .pDepthAttachment = &depth_write_attachment,
-        };
-        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-        cmd_buf.begin_rendering(rendering_info);
-        record_draws(cmd_buf);
-        cmd_buf.end_rendering();
-    });
-
-#if 0
-    auto &shadow_pass = m_render_graph.add_graphics_pass("shadow-pass");
-    shadow_pass.reads_from(*m_uniform_buffer_resource);
-    shadow_pass.reads_from(*m_draw_buffer_resource);
-    shadow_pass.writes_to(shadow_map_resource);
-    shadow_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_pipeline(m_shadow_pipeline);
-        for (uint32_t i = 0; i < k_cascade_count; i++) {
-            vkb::RenderingAttachmentInfo shadow_map_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *m_shadow_cascade_views[i],
-                .imageLayout = vkb::ImageLayout::DepthAttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .depthStencil{1.0f, 0},
-                },
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {k_shadow_resolution, k_shadow_resolution},
-                },
-                .layerCount = 1,
-                .pDepthAttachment = &shadow_map_write_attachment,
-            };
-            ShadowPushConstantBlock push_constant_block{
-                .cascade_index = i,
-            };
-            cmd_buf.begin_rendering(rendering_info);
-            cmd_buf.push_constants(vkb::ShaderStage::Vertex, push_constant_block);
-            record_draws(cmd_buf);
-            cmd_buf.end_rendering();
-        }
-    });
-#endif
-
-    auto &light_cull_pass = m_render_engine.add_compute_pass("light-cull");
-    light_cull_pass.reads_from(*m_uniform_buffer_resource);
-    light_cull_pass.reads_from(*m_light_buffer_resource);
-    light_cull_pass.reads_from(depth_image_resource);
-    light_cull_pass.writes_to(light_visibility_buffer_resource);
-    light_cull_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_dynamic_descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, m_static_descriptor_buffer, 1, 0);
-        cmd_buf.bind_pipeline(m_light_cull_pipeline);
-        cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
-    });
-
-    auto &deferred_pass = m_render_engine.add_compute_pass("deferred-pass");
-    deferred_pass.reads_from(*m_uniform_buffer_resource);
-    deferred_pass.reads_from(*m_light_buffer_resource);
-    deferred_pass.reads_from(albedo_image_resource);
-    deferred_pass.reads_from(normal_image_resource);
-    deferred_pass.reads_from(depth_image_resource);
-    deferred_pass.reads_from(depth_pyramid_resource);
-    deferred_pass.reads_from(shadow_map_resource);
-    deferred_pass.reads_from(light_visibility_buffer_resource);
-    deferred_pass.writes_to(m_render_engine.output_image());
-    deferred_pass.set_on_record([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.bind_pipeline(m_deferred_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
-        cmd_buf.bind_associated_buffer(vull::move(m_dynamic_descriptor_buffer));
-        cmd_buf.bind_associated_buffer(vull::move(m_draw_buffer));
-    });
+        index_buffer_offset += index_entry.size;
+    }
+    VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
+    VULL_ENSURE(index_buffer_offset == index_buffer_size);
 }
 
-void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf) {
+void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer) {
     cmd_buf.bind_vertex_buffer(m_vertex_buffer);
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
-    cmd_buf.draw_indexed_indirect_count(m_draw_buffer, sizeof(uint32_t), m_draw_buffer, 0, m_object_count,
-                                        sizeof(DrawCmd));
+    cmd_buf.draw_indexed_indirect_count(draw_buffer, sizeof(uint32_t), draw_buffer, 0, m_object_count, sizeof(DrawCmd));
 }
 
-void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
-    Array lights{
-        PointLight{
-            .position = Vec3f(0.0f),
-            .radius = 1.0f,
-            .colour = Vec3f(1.0f),
-        },
-    };
-
-    auto uniform_buffer =
-        m_context.create_buffer(sizeof(UniformBuffer), vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice);
-    m_uniform_buffer_resource->set(uniform_buffer);
-
-    // TODO: Light buffer may benefit from being DeviceOnly and transferred to.
-    auto light_buffer = m_context.create_buffer(lights.size_bytes() + 4 * sizeof(float),
-                                                vkb::BufferUsage::UniformBuffer, vk::MemoryUsage::HostToDevice);
-    m_light_buffer_resource->set(light_buffer);
-    uint32_t light_count = lights.size();
-    memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
-    memcpy(light_buffer.mapped<uint8_t>() + 4 * sizeof(float), lights.data(), lights.size_bytes());
+Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pass(vk::RenderGraph &graph,
+                                                                                  vk::ResourceId target) {
+    Vector<PointLight> lights;
+    lights.push(PointLight{
+        .position = Vec3f(0.0f),
+        .radius = 1.0f,
+        .colour = Vec3f(1.0f),
+    });
 
     Vector<Object> objects;
     for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
@@ -986,55 +532,415 @@ void DefaultRenderer::update_buffers(vk::CommandBuffer &cmd_buf) {
     // Cap object count just in case.
     m_object_count = vull::min(objects.size(), k_object_limit);
 
-    if (!m_cull_view_locked) {
-        auto proj_view_t = vull::transpose(m_proj * m_view);
-        m_frustum_planes[0] = proj_view_t[3] + proj_view_t[0]; // left
-        m_frustum_planes[1] = proj_view_t[3] - proj_view_t[0]; // right
-        m_frustum_planes[2] = proj_view_t[3] + proj_view_t[1]; // bottom
-        m_frustum_planes[3] = proj_view_t[3] - proj_view_t[1]; // top
-        for (auto &plane : m_frustum_planes) {
-            plane /= vull::magnitude(Vec3f(plane));
-        }
-        m_cull_view = m_view;
-    }
-    *uniform_buffer.mapped<UniformBuffer>() = {
-        .proj = m_proj,
-        .inv_proj = vull::inverse(m_proj),
-        .view = m_view,
-        .proj_view = m_proj * m_view,
-        .inv_proj_view = vull::inverse(m_proj * m_view),
-        .cull_view = m_cull_view,
-        .view_position = m_view_position,
-        .object_count = m_object_count,
-        .frustum_planes = m_frustum_planes,
-        .shadow_info = m_shadow_info,
+    struct PassData {
+        vk::ResourceId descriptor_buffer;
+        vk::ResourceId frame_ubo;
+        vk::ResourceId light_buffer;
+        vk::ResourceId object_buffer;
+        vk::ResourceId draw_buffer;
+        vk::ResourceId albedo_image;
+        vk::ResourceId normal_image;
+        vk::ResourceId depth_image;
+        vk::ResourceId depth_pyramid;
+        vk::ResourceId light_visibility;
+        Vector<PointLight> lights;
+        Vector<Object> objects;
+        vk::DescriptorBuilder descriptor_builder;
     };
-    m_draw_buffer = m_context.create_buffer(sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
-                                            vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::StorageBuffer |
-                                                vkb::BufferUsage::TransferDst,
-                                            vk::MemoryUsage::DeviceOnly);
-    m_early_draw_buffer_resource->set(m_draw_buffer);
-    m_late_draw_buffer_resource->set(m_draw_buffer);
+    auto &data = graph.add_pass<PassData>(
+        "setup-frame", vk::PassFlags::Transfer,
+        [&](vk::PassBuilder &builder, PassData &data) {
+            vk::BufferDescription descriptor_buffer_description{
+                .size = m_main_set_layout_size,
+                .usage = vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
+                .host_accessible = true,
+            };
+            vk::BufferDescription frame_ubo_description{
+                .size = sizeof(UniformBuffer),
+                .usage = vkb::BufferUsage::UniformBuffer,
+                .host_accessible = true,
+            };
+            vk::BufferDescription light_buffer_description{
+                .size = lights.size_bytes() * 4 + sizeof(float),
+                .usage = vkb::BufferUsage::StorageBuffer,
+                .host_accessible = true,
+            };
+            vk::BufferDescription object_buffer_description{
+                .size = objects.size_bytes(),
+                .usage = vkb::BufferUsage::StorageBuffer,
+                .host_accessible = true,
+            };
+            data.descriptor_buffer = builder.new_buffer("descriptor-buffer", descriptor_buffer_description);
+            data.frame_ubo = builder.new_buffer("frame-ubo", frame_ubo_description);
+            data.light_buffer = builder.new_buffer("light-buffer", light_buffer_description);
+            data.object_buffer = builder.new_buffer("object-buffer", object_buffer_description);
+            data.lights = vull::move(lights);
+            data.objects = vull::move(objects);
+        },
+        [this](vk::RenderGraph &graph, vk::CommandBuffer &, PassData &data) {
+            const auto &frame_ubo = graph.get_buffer(data.frame_ubo);
+            const auto &light_buffer = graph.get_buffer(data.light_buffer);
+            const auto &object_buffer = graph.get_buffer(data.object_buffer);
 
-    auto object_buffer =
-        m_context.create_buffer(objects.size_bytes(), vkb::BufferUsage::StorageBuffer, vk::MemoryUsage::HostToDevice);
-    memcpy(object_buffer.mapped<Object>(), objects.data(), objects.size_bytes());
+            UniformBuffer frame_ubo_data{
+                .proj = m_proj,
+                .inv_proj = vull::inverse(m_proj),
+                .view = m_view,
+                .proj_view = m_proj * m_view,
+                .inv_proj_view = vull::inverse(m_proj * m_view),
+                .cull_view = m_cull_view,
+                .view_position = m_view_position,
+                .object_count = m_object_count,
+                .frustum_planes = m_frustum_planes,
+                .shadow_info = m_shadow_info,
+            };
+            memcpy(frame_ubo.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
 
-    m_dynamic_descriptor_buffer = m_context.create_buffer(m_dynamic_set_layout_size,
-                                                          vkb::BufferUsage::SamplerDescriptorBufferEXT |
-                                                              vkb::BufferUsage::ResourceDescriptorBufferEXT,
-                                                          vk::MemoryUsage::HostToDevice);
-    vk::DescriptorBuilder descriptor_builder(m_dynamic_descriptor_buffer);
-    descriptor_builder.put(uniform_buffer);
-    descriptor_builder.put(light_buffer);
-    descriptor_builder.put(m_render_engine.output_image().view());
-    descriptor_builder.put(m_draw_buffer);
-    descriptor_builder.put(object_buffer);
+            const auto lights = vull::move(data.lights);
+            uint32_t light_count = lights.size();
+            memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
+            memcpy(light_buffer.mapped<float>() + 4, lights.data(), lights.size_bytes());
 
-    // Release ownership to command buffer.
-    cmd_buf.bind_associated_buffer(vull::move(uniform_buffer));
-    cmd_buf.bind_associated_buffer(vull::move(light_buffer));
-    cmd_buf.bind_associated_buffer(vull::move(object_buffer));
+            const auto objects = vull::move(data.objects);
+            memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
+
+            data.descriptor_builder = {m_main_set_layout, graph.get_buffer(data.descriptor_buffer)};
+            data.descriptor_builder.set(0, frame_ubo);
+            data.descriptor_builder.set(1, light_buffer);
+            data.descriptor_builder.set(2, object_buffer);
+            data.descriptor_builder.set(3, m_object_visibility_buffer);
+        });
+
+    graph.add_pass(
+        "early-cull", vk::PassFlags::Compute,
+        [&](vk::PassBuilder &builder) {
+            vk::BufferDescription draw_buffer_description{
+                .size = sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
+                .usage =
+                    vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::TransferDst,
+            };
+            data.frame_ubo = builder.read(data.frame_ubo);
+            data.draw_buffer = builder.new_buffer("draw-buffer", draw_buffer_description);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
+            cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
+            // TODO: This should be a separate pass so RG can add the barrier itself.
+            cmd_buf.buffer_barrier({
+                .sType = vkb::StructureType::BufferMemoryBarrier2,
+                .srcStageMask = vkb::PipelineStage2::Copy,
+                .srcAccessMask = vkb::Access2::TransferWrite,
+                .dstStageMask = vkb::PipelineStage2::ComputeShader,
+                .dstAccessMask = vkb::Access2::ShaderStorageRead,
+                .buffer = *draw_buffer,
+                .size = sizeof(uint32_t),
+            });
+
+            data.descriptor_builder.set(4, draw_buffer);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+            cmd_buf.bind_pipeline(m_early_cull_pipeline);
+            cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+        });
+
+    graph.add_pass(
+        "early-draw", vk::PassFlags::Graphics,
+        [&](vk::PassBuilder &builder) {
+            vk::AttachmentDescription albedo_description{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                .format = vkb::Format::R8G8B8A8Unorm,
+                .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
+            };
+            vk::AttachmentDescription normal_description{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                .format = vkb::Format::R16G16Sfloat,
+                .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
+            };
+            vk::AttachmentDescription depth_description{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                .format = vkb::Format::D32Sfloat,
+                .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
+            };
+            data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
+            data.albedo_image = builder.new_attachment("albedo-image", albedo_description);
+            data.normal_image = builder.new_attachment("normal-image", normal_description);
+            data.depth_image = builder.new_attachment("depth-image", depth_description);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
+            const auto &albedo_image = graph.get_image(data.albedo_image);
+            const auto &normal_image = graph.get_image(data.normal_image);
+            const auto &depth_image = graph.get_image(data.depth_image);
+            data.descriptor_builder.set(5, albedo_image.full_view(), false);
+            data.descriptor_builder.set(6, normal_image.full_view(), false);
+            data.descriptor_builder.set(7, depth_image.full_view(), false);
+
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+            Array colour_write_attachments{
+                vkb::RenderingAttachmentInfo{
+                    .sType = vkb::StructureType::RenderingAttachmentInfo,
+                    .imageView = *albedo_image.full_view(),
+                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                    .loadOp = vkb::AttachmentLoadOp::Clear,
+                    .storeOp = vkb::AttachmentStoreOp::Store,
+                    .clearValue{
+                        .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                    },
+                },
+                vkb::RenderingAttachmentInfo{
+                    .sType = vkb::StructureType::RenderingAttachmentInfo,
+                    .imageView = *normal_image.full_view(),
+                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                    .loadOp = vkb::AttachmentLoadOp::Clear,
+                    .storeOp = vkb::AttachmentStoreOp::Store,
+                    .clearValue{
+                        .color{{0.0f, 0.0f, 0.0f, 0.0f}},
+                    },
+                },
+            };
+            vkb::RenderingAttachmentInfo depth_write_attachment{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *depth_image.full_view(),
+                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Clear,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+                .clearValue{
+                    .depthStencil{0.0f, 0},
+                },
+            };
+            vkb::RenderingInfo rendering_info{
+                .sType = vkb::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                },
+                .layerCount = 1,
+                .colorAttachmentCount = colour_write_attachments.size(),
+                .pColorAttachments = colour_write_attachments.data(),
+                .pDepthAttachment = &depth_write_attachment,
+            };
+            cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+            cmd_buf.begin_rendering(rendering_info);
+            record_draws(cmd_buf, draw_buffer);
+            cmd_buf.end_rendering();
+        });
+
+    graph.add_pass(
+        "depth-reduce", vk::PassFlags::Compute,
+        [&](vk::PassBuilder &builder) {
+            // TODO: Make depth pyramid an imported resource so reduce pass can be conditionally disabled via
+            //       m_cull_view_locked. This won't stall the pipeline since it's further into the frame, and will also
+            //       reduce VRAM usage.
+            const auto depth_pyramid_mip_count =
+                vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
+            vk::AttachmentDescription depth_pyramid_description{
+                .extent = m_depth_pyramid_extent,
+                .format = vkb::Format::R16Sfloat,
+                .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
+                .mip_levels = depth_pyramid_mip_count,
+            };
+            data.depth_image = builder.read(data.depth_image);
+            data.depth_pyramid = builder.new_attachment("depth-pyramid", depth_pyramid_description);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &depth_image = graph.get_image(data.depth_image);
+            const auto &depth_pyramid = graph.get_image(data.depth_pyramid);
+            const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
+            data.descriptor_builder.set(8, 0, m_depth_reduce_sampler, depth_pyramid.full_view());
+
+            auto descriptor_buffer =
+                m_context.create_buffer(m_reduce_set_layout_size * level_count,
+                                        vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
+            for (uint32_t i = 0; i < level_count; i++) {
+                vk::DescriptorBuilder descriptor_builder(
+                    m_context, m_reduce_set_layout, descriptor_buffer.mapped<uint8_t>() + i * m_reduce_set_layout_size);
+                const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
+                descriptor_builder.set(0, 0, m_depth_reduce_sampler, input_view);
+                descriptor_builder.set(1, depth_pyramid.level_view(i), true);
+            }
+
+            vkb::DeviceSize descriptor_offset = 0;
+            cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
+            for (uint32_t i = 0; i < level_count; i++) {
+                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0,
+                                               descriptor_offset);
+                descriptor_offset += m_reduce_set_layout_size;
+
+                DepthReduceData shader_data{
+                    .mip_size{
+                        vull::max(m_depth_pyramid_extent.width >> i, 1u),
+                        vull::max(m_depth_pyramid_extent.height >> i, 1u),
+                    },
+                };
+                cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
+
+                vkb::ImageMemoryBarrier2 sample_barrier{
+                    .sType = vkb::StructureType::ImageMemoryBarrier2,
+                    .srcStageMask = vkb::PipelineStage2::ComputeShader,
+                    .srcAccessMask = vkb::Access2::ShaderStorageWrite,
+                    .dstStageMask = vkb::PipelineStage2::ComputeShader,
+                    .dstAccessMask = vkb::Access2::ShaderSampledRead,
+                    .oldLayout = vkb::ImageLayout::General,
+                    .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+                    .image = *depth_pyramid,
+                    .subresourceRange{
+                        .aspectMask = vkb::ImageAspect::Color,
+                        .baseMipLevel = i,
+                        .levelCount = 1,
+                        .layerCount = 1,
+                    },
+                };
+                cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
+                                 vull::ceil_div(shader_data.mip_size.y(), 32u));
+                cmd_buf.image_barrier(sample_barrier);
+            }
+            cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
+
+            // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we
+            //       must transition it back to General.
+            vkb::ImageMemoryBarrier2 general_barrier{
+                .sType = vkb::StructureType::ImageMemoryBarrier2,
+                .srcStageMask = vkb::PipelineStage2::ComputeShader,
+                .srcAccessMask = vkb::Access2::ShaderStorageWrite,
+                .dstStageMask = vkb::PipelineStage2::AllCommands,
+                .dstAccessMask = vkb::Access2::ShaderSampledRead,
+                .oldLayout = vkb::ImageLayout::ReadOnlyOptimal,
+                .newLayout = vkb::ImageLayout::General,
+                .image = *depth_pyramid,
+                .subresourceRange = depth_pyramid.full_view().range(),
+            };
+            cmd_buf.image_barrier(general_barrier);
+        });
+
+    graph.add_pass(
+        "late-cull", vk::PassFlags::Compute,
+        [&](vk::PassBuilder &builder) {
+            data.depth_pyramid = builder.read(data.depth_pyramid);
+            data.draw_buffer = builder.write(data.draw_buffer);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
+            // Prevent write-after-read.
+            cmd_buf.buffer_barrier({
+                .sType = vkb::StructureType::BufferMemoryBarrier2,
+                .srcStageMask = vkb::PipelineStage2::DrawIndirect,
+                .srcAccessMask = vkb::Access2::IndirectCommandRead,
+                .dstStageMask = vkb::PipelineStage2::Copy,
+                .dstAccessMask = vkb::Access2::TransferWrite,
+                .buffer = *draw_buffer,
+                .size = vkb::k_whole_size,
+            });
+            cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
+            cmd_buf.buffer_barrier({
+                .sType = vkb::StructureType::BufferMemoryBarrier2,
+                .srcStageMask = vkb::PipelineStage2::Copy,
+                .srcAccessMask = vkb::Access2::TransferWrite,
+                .dstStageMask = vkb::PipelineStage2::ComputeShader,
+                .dstAccessMask = vkb::Access2::ShaderStorageRead,
+                .buffer = *draw_buffer,
+                .size = sizeof(uint32_t),
+            });
+
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+            cmd_buf.bind_pipeline(m_late_cull_pipeline);
+            cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+        });
+
+    graph.add_pass(
+        "late-draw", vk::PassFlags::Graphics,
+        [&](vk::PassBuilder &builder) {
+            data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
+            data.albedo_image = builder.write(data.albedo_image, vk::WriteFlags::Additive);
+            data.normal_image = builder.write(data.normal_image, vk::WriteFlags::Additive);
+            data.depth_image = builder.write(data.depth_image, vk::WriteFlags::Additive);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
+            const auto &albedo_image = graph.get_image(data.albedo_image);
+            const auto &normal_image = graph.get_image(data.normal_image);
+            const auto &depth_image = graph.get_image(data.depth_image);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+            Array colour_write_attachments{
+                vkb::RenderingAttachmentInfo{
+                    .sType = vkb::StructureType::RenderingAttachmentInfo,
+                    .imageView = *albedo_image.full_view(),
+                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                    .loadOp = vkb::AttachmentLoadOp::Load,
+                    .storeOp = vkb::AttachmentStoreOp::Store,
+                },
+                vkb::RenderingAttachmentInfo{
+                    .sType = vkb::StructureType::RenderingAttachmentInfo,
+                    .imageView = *normal_image.full_view(),
+                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                    .loadOp = vkb::AttachmentLoadOp::Load,
+                    .storeOp = vkb::AttachmentStoreOp::Store,
+                },
+            };
+            vkb::RenderingAttachmentInfo depth_write_attachment{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *depth_image.full_view(),
+                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                .loadOp = vkb::AttachmentLoadOp::Load,
+                .storeOp = vkb::AttachmentStoreOp::Store,
+            };
+            vkb::RenderingInfo rendering_info{
+                .sType = vkb::StructureType::RenderingInfo,
+                .renderArea{
+                    .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                },
+                .layerCount = 1,
+                .colorAttachmentCount = colour_write_attachments.size(),
+                .pColorAttachments = colour_write_attachments.data(),
+                .pDepthAttachment = &depth_write_attachment,
+            };
+            cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+            cmd_buf.begin_rendering(rendering_info);
+            record_draws(cmd_buf, draw_buffer);
+            cmd_buf.end_rendering();
+        });
+
+    graph.add_pass(
+        "light-cull", vk::PassFlags::Compute,
+        [&](vk::PassBuilder &builder) {
+            vk::BufferDescription visibility_description{
+                .size = (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width *
+                        m_tile_extent.height,
+                .usage = vkb::BufferUsage::StorageBuffer,
+            };
+            data.depth_image = builder.read(data.depth_image);
+            data.light_visibility = builder.new_buffer("light-visibility", visibility_description);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            data.descriptor_builder.set(9, graph.get_buffer(data.light_visibility));
+
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+            cmd_buf.bind_pipeline(m_light_cull_pipeline);
+            cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
+        });
+
+    target = graph.add_pass<vk::ResourceId>(
+        "deferred", vk::PassFlags::Compute,
+        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+            data.albedo_image = builder.read(data.albedo_image);
+            data.normal_image = builder.read(data.normal_image);
+            data.depth_image = builder.read(data.depth_image);
+            data.depth_pyramid = builder.read(data.depth_pyramid);
+            data.light_visibility = builder.read(data.light_visibility);
+            output = builder.write(target, vk::WriteFlags::Additive);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
+            data.descriptor_builder.set(10, graph.get_image(output).full_view(), true);
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+            cmd_buf.bind_pipeline(m_deferred_pipeline);
+            cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
+        });
+    return vull::make_tuple(target, data.depth_image, data.descriptor_buffer);
 }
 
 void DefaultRenderer::update_cascades() {
@@ -1108,150 +1014,22 @@ void DefaultRenderer::update_cascades() {
     }
 }
 
-void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
-    m_scene = &scene;
-    m_texture_descriptor_buffer = m_context.create_buffer(
-        scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
-        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-
-    auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
-    vk::DescriptorBuilder descriptor_builder(texture_descriptor_staging_buffer);
-    for (uint32_t i = 0; i < scene.texture_count(); i++) {
-        descriptor_builder.put(scene.texture_samplers()[i], scene.texture_images()[i].full_view());
-    }
-    m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
-
-    vkb::DeviceSize vertex_buffer_size = 0;
-    vkb::DeviceSize index_buffer_size = 0;
-    HashSet<String> seen_vertex_buffers;
-    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
-        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
-            continue;
-        }
-        const auto vertices_size = pack_reader.stat(mesh.vertex_data_name())->size;
-        const auto indices_size = pack_reader.stat(mesh.index_data_name())->size;
-        m_mesh_infos.set(mesh.vertex_data_name(),
-                         MeshInfo{
-                             .index_count = static_cast<uint32_t>(indices_size / sizeof(uint32_t)),
-                             .index_offset = static_cast<uint32_t>(index_buffer_size / sizeof(uint32_t)),
-                             .vertex_offset = static_cast<int32_t>(vertex_buffer_size / sizeof(Vertex)),
-                         });
-        vertex_buffer_size += vertices_size;
-        index_buffer_size += indices_size;
-    }
-
-    m_vertex_buffer =
-        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::VertexBuffer | vkb::BufferUsage::TransferDst,
-                                vk::MemoryUsage::DeviceOnly);
-    m_index_buffer = m_context.create_buffer(
-        index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-
-    seen_vertex_buffers.clear();
-    vkb::DeviceSize vertex_buffer_offset = 0;
-    vkb::DeviceSize index_buffer_offset = 0;
-    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
-        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
-            continue;
-        }
-
-        auto vertex_entry = *pack_reader.stat(mesh.vertex_data_name());
-        auto vertex_stream = *pack_reader.open(mesh.vertex_data_name());
-        auto staging_buffer =
-            m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(vertex_stream.read({staging_buffer.mapped_raw(), vertex_entry.size}));
-
-        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
-            vkb::BufferCopy copy{
-                .dstOffset = vertex_buffer_offset,
-                .size = vertex_entry.size,
-            };
-            cmd_buf.copy_buffer(staging_buffer, m_vertex_buffer, copy);
-        });
-        vertex_buffer_offset += vertex_entry.size;
-
-        auto index_entry = *pack_reader.stat(mesh.index_data_name());
-        auto index_stream = *pack_reader.open(mesh.index_data_name());
-        staging_buffer =
-            m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(index_stream.read({staging_buffer.mapped_raw(), index_entry.size}));
-
-        m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
-            vkb::BufferCopy copy{
-                .dstOffset = index_buffer_offset,
-                .size = index_entry.size,
-            };
-            cmd_buf.copy_buffer(staging_buffer, m_index_buffer, copy);
-        });
-        index_buffer_offset += index_entry.size;
-    }
-    VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
-    VULL_ENSURE(index_buffer_offset == index_buffer_size);
-}
-
-void DefaultRenderer::load_skybox(vpak::ReadStream &stream) {
-    const auto pixel_count = 1024 * 1024 * 6;
-    auto staging_buffer =
-        m_context.create_buffer(pixel_count * 4, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-    auto *staging_data = staging_buffer.mapped<uint8_t>();
-    for (uint32_t i = 0; i < pixel_count; i++) {
-        VULL_EXPECT(stream.read({staging_data, 3}));
-        staging_data += 4;
-    }
-
-    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier2 transfer_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .dstStageMask = vkb::PipelineStage2::Copy,
-            .dstAccessMask = vkb::Access2::TransferWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::TransferDstOptimal,
-            .image = *m_skybox_image,
-            .subresourceRange = m_skybox_image.full_view().range(),
-        };
-        vkb::BufferImageCopy copy{
-            .imageSubresource{
-                .aspectMask = vkb::ImageAspect::Color,
-                .layerCount = 6,
-            },
-            .imageExtent = {1024, 1024, 1},
-        };
-        vkb::ImageMemoryBarrier2 image_read_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::AllCommands,
-            .dstAccessMask = vkb::Access2::ShaderRead,
-            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
-            .newLayout = vkb::ImageLayout::ShaderReadOnlyOptimal,
-            .image = *m_skybox_image,
-            .subresourceRange = m_skybox_image.full_view().range(),
-        };
-        cmd_buf.image_barrier(transfer_write_barrier);
-        cmd_buf.copy_buffer_to_image(staging_buffer, m_skybox_image, vkb::ImageLayout::TransferDstOptimal, copy);
-        cmd_buf.image_barrier(image_read_barrier);
-    });
-}
-
-void DefaultRenderer::update(vk::CommandBuffer &cmd_buf, const Mat4f &proj, const Mat4f &view,
-                             const Vec3f &view_position) {
+void DefaultRenderer::update_globals(const Mat4f &proj, const Mat4f &view, const Vec3f &view_position) {
     m_proj = proj;
     m_view = view;
     m_view_position = view_position;
+    if (!m_cull_view_locked) {
+        auto proj_view_t = vull::transpose(m_proj * m_view);
+        m_frustum_planes[0] = proj_view_t[3] + proj_view_t[0]; // left
+        m_frustum_planes[1] = proj_view_t[3] - proj_view_t[0]; // right
+        m_frustum_planes[2] = proj_view_t[3] + proj_view_t[1]; // bottom
+        m_frustum_planes[3] = proj_view_t[3] - proj_view_t[1]; // top
+        for (auto &plane : m_frustum_planes) {
+            plane /= vull::magnitude(Vec3f(plane));
+        }
+        m_cull_view = m_view;
+    }
     update_cascades();
-
-    vkb::MemoryBarrier2 memory_barrier{
-        .sType = vkb::StructureType::MemoryBarrier2,
-        .srcStageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-        .srcAccessMask = vkb::Access2::ColorAttachmentWrite,
-        .dstStageMask = vkb::PipelineStage2::AllCommands,
-        .dstAccessMask = vkb::Access2::MemoryRead,
-    };
-    cmd_buf.pipeline_barrier(vkb::DependencyInfo{
-        .sType = vkb::StructureType::DependencyInfo,
-        .memoryBarrierCount = 1,
-        .pMemoryBarriers = &memory_barrier,
-    });
-    update_buffers(cmd_buf);
 }
 
 } // namespace vull

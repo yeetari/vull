@@ -13,7 +13,7 @@
 #include <vull/graphics/FramePacer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
-#include <vull/graphics/RenderEngine.hh>
+#include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Projection.hh>
@@ -47,10 +47,10 @@
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Allocator.hh>
-#include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Queue.hh>
+#include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Swapchain.hh>
@@ -62,6 +62,12 @@
 #include <string.h>
 
 using namespace vull;
+
+namespace vull::vk {
+
+class CommandBuffer;
+
+} // namespace vull::vk
 
 namespace {
 
@@ -108,23 +114,21 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     shader_map.set("skybox-vert", vull::move(skybox_vs));
     shader_map.set("skybox-frag", vull::move(skybox_fs));
 
-    RenderEngine render_engine;
-    render_engine.link_swapchain(swapchain);
-
-    DefaultRenderer default_renderer(context, render_engine, vull::move(shader_map), swapchain.extent_3D());
+    DefaultRenderer default_renderer(context, vull::move(shader_map), swapchain.extent_3D());
     default_renderer.load_scene(scene, pack_reader);
+
+    SkyboxRenderer skybox_renderer(context, default_renderer);
     if (auto entry = pack_reader.open("/skybox")) {
-        default_renderer.load_skybox(*entry);
+        skybox_renderer.load(*entry);
     }
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
-    ui::Renderer ui(context, render_engine, swapchain, ui_vs, ui_fs);
+    ui::Renderer ui(context, swapchain, ui_vs, ui_fs);
     ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.7f, 0.2f, 0.3f));
     ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
     auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
     ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
-    render_engine.compile();
 
     auto &world = scene.world();
     world.register_component<RigidBody>();
@@ -191,7 +195,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     cpu_time_graph.new_bar();
     while (!window.should_close()) {
         Timer acquire_frame_timer;
-        auto &frame = frame_pacer.next_frame();
+        auto &frame = frame_pacer.request_frame();
         cpu_time_graph.push_section("acquire-frame", acquire_frame_timer.elapsed());
 
         float dt = frame_timer.elapsed();
@@ -205,7 +209,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         window.poll_events();
 
         // Collect previous frame N's timestamp data.
-        const auto pass_times = frame.pass_times(render_engine);
+        const auto pass_times = frame.pass_times();
         gpu_time_graph.new_bar();
         for (const auto &[name, time] : pass_times) {
             gpu_time_graph.push_section(name, time);
@@ -214,7 +218,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         // Step physics.
         Timer physics_timer;
         physics_engine.step(world, dt);
-        cpu_time_graph.push_section("physics", physics_timer.elapsed());
+        cpu_time_graph.push_section("step-physics", physics_timer.elapsed());
 
         // Player friction force.
         auto &player_body = player.get<RigidBody>();
@@ -338,47 +342,52 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
             y_pos += 40.0f;
         }
 
+        default_renderer.update_globals(projection, view_matrix, view_position);
+
+        Timer build_rg_timer;
+        auto &graph = frame.new_graph(context);
         const auto image_index = frame_pacer.image_index();
-        vkb::Image swapchain_image = swapchain.image(image_index);
-        vkb::ImageView swapchain_view = swapchain.image_view(image_index);
-        render_engine.set_output(swapchain_image, swapchain_view);
+        auto output_id = graph.import("output-image", swapchain.image(image_index));
 
-        Timer record_timer;
         auto &cmd_buf = context.graphics_queue().request_cmd_buf();
-        default_renderer.update(cmd_buf, projection, view_matrix, view_position);
-        render_engine.record(cmd_buf, frame.timestamp_pool());
+        auto [default_renderer_output, depth_image, descriptor_buffer] = default_renderer.build_pass(graph, output_id);
+        output_id = default_renderer_output;
+        output_id = skybox_renderer.build_pass(graph, output_id, depth_image, descriptor_buffer);
+        output_id = ui.build_pass(graph, output_id);
 
-        vkb::ImageMemoryBarrier2 swapchain_present_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-            .srcAccessMask = vkb::Access2::ColorAttachmentWrite,
-            .oldLayout = vkb::ImageLayout::AttachmentOptimal,
-            .newLayout = vkb::ImageLayout::PresentSrcKHR,
-            .image = swapchain_image,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = 1,
-                .layerCount = 1,
+        output_id = graph.add_pass<vk::ResourceId>(
+            "submit", vk::PassFlags::None,
+            [&](vk::PassBuilder &builder, vk::ResourceId &new_output) {
+                new_output = builder.read(output_id, vk::ReadFlags::Present);
             },
-        };
-        cmd_buf.image_barrier(swapchain_present_barrier);
+            [&](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &) {
+                Array signal_semaphores{
+                    vkb::SemaphoreSubmitInfo{
+                        .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                        .semaphore = *frame.present_semaphore(),
+                    },
+                };
+                Array wait_semaphores{
+                    vkb::SemaphoreSubmitInfo{
+                        .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                        .semaphore = *frame.acquire_semaphore(),
+                        .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+                    },
+                };
+                auto &queue = graph.context().graphics_queue();
+                queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
+            });
 
-        Array signal_semaphores{
-            vkb::SemaphoreSubmitInfo{
-                .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = *frame.present_semaphore(),
-            },
-        };
-        Array wait_semaphores{
-            vkb::SemaphoreSubmitInfo{
-                .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = *frame.acquire_semaphore(),
-                .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-            },
-        };
-        context.graphics_queue().submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
         cpu_time_graph.new_bar();
-        cpu_time_graph.push_section("record", record_timer.elapsed());
+        cpu_time_graph.push_section("build-rg", build_rg_timer.elapsed());
+
+        Timer compile_rg_timer;
+        graph.compile(output_id);
+        cpu_time_graph.push_section("compile-rg", compile_rg_timer.elapsed());
+
+        Timer execute_rg_timer;
+        graph.execute(cmd_buf, true);
+        cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }
     scheduler.stop();
     context.vkDeviceWaitIdle();

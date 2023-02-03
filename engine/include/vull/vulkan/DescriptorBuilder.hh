@@ -11,26 +11,20 @@ class Context;
 class ImageView;
 
 class DescriptorBuilder {
-    const Context &m_context;
-    uint8_t *m_ptr{nullptr};
+    const Context *m_context{nullptr};
+    vkb::DescriptorSetLayout m_layout{nullptr};
+    uint8_t *m_data{nullptr};
 
 public:
-    DescriptorBuilder(const Context &context, uint8_t *ptr) : m_context(context), m_ptr(ptr) {}
-    DescriptorBuilder(const Buffer &buffer);
-    DescriptorBuilder(const DescriptorBuilder &) = delete;
-    DescriptorBuilder(DescriptorBuilder &&) = delete;
-    ~DescriptorBuilder() = default;
+    DescriptorBuilder() = default;
+    DescriptorBuilder(const Context &context, vkb::DescriptorSetLayout layout, uint8_t *data)
+        : m_context(&context), m_layout(layout), m_data(data) {}
+    DescriptorBuilder(vkb::DescriptorSetLayout layout, const Buffer &buffer);
 
-    DescriptorBuilder &operator=(const DescriptorBuilder &) = delete;
-    DescriptorBuilder &operator=(DescriptorBuilder &&) = delete;
-
-    void put(vkb::Sampler sampler);
-    void put(vkb::Sampler sampler, const ImageView &view);
-    void put(const ImageView &view, bool storage);
-    void put(const Buffer &buffer);
-
-    // TODO: Only here because swapchain image views aren't (yet) wrapped in ImageView.
-    void put(vkb::ImageView view);
+    void set(uint32_t binding, vkb::Sampler sampler);
+    void set(uint32_t binding, uint32_t element, vkb::Sampler sampler, const ImageView &view);
+    void set(uint32_t binding, const ImageView &view, bool storage);
+    void set(uint32_t binding, const Buffer &buffer);
 };
 
 } // namespace vull::vk

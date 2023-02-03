@@ -10,6 +10,7 @@
 namespace vull::vk {
 
 class Context;
+class Image;
 
 enum class SwapchainMode {
     LowPower,
@@ -23,8 +24,7 @@ class Swapchain {
     const vkb::SurfaceKHR m_surface;
     vkb::SurfaceCapabilitiesKHR m_surface_capabilities{};
     vkb::SwapchainKHR m_swapchain{nullptr};
-    Vector<vkb::Image> m_images;
-    Vector<vkb::ImageView> m_image_views;
+    Vector<Image> m_images;
 
 public:
     Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode);
@@ -42,8 +42,8 @@ public:
     Vec2f dimensions() const { return {static_cast<float>(m_extent.width), static_cast<float>(m_extent.height)}; }
     vkb::Extent2D extent_2D() const { return m_extent; }
     vkb::Extent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
-    vkb::Image image(uint32_t index) const { return m_images[index]; }
-    vkb::ImageView image_view(uint32_t index) const { return m_image_views[index]; }
+    Image &image(uint32_t index);
+    const Image &image(uint32_t index) const;
 };
 
 } // namespace vull::vk

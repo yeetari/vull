@@ -12,36 +12,41 @@
 
 namespace vull::vk {
 
+Image::Image(Allocation &&allocation, vkb::Format format, const ImageView &full_view)
+    : m_context(&allocation.allocator()->context()), m_allocation(vull::move(allocation)), m_format(format),
+      m_owned_image(full_view.image()), m_full_view(full_view) {}
+
 Image::Image(Image &&other) {
+    m_context = vull::exchange(other.m_context, nullptr);
     m_allocation = vull::move(other.m_allocation);
     m_format = vull::exchange(other.m_format, {});
-    m_image = vull::exchange(other.m_image, nullptr);
+    m_owned_image = vull::exchange(other.m_owned_image, nullptr);
     m_full_view = vull::exchange(other.m_full_view, {});
     m_views = vull::exchange(other.m_views, {});
 }
 
 Image::~Image() {
-    if (const auto *allocator = m_allocation.allocator()) {
-        const auto &context = allocator->context();
+    if (m_context != nullptr) {
         for (const auto &view : m_views) {
-            context.vkDestroyImageView(*view);
+            m_context->vkDestroyImageView(*view);
         }
-        context.vkDestroyImageView(*m_full_view);
-        context.vkDestroyImage(m_image);
+        m_context->vkDestroyImageView(*m_full_view);
+        m_context->vkDestroyImage(m_owned_image);
     }
 }
 
 Image &Image::operator=(Image &&other) {
     Image moved(vull::move(other));
+    vull::swap(m_context, moved.m_context);
     vull::swap(m_allocation, moved.m_allocation);
     vull::swap(m_format, moved.m_format);
-    vull::swap(m_image, moved.m_image);
+    vull::swap(m_owned_image, moved.m_owned_image);
     vull::swap(m_full_view, moved.m_full_view);
     vull::swap(m_views, moved.m_views);
     return *this;
 }
 
-const ImageView &Image::layer_view(uint32_t layer) {
+const ImageView &Image::layer_view(uint32_t layer) const {
     vkb::ImageSubresourceRange range{
         .aspectMask = m_full_view.range().aspectMask,
         .levelCount = m_full_view.range().levelCount,
@@ -51,7 +56,7 @@ const ImageView &Image::layer_view(uint32_t layer) {
     return view(range);
 }
 
-const ImageView &Image::level_view(uint32_t level) {
+const ImageView &Image::level_view(uint32_t level) const {
     vkb::ImageSubresourceRange range{
         .aspectMask = m_full_view.range().aspectMask,
         .baseMipLevel = level,
@@ -61,7 +66,7 @@ const ImageView &Image::level_view(uint32_t level) {
     return view(range);
 }
 
-const ImageView &Image::view(const vkb::ImageSubresourceRange &range) {
+const ImageView &Image::view(const vkb::ImageSubresourceRange &range) const {
     for (const auto &view : m_views) {
         if (memcmp(&range, &view.range(), sizeof(vkb::ImageSubresourceRange)) == 0) {
             return view;
@@ -69,7 +74,7 @@ const ImageView &Image::view(const vkb::ImageSubresourceRange &range) {
     }
     vkb::ImageViewCreateInfo view_ci{
         .sType = vkb::StructureType::ImageViewCreateInfo,
-        .image = m_image,
+        .image = m_full_view.image(),
         .viewType = vkb::ImageViewType::_2D,
         .format = m_format,
         .subresourceRange = range,
@@ -77,7 +82,7 @@ const ImageView &Image::view(const vkb::ImageSubresourceRange &range) {
     const auto &context = m_allocation.allocator()->context();
     vkb::ImageView view;
     VULL_ENSURE(context.vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
-    return m_views.emplace(ImageView(m_image, view, range));
+    return m_views.emplace(ImageView(m_full_view.image(), view, range));
 }
 
 } // namespace vull::vk

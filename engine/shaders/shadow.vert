@@ -6,8 +6,8 @@
 layout (location = 0) in vec3 g_position;
 
 DECLARE_UBO(0, 0);
-DECLARE_DRAW_BUFFER(0, 3);
-DECLARE_OBJECT_BUFFER(0, 4);
+DECLARE_DRAW_BUFFER(0, 4);
+DECLARE_OBJECT_BUFFER(0, 2);
 
 layout (push_constant) uniform CascadeIndex {
     uint g_cascade_index;

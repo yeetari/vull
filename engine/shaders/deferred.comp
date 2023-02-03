@@ -13,17 +13,15 @@ layout (binding = 1, std430) restrict readonly buffer Lights {
     uint g_light_count;
     PointLight g_lights[];
 };
-layout (binding = 2, rgba8) restrict writeonly uniform image2D g_output_image;
+layout (binding = 10, rgba8) restrict writeonly uniform image2D g_output_image;
 
-layout (set = 1, binding = 0) uniform texture2D g_albedo_image;
-layout (set = 1, binding = 1) uniform texture2D g_normal_image;
-layout (set = 1, binding = 2) uniform texture2D g_depth_image;
-layout (set = 1, binding = 4) uniform sampler2DArrayShadow g_shadow_map;
-layout (set = 1, binding = 5) restrict readonly buffer LightVisibilities {
+layout (binding = 5) uniform texture2D g_albedo_image;
+layout (binding = 6) uniform texture2D g_normal_image;
+layout (binding = 7) uniform texture2D g_depth_image;
+//layout (binding = 4) uniform sampler2DArrayShadow g_shadow_map;
+layout (binding = 9) restrict readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
-
-const vec3 k_clear_colour = vec3(0.47f, 0.5f, 0.67f);
 
 void main() {
     vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);

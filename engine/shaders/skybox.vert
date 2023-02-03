@@ -48,6 +48,6 @@ const vec3 k_vertices[36] = vec3[36](
 void main() {
     vec3 position = k_vertices[gl_VertexIndex];
     vec4 clip = g_proj * mat4(mat3(g_view)) * vec4(position, 1.0f);
-    gl_Position = clip.xyww;
+    gl_Position = vec4(clip.xy, 0.0f, clip.w);
     g_out_position = position;
 }

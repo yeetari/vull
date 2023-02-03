@@ -9,11 +9,14 @@
 
 namespace vull::vk {
 
-DescriptorBuilder::DescriptorBuilder(const Buffer &buffer)
-    : m_context(buffer.context()), m_ptr(buffer.mapped<uint8_t>()) {}
+DescriptorBuilder::DescriptorBuilder(vkb::DescriptorSetLayout layout, const Buffer &buffer)
+    : m_context(&buffer.context()), m_layout(layout), m_data(buffer.mapped<uint8_t>()) {}
 
-void DescriptorBuilder::put(vkb::Sampler sampler) {
-    const auto size = m_context.descriptor_size(vkb::DescriptorType::Sampler);
+void DescriptorBuilder::set(uint32_t binding, vkb::Sampler sampler) {
+    vkb::DeviceSize offset;
+    m_context->vkGetDescriptorSetLayoutBindingOffsetEXT(m_layout, binding, &offset);
+
+    const auto size = m_context->descriptor_size(vkb::DescriptorType::Sampler);
     vkb::DescriptorGetInfoEXT get_info{
         .sType = vkb::StructureType::DescriptorGetInfoEXT,
         .type = vkb::DescriptorType::Sampler,
@@ -21,12 +24,15 @@ void DescriptorBuilder::put(vkb::Sampler sampler) {
             .pSampler = &sampler,
         },
     };
-    m_context.vkGetDescriptorEXT(&get_info, size, m_ptr);
-    m_ptr += size;
+    m_context->vkGetDescriptorEXT(&get_info, size, m_data + offset);
 }
 
-void DescriptorBuilder::put(vkb::Sampler sampler, const ImageView &view) {
-    const auto size = m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
+void DescriptorBuilder::set(uint32_t binding, uint32_t element, vkb::Sampler sampler, const ImageView &view) {
+    vkb::DeviceSize offset;
+    m_context->vkGetDescriptorSetLayoutBindingOffsetEXT(m_layout, binding, &offset);
+
+    const auto size = m_context->descriptor_size(vkb::DescriptorType::CombinedImageSampler);
+    offset += element * size;
     vkb::DescriptorImageInfo image_info{
         .sampler = sampler,
         .imageView = *view,
@@ -39,13 +45,15 @@ void DescriptorBuilder::put(vkb::Sampler sampler, const ImageView &view) {
             .pCombinedImageSampler = &image_info,
         },
     };
-    m_context.vkGetDescriptorEXT(&get_info, size, m_ptr);
-    m_ptr += size;
+    m_context->vkGetDescriptorEXT(&get_info, size, m_data + offset);
 }
 
-void DescriptorBuilder::put(const ImageView &view, bool storage) {
+void DescriptorBuilder::set(uint32_t binding, const ImageView &view, bool storage) {
+    vkb::DeviceSize offset;
+    m_context->vkGetDescriptorSetLayoutBindingOffsetEXT(m_layout, binding, &offset);
+
     const auto type = storage ? vkb::DescriptorType::StorageImage : vkb::DescriptorType::SampledImage;
-    const auto size = m_context.descriptor_size(type);
+    const auto size = m_context->descriptor_size(type);
     vkb::DescriptorImageInfo image_info{
         .imageView = *view,
         .imageLayout = storage ? vkb::ImageLayout::General : vkb::ImageLayout::ReadOnlyOptimal,
@@ -57,18 +65,20 @@ void DescriptorBuilder::put(const ImageView &view, bool storage) {
             .pSampledImage = &image_info,
         },
     };
-    m_context.vkGetDescriptorEXT(&get_info, size, m_ptr);
-    m_ptr += size;
+    m_context->vkGetDescriptorEXT(&get_info, size, m_data + offset);
 }
 
-void DescriptorBuilder::put(const Buffer &buffer) {
+void DescriptorBuilder::set(uint32_t binding, const Buffer &buffer) {
+    vkb::DeviceSize offset;
+    m_context->vkGetDescriptorSetLayoutBindingOffsetEXT(m_layout, binding, &offset);
+
     const bool is_storage = (buffer.usage() & vkb::BufferUsage::StorageBuffer) == vkb::BufferUsage::StorageBuffer;
     const bool is_uniform = (buffer.usage() & vkb::BufferUsage::UniformBuffer) == vkb::BufferUsage::UniformBuffer;
     VULL_ASSERT(is_storage ^ is_uniform);
     VULL_IGNORE(is_uniform);
 
     const auto type = is_storage ? vkb::DescriptorType::StorageBuffer : vkb::DescriptorType::UniformBuffer;
-    const auto size = m_context.descriptor_size(type);
+    const auto size = m_context->descriptor_size(type);
     vkb::DescriptorAddressInfoEXT address_info{
         .sType = vkb::StructureType::DescriptorAddressInfoEXT,
         .address = buffer.device_address(),
@@ -81,25 +91,7 @@ void DescriptorBuilder::put(const Buffer &buffer) {
             .pStorageBuffer = &address_info,
         },
     };
-    m_context.vkGetDescriptorEXT(&get_info, size, m_ptr);
-    m_ptr += size;
-}
-
-void DescriptorBuilder::put(vkb::ImageView view) {
-    const auto size = m_context.descriptor_size(vkb::DescriptorType::StorageImage);
-    vkb::DescriptorImageInfo image_info{
-        .imageView = view,
-        .imageLayout = vkb::ImageLayout::General,
-    };
-    vkb::DescriptorGetInfoEXT get_info{
-        .sType = vkb::StructureType::DescriptorGetInfoEXT,
-        .type = vkb::DescriptorType::StorageImage,
-        .data{
-            .pSampledImage = &image_info,
-        },
-    };
-    m_context.vkGetDescriptorEXT(&get_info, size, m_ptr);
-    m_ptr += size;
+    m_context->vkGetDescriptorEXT(&get_info, size, m_data + offset);
 }
 
 } // namespace vull::vk

@@ -6,6 +6,7 @@
 #include <vull/ui/GpuFont.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Pipeline.hh>
+#include <vull/vulkan/RenderGraphDefs.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -13,15 +14,10 @@
 
 using FT_Library = struct FT_LibraryRec_ *;
 
-namespace vull {
-
-class RenderEngine;
-
-} // namespace vull
-
 namespace vull::vk {
 
 class Context;
+class RenderGraph;
 class Shader;
 class Swapchain;
 
@@ -55,8 +51,8 @@ class Renderer {
     Vector<Object> m_objects;
 
 public:
-    Renderer(vk::Context &context, RenderEngine &render_engine, const vk::Swapchain &swapchain,
-             const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
+    Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
+             const vk::Shader &fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();
@@ -64,6 +60,7 @@ public:
     Renderer &operator=(const Renderer &) = delete;
     Renderer &operator=(Renderer &&) = delete;
 
+    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target);
     GpuFont load_font(StringView path, ssize_t size);
     void set_global_scale(float global_scale);
 

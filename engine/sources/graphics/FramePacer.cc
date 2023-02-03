@@ -7,11 +7,13 @@
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
@@ -35,7 +37,7 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .oldLayout = vkb::ImageLayout::Undefined,
         .newLayout = vkb::ImageLayout::PresentSrcKHR,
-        .image = swapchain.image(m_image_index),
+        .image = *swapchain.image(m_image_index),
         .subresourceRange{
             .aspectMask = vkb::ImageAspect::Color,
             .levelCount = 1,
@@ -56,7 +58,7 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
     queue.wait_idle();
 }
 
-Frame &FramePacer::next_frame() {
+Frame &FramePacer::request_frame() {
     // Present current frame.
     Array present_wait_semaphores{*m_frames[m_frame_index].present_semaphore()};
     m_swapchain.present(m_image_index, present_wait_semaphores.span());
@@ -75,22 +77,42 @@ Frame &FramePacer::next_frame() {
     return frame;
 }
 
-HashMap<StringView, float> Frame::pass_times(const vk::RenderGraph &render_graph) {
-    if (!m_timestamp_pool) {
-        m_timestamp_pool.recreate(render_graph.pass_count() + 1, vkb::QueryType::Timestamp);
+Frame::Frame(const vk::Context &context)
+    : m_fence(context, true), m_acquire_semaphore(context), m_present_semaphore(context) {}
+
+Frame::~Frame() = default;
+
+HashMap<StringView, float> Frame::pass_times() {
+    if (!m_render_graph) {
         return {};
     }
 
-    Vector<uint64_t> timestamp_data(m_timestamp_pool.count());
-    m_timestamp_pool.read_host(timestamp_data.span());
+    auto &timestamp_pool = m_render_graph->timestamp_pool();
+    if (!timestamp_pool) {
+        return {};
+    }
+
+    Vector<uint64_t> timestamp_data(timestamp_pool.count());
+    timestamp_pool.read_host(timestamp_data.span());
+
+    for (uint32_t i = 1; i < timestamp_data.size(); i++) {
+        if (timestamp_data[i] == 0) {
+            timestamp_data[i] = timestamp_data[i - 1];
+        }
+    }
 
     HashMap<StringView, float> times;
-    for (uint32_t i = 0; i < m_timestamp_pool.count() - 1; i++) {
-        const vk::Pass &pass = render_graph.pass_order()[i];
-        float time = m_timestamp_pool.context().timestamp_elapsed(timestamp_data[i], timestamp_data[i + 1]);
+    for (uint32_t i = 0; i < m_render_graph->pass_count(); i++) {
+        const vk::Pass &pass = m_render_graph->pass_order()[i];
+        float time = timestamp_pool.context().timestamp_elapsed(timestamp_data[i], timestamp_data[i + 1]);
         times.set(pass.name(), time);
     }
     return times;
+}
+
+vk::RenderGraph &Frame::new_graph(vk::Context &context) {
+    m_render_graph = vull::make_unique<vk::RenderGraph>(context);
+    return *m_render_graph;
 }
 
 } // namespace vull

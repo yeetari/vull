@@ -8,6 +8,7 @@
 #include <vull/support/Span.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -90,13 +91,12 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
 
     uint32_t image_count = 0;
     context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, nullptr);
-    m_images.ensure_size(image_count);
-    m_image_views.ensure_size(image_count);
-    context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, m_images.data());
-    for (uint32_t i = 0; i < image_count; i++) {
-        vkb::ImageViewCreateInfo image_view_ci{
+    Vector<vkb::Image> images(image_count);
+    context.vkGetSwapchainImagesKHR(m_swapchain, &image_count, images.data());
+    for (vkb::Image image : images) {
+        vkb::ImageViewCreateInfo view_ci{
             .sType = vkb::StructureType::ImageViewCreateInfo,
-            .image = m_images[i],
+            .image = image,
             .viewType = vkb::ImageViewType::_2D,
             .format = surface_format.format,
             .subresourceRange{
@@ -105,7 +105,9 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
                 .layerCount = 1,
             },
         };
-        VULL_ENSURE(context.vkCreateImageView(&image_view_ci, &m_image_views[i]) == vkb::Result::Success);
+        vkb::ImageView view;
+        VULL_ENSURE(context.vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
+        m_images.push(Image(context, view_ci.format, ImageView(image, view, view_ci.subresourceRange)));
     }
 
     // Ensure graphics queue supports presenting.
@@ -116,9 +118,6 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
 }
 
 Swapchain::~Swapchain() {
-    for (auto *image_view : m_image_views) {
-        m_context.vkDestroyImageView(image_view);
-    }
     m_context.vkDestroySwapchainKHR(m_swapchain);
     m_context.vkDestroySurfaceKHR(m_surface);
 }
@@ -139,6 +138,14 @@ void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphor
         .pImageIndices = &image_index,
     };
     m_context.vkQueuePresentKHR(*m_context.graphics_queue(), &present_info);
+}
+
+Image &Swapchain::image(uint32_t index) {
+    return m_images[index];
+}
+
+const Image &Swapchain::image(uint32_t index) const {
+    return m_images[index];
 }
 
 } // namespace vull::vk

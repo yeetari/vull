@@ -28,7 +28,7 @@ public:
     FramePacer &operator=(const FramePacer &) = delete;
     FramePacer &operator=(FramePacer &&) = delete;
 
-    Frame &next_frame();
+    Frame &request_frame();
 
     uint32_t frame_index() const { return m_frame_index; }
     uint32_t image_index() const { return m_image_index; }
