@@ -6,6 +6,7 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/UniquePtr.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
 #include <pthread.h>

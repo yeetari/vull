@@ -18,7 +18,7 @@
 namespace vull {
 
 class Semaphore;
-class TaskletQueue : public WorkStealingQueue<Tasklet> {};
+class TaskletQueue : public WorkStealingQueue<Tasklet *> {};
 VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 VULL_GLOBAL(static sem_t s_work_available);
 
@@ -28,10 +28,11 @@ void schedule(Tasklet &&tasklet, Optional<Semaphore &> semaphore) {
         tasklet.set_semaphore(*semaphore);
     }
     sem_post(&s_work_available);
-    while (!s_queue->enqueue(move(tasklet))) {
-        auto queued_tasklet = s_queue->dequeue();
-        VULL_ASSERT(queued_tasklet);
+    while (!s_queue->enqueue(new Tasklet(vull::move(tasklet)))) {
+        auto *queued_tasklet = s_queue->dequeue();
+        VULL_ASSERT(queued_tasklet != nullptr);
         queued_tasklet->invoke();
+        delete queued_tasklet;
     }
 }
 
@@ -67,7 +68,7 @@ bool Scheduler::start(Tasklet &&tasklet) {
     if (m_workers.empty()) {
         return false;
     }
-    if (!m_workers[0]->queue->enqueue(vull::move(tasklet))) {
+    if (!m_workers[0]->queue->enqueue(new Tasklet(vull::move(tasklet)))) {
         return false;
     }
     for (auto &worker : m_workers) {
@@ -90,8 +91,9 @@ void *Scheduler::thread_loop(void *init_data) {
     s_queue = queue.ptr();
     while (running.load(MemoryOrder::Relaxed) || !queue->empty()) {
         sem_wait(&s_work_available);
-        if (auto tasklet = queue->dequeue()) {
+        if (auto *tasklet = queue->dequeue()) {
             tasklet->invoke();
+            delete tasklet;
             continue;
         }
         const auto &victim = scheduler.pick_victim(rng_state);
@@ -99,8 +101,9 @@ void *Scheduler::thread_loop(void *init_data) {
             sem_post(&s_work_available);
             continue;
         }
-        if (auto tasklet = victim.queue->steal()) {
+        if (auto *tasklet = victim.queue->steal()) {
             tasklet->invoke();
+            delete tasklet;
             continue;
         }
         sem_post(&s_work_available);

@@ -2,33 +2,36 @@
 
 #include <vull/support/Array.hh>
 #include <vull/support/Atomic.hh>
-#include <vull/support/Optional.hh>
+#include <vull/support/Optional.hh> // IWYU pragma: keep
 #include <vull/support/Utility.hh>
 
 #include <stdint.h>
 
 namespace vull {
 
-// TODO: Need proper atomics for slots!
+// https://fzn.fr/readings/ppopp13.pdf
 template <typename T, unsigned SlotCountShift = 10>
 class WorkStealingQueue {
+    // Don't wrap pointers in Optional.
+    using RetType = conditional<is_ptr<T>, T, Optional<T>>;
+
     // Max size of the queue, should be a power of two to allow modulo operations to be transformed into cheaper ands.
     static constexpr int64_t k_slot_count = 1ul << SlotCountShift;
-    Array<T, k_slot_count> m_slots{};
+    Array<Atomic<T>, k_slot_count> m_slots{};
     Atomic<int64_t> m_head;
     Atomic<int64_t> m_tail;
 
 public:
-    [[nodiscard]] bool enqueue(T &&elem);
-    Optional<T> dequeue();
-    Optional<T> steal();
+    [[nodiscard]] bool enqueue(T elem);
+    RetType dequeue();
+    RetType steal();
 
     bool empty() const;
     uint64_t size() const;
 };
 
 template <typename T, unsigned SlotCountShift>
-[[nodiscard]] bool WorkStealingQueue<T, SlotCountShift>::enqueue(T &&elem) {
+[[nodiscard]] bool WorkStealingQueue<T, SlotCountShift>::enqueue(T elem) {
     int64_t head = m_head.load(MemoryOrder::Relaxed);
     int64_t tail = m_tail.load(MemoryOrder::Acquire);
 
@@ -38,14 +41,16 @@ template <typename T, unsigned SlotCountShift>
     }
 
     // Store element in slot and bump the head index.
-    m_slots[static_cast<uint32_t>(head % k_slot_count)] = forward<T>(elem);
+    m_slots[static_cast<uint32_t>(head % k_slot_count)].store(elem);
+    vull::atomic_thread_fence(MemoryOrder::Release);
     m_head.store(head + 1, MemoryOrder::Relaxed);
     return true;
 }
 
 template <typename T, unsigned SlotCountShift>
-Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
+typename WorkStealingQueue<T, SlotCountShift>::RetType WorkStealingQueue<T, SlotCountShift>::dequeue() {
     int64_t index = m_head.fetch_sub(1, MemoryOrder::Relaxed) - 1;
+    vull::atomic_thread_fence(MemoryOrder::SeqCst);
     int64_t tail = m_tail.load(MemoryOrder::Relaxed);
 
     // If the queue is empty, restore the head index and return nothing.
@@ -54,24 +59,26 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::dequeue() {
         return {};
     }
 
-    // If this isn't the last element, we can safely return it.
-    auto &slot = m_slots[static_cast<uint32_t>(index % k_slot_count)];
+    T elem = m_slots[static_cast<uint32_t>(index % k_slot_count)].load();
     if (tail != index) {
-        return move(slot);
+        // This isn't the last element, so we can safely return it now.
+        return elem;
     }
 
     // Else, there is only one element left and potential for it to be stolen.
-    m_head.store(index + 1, MemoryOrder::Relaxed);
-    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::AcqRel, MemoryOrder::Relaxed)) {
+    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::SeqCst, MemoryOrder::Relaxed)) {
         // Failed race - last element was just stolen.
+        m_head.store(index + 1, MemoryOrder::Relaxed);
         return {};
     }
-    return move(slot);
+    m_head.store(index + 1, MemoryOrder::Relaxed);
+    return elem;
 }
 
 template <typename T, unsigned SlotCountShift>
-Optional<T> WorkStealingQueue<T, SlotCountShift>::steal() {
+typename WorkStealingQueue<T, SlotCountShift>::RetType WorkStealingQueue<T, SlotCountShift>::steal() {
     int64_t tail = m_tail.load(MemoryOrder::Acquire);
+    vull::atomic_thread_fence(MemoryOrder::SeqCst);
     int64_t head = m_head.load(MemoryOrder::Acquire);
 
     // No available element to take.
@@ -79,11 +86,11 @@ Optional<T> WorkStealingQueue<T, SlotCountShift>::steal() {
         return {};
     }
 
-    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::AcqRel, MemoryOrder::Relaxed)) {
+    if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::SeqCst, MemoryOrder::Relaxed)) {
         // Failed race - item was either dequeued by the queue owner or stolen by another thread.
         return {};
     }
-    return move(m_slots[static_cast<uint32_t>(tail % k_slot_count)]);
+    return m_slots[static_cast<uint32_t>(tail % k_slot_count)].load();
 }
 
 template <typename T, unsigned SlotCountShift>

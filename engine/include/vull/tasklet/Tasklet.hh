@@ -25,13 +25,13 @@ public:
     void set_semaphore(Semaphore &semaphore) { m_semaphore = semaphore; }
 };
 
-// TODO: Destruction is not properly handled; need a move constructor but firstly need a proper allocator.
-class alignas(64) Tasklet : public TaskletBase<Tasklet> {
+// TODO: O(1) allocator for tasklets.
+class Tasklet : public TaskletBase<Tasklet> {
     static constexpr auto k_inline_capacity = 64 - sizeof(TaskletBase);
     Array<uint8_t, k_inline_capacity> m_inline_storage;
 
     // Having a `requires` clause on both functions should not be strictly necessary, but it prevents accidental usage
-    // of either of the functions if their prototypes differ for whatever reason, and also works around a (seemingly)
+    // of either of the functions if their prototypes differ for whatever reason, and also works around a (seeming)
     // bug in GCC that prevents compilation.
     template <typename F>
     static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) <= k_inline_capacity) {
@@ -39,8 +39,7 @@ class alignas(64) Tasklet : public TaskletBase<Tasklet> {
         const_cast<F &>((reinterpret_cast<const F &>(*inline_storage)))();
     }
     template <typename F>
-    [[deprecated("functor storage demoted to a heap allocation, performance will be pessimised")]] static void
-    invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) > k_inline_capacity) {
+    static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) > k_inline_capacity) {
         // NOLINTNEXTLINE: const_cast
         const_cast<F &>((*reinterpret_cast<const F *const &>(*inline_storage)))();
     }
