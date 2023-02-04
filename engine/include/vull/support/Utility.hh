@@ -88,6 +88,11 @@ template <typename T>
 inline constexpr bool is_const<const T> = true;
 
 template <typename>
+inline constexpr bool is_ptr = false;
+template <typename T>
+inline constexpr bool is_ptr<T *> = true;
+
+template <typename>
 inline constexpr bool is_ref = false;
 template <typename T>
 inline constexpr bool is_ref<T &> = true;

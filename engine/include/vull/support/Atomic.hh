@@ -15,6 +15,10 @@ enum class MemoryOrder {
     SeqCst = __ATOMIC_SEQ_CST,
 };
 
+inline void atomic_thread_fence(MemoryOrder order) {
+    __atomic_thread_fence(static_cast<int>(order));
+}
+
 template <typename T>
 T atomic_load(T &ptr, MemoryOrder order = MemoryOrder::Relaxed) {
     AlignedStorage<T> storage;
