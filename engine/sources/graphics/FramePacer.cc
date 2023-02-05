@@ -1,6 +1,5 @@
 #include <vull/graphics/FramePacer.hh>
 
-#include <vull/graphics/Frame.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>

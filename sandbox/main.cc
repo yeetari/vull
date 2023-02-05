@@ -9,7 +9,6 @@
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/DefaultRenderer.hh>
-#include <vull/graphics/Frame.hh>
 #include <vull/graphics/FramePacer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
