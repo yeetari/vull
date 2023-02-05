@@ -20,7 +20,6 @@
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/PerfectMap.hh>
-#include <vull/support/ScopeGuard.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
