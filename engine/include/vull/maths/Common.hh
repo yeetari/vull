@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vull/support/Assert.hh>
+
 #include <math.h>
 
 namespace vull {
@@ -96,6 +98,12 @@ constexpr T popcount(T value) {
     } else if constexpr (sizeof(T) <= sizeof(unsigned long long)) {
         return __builtin_popcountll(static_cast<unsigned long long>(value));
     }
+}
+
+template <typename T>
+constexpr T align_down(T value, T alignment) {
+    VULL_ASSERT((alignment & (alignment - 1)) == 0, "Alignment not a power of two");
+    return value & ~(alignment - 1);
 }
 
 template <typename T>
