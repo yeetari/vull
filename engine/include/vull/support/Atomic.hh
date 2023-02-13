@@ -64,8 +64,12 @@ public:
     Atomic &operator=(Atomic &&) = delete;
 
     T cmpxchg(T expected, T desired, MemoryOrder success_order = Order, MemoryOrder failure_order = Order) volatile;
+    T cmpxchg_weak(T expected, T desired, MemoryOrder success_order = Order,
+                   MemoryOrder failure_order = Order) volatile;
     bool compare_exchange(T &expected, T desired, MemoryOrder success_order = Order,
                           MemoryOrder failure_order = Order) volatile;
+    bool compare_exchange_weak(T &expected, T desired, MemoryOrder success_order = Order,
+                               MemoryOrder failure_order = Order) volatile;
     T exchange(T desired, MemoryOrder order = Order) volatile;
     T fetch_add(T value, MemoryOrder order = Order) volatile;
     T fetch_sub(T value, MemoryOrder order = Order) volatile;
@@ -83,10 +87,28 @@ T Atomic<T, Order>::cmpxchg(T expected, T desired, MemoryOrder success_order, Me
 }
 
 template <SimpleAtomic T, MemoryOrder Order>
+T Atomic<T, Order>::cmpxchg_weak(T expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile {
+    auto exp = storage_t(expected);
+    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true, static_cast<int>(success_order),
+                                static_cast<int>(failure_order));
+    return T(exp);
+}
+
+template <SimpleAtomic T, MemoryOrder Order>
 bool Atomic<T, Order>::compare_exchange(T &expected, T desired, MemoryOrder success_order,
                                         MemoryOrder failure_order) volatile {
     auto exp = storage_t(expected);
     bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false,
+                                               static_cast<int>(success_order), static_cast<int>(failure_order));
+    expected = T(exp);
+    return success;
+}
+
+template <SimpleAtomic T, MemoryOrder Order>
+bool Atomic<T, Order>::compare_exchange_weak(T &expected, T desired, MemoryOrder success_order,
+                                             MemoryOrder failure_order) volatile {
+    auto exp = storage_t(expected);
+    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true,
                                                static_cast<int>(success_order), static_cast<int>(failure_order));
     expected = T(exp);
     return success;
