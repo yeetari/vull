@@ -5,7 +5,7 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/tasklet/Semaphore.hh>
+#include <vull/tasklet/TaskletMutex.hh>
 
 #include <stdint.h>
 
@@ -73,7 +73,7 @@ public:
 class Font {
     hb_font_t *m_hb_font;
     mutable Vector<Optional<CachedGlyph>> m_glyph_cache;
-    mutable Semaphore m_semaphore;
+    mutable TaskletMutex m_mutex;
 
 public:
     explicit Font(FT_Face face);

@@ -1,70 +1,85 @@
 #pragma once
 
-#include <vull/support/Array.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
 
+#include <stddef.h>
 #include <stdint.h>
 
 namespace vull {
 
-class Semaphore;
-
-template <typename Derived>
-class TaskletBase {
-    friend Derived;
-
-private:
-    void (*m_invoker)(const uint8_t *){nullptr};
-    Optional<Semaphore &> m_semaphore;
-
-    TaskletBase() = default;
-    explicit TaskletBase(void (*invoker)(const uint8_t *)) : m_invoker(invoker) {}
-
-public:
-    void set_semaphore(Semaphore &semaphore) { m_semaphore = semaphore; }
+enum class TaskletState {
+    Uninitialised,
+    Running,
+    Waiting,
+    Done,
 };
 
-// TODO: O(1) allocator for tasklets.
-class Tasklet : public TaskletBase<Tasklet> {
-    static constexpr auto k_inline_capacity = 64 - sizeof(TaskletBase);
-    Array<uint8_t, k_inline_capacity> m_inline_storage;
+class Tasklet {
+    void (*m_invoker)(const uint8_t *);
+    void *m_stack_top;
+#if VULL_ASAN_ENABLED
+    size_t m_stack_size;
+    void *m_fake_stack{nullptr};
+#endif
+    Tasklet *m_linked_tasklet{nullptr};
+    TaskletState m_state{TaskletState::Uninitialised};
 
-    // Having a `requires` clause on both functions should not be strictly necessary, but it prevents accidental usage
-    // of either of the functions if their prototypes differ for whatever reason, and also works around a (seeming)
-    // bug in GCC that prevents compilation.
     template <typename F>
-    static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) <= k_inline_capacity) {
+    static void invoke_helper(const uint8_t *inline_storage) {
         // NOLINTNEXTLINE: const_cast
         const_cast<F &>((reinterpret_cast<const F &>(*inline_storage)))();
     }
-    template <typename F>
-    static void invoke_helper(const uint8_t *inline_storage) requires(sizeof(F) > k_inline_capacity) {
-        // NOLINTNEXTLINE: const_cast
-        const_cast<F &>((*reinterpret_cast<const F *const &>(*inline_storage)))();
-    }
 
-    // clang-format off
 public:
-    Tasklet() = default;
-    template <typename F>
-    // NOLINTNEXTLINE: this constructor does not shadow the move constructor
-    Tasklet(F &&callable) requires(!is_same<F, Tasklet>);
-    // clang-format on
+    static Tasklet *create();
+    static Tasklet *current();
+
+    Tasklet(size_t size);
+    Tasklet(const Tasklet &) = delete;
+    Tasklet(Tasklet &&) = delete;
+    ~Tasklet() = delete;
+
+    Tasklet &operator=(const Tasklet &) = delete;
+    Tasklet &operator=(Tasklet &&) = delete;
 
     void invoke();
+    template <typename F>
+    void set_callable(F &&callable);
+    void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet = tasklet; }
+    void set_state(TaskletState state) { m_state = state; }
+
+    void *stack_top() const { return m_stack_top; }
+    Tasklet *linked_tasklet() const { return m_linked_tasklet; }
+    TaskletState state() const { return m_state; }
 };
 
-template <typename F>
-// NOLINTNEXTLINE: this constructor does not shadow the move constructor
-Tasklet::Tasklet(F &&callable) requires(!is_same<F, Tasklet>) : TaskletBase<Tasklet>(&invoke_helper<F>) {
-    if constexpr (sizeof(F) <= k_inline_capacity) {
-        new (m_inline_storage.data()) F(vull::forward<F>(callable));
-    } else {
-        new (m_inline_storage.data()) F *(new F(vull::forward<F>(callable)));
-    }
+inline Tasklet::Tasklet(size_t size) {
+    m_stack_top = reinterpret_cast<uint8_t *>(this) + size;
 }
 
-void schedule(Tasklet &&tasklet, Optional<Semaphore &> semaphore = {});
+inline void Tasklet::invoke() {
+    m_invoker(reinterpret_cast<uint8_t *>(this + 1));
+}
+
+template <typename F>
+void Tasklet::set_callable(F &&callable) {
+    new (this + 1) F(vull::forward<F>(callable));
+    m_invoker = &invoke_helper<F>;
+#if VULL_ASAN_ENABLED
+    const auto size =
+        reinterpret_cast<ptrdiff_t>(reinterpret_cast<uint8_t *>(m_stack_top) - reinterpret_cast<uint8_t *>(this));
+    m_stack_size = size - sizeof(Tasklet) - sizeof(F);
+#endif
+}
+
+void schedule(Tasklet *tasklet);
+void yield();
+
+template <typename F>
+void schedule(F &&callable) {
+    auto *tasklet = Tasklet::create();
+    tasklet->set_callable(vull::forward<F>(callable));
+    schedule(tasklet);
+}
 
 } // namespace vull

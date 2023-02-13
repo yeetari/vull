@@ -1,5 +1,9 @@
 #pragma once
 
+#if !defined(__has_feature)
+#define __has_feature(x) 0
+#endif
+
 #if defined(__GNUC__) && !defined(__clang__)
 #define VULL_IGNORE(expr)                                                                                              \
     {                                                                                                                  \
@@ -16,6 +20,12 @@
         _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"") __VA_ARGS__ _Pragma("clang diagnostic pop")
 #else
 #define VULL_GLOBAL(...) __VA_ARGS__
+#endif
+
+#if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
+#define VULL_ASAN_ENABLED 1
+#else
+#define VULL_ASAN_ENABLED 0
 #endif
 
 namespace vull {

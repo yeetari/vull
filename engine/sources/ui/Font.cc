@@ -1,6 +1,7 @@
 #include <vull/ui/Font.hh>
 
 #include <vull/maths/Common.hh>
+#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
@@ -50,27 +51,26 @@ void Font::rasterise(Span<float> buffer, uint32_t glyph_index) const {
         .disp_x = 0.0f,
         .disp_y = 0.0f,
     });
-    vull::schedule(
-        [this, buffer, glyph_index] {
-            auto *face = hb_ft_font_get_face(m_hb_font);
-            if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
-                return;
+    vull::schedule([this, buffer, glyph_index] {
+        ScopedLock lock(m_mutex);
+        auto *face = hb_ft_font_get_face(m_hb_font);
+        if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
+            return;
+        }
+        m_glyph_cache[glyph_index]->disp_x = static_cast<float>(face->glyph->bitmap_left);
+        m_glyph_cache[glyph_index]->disp_y = -static_cast<float>(face->glyph->bitmap_top);
+        if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF) != FT_Err_Ok) {
+            return;
+        }
+        const auto width = static_cast<uint32_t>(vull::sqrt(static_cast<float>(buffer.size())));
+        const auto &bitmap = face->glyph->bitmap;
+        for (unsigned y = 0; y < bitmap.rows; y++) {
+            for (unsigned x = 0; x < bitmap.width; x++) {
+                const auto pixel = bitmap.buffer[y * static_cast<unsigned>(bitmap.pitch) + x];
+                buffer.begin()[y * width + x] = static_cast<float>(pixel) / 256.0f;
             }
-            m_glyph_cache[glyph_index]->disp_x = static_cast<float>(face->glyph->bitmap_left);
-            m_glyph_cache[glyph_index]->disp_y = -static_cast<float>(face->glyph->bitmap_top);
-            if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF) != FT_Err_Ok) {
-                return;
-            }
-            const auto width = static_cast<uint32_t>(vull::sqrt(static_cast<float>(buffer.size())));
-            const auto &bitmap = face->glyph->bitmap;
-            for (unsigned y = 0; y < bitmap.rows; y++) {
-                for (unsigned x = 0; x < bitmap.width; x++) {
-                    const auto pixel = bitmap.buffer[y * static_cast<unsigned>(bitmap.pitch) + x];
-                    buffer.begin()[y * width + x] = static_cast<float>(pixel) / 256.0f;
-                }
-            }
-        },
-        m_semaphore);
+        }
+    });
 }
 
 ShapingView Font::shape(StringView text) const {

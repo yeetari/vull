@@ -27,6 +27,8 @@ target_sources(vull PRIVATE
     support/StringBuilder.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
+    tasklet/TaskletMutex.cc
+    tasklet/x86_64_sysv.S
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc

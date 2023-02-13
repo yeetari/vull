@@ -418,7 +418,9 @@ int main(int argc, char **argv) {
     }
 
     Scheduler scheduler;
-    scheduler.start([&] {
+    auto *tasklet = Tasklet::create();
+    tasklet->set_callable([&] {
         main_task(scheduler, scene_name, enable_validation);
     });
+    scheduler.start(tasklet);
 }

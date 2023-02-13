@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/support/Atomic.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
 
@@ -17,13 +16,10 @@ class Scheduler {
         Scheduler &scheduler;
         UniquePtr<TaskletQueue> queue;
         pthread_t thread;
-        uint32_t rng_state;
-        Atomic<bool> running;
     };
     Vector<UniquePtr<Worker>> m_workers;
 
-    Worker &pick_victim(uint32_t &rng_state);
-    static void *thread_loop(void *);
+    static void *worker_entry(void *);
 
 public:
     explicit Scheduler(uint32_t thread_count = 0);
@@ -34,7 +30,9 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
     Scheduler &operator=(Scheduler &&) = delete;
 
-    bool start(Tasklet &&);
+    TaskletQueue &pick_victim(uint32_t &rng_state);
+
+    bool start(Tasklet *tasklet);
     void stop();
 };
 

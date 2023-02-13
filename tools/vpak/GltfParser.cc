@@ -820,9 +820,12 @@ bool GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool re
     Scheduler scheduler(reproducible ? 1 : 0);
     Latch latch;
     Atomic<bool> success = true;
-    scheduler.start([&] {
-        success.store(converter.convert(latch), MemoryOrder::Relaxed);
+
+    auto *tasklet = Tasklet::create();
+    tasklet->set_callable([&] {
+        success.store(converter.convert(latch));
     });
+    scheduler.start(tasklet);
     latch.wait();
     scheduler.stop();
 
