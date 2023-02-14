@@ -62,7 +62,7 @@ extern "C" void vull_free_tasklet(Tasklet *tasklet) {
 }
 
 Tasklet *Tasklet::create() {
-    return new (s_pool.allocate()) Tasklet(k_size);
+    return s_pool.allocate();
 }
 
 } // namespace vull

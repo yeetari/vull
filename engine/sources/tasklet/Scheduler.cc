@@ -12,6 +12,7 @@
 
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <sys/random.h>
 #include <unistd.h>
 
@@ -133,6 +134,12 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     auto &[scheduler, queue, _] = *static_cast<Worker *>(worker_ptr);
     s_queue = queue.ptr();
     s_scheduler = &scheduler;
+
+    sigset_t sig_set;
+    sigfillset(&sig_set);
+    if (pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0) {
+        vull::error("[tasklet] Failed to mask signals");
+    }
 
     while (s_rng_state == 0) {
         VULL_ENSURE(getrandom(&s_rng_state, sizeof(uint32_t), 0) == sizeof(uint32_t));
