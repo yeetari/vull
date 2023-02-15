@@ -86,11 +86,12 @@ typename WorkStealingQueue<T, SlotCountShift>::RetType WorkStealingQueue<T, Slot
         return {};
     }
 
+    T elem = m_slots[static_cast<uint32_t>(tail % k_slot_count)].load();
     if (!m_tail.compare_exchange(tail, tail + 1, MemoryOrder::SeqCst, MemoryOrder::Relaxed)) {
         // Failed race - item was either dequeued by the queue owner or stolen by another thread.
         return {};
     }
-    return m_slots[static_cast<uint32_t>(tail % k_slot_count)].load();
+    return elem;
 }
 
 template <typename T, unsigned SlotCountShift>
