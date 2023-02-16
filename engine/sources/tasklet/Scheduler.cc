@@ -12,6 +12,7 @@
 #include <vull/tasklet/Tasklet.hh>
 
 #include <pthread.h>
+#include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
 #include <sys/random.h>
@@ -78,6 +79,16 @@ bool Scheduler::start(Tasklet *tasklet) {
     for (auto &worker : m_workers) {
         if (pthread_create(&worker->thread, nullptr, &worker_entry, worker.ptr()) != 0) {
             return false;
+        }
+    }
+
+    const auto core_count = static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
+    if (m_workers.size() <= core_count) {
+        for (uint32_t i = 0; i < m_workers.size(); i++) {
+            cpu_set_t set;
+            CPU_ZERO(&set);
+            CPU_SET(i, &set);
+            pthread_setaffinity_np(m_workers[i]->thread, sizeof(cpu_set_t), &set);
         }
     }
     return true;
