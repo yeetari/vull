@@ -2,6 +2,7 @@
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/UniquePtr.hh>
@@ -34,6 +35,10 @@ VULL_GLOBAL(static sem_t s_work_available);
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
+}
+
+Scheduler &Scheduler::current() {
+    return *s_scheduler;
 }
 
 TaskletQueue &Scheduler::pick_victim(uint32_t &rng_state) {
@@ -79,26 +84,18 @@ bool Scheduler::start(Tasklet *tasklet) {
 }
 
 void Scheduler::stop() {
-    s_running.store(false);
+    if (!s_running.exchange(false)) {
+        return;
+    }
     for (uint32_t i = 0; i < m_workers.size(); i++) {
         sem_post(&s_work_available);
     }
 }
 
-[[noreturn]] static void invoke_trampoline(Tasklet *tasklet) {
-    // TODO: Destruct lambda captures.
-    tasklet->invoke();
-    tasklet->set_state(TaskletState::Done);
-    vull_load_context(s_scheduler_tasklet, nullptr);
-}
+[[noreturn]] static void invoke_trampoline(Tasklet *);
 
-[[noreturn]] static void scheduler_fn(Tasklet *) {
-    bool current_done = s_current_tasklet->state() == TaskletState::Done;
-    if (!current_done) {
-        s_current_tasklet->set_state(TaskletState::Waiting);
-    }
-
-    Tasklet *next = vull::exchange(s_to_schedule, nullptr);
+static Tasklet *pick_next() {
+    auto *next = vull::exchange(s_to_schedule, nullptr);
     while (next == nullptr) {
         sem_wait(&s_work_available);
         if (!s_running.load() && s_queue->empty()) {
@@ -115,7 +112,8 @@ void Scheduler::stop() {
         if (next == nullptr) {
             sem_post(&s_work_available);
         } else if (next->state() == TaskletState::Running) {
-            vull::schedule(next);
+            [[maybe_unused]] bool success = s_queue->enqueue(next);
+            VULL_ASSERT(success);
             next = nullptr;
         }
     }
@@ -125,9 +123,27 @@ void Scheduler::stop() {
         vull_make_context(next->stack_top(), invoke_trampoline);
     }
     next->set_state(TaskletState::Running);
+    return next;
+}
 
-    auto *current = vull::exchange(s_current_tasklet, next);
-    vull_load_context(next, current_done ? current : nullptr);
+[[noreturn]] static void invoke_trampoline(Tasklet *tasklet) {
+    // TODO: Destruct lambda captures.
+    tasklet->invoke();
+    tasklet->set_state(TaskletState::Done);
+
+    auto *next = pick_next();
+    vull_load_context(s_current_tasklet = next, tasklet);
+}
+
+[[noreturn]] static void scheduler_fn(Tasklet *) {
+    // s_current_tasklet should still be the tasklet we yielded from, or nullptr in the edge case that this is the first
+    // schedule.
+    VULL_ASSERT(s_current_tasklet != s_scheduler_tasklet);
+    VULL_ASSERT(s_current_tasklet->state() != TaskletState::Done);
+    s_current_tasklet->set_state(TaskletState::Waiting);
+
+    auto *next = pick_next();
+    vull_load_context(s_current_tasklet = next, nullptr);
 }
 
 void *Scheduler::worker_entry(void *worker_ptr) {
@@ -145,10 +161,13 @@ void *Scheduler::worker_entry(void *worker_ptr) {
         VULL_ENSURE(getrandom(&s_rng_state, sizeof(uint32_t), 0) == sizeof(uint32_t));
     }
 
-    s_scheduler_tasklet = Tasklet::create();
-    s_current_tasklet = s_scheduler_tasklet;
+    // Use thread stack for scheduler tasklet.
+    Array<uint8_t, 131072> tasklet_data{};
+    s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size());
     vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
-    vull_load_context(s_scheduler_tasklet, nullptr);
+
+    auto *next = pick_next();
+    vull_load_context(s_current_tasklet = next, nullptr);
 }
 
 void schedule(Tasklet *tasklet) {
@@ -156,7 +175,9 @@ void schedule(Tasklet *tasklet) {
     sem_post(&s_work_available);
     while (!s_queue->enqueue(tasklet)) {
         auto *dequeued = s_queue->dequeue();
-        VULL_ASSERT(dequeued != nullptr);
+        if (dequeued == nullptr) {
+            continue;
+        }
         [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
         VULL_ASSERT(success);
 
