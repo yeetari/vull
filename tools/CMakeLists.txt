@@ -1,7 +1,7 @@
 add_executable(vpak vpak/main.cc)
 target_compile_features(vpak PRIVATE cxx_std_20)
 target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
-target_link_libraries(vpak PRIVATE vull)
+target_link_libraries(vpak PRIVATE vull::core vull::graphics)
 
 # TODO: Split options, PNG support should be available regardless via another option.
 if(VULL_BUILD_GLTF)
@@ -36,7 +36,7 @@ endif()
 add_executable(vsi vsi/main.cc)
 target_compile_features(vsi PRIVATE cxx_std_20)
 target_compile_options(vsi PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
-target_link_libraries(vsi PRIVATE vull)
+target_link_libraries(vsi PRIVATE vull::core vull::script)
 
 add_executable(vslc
     vslc/spv/Backend.cc
@@ -50,4 +50,4 @@ add_executable(vslc
     vslc/Token.cc)
 target_compile_features(vslc PRIVATE cxx_std_20)
 target_compile_options(vslc PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
-target_link_libraries(vslc PRIVATE vull)
+target_link_libraries(vslc PRIVATE vull::core)

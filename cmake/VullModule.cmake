@@ -1,0 +1,7 @@
+function(vull_module name)
+    add_library(vull-${name})
+    add_library(vull::${name} ALIAS vull-${name})
+    target_compile_features(vull-${name} PRIVATE cxx_std_20)
+    target_compile_options(vull-${name} PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
+    target_link_libraries(vull-${name} PRIVATE ${ARGN})
+endfunction()

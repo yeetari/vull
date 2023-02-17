@@ -1,39 +1,40 @@
-add_library(vull)
+include(VullModule)
+vull_module(core Zstd::Zstd)
+vull_module(graphics vull::core vull::vulkan)
+vull_module(physics vull::core)
+vull_module(script vull::core)
+vull_module(ui vull::core vull::vulkan Freetype::Freetype harfbuzz::harfbuzz)
+vull_module(vulkan vull::core)
+vull_module(x11-window vull::core X11::xcb X11::xcb_randr X11::xcb_util X11::xcb_xkb)
+
 add_subdirectory(sources)
-target_add_shader(vull shaders/default.frag)
-target_add_shader(vull shaders/default.vert)
-target_add_shader(vull shaders/deferred.comp)
-target_add_shader(vull shaders/depth_reduce.comp)
-target_add_shader(vull shaders/draw_cull.comp)
-target_add_shader(vull shaders/light_cull.comp)
-target_add_shader(vull shaders/shadow.vert)
-target_add_shader(vull shaders/skybox.frag)
-target_add_shader(vull shaders/skybox.vert)
-target_add_shader(vull shaders/ui.frag)
-target_add_shader(vull shaders/ui.vert)
-target_compile_features(vull PRIVATE cxx_std_20)
-target_compile_options(vull PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
-target_include_directories(vull PUBLIC include PRIVATE sources)
-target_link_libraries(vull PRIVATE
-    Freetype::Freetype
-    harfbuzz::harfbuzz
-    X11::xcb
-    X11::xcb_randr
-    X11::xcb_util
-    X11::xcb_xkb
-    Zstd::Zstd)
+target_include_directories(vull-core PUBLIC include)
+target_include_directories(vull-script PRIVATE sources)
+
+# Default shaders.
+target_add_shader(vull-graphics shaders/default.frag)
+target_add_shader(vull-graphics shaders/default.vert)
+target_add_shader(vull-graphics shaders/deferred.comp)
+target_add_shader(vull-graphics shaders/depth_reduce.comp)
+target_add_shader(vull-graphics shaders/draw_cull.comp)
+target_add_shader(vull-graphics shaders/light_cull.comp)
+target_add_shader(vull-graphics shaders/shadow.vert)
+target_add_shader(vull-graphics shaders/skybox.frag)
+target_add_shader(vull-graphics shaders/skybox.vert)
+target_add_shader(vull-graphics shaders/ui.frag)
+target_add_shader(vull-graphics shaders/ui.vert)
 
 if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
-    target_link_libraries(vull-tests PRIVATE vull)
+    target_link_libraries(vull-tests PRIVATE vull::core)
 endif()
 
 # TODO: Use cmake presets for this.
 if(VULL_BUILD_WARNINGS)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(vull PUBLIC
+        target_compile_options(vull-core PUBLIC
             -Werror
             -Weverything
             -Wno-c++20-compat
@@ -54,7 +55,7 @@ if(VULL_BUILD_WARNINGS)
             -Wno-switch-enum
             -Wno-weak-vtables)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(vull PUBLIC
+        target_compile_options(vull-core PUBLIC
             -Werror
             -Wall
             -Wextra
@@ -66,5 +67,5 @@ if(VULL_BUILD_WARNINGS)
             -Wno-unknown-pragmas)
     endif()
 else()
-    target_compile_options(vull PUBLIC -w)
+    target_compile_options(vull-core PUBLIC -w)
 endif()

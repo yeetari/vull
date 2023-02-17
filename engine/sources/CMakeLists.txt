@@ -1,26 +1,10 @@
-target_sources(vull PRIVATE
+target_sources(vull-core PRIVATE
     core/Log.cc
-    core/Scene.cc
     core/Transform.cc
-    core/Window.cc
     ecs/Entity.cc
     ecs/World.cc
-    graphics/DefaultRenderer.cc
-    graphics/FramePacer.cc
-    graphics/Material.cc
-    graphics/Mesh.cc
-    graphics/SkyboxRenderer.cc
     maths/Random.cc
-    physics/Mpr.cc
-    physics/PhysicsEngine.cc
-    physics/RigidBody.cc
-    physics/Shape.cc
     platform/Linux.cc
-    script/Builder.cc
-    script/ConstantPool.cc
-    script/Lexer.cc
-    script/Parser.cc
-    script/Vm.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
@@ -29,16 +13,41 @@ target_sources(vull PRIVATE
     tasklet/Tasklet.cc
     tasklet/TaskletMutex.cc
     tasklet/x86_64_sysv.S
+    vpak/Reader.cc
+    vpak/Writer.cc)
+
+target_sources(vull-graphics PRIVATE
+    core/Scene.cc
+    graphics/DefaultRenderer.cc
+    graphics/FramePacer.cc
+    graphics/Material.cc
+    graphics/Mesh.cc
+    graphics/SkyboxRenderer.cc
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc
-    terrain/Terrain.cc
+    terrain/Terrain.cc)
+
+target_sources(vull-physics PRIVATE
+    physics/Mpr.cc
+    physics/PhysicsEngine.cc
+    physics/RigidBody.cc
+    physics/Shape.cc)
+
+target_sources(vull-script PRIVATE
+    script/Builder.cc
+    script/ConstantPool.cc
+    script/Lexer.cc
+    script/Parser.cc
+    script/Vm.cc)
+
+target_sources(vull-ui PRIVATE
     ui/Font.cc
     ui/GpuFont.cc
     ui/Renderer.cc
-    ui/TimeGraph.cc
-    vpak/Reader.cc
-    vpak/Writer.cc
+    ui/TimeGraph.cc)
+
+target_sources(vull-vulkan PRIVATE
     vulkan/Allocator.cc
     vulkan/Buffer.cc
     vulkan/CommandBuffer.cc
@@ -54,3 +63,6 @@ target_sources(vull PRIVATE
     vulkan/Semaphore.cc
     vulkan/Shader.cc
     vulkan/Swapchain.cc)
+
+target_sources(vull-x11-window PRIVATE
+    core/Window.cc)

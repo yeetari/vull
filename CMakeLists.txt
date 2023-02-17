@@ -11,9 +11,9 @@ option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_TESTS "Build tests" OFF)
 option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 
-find_package(Freetype REQUIRED)
-find_package(harfbuzz REQUIRED)
-find_package(X11 REQUIRED)
+find_package(Freetype)
+find_package(harfbuzz)
+find_package(X11)
 find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
