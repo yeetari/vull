@@ -1,5 +1,7 @@
 #pragma once
 
+#include <new> // IWYU pragma: export
+
 #if !defined(__has_feature)
 #define __has_feature(x) 0
 #endif
@@ -286,17 +288,3 @@ inline constexpr auto &operator^=(auto &lhs, auto rhs) {
 }
 
 } // namespace vull
-
-#if !__has_include(<vector>)
-
-// NOLINTNEXTLINE
-inline void *operator new(unsigned long, void *ptr) {
-    return ptr;
-}
-
-// NOLINTNEXTLINE
-inline void *operator new[](unsigned long, void *ptr) {
-    return ptr;
-}
-
-#endif

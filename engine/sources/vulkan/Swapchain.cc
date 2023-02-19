@@ -6,6 +6,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>

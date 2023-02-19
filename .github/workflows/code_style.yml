@@ -73,7 +73,7 @@ jobs:
               -isystem/usr/include/freetype2 \
               -isystem/usr/include/harfbuzz \
               -Iengine/include -Iengine/sources \
-              -fno-rtti -nostdinc++ \
+              -fno-rtti \
               -w \
               {} 2>&1 |
           grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | cat -s | tee output

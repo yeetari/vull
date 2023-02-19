@@ -5,11 +5,11 @@ cmake_minimum_required(VERSION 3.24)
 project(vull ASM CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(VullModule)
 
 option(VULL_BUILD_GLTF "Build the vpak tool with glTF support" OFF)
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_TESTS "Build tests" OFF)
-option(VULL_BUILD_WARNINGS "Build with warnings" OFF)
 
 find_package(Freetype)
 find_package(harfbuzz)

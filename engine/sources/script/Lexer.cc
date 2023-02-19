@@ -15,7 +15,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
-#include <math.h>
+#include <cmath>
 #include <stdint.h>
 
 namespace vull::script {

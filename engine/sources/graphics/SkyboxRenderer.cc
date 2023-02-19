@@ -3,6 +3,7 @@
 #include <vull/graphics/DefaultRenderer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Buffer.hh>

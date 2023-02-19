@@ -6,6 +6,7 @@
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Test.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
 #include <stddef.h>

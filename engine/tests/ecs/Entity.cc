@@ -5,6 +5,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Tuple.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
 using namespace vull;

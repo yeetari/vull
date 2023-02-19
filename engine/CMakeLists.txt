@@ -1,4 +1,3 @@
-include(VullModule)
 vull_module(core Zstd::Zstd)
 vull_module(graphics vull::core vull::vulkan)
 vull_module(physics vull::core)
@@ -29,43 +28,4 @@ if(VULL_BUILD_TESTS)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
     target_link_libraries(vull-tests PRIVATE vull::core)
-endif()
-
-# TODO: Use cmake presets for this.
-if(VULL_BUILD_WARNINGS)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        target_compile_options(vull-core PUBLIC
-            -Werror
-            -Weverything
-            -Wno-c++20-compat
-            -Wno-c++98-compat
-            -Wno-c++98-compat-pedantic
-            -Wno-covered-switch-default
-            -Wno-double-promotion
-            -Wno-error=deprecated-declarations
-            -Wno-gnu-anonymous-struct
-            -Wno-gnu-statement-expression
-            # Disabling this should be fine as it's now allowed in C++ 20.
-            -Wno-gnu-zero-variadic-macro-arguments
-            -Wno-nested-anon-types
-            -Wno-non-virtual-dtor
-            -Wno-padded
-            -Wno-shadow-uncaptured-local
-            -Wno-switch
-            -Wno-switch-enum
-            -Wno-weak-vtables)
-    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(vull-core PUBLIC
-            -Werror
-            -Wall
-            -Wextra
-            -Wno-class-memaccess
-            -Wno-double-promotion
-            -Wno-missing-field-initializers
-            -Wno-non-virtual-dtor
-            -Wno-switch
-            -Wno-unknown-pragmas)
-    endif()
-else()
-    target_compile_options(vull-core PUBLIC -w)
 endif()

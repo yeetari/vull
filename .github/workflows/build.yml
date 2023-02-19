@@ -10,9 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - { cc: clang, cxx: clang++ }
-          - { cc: gcc,   cxx: g++ }
+        preset: [release-clang, release-gcc]
     steps:
       - name: Update package lists
         run: apt update -qq
@@ -44,14 +42,12 @@ jobs:
       - name: Configure CMake
         run: >-
           cmake .
+          --preset ${{ matrix.preset }}
           -Bbuild
-          -DCMAKE_BUILD_TYPE=Release
-          -DCMAKE_C_COMPILER=${{ matrix.config.cc }}
-          -DCMAKE_CXX_COMPILER=${{ matrix.config.cxx }}
-          -DVULL_BUILD_GLTF=ON
-          -DVULL_BUILD_SANDBOX=ON
-          -DVULL_BUILD_TESTS=ON
-          -DVULL_BUILD_WARNINGS=ON
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=On
+          -DVULL_BUILD_GLTF=On
+          -DVULL_BUILD_SANDBOX=On
+          -DVULL_BUILD_TESTS=On
           -GNinja
       - name: Build
         run: cmake --build build

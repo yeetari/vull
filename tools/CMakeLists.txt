@@ -1,7 +1,5 @@
-add_executable(vpak vpak/main.cc)
-target_compile_features(vpak PRIVATE cxx_std_20)
-target_compile_options(vpak PRIVATE -fno-exceptions -fno-rtti)
-target_link_libraries(vpak PRIVATE vull::core vull::graphics)
+vull_executable(vpak vull::core vull::graphics)
+target_sources(vpak PRIVATE vpak/main.cc)
 
 # TODO: Split options, PNG support should be available regardless via another option.
 if(VULL_BUILD_GLTF)
@@ -33,12 +31,11 @@ if(VULL_BUILD_GLTF)
     target_sources(vpak PRIVATE vpak/GltfParser.cc vpak/PngStream.cc)
 endif()
 
-add_executable(vsi vsi/main.cc)
-target_compile_features(vsi PRIVATE cxx_std_20)
-target_compile_options(vsi PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
-target_link_libraries(vsi PRIVATE vull::core vull::script)
+vull_executable(vsi vull::core vull::script)
+target_sources(vsi PRIVATE vsi/main.cc)
 
-add_executable(vslc
+vull_executable(vslc vull::core)
+target_sources(vslc PRIVATE
     vslc/spv/Backend.cc
     vslc/spv/Builder.cc
     vslc/Ast.cc
@@ -48,6 +45,3 @@ add_executable(vslc
     vslc/main.cc
     vslc/Parser.cc
     vslc/Token.cc)
-target_compile_features(vslc PRIVATE cxx_std_20)
-target_compile_options(vslc PRIVATE -fno-exceptions -fno-rtti -nostdinc++)
-target_link_libraries(vslc PRIVATE vull::core)

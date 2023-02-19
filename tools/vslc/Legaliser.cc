@@ -2,6 +2,7 @@
 
 #include <vull/support/Assert.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
 using namespace ast;

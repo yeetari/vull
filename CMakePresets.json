@@ -1,0 +1,128 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_DEBUG": "-Og -ggdb3",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O2 -DNDEBUG",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "On",
+        "VULL_COMPILER_FLAGS": "-fno-exceptions -fno-rtti"
+      }
+    },
+    {
+      "name": "base-clang",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "VULL_WARNING_FLAGS": "-Weverything -Wno-c++20-compat -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-covered-switch-default -Wno-double-promotion -Wno-gnu-statement-expression -Wno-non-virtual-dtor -Wno-padded -Wno-shadow-uncaptured-local -Wno-switch -Wno-switch-enum -Wno-weak-vtables"
+      }
+    },
+    {
+      "name": "base-gcc",
+      "hidden": true,
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VULL_WARNING_FLAGS": "-Wall -Wextra -Wno-alloc-size-larger-than -Wno-class-memaccess -Wno-double-promotion -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-switch -Wno-unknown-pragmas"
+      }
+    },
+
+    {
+      "name": "asan",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "debug",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "On"
+      }
+    },
+
+    {
+      "name": "asan-clang",
+      "inherits": ["base-clang", "asan"],
+      "displayName": "ASan (clang)"
+    },
+    {
+      "name": "asan-gcc",
+      "inherits": ["base-gcc", "asan"],
+      "displayName": "ASan (gcc)"
+    },
+    {
+      "name": "debug-clang",
+      "inherits": ["base-clang", "debug"],
+      "displayName": "Debug (clang)"
+    },
+    {
+      "name": "debug-gcc",
+      "inherits": ["base-gcc", "debug"],
+      "displayName": "Debug (gcc)"
+    },
+    {
+      "name": "release-clang",
+      "inherits": ["base-clang", "release"],
+      "displayName": "Release (clang)"
+    },
+    {
+      "name": "release-gcc",
+      "inherits": ["base-gcc", "release"],
+      "displayName": "Release (gcc)"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "asan-clang",
+      "displayName": "ASan (clang)",
+      "configurePreset": "asan-clang"
+    },
+    {
+      "name": "asan-gcc",
+      "displayName": "ASan (gcc)",
+      "configurePreset": "asan-gcc"
+    },
+    {
+      "name": "debug-clang",
+      "displayName": "Debug (clang)",
+      "configurePreset": "debug-clang"
+    },
+    {
+      "name": "debug-gcc",
+      "displayName": "Debug (gcc)",
+      "configurePreset": "debug-gcc"
+    },
+    {
+      "name": "release-clang",
+      "displayName": "Release (clang)",
+      "configurePreset": "release-clang"
+    },
+    {
+      "name": "release-gcc",
+      "displayName": "Release (gcc)",
+      "configurePreset": "release-gcc"
+    }
+  ]
+}

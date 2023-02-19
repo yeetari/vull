@@ -4,6 +4,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/UniquePtr.hh>
+#include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 
 namespace vull {
