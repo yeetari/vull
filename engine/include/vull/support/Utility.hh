@@ -258,6 +258,9 @@ using unwrap_ref = typename UnrapRefWrapper<T>::type;
 template <typename T>
 using decay_unwrap = unwrap_ref<decay<T>>;
 
+template <typename F, typename... Args>
+using result_type = decltype(declval<F>()(declval<Args>()...));
+
 template <typename I, I... Is>
 struct IntegerSequence {};
 
