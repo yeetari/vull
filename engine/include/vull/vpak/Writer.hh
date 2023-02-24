@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/platform/SystemMutex.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
@@ -8,6 +7,7 @@
 #include <vull/support/String.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
+#include <vull/tasklet/Mutex.hh>
 #include <vull/vpak/PackFile.hh>
 
 #include <stddef.h>
@@ -54,7 +54,7 @@ private:
     UniquePtr<Stream> m_stream;
     const CompressionLevel m_clevel;
     Vector<UniquePtr<Entry>> m_entries;
-    SystemMutex m_mutex;
+    Mutex m_mutex;
 
     Result<uint64_t, StreamError> allocate(size_t size);
     Result<void, StreamError> read_existing();

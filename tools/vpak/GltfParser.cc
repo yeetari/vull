@@ -12,7 +12,6 @@
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/platform/Latch.hh>
-#include <vull/platform/SystemMutex.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
@@ -22,6 +21,7 @@
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Vector.hh>
+#include <vull/tasklet/Mutex.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>
 #include <vull/vpak/PackFile.hh>
@@ -64,14 +64,14 @@ class Converter {
 
     HashMap<uint64_t, String> m_albedo_paths;
     HashMap<uint64_t, String> m_normal_paths;
-    SystemMutex m_material_map_mutex;
+    Mutex m_material_map_mutex;
 
     struct MeshBounds {
         BoundingBox box;
         BoundingSphere sphere;
     };
     HashMap<String, MeshBounds> m_mesh_bounds;
-    SystemMutex m_mesh_bounds_mutex;
+    Mutex m_mesh_bounds_mutex;
 
     Material make_material(simdjson::simdjson_result<simdjson::dom::element> primitive);
 
