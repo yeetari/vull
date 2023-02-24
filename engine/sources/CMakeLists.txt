@@ -11,7 +11,7 @@ target_sources(vull-core PRIVATE
     support/StringBuilder.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
-    tasklet/TaskletMutex.cc
+    tasklet/Mutex.cc
     tasklet/x86_64_sysv.S
     vpak/Reader.cc
     vpak/Writer.cc)

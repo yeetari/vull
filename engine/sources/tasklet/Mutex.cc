@@ -1,11 +1,11 @@
-#include <vull/tasklet/TaskletMutex.hh>
+#include <vull/tasklet/Mutex.hh>
 
 #include <vull/support/Atomic.hh>
 #include <vull/tasklet/Tasklet.hh>
 
 namespace vull {
 
-void TaskletMutex::lock() {
+void Mutex::lock() {
     if (!m_locked.cmpxchg(false, true)) [[likely]] {
         // Successfully locked without contention.
         return;
@@ -24,7 +24,7 @@ void TaskletMutex::lock() {
     } while (m_locked.cmpxchg_weak(false, true));
 }
 
-void TaskletMutex::unlock() {
+void Mutex::unlock() {
     // Dequeue one waiter from the linked list.
     auto *to_wake = m_waiter.load();
     Tasklet *desired;
