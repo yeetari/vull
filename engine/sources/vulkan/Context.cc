@@ -2,13 +2,13 @@
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
-#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/ScopedLock.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>

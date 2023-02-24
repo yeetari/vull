@@ -13,13 +13,13 @@
 #include <vull/maths/Vec.hh>
 #include <vull/platform/Latch.hh>
 #include <vull/platform/Mutex.hh>
-#include <vull/platform/ScopedLock.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/PerfectMap.hh>
+#include <vull/support/ScopedLock.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>

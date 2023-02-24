@@ -2,12 +2,12 @@
 
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
-#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/ScopedLock.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>

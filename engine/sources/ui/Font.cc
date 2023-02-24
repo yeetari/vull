@@ -1,8 +1,8 @@
 #include <vull/ui/Font.hh>
 
 #include <vull/maths/Common.hh>
-#include <vull/platform/ScopedLock.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/ScopedLock.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
