@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vull/platform/Mutex.hh>
+#include <vull/platform/SystemMutex.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
@@ -54,7 +54,7 @@ private:
     UniquePtr<Stream> m_stream;
     const CompressionLevel m_clevel;
     Vector<UniquePtr<Entry>> m_entries;
-    Mutex m_mutex;
+    SystemMutex m_mutex;
 
     Result<uint64_t, StreamError> allocate(size_t size);
     Result<void, StreamError> read_existing();

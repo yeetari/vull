@@ -1,6 +1,6 @@
 #include <vull/core/Log.hh>
 
-#include <vull/platform/Mutex.hh>
+#include <vull/platform/SystemMutex.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -65,7 +65,7 @@ Optional<String> LogQueue::dequeue() {
 
 class GlobalState {
     Vector<LogQueue *> m_queues;
-    Mutex m_queues_mutex;
+    SystemMutex m_queues_mutex;
     sem_t m_semaphore;
     pthread_t m_sink_thread;
     Atomic<bool> m_running{true};
@@ -140,7 +140,7 @@ VULL_GLOBAL(thread_local LogQueue *s_queue = nullptr);
 VULL_GLOBAL(GlobalState s_state);
 
 void *sink_loop(void *mutex) {
-    static_cast<Mutex *>(mutex)->lock();
+    static_cast<SystemMutex *>(mutex)->lock();
     while (s_state.wait()) {
         // TODO: Sort messages by timestamp.
         for (auto *queue : s_state) {

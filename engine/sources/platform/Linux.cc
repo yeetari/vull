@@ -1,7 +1,7 @@
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
 #include <vull/platform/Latch.hh>
-#include <vull/platform/Mutex.hh>
+#include <vull/platform/SystemMutex.hh>
 #include <vull/platform/Timer.hh>
 
 #include <vull/support/Array.hh>
@@ -143,7 +143,7 @@ void Latch::wait() {
     }
 }
 
-void Mutex::lock() {
+void SystemMutex::lock() {
     auto state = State::Unlocked;
     if (m_state.compare_exchange(state, State::Locked)) [[likely]] {
         // Successfully locked the mutex.
@@ -159,7 +159,7 @@ void Mutex::lock() {
     } while ((state = m_state.cmpxchg(State::Unlocked, State::LockedWaiters)) != State::Unlocked);
 }
 
-void Mutex::unlock() {
+void SystemMutex::unlock() {
     if (m_state.exchange(State::Unlocked) == State::LockedWaiters) {
         // Wake 1 waiter.
         syscall(SYS_futex, m_state.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);

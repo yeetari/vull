@@ -6,7 +6,7 @@
 
 namespace vull {
 
-class Mutex {
+class SystemMutex {
     enum class State : uint32_t {
         Unlocked,
         Locked,
@@ -15,13 +15,13 @@ class Mutex {
     Atomic<State> m_state{State::Unlocked};
 
 public:
-    Mutex() = default;
-    Mutex(const Mutex &) = delete;
-    Mutex(Mutex &&) = delete;
-    ~Mutex() = default;
+    SystemMutex() = default;
+    SystemMutex(const SystemMutex &) = delete;
+    SystemMutex(SystemMutex &&) = delete;
+    ~SystemMutex() = default;
 
-    Mutex &operator=(const Mutex &) = delete;
-    Mutex &operator=(Mutex &&) = delete;
+    SystemMutex &operator=(const SystemMutex &) = delete;
+    SystemMutex &operator=(SystemMutex &&) = delete;
 
     void lock();
     void unlock();
