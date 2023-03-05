@@ -2,6 +2,7 @@
 
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Vector.hh>
+#include <vull/tasklet/Mutex.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -26,6 +27,7 @@ private:
     const uint32_t m_memory_type_index;
     Vector<UniquePtr<Heap>> m_heaps;
     vkb::DeviceSize m_heap_size;
+    mutable Mutex m_mutex;
     bool m_mappable{false};
 
     Allocation allocate_dedicated(uint32_t size);

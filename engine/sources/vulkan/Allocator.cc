@@ -5,6 +5,7 @@
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/ScopedLock.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
@@ -339,6 +340,9 @@ Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
         size = size + alignment - remainder;
     }
 
+    // TODO: More granular locking, don't include vulkan calls.
+    ScopedLock lock(m_mutex);
+
     Optional<AllocationInfo> allocation_info;
     for (uint32_t i = 0; i < m_heaps.size(); i++) {
         if ((allocation_info = m_heaps[i]->allocate(size))) {
@@ -389,11 +393,13 @@ void Allocator::free(const Allocation &allocation) {
         m_context.vkFreeMemory(allocation.info().memory);
         return;
     }
+    ScopedLock lock(m_mutex);
     m_heaps[allocation.info().heap_index]->free(allocation.info());
     // TODO: Shrink heaps based on heuristic.
 }
 
 Vector<Vector<HeapRange>> Allocator::heap_ranges() const {
+    ScopedLock lock(m_mutex);
     Vector<Vector<HeapRange>> ranges;
     ranges.ensure_capacity(m_heaps.size());
     for (const auto &heap : m_heaps) {
