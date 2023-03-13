@@ -133,7 +133,7 @@ public:
 
     void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
     vkb::DependencyInfo dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const;
-    virtual void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const = 0;
+    virtual void execute(RenderGraph &graph, CommandBuffer &cmd_buf) = 0;
 
     const String &name() const { return m_name; }
     PassFlags flags() const { return m_flags; }
@@ -171,9 +171,7 @@ class RenderGraph {
     public:
         TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
             : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
-        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const override {
-            m_execute_fn(graph, cmd_buf, m_data);
-        }
+        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) override { m_execute_fn(graph, cmd_buf, m_data); }
         T &data() { return m_data; }
     };
 
@@ -184,7 +182,7 @@ class RenderGraph {
     public:
         TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
             : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
-        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) const override { m_execute_fn(graph, cmd_buf); }
+        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) override { m_execute_fn(graph, cmd_buf); }
     };
 
 private:
