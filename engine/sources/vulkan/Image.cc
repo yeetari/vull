@@ -53,7 +53,7 @@ const ImageView &Image::layer_view(uint32_t layer) const {
         .baseArrayLayer = layer,
         .layerCount = 1,
     };
-    return view(range);
+    return view(range, {});
 }
 
 const ImageView &Image::level_view(uint32_t level) const {
@@ -63,10 +63,19 @@ const ImageView &Image::level_view(uint32_t level) const {
         .levelCount = 1,
         .layerCount = 1,
     };
-    return view(range);
+    return view(range, {});
 }
 
-const ImageView &Image::view(const vkb::ImageSubresourceRange &range) const {
+const ImageView &Image::swizzle_view(const vkb::ComponentMapping &mapping) const {
+    vkb::ImageSubresourceRange range{
+        .aspectMask = m_full_view.range().aspectMask,
+        .levelCount = m_full_view.range().levelCount,
+        .layerCount = 1,
+    };
+    return view(range, mapping);
+}
+
+const ImageView &Image::view(const vkb::ImageSubresourceRange &range, const vkb::ComponentMapping &mapping) const {
     for (const auto &view : m_views) {
         if (memcmp(&range, &view.range(), sizeof(vkb::ImageSubresourceRange)) == 0) {
             return view;
@@ -77,6 +86,7 @@ const ImageView &Image::view(const vkb::ImageSubresourceRange &range) const {
         .image = m_full_view.image(),
         .viewType = vkb::ImageViewType::_2D,
         .format = m_format,
+        .components = mapping,
         .subresourceRange = range,
     };
     const auto &context = m_allocation.allocator()->context();

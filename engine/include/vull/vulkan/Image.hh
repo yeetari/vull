@@ -59,7 +59,8 @@ public:
 
     const ImageView &layer_view(uint32_t layer) const;
     const ImageView &level_view(uint32_t level) const;
-    const ImageView &view(const vkb::ImageSubresourceRange &range) const;
+    const ImageView &swizzle_view(const vkb::ComponentMapping &mapping) const;
+    const ImageView &view(const vkb::ImageSubresourceRange &range, const vkb::ComponentMapping &mapping) const;
 
     vkb::Image operator*() const { return m_full_view.image(); }
     vkb::Format format() const { return m_format; }
