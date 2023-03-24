@@ -8,6 +8,7 @@
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
@@ -24,6 +25,11 @@ class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<vkb::QueueFamilyProperties> m_queue_families;
     Vector<UniquePtr<Allocator>> m_allocators;
+    vkb::Sampler m_nearest_sampler;
+    vkb::Sampler m_linear_sampler;
+    vkb::Sampler m_depth_reduce_sampler;
+    vkb::Sampler m_shadow_sampler;
+
     Vector<UniquePtr<Queue>> m_queues;
     Mutex m_queues_mutex;
 
@@ -42,6 +48,7 @@ public:
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
     size_t descriptor_size(vkb::DescriptorType type) const;
+    vkb::Sampler get_sampler(Sampler sampler) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     Queue &graphics_queue();
     const Vector<UniquePtr<Allocator>> &allocators() const { return m_allocators; }

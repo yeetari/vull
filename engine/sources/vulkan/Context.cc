@@ -22,6 +22,7 @@
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
@@ -280,11 +281,60 @@ Context::Context(bool enable_validation) : ContextTable{} {
     print_for(MemoryUsage::HostOnly);
     print_for(MemoryUsage::HostToDevice);
     print_for(MemoryUsage::DeviceToHost);
+
+    vkb::SamplerCreateInfo nearest_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Nearest,
+        .minFilter = vkb::Filter::Nearest,
+        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
+        .maxLod = vkb::k_lod_clamp_none,
+    };
+    VULL_ENSURE(vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
+
+    vkb::SamplerCreateInfo linear_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .anisotropyEnable = true,
+        .maxAnisotropy = 16.0f,
+        .maxLod = vkb::k_lod_clamp_none,
+    };
+    VULL_ENSURE(vkCreateSampler(&linear_sampler_ci, &m_linear_sampler) == vkb::Result::Success);
+
+    vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
+        .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
+        .reductionMode = vkb::SamplerReductionMode::Min,
+    };
+    vkb::SamplerCreateInfo depth_reduce_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .pNext = &depth_reduction_mode_ci,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
+        .maxLod = vkb::k_lod_clamp_none,
+    };
+    VULL_ENSURE(vkCreateSampler(&depth_reduce_sampler_ci, &m_depth_reduce_sampler) == vkb::Result::Success);
+
+    vkb::SamplerCreateInfo shadow_sampler_ci{
+        .sType = vkb::StructureType::SamplerCreateInfo,
+        .magFilter = vkb::Filter::Linear,
+        .minFilter = vkb::Filter::Linear,
+        .mipmapMode = vkb::SamplerMipmapMode::Linear,
+        .compareEnable = true,
+        .compareOp = vkb::CompareOp::Less,
+        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
+    };
+    VULL_ENSURE(vkCreateSampler(&shadow_sampler_ci, &m_shadow_sampler) == vkb::Result::Success);
 }
 
 Context::~Context() {
     m_queues.clear();
     m_allocators.clear();
+    vkDestroySampler(m_shadow_sampler);
+    vkDestroySampler(m_depth_reduce_sampler);
+    vkDestroySampler(m_linear_sampler);
+    vkDestroySampler(m_nearest_sampler);
     vkDestroyDevice();
     vkDestroyInstance();
 }
@@ -432,6 +482,23 @@ size_t Context::descriptor_size(vkb::DescriptorType type) const {
         return m_descriptor_buffer_properties.storageBufferDescriptorSize;
     default:
         VULL_ENSURE_NOT_REACHED();
+    }
+}
+
+vkb::Sampler Context::get_sampler(Sampler sampler) const {
+    switch (sampler) {
+    case Sampler::None:
+        return nullptr;
+    case Sampler::Nearest:
+        return m_nearest_sampler;
+    case Sampler::Linear:
+        return m_linear_sampler;
+    case Sampler::DepthReduce:
+        return m_depth_reduce_sampler;
+    case Sampler::Shadow:
+        return m_shadow_sampler;
+    default:
+        vull::unreachable();
     }
 }
 
