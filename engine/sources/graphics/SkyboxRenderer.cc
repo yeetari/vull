@@ -16,6 +16,7 @@
 #include <vull/vulkan/PipelineBuilder.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -36,18 +37,6 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
         .pBindings = &binding,
     };
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_set_layout) == vkb::Result::Success);
-
-    vkb::SamplerCreateInfo sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&sampler_ci, &m_sampler) == vkb::Result::Success);
 
     m_pipeline = vk::PipelineBuilder()
                      // TODO: Don't hardcode format.
@@ -84,12 +73,11 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
                                 vk::MemoryUsage::DeviceOnly);
     auto staging_buffer = m_descriptor_buffer.create_staging();
     vk::DescriptorBuilder builder(m_set_layout, staging_buffer);
-    builder.set(0, 0, m_sampler, m_image.full_view());
+    builder.set(0, 0, m_image.full_view().sampled(vk::Sampler::Linear));
     m_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
 SkyboxRenderer::~SkyboxRenderer() {
-    m_context.vkDestroySampler(m_sampler);
     m_context.vkDestroyDescriptorSetLayout(m_set_layout);
 }
 

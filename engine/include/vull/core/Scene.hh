@@ -9,7 +9,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Image.hh>
-#include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
@@ -32,18 +31,16 @@ class Scene {
     vk::Context &m_context;
     World m_world;
     HashMap<String, uint32_t> m_texture_indices;
-    Vector<vk::Image> m_texture_images;
-    Vector<vkb::Sampler> m_texture_samplers;
-    vkb::Sampler m_linear_sampler{nullptr};
-    vkb::Sampler m_nearest_sampler{nullptr};
+    Vector<vk::Image> m_images;
+    Vector<vk::SampledImage> m_textures;
 
-    vk::Image load_image(vpak::ReadStream &);
+    vk::SampledImage load_texture(vpak::ReadStream &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}
     Scene(const Scene &) = delete;
     Scene(Scene &&) = delete;
-    ~Scene();
+    ~Scene() = default;
 
     Scene &operator=(const Scene &) = delete;
     Scene &operator=(Scene &&) = delete;
@@ -53,9 +50,8 @@ public:
 
     World &world() { return m_world; }
     Optional<const uint32_t &> texture_index(const String &name) const { return m_texture_indices.get(name); }
-    uint32_t texture_count() const { return m_texture_images.size(); }
-    const Vector<vk::Image> &texture_images() const { return m_texture_images; }
-    const Vector<vkb::Sampler> &texture_samplers() const { return m_texture_samplers; }
+    uint32_t texture_count() const { return m_textures.size(); }
+    const Vector<vk::SampledImage> &textures() const { return m_textures; }
 };
 
 } // namespace vull

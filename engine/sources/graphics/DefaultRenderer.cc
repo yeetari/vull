@@ -32,6 +32,7 @@
 #include <vull/vulkan/PipelineBuilder.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -101,8 +102,6 @@ DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, v
 }
 
 DefaultRenderer::~DefaultRenderer() {
-    m_context.vkDestroySampler(m_shadow_sampler);
-    m_context.vkDestroySampler(m_depth_reduce_sampler);
     m_context.vkDestroyDescriptorSetLayout(m_reduce_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_texture_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_main_set_layout);
@@ -250,36 +249,6 @@ void DefaultRenderer::create_set_layouts() {
 void DefaultRenderer::create_resources() {
     // Round down viewport to previous power of two.
     m_depth_pyramid_extent = {1u << vull::log2(m_viewport_extent.width), 1u << vull::log2(m_viewport_extent.height)};
-    vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
-        .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
-        .reductionMode = vkb::SamplerReductionMode::Min,
-    };
-    vkb::SamplerCreateInfo depth_reduce_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .pNext = &depth_reduction_mode_ci,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Nearest,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .maxLod = vkb::k_lod_clamp_none,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&depth_reduce_sampler_ci, &m_depth_reduce_sampler) == vkb::Result::Success);
-
-    vkb::SamplerCreateInfo shadow_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .compareEnable = true,
-        .compareOp = vkb::CompareOp::Less,
-        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&shadow_sampler_ci, &m_shadow_sampler) == vkb::Result::Success);
 
     m_object_visibility_buffer = m_context.create_buffer(
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
@@ -417,7 +386,7 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
     auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
     vk::DescriptorBuilder descriptor_builder(m_texture_set_layout, texture_descriptor_staging_buffer);
     for (uint32_t i = 0; i < scene.texture_count(); i++) {
-        descriptor_builder.set(0, i, scene.texture_samplers()[i], scene.texture_images()[i].full_view());
+        descriptor_builder.set(0, i, scene.textures()[i]);
     }
     m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
 
@@ -605,10 +574,10 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
 
             data.descriptor_builder = {m_main_set_layout, graph.get_buffer(data.descriptor_buffer)};
-            data.descriptor_builder.set(0, frame_ubo);
-            data.descriptor_builder.set(1, light_buffer);
-            data.descriptor_builder.set(2, object_buffer);
-            data.descriptor_builder.set(3, m_object_visibility_buffer);
+            data.descriptor_builder.set(0, 0, frame_ubo);
+            data.descriptor_builder.set(1, 0, light_buffer);
+            data.descriptor_builder.set(2, 0, object_buffer);
+            data.descriptor_builder.set(3, 0, m_object_visibility_buffer);
         });
 
     graph.add_pass(
@@ -637,7 +606,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 .size = sizeof(uint32_t),
             });
 
-            data.descriptor_builder.set(4, draw_buffer);
+            data.descriptor_builder.set(4, 0, draw_buffer);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_early_cull_pipeline);
             cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
@@ -672,9 +641,9 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             const auto &albedo_image = graph.get_image(data.albedo_image);
             const auto &normal_image = graph.get_image(data.normal_image);
             const auto &depth_image = graph.get_image(data.depth_image);
-            data.descriptor_builder.set(5, albedo_image.full_view(), false);
-            data.descriptor_builder.set(6, normal_image.full_view(), false);
-            data.descriptor_builder.set(7, depth_image.full_view(), false);
+            data.descriptor_builder.set(5, 0, albedo_image.full_view().sampled(vk::Sampler::None));
+            data.descriptor_builder.set(6, 0, normal_image.full_view().sampled(vk::Sampler::None));
+            data.descriptor_builder.set(7, 0, depth_image.full_view().sampled(vk::Sampler::None));
 
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
@@ -747,7 +716,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             const auto &depth_image = graph.get_image(data.depth_image);
             const auto &depth_pyramid = graph.get_image(data.depth_pyramid);
             const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
-            data.descriptor_builder.set(8, 0, m_depth_reduce_sampler, depth_pyramid.full_view());
+            data.descriptor_builder.set(8, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
 
             auto descriptor_buffer =
                 m_context.create_buffer(m_reduce_set_layout_size * level_count,
@@ -756,8 +725,8 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 vk::DescriptorBuilder descriptor_builder(
                     m_context, m_reduce_set_layout, descriptor_buffer.mapped<uint8_t>() + i * m_reduce_set_layout_size);
                 const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
-                descriptor_builder.set(0, 0, m_depth_reduce_sampler, input_view);
-                descriptor_builder.set(1, depth_pyramid.level_view(i), true);
+                descriptor_builder.set(0, 0, input_view.sampled(vk::Sampler::DepthReduce));
+                descriptor_builder.set(1, 0, depth_pyramid.level_view(i));
             }
 
             vkb::DeviceSize descriptor_offset = 0;
@@ -916,7 +885,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
         },
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            data.descriptor_builder.set(9, graph.get_buffer(data.light_visibility));
+            data.descriptor_builder.set(9, 0, graph.get_buffer(data.light_visibility));
 
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_light_cull_pipeline);
@@ -934,7 +903,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             output = builder.write(target, vk::WriteFlags::Additive);
         },
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
-            data.descriptor_builder.set(10, graph.get_image(output).full_view(), true);
+            data.descriptor_builder.set(10, 0, graph.get_image(output).full_view());
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_deferred_pipeline);

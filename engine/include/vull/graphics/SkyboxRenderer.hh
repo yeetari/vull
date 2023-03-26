@@ -26,7 +26,6 @@ class DefaultRenderer;
 class SkyboxRenderer {
     vk::Context &m_context;
     vkb::DescriptorSetLayout m_set_layout;
-    vkb::Sampler m_sampler;
     vk::Pipeline m_pipeline;
     vk::Image m_image;
     vk::Buffer m_descriptor_buffer;

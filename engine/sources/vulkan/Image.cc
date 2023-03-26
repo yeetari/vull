@@ -6,6 +6,7 @@
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <string.h>
@@ -92,7 +93,11 @@ const ImageView &Image::view(const vkb::ImageSubresourceRange &range, const vkb:
     const auto &context = m_allocation.allocator()->context();
     vkb::ImageView view;
     VULL_ENSURE(context.vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
-    return m_views.emplace(ImageView(m_full_view.image(), view, range));
+    return m_views.emplace(ImageView(m_context, m_full_view.image(), view, range));
+}
+
+SampledImage ImageView::sampled(Sampler sampler) const {
+    return {*this, m_context->get_sampler(sampler)};
 }
 
 } // namespace vull::vk

@@ -2,6 +2,7 @@
 
 #include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocation.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -10,6 +11,7 @@ namespace vull::vk {
 
 class Context;
 class Image;
+class SampledImage;
 class Swapchain;
 
 class ImageView {
@@ -18,18 +20,35 @@ class ImageView {
     friend Swapchain;
 
 private:
+    const Context *m_context{nullptr};
     vkb::Image m_image;
     vkb::ImageView m_view;
     vkb::ImageSubresourceRange m_range;
 
     ImageView() = default;
-    ImageView(vkb::Image image, vkb::ImageView view, const vkb::ImageSubresourceRange &range)
-        : m_image(image), m_view(view), m_range(range) {}
+    ImageView(const Context *context, vkb::Image image, vkb::ImageView view, const vkb::ImageSubresourceRange &range)
+        : m_context(context), m_image(image), m_view(view), m_range(range) {}
 
 public:
+    SampledImage sampled(Sampler sampler) const;
+
     vkb::ImageView operator*() const { return m_view; }
     vkb::Image image() const { return m_image; }
     const vkb::ImageSubresourceRange &range() const { return m_range; }
+};
+
+class SampledImage {
+    friend ImageView;
+
+private:
+    ImageView m_view;
+    vkb::Sampler m_sampler;
+
+    SampledImage(ImageView view, vkb::Sampler sampler) : m_view(view), m_sampler(sampler) {}
+
+public:
+    const ImageView &view() const { return m_view; }
+    vkb::Sampler sampler() const { return m_sampler; }
 };
 
 class Image {

@@ -67,8 +67,6 @@ class DefaultRenderer {
     vkb::DeviceSize m_reduce_set_layout_size{0};
 
     vkb::Extent2D m_depth_pyramid_extent;
-    vkb::Sampler m_depth_reduce_sampler;
-    vkb::Sampler m_shadow_sampler;
     vk::Buffer m_object_visibility_buffer;
     vk::Buffer m_texture_descriptor_buffer;
     vk::Buffer m_vertex_buffer;

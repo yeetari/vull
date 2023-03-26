@@ -11,7 +11,6 @@
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/support/Array.hh>
-#include <vull/support/Assert.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
@@ -27,6 +26,7 @@
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 // IWYU pragma: no_forward_declare vull::vkb::Image_T
@@ -57,12 +57,19 @@ FormatInfo parse_format(uint8_t pack_format) {
     }
 }
 
-} // namespace
-
-Scene::~Scene() {
-    m_context.vkDestroySampler(m_nearest_sampler);
-    m_context.vkDestroySampler(m_linear_sampler);
+vk::Sampler to_sampler(vpak::SamplerKind kind) {
+    switch (kind) {
+    case vpak::SamplerKind::LinearRepeat:
+        return vk::Sampler::Linear;
+    default:
+        vull::warn("[scene] Invalid sampler kind");
+        [[fallthrough]];
+    case vpak::SamplerKind::NearestRepeat:
+        return vk::Sampler::Nearest;
+    }
 }
+
+} // namespace
 
 Mat4f Scene::get_transform_matrix(EntityId entity) {
     const auto &transform = m_world.get_component<Transform>(entity);
@@ -74,7 +81,7 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     return parent_matrix * transform.matrix();
 }
 
-vk::Image Scene::load_image(vpak::ReadStream &stream) {
+vk::SampledImage Scene::load_texture(vpak::ReadStream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
     const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -100,19 +107,7 @@ vk::Image Scene::load_image(vpak::ReadStream &stream) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
-
-    switch (sampler_kind) {
-    case vpak::SamplerKind::LinearRepeat:
-        m_texture_samplers.push(m_linear_sampler);
-        break;
-    default:
-        vull::warn("[scene] Invalid sampler kind");
-        [[fallthrough]];
-    case vpak::SamplerKind::NearestRepeat:
-        m_texture_samplers.push(m_nearest_sampler);
-        break;
-    }
+    auto &image = m_images.emplace(m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly));
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
     m_context.graphics_queue().immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
@@ -176,40 +171,10 @@ vk::Image Scene::load_image(vpak::ReadStream &stream) {
         };
         cmd_buf.image_barrier(image_read_barrier);
     });
-    return image;
+    return image.full_view().sampled(to_sampler(sampler_kind));
 }
 
 void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
-    vkb::SamplerCreateInfo linear_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::Repeat,
-        .addressModeV = vkb::SamplerAddressMode::Repeat,
-        .addressModeW = vkb::SamplerAddressMode::Repeat,
-        .anisotropyEnable = true,
-        .maxAnisotropy = 16.0f,
-        .maxLod = vkb::k_lod_clamp_none,
-        .borderColor = vkb::BorderColor::FloatTransparentBlack,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&linear_sampler_ci, &m_linear_sampler) == vkb::Result::Success);
-
-    vkb::SamplerCreateInfo nearest_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Nearest,
-        .minFilter = vkb::Filter::Nearest,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::Repeat,
-        .addressModeV = vkb::SamplerAddressMode::Repeat,
-        .addressModeW = vkb::SamplerAddressMode::Repeat,
-        .anisotropyEnable = true,
-        .maxAnisotropy = 16.0f,
-        .maxLod = vkb::k_lod_clamp_none,
-        .borderColor = vkb::BorderColor::FloatTransparentBlack,
-    };
-    VULL_ENSURE(m_context.vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
-
     // Register default components. Note that the order currently matters.
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
@@ -225,8 +190,8 @@ void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
         switch (entry.type) {
         case vpak::EntryType::Image:
             auto stream = pack_reader.open(entry.name);
-            m_texture_indices.set(entry.name, m_texture_images.size());
-            m_texture_images.push(load_image(*stream));
+            m_texture_indices.set(entry.name, m_textures.size());
+            m_textures.push(load_texture(*stream));
             break;
         }
     }
