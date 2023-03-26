@@ -49,6 +49,9 @@ public:
     CommandBuffer &operator=(const CommandBuffer &) = delete;
     CommandBuffer &operator=(CommandBuffer &&) = delete;
 
+    void set_viewport(Span<vkb::Viewport> viewports, uint32_t first = 0);
+    void set_scissor(Span<vkb::Rect2D> scissors, uint32_t first = 0);
+
     void begin_rendering(const vkb::RenderingInfo &rendering_info) const;
     void end_rendering() const;
 

@@ -81,6 +81,14 @@ void CommandBuffer::emit_descriptor_binds() {
     m_descriptor_buffer_bindings.clear();
 }
 
+void CommandBuffer::set_viewport(Span<vkb::Viewport> viewports, uint32_t first) {
+    m_context.vkCmdSetViewport(m_cmd_buf, first, viewports.size(), viewports.data());
+}
+
+void CommandBuffer::set_scissor(Span<vkb::Rect2D> scissors, uint32_t first) {
+    m_context.vkCmdSetScissor(m_cmd_buf, first, scissors.size(), scissors.data());
+}
+
 void CommandBuffer::begin_rendering(const vkb::RenderingInfo &rendering_info) const {
     m_context.vkCmdBeginRendering(m_cmd_buf, &rendering_info);
 }
