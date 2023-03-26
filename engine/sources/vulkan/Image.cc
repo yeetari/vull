@@ -13,13 +13,14 @@
 
 namespace vull::vk {
 
-Image::Image(Allocation &&allocation, vkb::Format format, const ImageView &full_view)
-    : m_context(&allocation.allocator()->context()), m_allocation(vull::move(allocation)), m_format(format),
-      m_owned_image(full_view.image()), m_full_view(full_view) {}
+Image::Image(Allocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
+    : m_context(&allocation.allocator()->context()), m_allocation(vull::move(allocation)), m_extent(extent),
+      m_format(format), m_owned_image(full_view.image()), m_full_view(full_view) {}
 
 Image::Image(Image &&other) {
     m_context = vull::exchange(other.m_context, nullptr);
     m_allocation = vull::move(other.m_allocation);
+    m_extent = vull::move(other.m_extent);
     m_format = vull::exchange(other.m_format, {});
     m_owned_image = vull::exchange(other.m_owned_image, nullptr);
     m_full_view = vull::exchange(other.m_full_view, {});
@@ -40,6 +41,7 @@ Image &Image::operator=(Image &&other) {
     Image moved(vull::move(other));
     vull::swap(m_context, moved.m_context);
     vull::swap(m_allocation, moved.m_allocation);
+    vull::swap(m_extent, moved.m_extent);
     vull::swap(m_format, moved.m_format);
     vull::swap(m_owned_image, moved.m_owned_image);
     vull::swap(m_full_view, moved.m_full_view);

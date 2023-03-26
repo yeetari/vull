@@ -58,14 +58,15 @@ class Image {
 private:
     const Context *m_context{nullptr};
     Allocation m_allocation{};
+    vkb::Extent3D m_extent{};
     vkb::Format m_format{};
     vkb::Image m_owned_image{nullptr};
     ImageView m_full_view;
     mutable Vector<ImageView> m_views;
 
-    Image(Allocation &&allocation, vkb::Format format, const ImageView &full_view);
-    Image(const Context &context, vkb::Format format, const ImageView &full_view)
-        : m_context(&context), m_format(format), m_full_view(full_view) {}
+    Image(Allocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view);
+    Image(const Context &context, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
+        : m_context(&context), m_extent(extent), m_format(format), m_full_view(full_view) {}
 
 public:
     Image() = default;
@@ -82,6 +83,7 @@ public:
     const ImageView &view(const vkb::ImageSubresourceRange &range, const vkb::ComponentMapping &mapping) const;
 
     vkb::Image operator*() const { return m_full_view.image(); }
+    vkb::Extent3D extent() const { return m_extent; }
     vkb::Format format() const { return m_format; }
     const ImageView &full_view() const { return m_full_view; }
 };
