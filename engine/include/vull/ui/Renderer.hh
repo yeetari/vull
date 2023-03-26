@@ -11,7 +11,6 @@ namespace vull::vk {
 class Context;
 class RenderGraph;
 class Shader;
-class Swapchain;
 
 } // namespace vull::vk
 
@@ -21,15 +20,13 @@ class CommandList;
 
 class Renderer {
     vk::Context &m_context;
-    const vk::Swapchain &m_swapchain;
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vk::Pipeline m_pipeline;
     vk::Image m_null_image;
     Vec2f m_global_scale{96.0f / 2.54f};
 
 public:
-    Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
-             const vk::Shader &fragment_shader);
+    Renderer(vk::Context &context, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();

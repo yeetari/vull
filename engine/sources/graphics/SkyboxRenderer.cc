@@ -48,7 +48,6 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
                      .set_depth_format(vkb::Format::D32Sfloat)
                      .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, false)
                      .set_topology(vkb::PrimitiveTopology::TriangleList)
-                     .set_viewport(default_renderer.viewport_extent())
                      .build(m_context);
 
     vkb::ImageCreateInfo image_ci{
@@ -83,44 +82,27 @@ SkyboxRenderer::~SkyboxRenderer() {
 
 vk::ResourceId SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, vk::ResourceId depth_image,
                                           vk::ResourceId frame_ubo) {
-    return graph.add_pass<vk::ResourceId>(
-        "skybox", vk::PassFlags::Graphics,
-        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
-            output = builder.write(target, vk::WriteFlags::Additive);
-        },
-        [this, depth_image, frame_ubo](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
-                                       const vk::ResourceId &output) {
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, graph.get_buffer(frame_ubo), 0, 0);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 1, 0);
-            vkb::RenderingAttachmentInfo colour_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *graph.get_image(output).full_view(),
-                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-            };
-            vkb::RenderingAttachmentInfo depth_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *graph.get_image(depth_image).full_view(),
-                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::None,
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {2560, 1440},
-                },
-                .layerCount = 1,
-                .colorAttachmentCount = 1,
-                .pColorAttachments = &colour_write_attachment,
-                .pDepthAttachment = &depth_attachment,
-            };
-            cmd_buf.bind_pipeline(m_pipeline);
-            cmd_buf.begin_rendering(rendering_info);
-            cmd_buf.draw(36, 1);
-            cmd_buf.end_rendering();
-        });
+    struct PassData {
+        vk::ResourceId output;
+        vk::ResourceId frame_ubo;
+        vk::ResourceId depth_image;
+    };
+    return graph
+        .add_pass<PassData>(
+            "skybox", vk::PassFlags::Graphics,
+            [&](vk::PassBuilder &builder, PassData &data) {
+                data.output = builder.write(target, vk::WriteFlags::Additive);
+                data.frame_ubo = builder.read(frame_ubo);
+                data.depth_image = builder.read(depth_image);
+            },
+            [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const PassData &data) {
+                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, graph.get_buffer(data.frame_ubo), 0,
+                                               0);
+                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 1, 0);
+                cmd_buf.bind_pipeline(m_pipeline);
+                cmd_buf.draw(36, 1);
+            })
+        .output;
 }
 
 void SkyboxRenderer::load(vpak::ReadStream &stream) {

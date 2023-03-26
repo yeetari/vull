@@ -73,7 +73,8 @@ void CommandList::draw_text(Font &font, Vec2f position, const Vec4f &colour, Str
     }
 }
 
-void CommandList::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, const vk::SampledImage &null_image) {
+void CommandList::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
+                          const vk::SampledImage &null_image) {
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
         context.create_buffer(m_bound_textures.size() * descriptor_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
@@ -128,7 +129,14 @@ void CommandList::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, cons
                 cmd_buf.draw_indexed(count, 1, first_index);
                 first_index = index_offset;
             }
-            cmd_buf.push_constants(vkb::ShaderStage::Fragment, texture_index);
+            struct PushConstants {
+                Vec2f viewport;
+                uint32_t texture_index;
+            } push_constants{
+                .viewport = viewport_extent,
+                .texture_index = texture_index,
+            };
+            cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, push_constants);
         }
 
         const auto a = command.position;

@@ -15,16 +15,14 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Sampler.hh>
-#include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
-                   const vk::Shader &fragment_shader)
-    : m_context(context), m_swapchain(swapchain) {
+Renderer::Renderer(vk::Context &context, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader)
+    : m_context(context) {
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
@@ -50,27 +48,9 @@ Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const v
     };
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_descriptor_set_layout) == vkb::Result::Success);
 
-    Vec2f swapchain_dimensions = swapchain.dimensions();
-    Array specialization_map_entries{
-        vkb::SpecializationMapEntry{
-            .constantID = 0,
-            .size = sizeof(float),
-        },
-        vkb::SpecializationMapEntry{
-            .constantID = 1,
-            .offset = sizeof(float),
-            .size = sizeof(float),
-        },
-    };
-    vkb::SpecializationInfo specialization_info{
-        .mapEntryCount = specialization_map_entries.size(),
-        .pMapEntries = specialization_map_entries.data(),
-        .dataSize = sizeof(Vec2f),
-        .pData = &swapchain_dimensions,
-    };
     vkb::PushConstantRange push_constant_range{
-        .stageFlags = vkb::ShaderStage::Fragment,
-        .size = sizeof(uint32_t),
+        .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
+        .size = sizeof(Vec2f) + sizeof(uint32_t),
     };
     vkb::PipelineColorBlendAttachmentState blend_state{
         .blendEnable = true,
@@ -86,11 +66,10 @@ Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const v
     m_pipeline = vk::PipelineBuilder()
                      .add_colour_attachment(vkb::Format::B8G8R8A8Unorm, blend_state)
                      .add_set_layout(m_descriptor_set_layout)
-                     .add_shader(vertex_shader, specialization_info)
-                     .add_shader(fragment_shader, specialization_info)
+                     .add_shader(vertex_shader)
+                     .add_shader(fragment_shader)
                      .set_push_constant_range(push_constant_range)
                      .set_topology(vkb::PrimitiveTopology::TriangleList)
-                     .set_viewport(swapchain.extent_2D())
                      .build(m_context);
 
     vkb::ImageCreateInfo image_ci{
@@ -133,25 +112,9 @@ vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId targe
         },
         [this, cmd_list = vull::move(cmd_list)](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
                                                 const vk::ResourceId &output) mutable {
-            vkb::RenderingAttachmentInfo colour_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *graph.get_image(output).full_view(),
-                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = m_swapchain.extent_2D(),
-                },
-                .layerCount = 1,
-                .colorAttachmentCount = 1,
-                .pColorAttachments = &colour_write_attachment,
-            };
+            const auto output_extent = graph.get_image(output).extent();
             cmd_buf.bind_pipeline(m_pipeline);
-            cmd_buf.begin_rendering(rendering_info);
-            cmd_list.compile(m_context, cmd_buf,
+            cmd_list.compile(m_context, cmd_buf, Vec2f(output_extent.width, output_extent.height),
                              m_null_image
                                  .swizzle_view({
                                      .r = vkb::ComponentSwizzle::One,
@@ -160,7 +123,6 @@ vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId targe
                                      .a = vkb::ComponentSwizzle::One,
                                  })
                                  .sampled(vk::Sampler::Nearest));
-            cmd_buf.end_rendering();
         });
 }
 

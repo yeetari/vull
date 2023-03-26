@@ -25,7 +25,6 @@ class PipelineBuilder {
     vkb::PolygonMode m_polygon_mode{vkb::PolygonMode::Fill};
     vkb::PushConstantRange m_push_constant_range{};
     vkb::PrimitiveTopology m_topology{};
-    vkb::Extent2D m_viewport_extent{};
     bool m_depth_test_enabled{false};
     bool m_depth_write_enabled{false};
 
@@ -41,8 +40,6 @@ public:
     PipelineBuilder &set_polygon_mode(vkb::PolygonMode polygon_mode);
     PipelineBuilder &set_push_constant_range(const vkb::PushConstantRange &push_constant_range);
     PipelineBuilder &set_topology(vkb::PrimitiveTopology topology);
-    PipelineBuilder &set_viewport(vkb::Extent2D extent);
-    PipelineBuilder &set_viewport(vkb::Extent3D extent);
     Pipeline build(const Context &context);
 };
 

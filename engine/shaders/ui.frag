@@ -9,6 +9,7 @@ layout (binding = 0) uniform sampler2D g_textures[];
 layout (location = 0) out vec4 g_out_colour;
 
 layout (push_constant) uniform PushConstants {
+    vec2 g_viewport;
     uint g_texture_index;
 };
 

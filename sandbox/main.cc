@@ -126,7 +126,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
-    ui::Renderer ui_renderer(context, swapchain, ui_vs, ui_fs);
+    ui::Renderer ui_renderer(context, ui_vs, ui_fs);
     ui::TimeGraph cpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.4f, 0.6f, 0.5f));
     ui::TimeGraph gpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.8f, 0.5f, 0.7f));
     ui_renderer.set_global_scale(window.ppcm());

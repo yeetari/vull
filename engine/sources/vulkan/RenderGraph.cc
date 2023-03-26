@@ -1,5 +1,6 @@
 #include <vull/vulkan/RenderGraph.hh>
 
+#include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/HashMap.hh>
@@ -214,7 +215,7 @@ void RenderGraph::build_sync() {
                 pass.add_transition(id, vkb::ImageLayout::Undefined, resource.write_layout());
                 layout_map.set(resource.physical_index(), resource.write_layout());
 #ifdef RG_DEBUG
-                vull::debug("{} create {}: Undefined -> {}", pass.name(),
+                vull::debug("'{}' create '{}': Undefined -> {}", pass.name(),
                             m_physical_resources[resource.physical_index()].name(),
                             vull::to_underlying(resource.write_layout()));
 #endif
@@ -243,7 +244,7 @@ void RenderGraph::build_sync() {
                     pass.add_transition(id, current_layout, read_layout);
                     layout_map.set(resource.physical_index(), read_layout);
 #ifdef RG_DEBUG
-                    vull::debug("{} read {}: {} -> {}", pass.name(),
+                    vull::debug("'{}' read '{}': {} -> {}", pass.name(),
                                 m_physical_resources[resource.physical_index()].name(),
                                 vull::to_underlying(current_layout), vull::to_underlying(read_layout));
 #endif
@@ -266,7 +267,7 @@ void RenderGraph::build_sync() {
                 pass.add_transition(id, current_layout, resource.write_layout());
                 layout_map.set(resource.physical_index(), resource.write_layout());
 #ifdef RG_DEBUG
-                vull::debug("{} write {}: {} -> {}", pass.name(),
+                vull::debug("'{}' write '{}': {} -> {}", pass.name(),
                             m_physical_resources[resource.physical_index()].name(), vull::to_underlying(current_layout),
                             vull::to_underlying(resource.write_layout()));
 #endif
@@ -276,21 +277,115 @@ void RenderGraph::build_sync() {
 }
 
 void RenderGraph::compile(ResourceId target) {
+#ifdef RG_DEBUG
+    vull::debug("RenderGraph::compile({})", m_physical_resources[m_resources[target].physical_index()].name());
+#endif
     // TODO: Graph validation.
     build_order(target);
     build_sync();
 }
 
 void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
+#ifdef RG_DEBUG
+    vull::debug("RenderGraph::record_pass({})", pass.name());
+#endif
+
+    // Emit barrier.
     Vector<vkb::ImageMemoryBarrier2> image_barriers;
     const auto dependency_info = pass.dependency_info(*this, image_barriers);
     if (dependency_info.memoryBarrierCount + dependency_info.imageMemoryBarrierCount != 0) {
         cmd_buf.pipeline_barrier(dependency_info);
     }
+
+    // Begin dynamic rendering state.
+    if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
+        Vector<vkb::RenderingAttachmentInfo> colour_attachments;
+        Optional<vkb::RenderingAttachmentInfo> depth_attachment;
+        vkb::Extent2D extent{};
+
+        auto consider_resource = [&](ResourceId id, vkb::AttachmentLoadOp load_op, vkb::AttachmentStoreOp store_op) {
+            if ((m_resources[id].flags() & ResourceFlags::Kind) != ResourceFlags::Image) {
+                return;
+            }
+
+            const auto &image = get_image(id);
+            extent.width = vull::max(extent.width, image.extent().width);
+            extent.height = vull::max(extent.height, image.extent().height);
+
+            const bool is_colour = image.full_view().range().aspectMask == vkb::ImageAspect::Color;
+#ifdef RG_DEBUG
+            const auto &physical = m_physical_resources[m_resources[id].physical_index()];
+            vull::debug("{} attachment '{}' (load_op: {}, store_op: {})", is_colour ? "colour" : "depth",
+                        physical.name(), vull::to_underlying(load_op), vull::to_underlying(store_op));
+#endif
+
+            // TODO: Allow view other than full_view + custom clear value.
+            vkb::RenderingAttachmentInfo attachment_info{
+                .sType = vkb::StructureType::RenderingAttachmentInfo,
+                .imageView = *image.full_view(),
+                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
+                .loadOp = load_op,
+                .storeOp = store_op,
+            };
+            if (is_colour) {
+                colour_attachments.push(attachment_info);
+            } else {
+                VULL_ASSERT(!depth_attachment);
+                depth_attachment.emplace(attachment_info);
+            }
+        };
+
+        // TODO: How to choose Clear vs DontCare for load op?
+        for (auto id : pass.creates()) {
+            consider_resource(id, vkb::AttachmentLoadOp::Clear, vkb::AttachmentStoreOp::Store);
+        }
+        for (auto [id, flags] : pass.reads()) {
+            if ((flags & ReadFlags::Additive) != ReadFlags::None) {
+                continue;
+            }
+            consider_resource(id, vkb::AttachmentLoadOp::Load, vkb::AttachmentStoreOp::None);
+        }
+        for (auto [id, flags] : pass.writes()) {
+            const bool additive = (flags & WriteFlags::Additive) != WriteFlags::None;
+            consider_resource(id, additive ? vkb::AttachmentLoadOp::Load : vkb::AttachmentLoadOp::Clear,
+                              vkb::AttachmentStoreOp::Store);
+        }
+
+        vkb::RenderingInfo rendering_info{
+            .sType = vkb::StructureType::RenderingInfo,
+            .renderArea{
+                .extent = extent,
+            },
+            .layerCount = 1,
+            .colorAttachmentCount = colour_attachments.size(),
+            .pColorAttachments = colour_attachments.data(),
+            .pDepthAttachment = depth_attachment ? &*depth_attachment : nullptr,
+        };
+        cmd_buf.begin_rendering(rendering_info);
+
+        vkb::Viewport viewport{
+            .width = static_cast<float>(extent.width),
+            .height = static_cast<float>(extent.height),
+            .maxDepth = 1.0f,
+        };
+        vkb::Rect2D scissor{
+            .extent = extent,
+        };
+        cmd_buf.set_viewport(viewport);
+        cmd_buf.set_scissor(scissor);
+    }
+
     pass.execute(*this, cmd_buf);
+
+    if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
+        cmd_buf.end_rendering();
+    }
 }
 
 void RenderGraph::execute(CommandBuffer &cmd_buf, bool record_timestamps) {
+#ifdef RG_DEBUG
+    vull::debug("RenderGraph::execute({})", record_timestamps);
+#endif
     if (record_timestamps) {
         m_timestamp_pool.recreate(m_pass_order.size() + 1, vkb::QueryType::Timestamp);
         cmd_buf.reset_query_pool(m_timestamp_pool);

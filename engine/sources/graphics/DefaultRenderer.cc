@@ -329,7 +329,6 @@ void DefaultRenderer::create_pipelines() {
                              .set_depth_format(vkb::Format::D32Sfloat)
                              .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
                              .set_topology(vkb::PrimitiveTopology::TriangleList)
-                             .set_viewport(m_viewport_extent)
                              .build(m_context);
 
     m_shadow_pipeline = vk::PipelineBuilder()
@@ -344,7 +343,6 @@ void DefaultRenderer::create_pipelines() {
                                 .size = sizeof(ShadowPushConstantBlock),
                             })
                             .set_topology(vkb::PrimitiveTopology::TriangleList)
-                            .set_viewport(vkb::Extent2D{k_shadow_resolution, k_shadow_resolution})
                             .build(m_context);
 
     m_depth_reduce_pipeline = vk::PipelineBuilder()
@@ -647,52 +645,8 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
 
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-            Array colour_write_attachments{
-                vkb::RenderingAttachmentInfo{
-                    .sType = vkb::StructureType::RenderingAttachmentInfo,
-                    .imageView = *albedo_image.full_view(),
-                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                    .loadOp = vkb::AttachmentLoadOp::Clear,
-                    .storeOp = vkb::AttachmentStoreOp::Store,
-                    .clearValue{
-                        .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                    },
-                },
-                vkb::RenderingAttachmentInfo{
-                    .sType = vkb::StructureType::RenderingAttachmentInfo,
-                    .imageView = *normal_image.full_view(),
-                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                    .loadOp = vkb::AttachmentLoadOp::Clear,
-                    .storeOp = vkb::AttachmentStoreOp::Store,
-                    .clearValue{
-                        .color{{0.0f, 0.0f, 0.0f, 0.0f}},
-                    },
-                },
-            };
-            vkb::RenderingAttachmentInfo depth_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *depth_image.full_view(),
-                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Clear,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-                .clearValue{
-                    .depthStencil{0.0f, 0},
-                },
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                },
-                .layerCount = 1,
-                .colorAttachmentCount = colour_write_attachments.size(),
-                .pColorAttachments = colour_write_attachments.data(),
-                .pDepthAttachment = &depth_write_attachment,
-            };
             cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-            cmd_buf.begin_rendering(rendering_info);
             record_draws(cmd_buf, draw_buffer);
-            cmd_buf.end_rendering();
         });
 
     graph.add_pass(
@@ -828,48 +782,10 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
             const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-            const auto &albedo_image = graph.get_image(data.albedo_image);
-            const auto &normal_image = graph.get_image(data.normal_image);
-            const auto &depth_image = graph.get_image(data.depth_image);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-            Array colour_write_attachments{
-                vkb::RenderingAttachmentInfo{
-                    .sType = vkb::StructureType::RenderingAttachmentInfo,
-                    .imageView = *albedo_image.full_view(),
-                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                    .loadOp = vkb::AttachmentLoadOp::Load,
-                    .storeOp = vkb::AttachmentStoreOp::Store,
-                },
-                vkb::RenderingAttachmentInfo{
-                    .sType = vkb::StructureType::RenderingAttachmentInfo,
-                    .imageView = *normal_image.full_view(),
-                    .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                    .loadOp = vkb::AttachmentLoadOp::Load,
-                    .storeOp = vkb::AttachmentStoreOp::Store,
-                },
-            };
-            vkb::RenderingAttachmentInfo depth_write_attachment{
-                .sType = vkb::StructureType::RenderingAttachmentInfo,
-                .imageView = *depth_image.full_view(),
-                .imageLayout = vkb::ImageLayout::AttachmentOptimal,
-                .loadOp = vkb::AttachmentLoadOp::Load,
-                .storeOp = vkb::AttachmentStoreOp::Store,
-            };
-            vkb::RenderingInfo rendering_info{
-                .sType = vkb::StructureType::RenderingInfo,
-                .renderArea{
-                    .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                },
-                .layerCount = 1,
-                .colorAttachmentCount = colour_write_attachments.size(),
-                .pColorAttachments = colour_write_attachments.data(),
-                .pDepthAttachment = &depth_write_attachment,
-            };
             cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-            cmd_buf.begin_rendering(rendering_info);
             record_draws(cmd_buf, draw_buffer);
-            cmd_buf.end_rendering();
         });
 
     graph.add_pass(

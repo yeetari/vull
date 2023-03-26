@@ -45,7 +45,8 @@ private:
 
     explicit CommandList(Vec2f global_scale) : m_global_scale(global_scale) { m_bound_textures.push({}); }
 
-    void compile(vk::Context &context, vk::CommandBuffer &cmd_buf, const vk::SampledImage &null_image);
+    void compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
+                 const vk::SampledImage &null_image);
     uint32_t get_texture_index(const vk::SampledImage &image);
 
 public:

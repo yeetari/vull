@@ -1,6 +1,7 @@
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
 
+#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
@@ -102,16 +103,6 @@ PipelineBuilder &PipelineBuilder::set_topology(vkb::PrimitiveTopology topology) 
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::set_viewport(vkb::Extent2D extent) {
-    m_viewport_extent = extent;
-    return *this;
-}
-
-PipelineBuilder &PipelineBuilder::set_viewport(vkb::Extent3D extent) {
-    m_viewport_extent = {extent.width, extent.height};
-    return *this;
-}
-
 Pipeline PipelineBuilder::build(const Context &context) {
     vkb::PipelineLayoutCreateInfo layout_ci{
         .sType = vkb::StructureType::PipelineLayoutCreateInfo,
@@ -168,20 +159,10 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .topology = m_topology,
     };
 
-    vkb::Viewport viewport{
-        .width = static_cast<float>(m_viewport_extent.width),
-        .height = static_cast<float>(m_viewport_extent.height),
-        .maxDepth = 1.0f,
-    };
-    vkb::Rect2D scissor{
-        .extent = m_viewport_extent,
-    };
     vkb::PipelineViewportStateCreateInfo viewport_state_ci{
         .sType = vkb::StructureType::PipelineViewportStateCreateInfo,
         .viewportCount = 1,
-        .pViewports = &viewport,
         .scissorCount = 1,
-        .pScissors = &scissor,
     };
 
     vkb::PipelineRasterizationStateCreateInfo rasterization_state_ci{
@@ -213,6 +194,16 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .pAttachments = m_blend_states.data(),
     };
 
+    Array dynamic_states{
+        vkb::DynamicState::Viewport,
+        vkb::DynamicState::Scissor,
+    };
+    vkb::PipelineDynamicStateCreateInfo dynamic_state_ci{
+        .sType = vkb::StructureType::PipelineDynamicStateCreateInfo,
+        .dynamicStateCount = dynamic_states.size(),
+        .pDynamicStates = dynamic_states.data(),
+    };
+
     vkb::GraphicsPipelineCreateInfo pipeline_ci{
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &rendering_ci,
@@ -226,6 +217,7 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .pMultisampleState = &multisample_state_ci,
         .pDepthStencilState = &depth_stencil_state_ci,
         .pColorBlendState = &blend_state_ci,
+        .pDynamicState = &dynamic_state_ci,
         .layout = layout,
     };
     vkb::Pipeline pipeline;
