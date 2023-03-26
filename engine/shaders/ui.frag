@@ -1,30 +1,18 @@
 #version 460
 #include "lib/common.glsl"
-#include "ui.glsl"
 
-layout (location = 0) in FragmentData {
-    vec2 uv;
-    flat uint object_id;
-} g_fragment;
+layout (location = 0) in vec2 g_uv;
+layout (location = 1) in vec4 g_colour;
 
-layout (binding = 0) uniform sampler2D g_font_samplers[];
+layout (binding = 0) uniform sampler2D g_textures[];
 
 layout (location = 0) out vec4 g_out_colour;
 
+layout (push_constant) uniform PushConstants {
+    uint g_texture_index;
+};
+
 void main() {
-    UiObject object = g_data.objects[nonuniformEXT(g_fragment.object_id)];
-    switch (object.type) {
-    case 0:
-        g_out_colour = object.colour;
-        break;
-    case 1:
-        float distance = 1.0f - textureLod(g_font_samplers[nonuniformEXT(object.glyph_index)], g_fragment.uv, 0).r;
-        float alpha = 1.0f - smoothstep(0.5f, 0.6f, distance);
-        float outline_alpha = 1.0f - smoothstep(0.6f, 0.7f, distance);
-        float overall_alpha = alpha + (1.0f - alpha) * outline_alpha;
-        vec3 overall_colour = mix(vec3(0.0f), object.colour.rgb, alpha / overall_alpha);
-        g_out_colour = vec4(overall_colour, overall_alpha);
-        break;
-    }
-    g_out_colour = linear_to_srgb(g_out_colour);
+    vec4 texel = texture(g_textures[g_texture_index], g_uv);
+    g_out_colour = linear_to_srgb(g_colour * texel);
 }

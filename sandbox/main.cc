@@ -42,6 +42,9 @@
 #include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
+#include <vull/ui/CommandList.hh>
+#include <vull/ui/Font.hh>
+#include <vull/ui/FontAtlas.hh>
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vpak/Reader.hh>
@@ -123,11 +126,13 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
-    ui::Renderer ui(context, swapchain, ui_vs, ui_fs);
-    ui::TimeGraph cpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.7f, 0.2f, 0.3f));
-    ui::TimeGraph gpu_time_graph(Vec2f(600.0f, 300.0f), Vec3f(0.8f, 0.0f, 0.7f));
-    auto font = ui.load_font("../engine/fonts/DejaVuSansMono.ttf", 20);
-    ui.set_global_scale(window.ppcm() / 37.8f * 0.55f);
+    ui::Renderer ui_renderer(context, swapchain, ui_vs, ui_fs);
+    ui::TimeGraph cpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.4f, 0.6f, 0.5f));
+    ui::TimeGraph gpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.8f, 0.5f, 0.7f));
+    ui_renderer.set_global_scale(window.ppcm());
+
+    auto font = VULL_EXPECT(ui::Font::load("../engine/fonts/Inter-Medium.otf", 18));
+    ui::FontAtlas atlas(context, Vec2u(1024, 1024));
 
     auto &world = scene.world();
     world.register_component<RigidBody>();
@@ -289,32 +294,35 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
             }
         }
 
+        auto ui_cmds = ui_renderer.new_cmd_list();
+        ui_cmds.bind_atlas(atlas);
+
         // Draw frame time window.
-        constexpr Vec3f text_colour(0.949f, 0.96f, 0.98f);
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 100.0f}, {1000.0f, 40.0f});
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 140.0f}, {1000.0f, 750.0f});
-        ui.draw_text(font, text_colour, {100.0f, 125.0f}, "Frame time");
-        cpu_time_graph.draw(ui, {120.0f, 200.0f}, font, "CPU time");
-        gpu_time_graph.draw(ui, {120.0f, 550.0f}, font, "GPU time");
+        Vec4f text_colour(0.949f, 0.96f, 0.98f, 1.0f);
+        ui_cmds.draw_rect({1.0f, 1.0f}, {14.0f, 0.5f}, {0.06f, 0.06f, 0.06f, 1.0f});
+        ui_cmds.draw_rect({1.0f, 1.5f}, {14.0f, 12.5f}, {0.06f, 0.06f, 0.06f, 0.75f});
+        ui_cmds.draw_text(font, {1.1f, 1.4f}, text_colour, "Frame time");
+        cpu_time_graph.draw(ui_cmds, {1.4f, 2.5f}, font, "CPU time");
+        gpu_time_graph.draw(ui_cmds, {1.4f, 8.5f}, font, "GPU time");
 
         // Draw allocator information window.
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 1.0f), {100.0f, 900.0f}, {1000.0f, 40.0f});
-        ui.draw_rect(Vec4f(0.06f, 0.06f, 0.06f, 0.75f), {100.0f, 940.0f}, {1000.0f, 1000.0f});
-        ui.draw_text(font, text_colour, {100.0f, 920.0f}, "Allocator info");
-        float y_pos = 960.0f;
+        ui_cmds.draw_rect({1.0f, 15.0f}, {14.0f, 0.5f}, {0.06f, 0.06f, 0.06f, 1.0f});
+        ui_cmds.draw_rect({1.0f, 15.5f}, {14.0f, 10.0f}, {0.06f, 0.06f, 0.06f, 0.75f});
+        ui_cmds.draw_text(font, {1.1f, 15.4f}, text_colour, "Allocator info");
+        float y_pos = 15.9f;
         for (const auto &allocator : context.allocators()) {
             if (allocator->heap_count() == 0) {
                 continue;
             }
 
             const auto heap_size_mib = allocator->heap_size() / 1024 / 1024;
-            ui.draw_text(font, text_colour, {120.0f, y_pos},
-                         vull::format("Memory Type {} ({} MiB * {} heaps)", allocator->memory_type_index(),
-                                      heap_size_mib, allocator->heap_count()));
-            y_pos += 20.0f;
+            ui_cmds.draw_text(font, {1.4f, y_pos}, text_colour,
+                              vull::format("Memory Type {} ({} MiB * {} heaps)", allocator->memory_type_index(),
+                                           heap_size_mib, allocator->heap_count()));
+            y_pos += 0.2f;
 
-            constexpr float graph_width = 960.0f;
-            constexpr float graph_height = 50.0f;
+            constexpr float graph_width = 13.2f;
+            constexpr float graph_height = 0.5f;
             const float scale = graph_width / static_cast<float>(allocator->heap_size());
 
             const auto heap_ranges = allocator->heap_ranges();
@@ -324,21 +332,21 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
                 for (float x_pos = 0.0f; const auto &block : range) {
                     const float block_width = static_cast<float>(block.size) * scale;
                     Vec3f colour = block.free ? Vec3f(0.6f) : Vec3f(0.2f, 0.8f, 0.2f);
-                    ui.draw_rect(Vec4f(colour, 1.0f), {120.0f + x_pos, y_pos}, {block_width, graph_height});
+                    ui_cmds.draw_rect({1.4f + x_pos, y_pos}, {block_width, graph_height}, Vec4f(colour, 1.0f));
                     x_pos += block_width;
                     if (!block.free) {
                         allocated += block.size;
                         allocations++;
                     }
                 }
-                y_pos += graph_height + 20.0f;
-                ui.draw_text(
-                    font, text_colour, {120.0f, y_pos},
+                y_pos += graph_height + 0.4f;
+                ui_cmds.draw_text(
+                    font, {1.4f, y_pos}, text_colour,
                     vull::format("Allocations: {}    Used: {} B ({}%)", allocations, allocated,
                                  static_cast<double>(allocated) / static_cast<double>(allocator->heap_size()) * 100.0));
-                y_pos += 20.0f;
+                y_pos += 0.4f;
             }
-            y_pos += 40.0f;
+            y_pos += 0.6f;
         }
 
         default_renderer.update_globals(projection, view_matrix, view_position);
@@ -352,7 +360,7 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         auto [default_renderer_output, depth_image, descriptor_buffer] = default_renderer.build_pass(graph, output_id);
         output_id = default_renderer_output;
         output_id = skybox_renderer.build_pass(graph, output_id, depth_image, descriptor_buffer);
-        output_id = ui.build_pass(graph, output_id);
+        output_id = ui_renderer.build_pass(graph, output_id, vull::move(ui_cmds));
 
         output_id = graph.add_pass<vk::ResourceId>(
             "submit", vk::PassFlags::None,

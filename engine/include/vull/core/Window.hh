@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/core/Input.hh>
+#include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/HashMap.hh>
@@ -24,7 +25,7 @@ class Window {
     xcb_connection_t *m_connection;
     xcb_intern_atom_reply_t *m_delete_window_atom{nullptr};
     uint32_t m_id{0};
-    float m_ppcm{0.0f};
+    Vec2f m_ppcm;
     Array<Key, 256> m_keycode_map{};
 
     uint32_t m_hidden_cursor{0};
@@ -69,7 +70,7 @@ public:
     void on_mouse_move(Function<MouseMoveCallback> &&callback);
 
     float aspect_ratio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
-    float ppcm() const { return m_ppcm; }
+    Vec2f ppcm() const { return m_ppcm; }
     uint32_t width() const { return m_width; }
     uint32_t height() const { return m_height; }
     bool should_close() const { return m_should_close; }

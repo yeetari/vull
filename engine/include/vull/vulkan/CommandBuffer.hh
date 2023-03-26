@@ -70,7 +70,7 @@ public:
 
     void dispatch(uint32_t x, uint32_t y = 1, uint32_t z = 1);
     void draw(uint32_t vertex_count, uint32_t instance_count);
-    void draw_indexed(uint32_t index_count, uint32_t instance_count);
+    void draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index = 0);
     void draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset, const Buffer &count_buffer,
                                      vkb::DeviceSize count_offset, uint32_t max_draw_count, uint32_t stride);
 

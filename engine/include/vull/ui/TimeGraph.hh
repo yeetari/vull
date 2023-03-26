@@ -10,8 +10,8 @@
 
 namespace vull::ui {
 
-class GpuFont;
-class Renderer;
+class CommandList;
+class Font;
 
 class TimeGraph {
 public:
@@ -27,7 +27,6 @@ private:
     const Vec2f m_size;
     const Vec3f m_base_colour;
     const float m_bar_width;
-    const float m_bar_spacing;
     RingBuffer<Bar> m_bars;
     HashMap<String, Vec4f> m_section_colours;
     Optional<Bar &> m_current_bar;
@@ -35,9 +34,9 @@ private:
     Vec4f colour_for_section(const String &name);
 
 public:
-    TimeGraph(const Vec2f &size, const Vec3f &base_colour, float bar_width = 3.0f, float bar_spacing = 0.0f);
+    TimeGraph(const Vec2f &size, const Vec3f &base_colour, float bar_width = 0.06f);
 
-    void draw(Renderer &renderer, const Vec2f &position, Optional<GpuFont &> font = {}, StringView title = {});
+    void draw(CommandList &cmd_list, const Vec2f &position, Optional<Font &> font = {}, StringView title = {});
     void new_bar();
     void push_section(String name, float duration);
 };

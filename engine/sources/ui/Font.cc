@@ -1,13 +1,15 @@
 #include <vull/ui/Font.hh>
 
-#include <vull/maths/Common.hh>
+#include <vull/support/Array.hh>
+#include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/tasklet/Tasklet.hh>
+#include <vull/tasklet/Mutex.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
 // IWYU pragma: no_include "freetype/config/ftheader.h"
@@ -21,12 +23,11 @@
 namespace vull::ui {
 
 ShapingPair ShapingIterator::operator*() const {
+    const auto &position = m_glyph_positions[m_index];
     return ShapingPair{
         .glyph_index = m_glyph_infos[m_index].codepoint,
-        .x_advance = m_glyph_positions[m_index].x_advance,
-        .y_advance = m_glyph_positions[m_index].y_advance,
-        .x_offset = m_glyph_positions[m_index].x_offset,
-        .y_offset = m_glyph_positions[m_index].y_offset,
+        .advance = {position.x_advance, position.y_advance},
+        .offset = {position.x_offset, position.y_offset},
     };
 }
 
@@ -34,43 +35,71 @@ ShapingView::~ShapingView() {
     hb_buffer_destroy(m_buffer);
 }
 
-Font::Font(FT_Face face) : m_hb_font(hb_ft_font_create_referenced(face)) {
+Result<Font, FontLoadError> Font::load(StringView path, long size) {
+    FT_Library library;
+    if (FT_Init_FreeType(&library) != FT_Err_Ok) {
+        return FontLoadError::FreetypeError;
+    }
+
+    FT_Face face;
+    if (FT_New_Face(library, path.data(), 0, &face) != FT_Err_Ok) {
+        return FontLoadError::FreetypeError;
+    }
+    if (FT_Set_Char_Size(face, size * 64l, 0, 0, 0) != FT_Err_Ok) {
+        return FontLoadError::FreetypeError;
+    }
+    return Font(library, face);
+}
+
+Font::Font(FT_Library library, FT_Face face) : m_library(library), m_hb_font(hb_ft_font_create_referenced(face)) {
     hb_ft_font_set_funcs(m_hb_font);
     m_glyph_cache.ensure_size(static_cast<uint32_t>(face->num_glyphs));
 }
 
 Font::~Font() {
+    VULL_ASSERT(!m_mutex.locked());
     hb_font_destroy(m_hb_font);
+    FT_Done_FreeType(m_library);
 }
 
-void Font::rasterise(Span<float> buffer, uint32_t glyph_index) const {
-    if (m_glyph_cache[glyph_index]) {
+GlyphInfo Font::ensure_glyph(uint32_t glyph_index) const {
+    ScopedLock lock(m_mutex);
+    if (auto info = m_glyph_cache[glyph_index]) {
+        return *info;
+    }
+
+    auto *face = hb_ft_font_get_face(m_hb_font);
+    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
+        // TODO: What to do here?
+        return {};
+    }
+
+    auto *glyph = face->glyph;
+    return m_glyph_cache[glyph_index].emplace(GlyphInfo{
+        .bitmap_extent = {glyph->bitmap.width, glyph->bitmap.rows},
+        .bitmap_offset = {static_cast<float>(glyph->bitmap_left), -static_cast<float>(glyph->bitmap_top)},
+    });
+}
+
+void Font::rasterise(uint32_t glyph_index, Span<uint8_t> buffer) const {
+    ScopedLock lock(m_mutex);
+
+    auto *face = hb_ft_font_get_face(m_hb_font);
+    if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
         return;
     }
-    m_glyph_cache[glyph_index].emplace(CachedGlyph{
-        .disp_x = 0.0f,
-        .disp_y = 0.0f,
-    });
-    vull::schedule([this, buffer, glyph_index] {
-        ScopedLock lock(m_mutex);
-        auto *face = hb_ft_font_get_face(m_hb_font);
-        if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
-            return;
+
+    auto *const glyph = face->glyph;
+    if (FT_Render_Glyph(glyph, FT_RENDER_MODE_NORMAL) != FT_Err_Ok) {
+        return;
+    }
+
+    const auto &bitmap = glyph->bitmap;
+    for (unsigned y = 0; y < bitmap.rows; y++) {
+        for (unsigned x = 0; x < bitmap.width; x++) {
+            buffer[y * bitmap.width + x] = bitmap.buffer[int(y) * bitmap.pitch + int(x)];
         }
-        m_glyph_cache[glyph_index]->disp_x = static_cast<float>(face->glyph->bitmap_left);
-        m_glyph_cache[glyph_index]->disp_y = -static_cast<float>(face->glyph->bitmap_top);
-        if (FT_Render_Glyph(face->glyph, FT_RENDER_MODE_SDF) != FT_Err_Ok) {
-            return;
-        }
-        const auto width = static_cast<uint32_t>(vull::sqrt(static_cast<float>(buffer.size())));
-        const auto &bitmap = face->glyph->bitmap;
-        for (unsigned y = 0; y < bitmap.rows; y++) {
-            for (unsigned x = 0; x < bitmap.width; x++) {
-                const auto pixel = bitmap.buffer[y * static_cast<unsigned>(bitmap.pitch) + x];
-                buffer.begin()[y * width + x] = static_cast<float>(pixel) / 256.0f;
-            }
-        }
-    });
+    }
 }
 
 ShapingView Font::shape(StringView text) const {
@@ -83,10 +112,6 @@ ShapingView Font::shape(StringView text) const {
     auto *glyph_infos = hb_buffer_get_glyph_infos(buffer, &glyph_count);
     auto *glyph_positions = hb_buffer_get_glyph_positions(buffer, &glyph_count);
     return {buffer, glyph_infos, glyph_positions, glyph_count};
-}
-
-const Optional<CachedGlyph> &Font::cached_glyph(uint32_t glyph_index) const {
-    return m_glyph_cache[glyph_index];
 }
 
 } // namespace vull::ui

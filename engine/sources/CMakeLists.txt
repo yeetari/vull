@@ -42,8 +42,9 @@ target_sources(vull-script PRIVATE
     script/Vm.cc)
 
 target_sources(vull-ui PRIVATE
+    ui/CommandList.cc
     ui/Font.cc
-    ui/GpuFont.cc
+    ui/FontAtlas.cc
     ui/Renderer.cc
     ui/TimeGraph.cc)
 

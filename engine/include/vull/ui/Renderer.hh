@@ -1,18 +1,10 @@
 #pragma once
 
 #include <vull/maths/Vec.hh>
-#include <vull/support/StringView.hh>
-#include <vull/support/Vector.hh>
-#include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Buffer.hh>
+#include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/RenderGraphDefs.hh>
 #include <vull/vulkan/Vulkan.hh>
-
-#include <stdint.h>
-#include <sys/types.h>
-
-using FT_Library = struct FT_LibraryRec_ *;
 
 namespace vull::vk {
 
@@ -25,30 +17,15 @@ class Swapchain;
 
 namespace vull::ui {
 
-enum class ObjectType {
-    Rect = 0,
-    TextGlyph = 1,
-};
-
-struct Object {
-    Vec4f colour;
-    Vec2f position;
-    Vec2f scale;
-    uint32_t glyph_index{0};
-    ObjectType type{ObjectType::Rect};
-};
+class CommandList;
 
 class Renderer {
     vk::Context &m_context;
     const vk::Swapchain &m_swapchain;
-    FT_Library m_ft_library{nullptr};
-    vkb::Sampler m_font_sampler{nullptr};
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vk::Pipeline m_pipeline;
-    vk::Buffer m_descriptor_buffer;
-
-    float m_global_scale{1.0f};
-    Vector<Object> m_objects;
+    vk::Image m_null_image;
+    Vec2f m_global_scale{96.0f / 2.54f};
 
 public:
     Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
@@ -60,12 +37,9 @@ public:
     Renderer &operator=(const Renderer &) = delete;
     Renderer &operator=(Renderer &&) = delete;
 
-    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target);
-    GpuFont load_font(StringView path, ssize_t size);
-    void set_global_scale(float global_scale);
-
-    void draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale);
-    void draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text);
+    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, CommandList &&cmd_list);
+    void set_global_scale(Vec2f global_scale) { m_global_scale = global_scale; }
+    CommandList new_cmd_list();
 };
 
 } // namespace vull::ui

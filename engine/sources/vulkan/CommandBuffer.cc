@@ -179,9 +179,9 @@ void CommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count) {
     m_context.vkCmdDraw(m_cmd_buf, vertex_count, instance_count, 0, 0);
 }
 
-void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count) {
+void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index) {
     emit_descriptor_binds();
-    m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, 0, 0, 0);
+    m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, first_index, 0, 0);
 }
 
 void CommandBuffer::draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset,

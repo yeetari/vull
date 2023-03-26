@@ -1,6 +1,8 @@
 #pragma once
 
+#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh> // IWYU pragma: keep
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
@@ -10,6 +12,8 @@
 #include <stdint.h>
 
 using FT_Face = struct FT_FaceRec_ *;
+using FT_Library = struct FT_LibraryRec_ *;
+
 struct hb_buffer_t;
 struct hb_font_t;
 struct hb_glyph_info_t;
@@ -17,17 +21,19 @@ struct hb_glyph_position_t;
 
 namespace vull::ui {
 
-struct CachedGlyph {
-    float disp_x;
-    float disp_y;
+enum class FontLoadError {
+    FreetypeError,
+};
+
+struct GlyphInfo {
+    Vec2u bitmap_extent;
+    Vec2f bitmap_offset;
 };
 
 struct ShapingPair {
     uint32_t glyph_index;
-    int32_t x_advance;
-    int32_t y_advance;
-    int32_t x_offset;
-    int32_t y_offset;
+    Vec2i advance;
+    Vec2i offset;
 };
 
 class ShapingIterator {
@@ -71,23 +77,28 @@ public:
 };
 
 class Font {
+    FT_Library m_library;
     hb_font_t *m_hb_font;
-    mutable Vector<Optional<CachedGlyph>> m_glyph_cache;
+    mutable Vector<Optional<GlyphInfo>> m_glyph_cache;
     mutable Mutex m_mutex;
 
 public:
-    explicit Font(FT_Face face);
+    static Result<Font, FontLoadError> load(StringView path, long size);
+
+    Font(FT_Library library, FT_Face face);
     Font(const Font &) = delete;
     Font(Font &&other)
-        : m_hb_font(vull::exchange(other.m_hb_font, nullptr)), m_glyph_cache(vull::move(other.m_glyph_cache)) {}
+        : m_library(vull::exchange(other.m_library, nullptr)), m_hb_font(vull::exchange(other.m_hb_font, nullptr)),
+          m_glyph_cache(vull::move(other.m_glyph_cache)) {}
     ~Font();
 
     Font &operator=(const Font &) = delete;
     Font &operator=(Font &&) = delete;
 
-    void rasterise(Span<float> buffer, uint32_t glyph_index) const;
+    GlyphInfo ensure_glyph(uint32_t glyph_index) const;
+    void rasterise(uint32_t glyph_index, Span<uint8_t> buffer) const;
     ShapingView shape(StringView text) const;
-    const Optional<CachedGlyph> &cached_glyph(uint32_t glyph_index) const;
+
     uint32_t glyph_count() const { return m_glyph_cache.size(); }
 };
 

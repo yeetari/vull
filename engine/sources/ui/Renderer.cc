@@ -3,59 +3,38 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Optional.hh>
-#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/ui/Font.hh>
-#include <vull/ui/GpuFont.hh>
-#include <vull/vulkan/Buffer.hh>
+#include <vull/ui/CommandList.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
+#include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
+#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-#include <ft2build.h> // IWYU pragma: keep
-// IWYU pragma: no_include "freetype/config/ftheader.h"
-
-#include <freetype/freetype.h>
-#include <freetype/fterrors.h>
-#include <string.h>
+#include <stdint.h>
 
 namespace vull::ui {
 
 Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const vk::Shader &vertex_shader,
                    const vk::Shader &fragment_shader)
     : m_context(context), m_swapchain(swapchain) {
-    VULL_ENSURE(FT_Init_FreeType(&m_ft_library) == FT_Err_Ok);
-
-    vkb::SamplerCreateInfo font_sampler_ci{
-        .sType = vkb::StructureType::SamplerCreateInfo,
-        .magFilter = vkb::Filter::Linear,
-        .minFilter = vkb::Filter::Linear,
-        .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .addressModeU = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeV = vkb::SamplerAddressMode::ClampToEdge,
-        .addressModeW = vkb::SamplerAddressMode::ClampToEdge,
-        .borderColor = vkb::BorderColor::FloatOpaqueWhite,
-    };
-    VULL_ENSURE(context.vkCreateSampler(&font_sampler_ci, &m_font_sampler) == vkb::Result::Success);
-
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 2000,
+            .descriptorCount = 128,
             .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     Array set_binding_flags{
-        vkb::DescriptorBindingFlags::PartiallyBound,
+        vkb::DescriptorBindingFlags::PartiallyBound | vkb::DescriptorBindingFlags::VariableDescriptorCount,
     };
     vkb::DescriptorSetLayoutBindingFlagsCreateInfo set_binding_flags_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutBindingFlagsCreateInfo,
@@ -70,11 +49,6 @@ Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const v
         .pBindings = set_bindings.data(),
     };
     VULL_ENSURE(context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_descriptor_set_layout) == vkb::Result::Success);
-
-    vkb::DeviceSize descriptor_buffer_size;
-    context.vkGetDescriptorSetLayoutSizeEXT(m_descriptor_set_layout, &descriptor_buffer_size);
-    m_descriptor_buffer = context.create_buffer(descriptor_buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
-                                                vk::MemoryUsage::HostToDevice);
 
     Vec2f swapchain_dimensions = swapchain.dimensions();
     Array specialization_map_entries{
@@ -95,10 +69,9 @@ Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const v
         .pData = &swapchain_dimensions,
     };
     vkb::PushConstantRange push_constant_range{
-        .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment,
-        .size = sizeof(vkb::DeviceAddress),
+        .stageFlags = vkb::ShaderStage::Fragment,
+        .size = sizeof(uint32_t),
     };
-
     vkb::PipelineColorBlendAttachmentState blend_state{
         .blendEnable = true,
         .srcColorBlendFactor = vkb::BlendFactor::SrcAlpha,
@@ -119,31 +92,47 @@ Renderer::Renderer(vk::Context &context, const vk::Swapchain &swapchain, const v
                      .set_topology(vkb::PrimitiveTopology::TriangleList)
                      .set_viewport(swapchain.extent_2D())
                      .build(m_context);
+
+    vkb::ImageCreateInfo image_ci{
+        .sType = vkb::StructureType::ImageCreateInfo,
+        .imageType = vkb::ImageType::_2D,
+        .format = vkb::Format::R8Unorm,
+        .extent = {1, 1, 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vkb::SampleCount::_1,
+        .tiling = vkb::ImageTiling::Optimal,
+        .usage = vkb::ImageUsage::Sampled,
+        .sharingMode = vkb::SharingMode::Exclusive,
+        .initialLayout = vkb::ImageLayout::Undefined,
+    };
+    m_null_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+
+    context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
+        cmd_buf.image_barrier({
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .dstStageMask = vkb::PipelineStage2::AllGraphics,
+            .dstAccessMask = vkb::Access2::ShaderSampledRead,
+            .oldLayout = vkb::ImageLayout::Undefined,
+            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+            .image = *m_null_image,
+            .subresourceRange = m_null_image.full_view().range(),
+        });
+    });
 }
 
 Renderer::~Renderer() {
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
-    m_context.vkDestroySampler(m_font_sampler);
-    FT_Done_FreeType(m_ft_library);
 }
 
-vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target) {
+vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, CommandList &&cmd_list) {
     return graph.add_pass<vk::ResourceId>(
         "ui-pass", vk::PassFlags::Graphics,
         [&](vk::PassBuilder &builder, vk::ResourceId &output) {
             output = builder.write(target, vk::WriteFlags::Additive);
         },
-        [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
-            auto object_buffer =
-                m_context.create_buffer(sizeof(float) + m_objects.size_bytes(), vkb::BufferUsage::ShaderDeviceAddress,
-                                        vk::MemoryUsage::HostToDevice);
-            memcpy(object_buffer.mapped<float>(), &m_global_scale, sizeof(float));
-            memcpy(object_buffer.mapped<float>() + 1, m_objects.data(), m_objects.size_bytes());
-
-            const auto buffer_address = object_buffer.device_address();
-            cmd_buf.bind_associated_buffer(vull::move(object_buffer));
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 0, 0);
-
+        [this, cmd_list = vull::move(cmd_list)](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
+                                                const vk::ResourceId &output) mutable {
             vkb::RenderingAttachmentInfo colour_write_attachment{
                 .sType = vkb::StructureType::RenderingAttachmentInfo,
                 .imageView = *graph.get_image(output).full_view(),
@@ -161,55 +150,22 @@ vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId targe
                 .pColorAttachments = &colour_write_attachment,
             };
             cmd_buf.bind_pipeline(m_pipeline);
-            cmd_buf.push_constants(vkb::ShaderStage::Vertex | vkb::ShaderStage::Fragment, buffer_address);
             cmd_buf.begin_rendering(rendering_info);
-            cmd_buf.draw(6, m_objects.size());
+            cmd_list.compile(m_context, cmd_buf,
+                             m_null_image
+                                 .swizzle_view({
+                                     .r = vkb::ComponentSwizzle::One,
+                                     .g = vkb::ComponentSwizzle::One,
+                                     .b = vkb::ComponentSwizzle::One,
+                                     .a = vkb::ComponentSwizzle::One,
+                                 })
+                                 .sampled(vk::Sampler::Nearest));
             cmd_buf.end_rendering();
-            m_objects.clear();
         });
 }
 
-GpuFont Renderer::load_font(StringView path, ssize_t size) {
-    FT_Face face;
-    VULL_ENSURE(FT_New_Face(m_ft_library, path.data(), 0, &face) == FT_Err_Ok);
-    VULL_ENSURE(FT_Set_Char_Size(face, size * 64l, 0, 0, 0) == FT_Err_Ok);
-    return {m_context, Font(face)};
-}
-
-void Renderer::set_global_scale(float global_scale) {
-    m_global_scale = global_scale;
-}
-
-void Renderer::draw_rect(const Vec4f &colour, const Vec2f &position, const Vec2f &scale) {
-    m_objects.push({
-        .colour = colour,
-        .position = position,
-        .scale = scale,
-        .type = ObjectType::Rect,
-    });
-}
-
-void Renderer::draw_text(GpuFont &font, const Vec3f &colour, const Vec2f &position, StringView text) {
-    float cursor_x = position.x();
-    float cursor_y = position.y();
-    for (auto [glyph_index, x_advance, y_advance, x_offset, y_offset] : font.shape(text)) {
-        const auto &glyph = font.cached_glyph(glyph_index);
-        if (!glyph) {
-            font.rasterise(glyph_index, m_descriptor_buffer.mapped<uint8_t>(), m_font_sampler);
-        }
-        Vec2f glyph_position(cursor_x + static_cast<float>(x_offset) / 64.0f,
-                             cursor_y + static_cast<float>(y_offset) / 64.0f);
-        glyph_position += {glyph->disp_x, glyph->disp_y};
-        m_objects.push({
-            .colour = {colour.x(), colour.y(), colour.z(), 1.0f},
-            .position = glyph_position,
-            .scale = Vec2f(64.0f),
-            .glyph_index = glyph_index,
-            .type = ObjectType::TextGlyph,
-        });
-        cursor_x += static_cast<float>(x_advance) / 64.0f;
-        cursor_y += static_cast<float>(y_advance) / 64.0f;
-    }
+CommandList Renderer::new_cmd_list() {
+    return CommandList(m_global_scale);
 }
 
 } // namespace vull::ui

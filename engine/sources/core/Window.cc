@@ -2,7 +2,6 @@
 
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
-#include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
@@ -90,12 +89,9 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
     auto output_info_request = xcb_randr_get_output_info(m_connection, primary_output->output, 0);
     auto *output_info = xcb_randr_get_output_info_reply(m_connection, output_info_request, nullptr);
 
-    auto width_mm = static_cast<float>(output_info->mm_width);
-    auto height_mm = static_cast<float>(output_info->mm_height);
-    auto diag_cm = sqrt(width_mm * width_mm + height_mm * height_mm) / 10.0f;
-    auto diag_px = sqrt(static_cast<float>(width) * static_cast<float>(width) +
-                        static_cast<float>(height) * static_cast<float>(height));
-    m_ppcm = diag_px / diag_cm;
+    auto width_cm = static_cast<float>(output_info->mm_width) / 10.0f;
+    auto height_cm = width_cm / aspect_ratio();
+    m_ppcm = {static_cast<float>(width) / width_cm, static_cast<float>(height) / height_cm};
 
     free(primary_output);
     free(output_info);
