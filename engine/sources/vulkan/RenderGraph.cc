@@ -223,6 +223,11 @@ void RenderGraph::build_sync() {
         }
 
         auto &barrier = pass.m_memory_barrier;
+        if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
+            barrier.dstStageMask |= vkb::PipelineStage2::AllTransfer;
+            barrier.dstAccessMask |= vkb::Access2::TransferRead;
+        }
+
         for (auto [id, flags] : pass.reads()) {
             if ((flags & ReadFlags::Additive) != ReadFlags::None) {
                 continue;
@@ -239,6 +244,8 @@ void RenderGraph::build_sync() {
                 auto read_layout = vkb::ImageLayout::ReadOnlyOptimal;
                 if ((flags & ReadFlags::Present) != ReadFlags::None) {
                     read_layout = vkb::ImageLayout::PresentSrcKHR;
+                } else if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
+                    read_layout = vkb::ImageLayout::TransferSrcOptimal;
                 }
                 if (current_layout != read_layout) {
                     pass.add_transition(id, current_layout, read_layout);

@@ -54,7 +54,7 @@ unsigned rate_present_mode(vkb::PresentModeKHR present_mode, SwapchainMode swapc
 Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode)
     : m_context(context), m_extent(extent), m_surface(surface) {
     vkb::SurfaceFormatKHR surface_format{
-        .format = vkb::Format::B8G8R8A8Unorm,
+        .format = vkb::Format::B8G8R8A8Srgb,
         .colorSpace = vkb::ColorSpaceKHR::SrgbNonlinear,
     };
     VULL_ENSURE(context.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_surface, &m_surface_capabilities) ==
@@ -81,7 +81,7 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
         .imageColorSpace = surface_format.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,
-        .imageUsage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Storage,
+        .imageUsage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::TransferDst,
         .imageSharingMode = vkb::SharingMode::Exclusive,
         .preTransform = m_surface_capabilities.currentTransform,
         .compositeAlpha = vkb::CompositeAlphaFlagsKHR::Opaque,

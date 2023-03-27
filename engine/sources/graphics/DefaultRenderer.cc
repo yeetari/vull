@@ -808,15 +808,20 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
         });
 
-    target = graph.add_pass<vk::ResourceId>(
+    const auto composite_image = graph.add_pass<vk::ResourceId>(
         "deferred", vk::PassFlags::Compute,
         [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+            vk::AttachmentDescription composite_image_description{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                .format = vkb::Format::R16G16B16A16Sfloat,
+                .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::TransferSrc,
+            };
             data.albedo_image = builder.read(data.albedo_image);
             data.normal_image = builder.read(data.normal_image);
             data.depth_image = builder.read(data.depth_image);
             data.depth_pyramid = builder.read(data.depth_pyramid);
             data.light_visibility = builder.read(data.light_visibility);
-            output = builder.write(target, vk::WriteFlags::Additive);
+            output = builder.new_attachment("composite-image", composite_image_description);
         },
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
             data.descriptor_builder.set(10, 0, graph.get_image(output).full_view());
@@ -824,6 +829,36 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_deferred_pipeline);
             cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
+        });
+
+    target = graph.add_pass<vk::ResourceId>(
+        "blit", vk::PassFlags::Transfer,
+        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+            builder.read(composite_image); // TODO: Properly.
+            output = builder.write(target);
+        },
+        [this, composite_image](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
+            vkb::ImageBlit region{
+                .srcSubresource{
+                    .aspectMask = vkb::ImageAspect::Color,
+                    .layerCount = 1,
+                },
+                .srcOffsets{
+                    {},
+                    {2560, 1440, 1},
+                },
+                .dstSubresource{
+                    .aspectMask = vkb::ImageAspect::Color,
+                    .layerCount = 1,
+                },
+                .dstOffsets{
+                    {},
+                    {2560, 1440, 1},
+                },
+            };
+            m_context.vkCmdBlitImage(*cmd_buf, *graph.get_image(composite_image), vkb::ImageLayout::TransferSrcOptimal,
+                                     *graph.get_image(output), vkb::ImageLayout::TransferDstOptimal, 1, &region,
+                                     vkb::Filter::Nearest);
         });
     return vull::make_tuple(target, data.depth_image, data.descriptor_buffer);
 }
