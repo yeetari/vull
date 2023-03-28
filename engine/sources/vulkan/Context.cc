@@ -164,6 +164,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .features{
             .multiDrawIndirect = true,
             .samplerAnisotropy = true,
+            .shaderInt64 = true,
         },
     };
     vkb::PhysicalDeviceVulkan11Features device_11_features{
@@ -175,6 +176,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
         .pNext = &device_11_features,
         .drawIndirectCount = true,
+        .shaderBufferInt64Atomics = true,
         .shaderSampledImageArrayNonUniformIndexing = true,
         .descriptorBindingPartiallyBound = true,
         .descriptorBindingVariableDescriptorCount = true,

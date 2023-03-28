@@ -6,6 +6,11 @@
 #include "lib/shadow.glsl"
 #include "lib/ubo.glsl"
 
+struct AbufFragment {
+    vec4 colour;
+    vec4 normal;
+};
+
 layout (local_size_x = 8, local_size_y = 8) in;
 
 DECLARE_UBO(0, 0);
@@ -22,23 +27,32 @@ layout (binding = 7) uniform texture2D g_depth_image;
 layout (binding = 9) restrict readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
+layout (binding = 11) readonly buffer AbufferList {
+    uint g_abuf_counter;
+    uint64_t g_abuf_list[];
+};
+layout (binding = 12) readonly buffer AbufferData {
+    AbufFragment g_abuf_data[];
+};
 
-void main() {
-    vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
-    if (albedo.a == 0.0f) {
-        return;
-    }
-    ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
-    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
-    vec3 normal = decode_normal(texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rg);
+float unpack_depth24(uint depth) {
+    return float((0xFFFFFFFF - depth) >> 8) / float(0xFFFFFF);
+}
 
-    float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
-    vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
+struct Fragment {
+    vec3 colour;
+    vec3 normal;
+    float depth;
+};
+
+vec3 shade_fragment(uint tile_index, Fragment fragment) {
+    vec2 ndc = vec2(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f);
+    vec4 world_position = vec4(ndc, fragment.depth, 1.0f);
     world_position = g_inv_proj_view * world_position;
     world_position /= world_position.w;
 
-    vec3 illuminance = albedo.rgb * 0.02f;
     vec3 view = normalize(g_view_position - world_position.xyz);
+    vec3 shaded = fragment.colour * 0.02f;
 
     // Sun.
     const vec3 sun_direction = vec3(0.6f, 0.6f, -0.6f);
@@ -47,7 +61,7 @@ void main() {
 #else
     float sun_shadow = 1.0f;
 #endif
-    illuminance += compute_light(albedo.rgb, vec3(1.0f), sun_direction, normal, view) * sun_shadow;
+    shaded += compute_light(fragment.colour, vec3(1.0f), sun_direction, fragment.normal, view) * sun_shadow;
 
     // Point lights.
     for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {
@@ -55,9 +69,51 @@ void main() {
         vec3 direction = normalize(light.position - world_position.xyz);
         float dist = distance(light.position, world_position.xyz);
         float attenuation = clamp(1.0f - dist * dist / (light.radius * light.radius), 0.0f, 1.0f);
-        illuminance += compute_light(albedo.rgb, light.colour, direction, normal, view) * attenuation;
+        shaded += compute_light(fragment.colour, light.colour, direction, fragment.normal, view) * attenuation;
+    }
+    return shaded;
+}
+
+void main() {
+    float opaque_depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
+    if (opaque_depth == 0.0f) {
+        return;
     }
 
+    // Compute tile index for light culling buckets.
+    ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
+    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
+    vec4 final_colour = vec4(0.0f);
+
+    // Shade A-buffer fragments.
+    uint current = 2560 * gl_GlobalInvocationID.y + gl_GlobalInvocationID.x;
+    for (uint count = 0; count < 8; count++) {
+        uvec2 frag = unpack32(g_abuf_list[current]);
+        current = frag.x;
+        if (current == 0) {
+            break;
+        }
+
+        float depth = unpack_depth24(frag.y);
+        if (depth - 0.0001f < opaque_depth) {
+            break;
+        }
+
+        float alpha = float(bitfieldExtract(frag.y, 0, 8)) / 255.0f;
+        vec4 colour = vec4(g_abuf_data[current - 2560 * 1440].colour.rgb, alpha);
+        colour.rgb *= colour.a;
+        Fragment fragment = Fragment(colour.rgb, g_abuf_data[current - 2560 * 1440].normal.rgb, depth);
+
+        vec3 shading = shade_fragment(tile_index, fragment);
+        final_colour += mix(vec4(shading, alpha), vec4(0.0f), final_colour.a);
+    }
+
+    vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
+    vec3 normal = decode_normal(texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rg);
+    Fragment opaque_fragment = Fragment(albedo.rgb, normal, opaque_depth);
+    vec3 opaque_shading = shade_fragment(tile_index, opaque_fragment);
+    final_colour += mix(vec4(opaque_shading, 1.0f), vec4(0.0f), final_colour.a);
+
     // Final output.
-    imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), vec4(illuminance, 1.0f));
+    imageStore(g_output_image, ivec2(gl_GlobalInvocationID.xy), vec4(final_colour.rgb, 1.0f));
 }

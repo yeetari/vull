@@ -2,7 +2,7 @@
 #define GBUFFER_H
 
 vec2 sign_non_zero(vec2 v) {
-	return vec2(v.x >= 0.0f ? 1.0f : -1.0f, v.y >= 0.0f ? 1.0f : -1.0f);
+    return vec2(v.x >= 0.0f ? 1.0f : -1.0f, v.y >= 0.0f ? 1.0f : -1.0f);
 }
 
 vec3 decode_normal(vec2 encoded) {

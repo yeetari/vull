@@ -48,6 +48,7 @@ constexpr uint32_t k_shadow_resolution = 2048;
 constexpr uint32_t k_texture_limit = 32768;
 constexpr uint32_t k_tile_size = 32;
 constexpr uint32_t k_tile_max_light_count = 256;
+constexpr uint32_t k_max_abuffer_depth = 8;
 
 // Minimum required maximum work group count * minimum cull work group size that would be used.
 constexpr uint32_t k_object_limit = 65535 * 32;
@@ -163,7 +164,7 @@ void DefaultRenderer::create_set_layouts() {
             .binding = 7,
             .descriptorType = vkb::DescriptorType::SampledImage,
             .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
+            .stageFlags = vkb::ShaderStage::Compute | vkb::ShaderStage::Fragment,
         },
         // Depth pyramid.
         vkb::DescriptorSetLayoutBinding{
@@ -185,6 +186,20 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorType = vkb::DescriptorType::StorageImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // A-buffer list.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 11,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute | vkb::ShaderStage::Fragment,
+        },
+        // A-buffer fragment data.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 12,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Compute | vkb::ShaderStage::Fragment,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
@@ -265,12 +280,14 @@ void DefaultRenderer::create_pipelines() {
         uint32_t tile_size;
         uint32_t tile_max_light_count;
         uint32_t row_tile_count;
+        uint32_t max_abuffer_depth;
     } specialization_data{
         .viewport_width = m_viewport_extent.width,
         .viewport_height = m_viewport_extent.height,
         .tile_size = k_tile_size,
         .tile_max_light_count = k_tile_max_light_count,
         .row_tile_count = m_tile_extent.width,
+        .max_abuffer_depth = k_max_abuffer_depth,
     };
     Array specialization_map_entries{
         vkb::SpecializationMapEntry{
@@ -297,6 +314,11 @@ void DefaultRenderer::create_pipelines() {
             .constantID = 4,
             .offset = offsetof(SpecializationData, row_tile_count),
             .size = sizeof(SpecializationData::row_tile_count),
+        },
+        vkb::SpecializationMapEntry{
+            .constantID = 5,
+            .offset = offsetof(SpecializationData, max_abuffer_depth),
+            .size = sizeof(SpecializationData::max_abuffer_depth),
         },
     };
     vkb::SpecializationInfo specialization_info{
@@ -505,6 +527,8 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
         vk::ResourceId light_buffer;
         vk::ResourceId object_buffer;
         vk::ResourceId draw_buffer;
+        vk::ResourceId abuffer_list;
+        vk::ResourceId abuffer_data;
         vk::ResourceId albedo_image;
         vk::ResourceId normal_image;
         vk::ResourceId depth_image;
@@ -537,17 +561,29 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 .usage = vkb::BufferUsage::StorageBuffer,
                 .host_accessible = true,
             };
+            vk::BufferDescription abuffer_list_description{
+                .size = 160 * 1024 * 1024,
+                .usage = vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
+            };
+            vk::BufferDescription abuffer_data_description{
+                .size = 640 * 1024 * 1024,
+                .usage = vkb::BufferUsage::StorageBuffer,
+            };
             data.descriptor_buffer = builder.new_buffer("descriptor-buffer", descriptor_buffer_description);
             data.frame_ubo = builder.new_buffer("frame-ubo", frame_ubo_description);
             data.light_buffer = builder.new_buffer("light-buffer", light_buffer_description);
             data.object_buffer = builder.new_buffer("object-buffer", object_buffer_description);
+            data.abuffer_list = builder.new_buffer("abuffer-list", abuffer_list_description);
+            data.abuffer_data = builder.new_buffer("abuffer-data", abuffer_data_description);
             data.lights = vull::move(lights);
             data.objects = vull::move(objects);
         },
-        [this](vk::RenderGraph &graph, vk::CommandBuffer &, PassData &data) {
+        [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, PassData &data) {
             const auto &frame_ubo = graph.get_buffer(data.frame_ubo);
             const auto &light_buffer = graph.get_buffer(data.light_buffer);
             const auto &object_buffer = graph.get_buffer(data.object_buffer);
+            const auto &abuffer_list = graph.get_buffer(data.abuffer_list);
+            const auto &abuffer_data = graph.get_buffer(data.abuffer_data);
 
             UniformBuffer frame_ubo_data{
                 .proj = m_proj,
@@ -576,6 +612,9 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             data.descriptor_builder.set(1, 0, light_buffer);
             data.descriptor_builder.set(2, 0, object_buffer);
             data.descriptor_builder.set(3, 0, m_object_visibility_buffer);
+            data.descriptor_builder.set(11, 0, abuffer_list);
+            data.descriptor_builder.set(12, 0, abuffer_data);
+            cmd_buf.zero_buffer(abuffer_list, 0, abuffer_list.size());
         });
 
     graph.add_pass(
