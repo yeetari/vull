@@ -320,7 +320,7 @@ void DefaultRenderer::create_pipelines() {
 
     m_gbuffer_pipeline = vk::PipelineBuilder()
                              .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
-                             .add_colour_attachment(vkb::Format::R16G16Sfloat)
+                             .add_colour_attachment(vkb::Format::R16G16Snorm)
                              .add_set_layout(m_main_set_layout)
                              .add_set_layout(m_texture_set_layout)
                              .add_shader(*m_shader_map.get("gbuffer-vert"), specialization_info)
@@ -620,7 +620,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             };
             vk::AttachmentDescription normal_description{
                 .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                .format = vkb::Format::R16G16Sfloat,
+                .format = vkb::Format::R16G16Snorm,
                 .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
             };
             vk::AttachmentDescription depth_description{
