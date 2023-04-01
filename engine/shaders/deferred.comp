@@ -24,20 +24,23 @@ layout (binding = 9) restrict readonly buffer LightVisibilities {
 };
 
 void main() {
-    vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
-    if (albedo.a == 0.0f) {
+    float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
+    if (depth == 0.0f) {
         return;
     }
+
+    // Compute tile index for light culling buckets.
     ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
     uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
+
+    vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     vec3 normal = decode_normal(texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rg);
 
-    float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
     vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
     world_position = g_inv_proj_view * world_position;
     world_position /= world_position.w;
 
-    vec3 illuminance = albedo.rgb * 0.02f;
+    vec3 final_colour = albedo.rgb * 0.02f;
     vec3 view = normalize(g_view_position - world_position.xyz);
 
     // Sun.
@@ -47,7 +50,7 @@ void main() {
 #else
     float sun_shadow = 1.0f;
 #endif
-    illuminance += compute_light(albedo.rgb, vec3(1.0f), sun_direction, normal, view) * sun_shadow;
+    final_colour += compute_light(albedo.rgb, vec3(1.0f), sun_direction, normal, view) * sun_shadow;
 
     // Point lights.
     for (uint i = 0; i < g_light_visibilities[tile_index].count; i++) {
@@ -55,9 +58,9 @@ void main() {
         vec3 direction = normalize(light.position - world_position.xyz);
         float dist = distance(light.position, world_position.xyz);
         float attenuation = clamp(1.0f - dist * dist / (light.radius * light.radius), 0.0f, 1.0f);
-        illuminance += compute_light(albedo.rgb, light.colour, direction, normal, view) * attenuation;
+        final_colour += compute_light(albedo.rgb, light.colour, direction, normal, view) * attenuation;
     }
 
     // Final output.
-    imageStore(g_hdr_image, ivec2(gl_GlobalInvocationID.xy), vec4(illuminance, 1.0f));
+    imageStore(g_hdr_image, ivec2(gl_GlobalInvocationID.xy), vec4(final_colour, 1.0f));
 }
