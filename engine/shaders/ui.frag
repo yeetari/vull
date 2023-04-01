@@ -15,5 +15,5 @@ layout (push_constant) uniform PushConstants {
 
 void main() {
     vec4 texel = texture(g_textures[g_texture_index], g_uv);
-    g_out_colour = linear_to_srgb(g_colour * texel);
+    g_out_colour = g_colour * texel;
 }

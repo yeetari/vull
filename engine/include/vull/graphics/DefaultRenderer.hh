@@ -80,6 +80,7 @@ class DefaultRenderer {
     vk::Pipeline m_late_cull_pipeline;
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
+    vk::Pipeline m_blit_tonemap_pipeline;
 
     Mat4f m_proj;
     Mat4f m_view;

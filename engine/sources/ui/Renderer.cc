@@ -64,7 +64,8 @@ Renderer::Renderer(vk::Context &context, const vk::Shader &vertex_shader, const 
             vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
     };
     m_pipeline = vk::PipelineBuilder()
-                     .add_colour_attachment(vkb::Format::B8G8R8A8Unorm, blend_state)
+                     // TODO(swapchain-format): Don't hardcode format.
+                     .add_colour_attachment(vkb::Format::B8G8R8A8Srgb, blend_state)
                      .add_set_layout(m_descriptor_set_layout)
                      .add_shader(vertex_shader)
                      .add_shader(fragment_shader)

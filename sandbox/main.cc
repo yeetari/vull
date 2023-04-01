@@ -92,12 +92,14 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     Scene scene(context);
     scene.load(pack_reader, scene_name);
 
+    auto blit_tonemap_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/blit_tonemap.frag.spv").span()));
     auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
     auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));
     auto deferred_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/deferred.comp.spv").span()));
     auto depth_reduce_shader =
         VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/depth_reduce.comp.spv").span()));
     auto draw_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/draw_cull.comp.spv").span()));
+    auto fst_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/fst.vert.spv").span()));
     auto light_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/light_cull.comp.spv").span()));
     auto shadow_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/shadow.vert.spv").span()));
     auto skybox_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/skybox.vert.spv").span()));
@@ -106,11 +108,13 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
     auto ui_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.frag.spv").span()));
 
     ShaderMap shader_map;
+    shader_map.set("blit-tonemap", vull::move(blit_tonemap_fs));
     shader_map.set("gbuffer-vert", vull::move(default_vs));
     shader_map.set("gbuffer-frag", vull::move(default_fs));
     shader_map.set("deferred", vull::move(deferred_shader));
     shader_map.set("depth-reduce", vull::move(depth_reduce_shader));
     shader_map.set("draw-cull", vull::move(draw_cull_shader));
+    shader_map.set("fst", vull::move(fst_vs));
     shader_map.set("light-cull", vull::move(light_cull_shader));
     shader_map.set("shadow", vull::move(shadow_shader));
     shader_map.set("skybox-vert", vull::move(skybox_vs));

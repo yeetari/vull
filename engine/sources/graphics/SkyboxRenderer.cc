@@ -39,8 +39,8 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_set_layout) == vkb::Result::Success);
 
     m_pipeline = vk::PipelineBuilder()
-                     // TODO: Don't hardcode format.
-                     .add_colour_attachment(vkb::Format::B8G8R8A8Unorm)
+                     // TODO(swapchain-format): Don't hardcode format.
+                     .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
                      .add_set_layout(default_renderer.main_set_layout())
                      .add_set_layout(m_set_layout)
                      .add_shader(default_renderer.get_shader("skybox-vert"))

@@ -11,11 +11,13 @@ target_include_directories(vull-core PUBLIC include)
 target_include_directories(vull-script PRIVATE sources)
 
 # Default shaders.
+target_add_shader(vull-graphics shaders/blit_tonemap.frag)
 target_add_shader(vull-graphics shaders/default.frag)
 target_add_shader(vull-graphics shaders/default.vert)
 target_add_shader(vull-graphics shaders/deferred.comp)
 target_add_shader(vull-graphics shaders/depth_reduce.comp)
 target_add_shader(vull-graphics shaders/draw_cull.comp)
+target_add_shader(vull-graphics shaders/fst.vert)
 target_add_shader(vull-graphics shaders/light_cull.comp)
 target_add_shader(vull-graphics shaders/shadow.vert)
 target_add_shader(vull-graphics shaders/skybox.frag)

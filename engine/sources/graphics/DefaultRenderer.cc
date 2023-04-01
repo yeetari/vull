@@ -179,12 +179,19 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
-        // Output image.
+        // HDR image.
         vkb::DescriptorSetLayoutBinding{
             .binding = 10,
             .descriptorType = vkb::DescriptorType::StorageImage,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
+        },
+        // HDR image (sampled).
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 11,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
@@ -373,6 +380,15 @@ void DefaultRenderer::create_pipelines() {
                               .add_set_layout(m_main_set_layout)
                               .add_shader(*m_shader_map.get("deferred"), specialization_info)
                               .build(m_context);
+
+    m_blit_tonemap_pipeline = vk::PipelineBuilder()
+                                  // TODO(swapchain-format): Don't hardcode format.
+                                  .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
+                                  .add_set_layout(m_main_set_layout)
+                                  .add_shader(*m_shader_map.get("fst"))
+                                  .add_shader(*m_shader_map.get("blit-tonemap"))
+                                  .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                  .build(m_context);
 }
 
 void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
@@ -510,6 +526,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
         vk::ResourceId depth_image;
         vk::ResourceId depth_pyramid;
         vk::ResourceId light_visibility;
+        vk::ResourceId hdr_image;
         Vector<PointLight> lights;
         Vector<Object> objects;
         vk::DescriptorBuilder descriptor_builder;
@@ -808,22 +825,42 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
         });
 
-    target = graph.add_pass<vk::ResourceId>(
+    graph.add_pass(
         "deferred", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+        [&](vk::PassBuilder &builder) {
+            vk::AttachmentDescription hdr_image_description{
+                .extent = {m_viewport_extent.width, m_viewport_extent.height},
+                .format = vkb::Format::R16G16B16A16Sfloat,
+                .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::TransferSrc,
+            };
             data.albedo_image = builder.read(data.albedo_image);
             data.normal_image = builder.read(data.normal_image);
             data.depth_image = builder.read(data.depth_image);
             data.depth_pyramid = builder.read(data.depth_pyramid);
             data.light_visibility = builder.read(data.light_visibility);
-            output = builder.write(target, vk::WriteFlags::Additive);
+            data.hdr_image = builder.new_attachment("hdr-image", hdr_image_description);
         },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &output) {
-            data.descriptor_builder.set(10, 0, graph.get_image(output).full_view());
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            data.descriptor_builder.set(10, 0, graph.get_image(data.hdr_image).full_view());
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_deferred_pipeline);
             cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
+        });
+
+    target = graph.add_pass<vk::ResourceId>(
+        "blit-tonemap", vk::PassFlags::Graphics,
+        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
+            data.hdr_image = builder.read(data.hdr_image, vk::ReadFlags::Sampled);
+            output = builder.write(target);
+        },
+        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &) {
+            data.descriptor_builder.set(11, 0,
+                                        graph.get_image(data.hdr_image).full_view().sampled(vk::Sampler::Nearest));
+            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+            cmd_buf.bind_pipeline(m_blit_tonemap_pipeline);
+            cmd_buf.draw(3, 1);
         });
     return vull::make_tuple(target, data.depth_image, data.descriptor_buffer);
 }
