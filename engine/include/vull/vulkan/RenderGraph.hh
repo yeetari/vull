@@ -92,13 +92,23 @@ enum class PassFlags {
 
 enum class ReadFlags {
     None = 0u,
+
+    /// Automatically applied when a write is specified as Additive. Used for render graph dependency tracking.
     Additive = 1u << 0u,
+
+    /// Specifies that this read is via vkQueuePresent. This ensures that the image layout is correct. Only valid for an
+    /// image resource.
     Present = 1u << 1u,
+
+    /// Specifies that this read is via vkCmdDrawIndirect. Only valid for a buffer resource in a graphics pass.
     Indirect = 1u << 2u,
 };
 
 enum class WriteFlags {
     None = 0u,
+
+    /// Specifies that this write doesn't overwrite the resource. Ensures that previous writer(s) aren't culled, and
+    /// uses vkb::AttachmentLoadOp::Load rather than DontCare or Clear.
     Additive = 1u << 0u,
 };
 
