@@ -26,37 +26,57 @@ namespace {
 // constexpr version of ZSTD_CStreamOutSize.
 constexpr size_t k_zstd_block_size = ZSTD_COMPRESSBOUND(ZSTD_BLOCKSIZE_MAX) + 3 + 4;
 constexpr size_t k_block_size = k_zstd_block_size + sizeof(size_t);
-VULL_GLOBAL(thread_local ZSTD_CCtx *s_cctx = nullptr);
-VULL_GLOBAL(thread_local uint8_t *s_cbuffer = nullptr);
-VULL_GLOBAL(thread_local struct ThreadDestructor { // NOLINT
-    ~ThreadDestructor() {
-        delete[] s_cbuffer;
-        ZSTD_freeCCtx(s_cctx);
+
+struct Context {
+    ZSTD_CCtx *cctx;
+    uint8_t *buffer;
+
+    Context() {
+        cctx = ZSTD_createCCtx();
+        buffer = new uint8_t[k_zstd_block_size];
+        ZSTD_CCtx_setParameter(cctx, ZSTD_c_contentSizeFlag, 0);
+        ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1);
     }
-} s_destructor);
+    Context(ZSTD_CCtx *ctx, uint8_t *buf) : cctx(ctx), buffer(buf) {}
+    Context(const Context &) = delete;
+    Context(Context &&other)
+        : cctx(vull::exchange(other.cctx, nullptr)), buffer(vull::exchange(other.buffer, nullptr)) {}
+    ~Context() {
+        if (cctx == nullptr) {
+            return;
+        }
+        delete[] buffer;
+        ZSTD_freeCCtx(cctx);
+    }
+
+    Context &operator=(const Context &) = delete;
+    Context &operator=(Context &&) = delete;
+};
+VULL_GLOBAL(thread_local Vector<Context> s_contexts);
 
 } // namespace
 
 WriteStream::WriteStream(Writer &writer, UniquePtr<Stream> &&stream, Entry &entry)
     : m_writer(writer), m_stream(vull::move(stream)), m_entry(entry) {
-    static_cast<void>(s_destructor);
-    if (s_cctx == nullptr) {
-        VULL_ASSERT(s_cbuffer == nullptr);
-        s_cctx = ZSTD_createCCtx();
-        s_cbuffer = new uint8_t[k_zstd_block_size];
-        ZSTD_CCtx_setParameter(s_cctx, ZSTD_c_contentSizeFlag, 0);
-        ZSTD_CCtx_setParameter(s_cctx, ZSTD_c_checksumFlag, 1);
+    if (s_contexts.empty()) {
+        s_contexts.emplace();
     }
-    ZSTD_CCtx_reset(s_cctx, ZSTD_reset_session_only);
+
+    auto &context = s_contexts.last();
+    m_cctx = vull::exchange(context.cctx, nullptr);
+    m_buffer = vull::exchange(context.buffer, nullptr);
+    s_contexts.pop();
+
+    ZSTD_CCtx_reset(m_cctx, ZSTD_reset_session_only);
     switch (writer.m_clevel) {
     case CompressionLevel::Fast:
-        ZSTD_CCtx_setParameter(s_cctx, ZSTD_c_compressionLevel, ZSTD_minCLevel());
+        ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_compressionLevel, ZSTD_minCLevel());
         break;
     case CompressionLevel::Normal:
-        ZSTD_CCtx_setParameter(s_cctx, ZSTD_c_compressionLevel, 19);
+        ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_compressionLevel, 19);
         break;
     case CompressionLevel::Ultra:
-        ZSTD_CCtx_setParameter(s_cctx, ZSTD_c_compressionLevel, ZSTD_maxCLevel());
+        ZSTD_CCtx_setParameter(m_cctx, ZSTD_c_compressionLevel, ZSTD_maxCLevel());
         break;
     }
 }
@@ -64,6 +84,7 @@ WriteStream::WriteStream(Writer &writer, UniquePtr<Stream> &&stream, Entry &entr
 WriteStream::~WriteStream() {
     // Ensure that all data has been flushed.
     VULL_ASSERT(m_compress_head == 0);
+    s_contexts.emplace(m_cctx, m_buffer);
 }
 
 Result<void, StreamError> WriteStream::flush_block() {
@@ -77,7 +98,7 @@ Result<void, StreamError> WriteStream::flush_block() {
         VULL_TRY(m_stream->write_be(block_offset));
     }
     VULL_TRY(m_stream->seek(block_offset, SeekMode::Set));
-    VULL_TRY(m_stream->write({s_cbuffer, m_compress_head}));
+    VULL_TRY(m_stream->write({m_buffer, m_compress_head}));
     m_block_link_offset = block_offset + m_compress_head;
     m_compressed_size += m_compress_head;
     m_compress_head = 0;
@@ -89,13 +110,13 @@ float WriteStream::finish() {
     do {
         ZSTD_inBuffer input{};
         ZSTD_outBuffer output{
-            .dst = s_cbuffer + m_compress_head,
+            .dst = m_buffer + m_compress_head,
             .size = static_cast<size_t>(k_zstd_block_size - m_compress_head),
         };
         if (output.size == 0) {
             VULL_EXPECT(flush_block());
         }
-        remaining = ZSTD_compressStream2(s_cctx, &output, &input, ZSTD_e_end);
+        remaining = ZSTD_compressStream2(m_cctx, &output, &input, ZSTD_e_end);
         m_compress_head += output.pos;
     } while (remaining != 0);
 
@@ -116,7 +137,7 @@ Result<void, StreamError> WriteStream::write(Span<const void> data) {
         };
         do {
             ZSTD_outBuffer output{
-                .dst = s_cbuffer + m_compress_head,
+                .dst = m_buffer + m_compress_head,
                 .size = static_cast<size_t>(k_zstd_block_size - m_compress_head),
             };
             if (output.size == 0) {
@@ -124,7 +145,7 @@ Result<void, StreamError> WriteStream::write(Span<const void> data) {
                 VULL_EXPECT(flush_block());
                 continue;
             }
-            ZSTD_compressStream2(s_cctx, &output, &input, ZSTD_e_continue);
+            ZSTD_compressStream2(m_cctx, &output, &input, ZSTD_e_continue);
             m_compress_head += output.pos;
         } while (input.pos != input.size);
         bytes_written += input.size;
@@ -143,10 +164,10 @@ Result<void, StreamError> WriteStream::write_byte(uint8_t byte) {
         VULL_EXPECT(flush_block());
     }
     ZSTD_outBuffer output{
-        .dst = s_cbuffer + m_compress_head,
+        .dst = m_buffer + m_compress_head,
         .size = static_cast<size_t>(k_zstd_block_size - m_compress_head),
     };
-    ZSTD_compressStream2(s_cctx, &output, &input, ZSTD_e_continue);
+    ZSTD_compressStream2(m_cctx, &output, &input, ZSTD_e_continue);
     m_compress_head += output.pos;
     return {};
 }

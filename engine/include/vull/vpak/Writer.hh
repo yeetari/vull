@@ -13,6 +13,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+using ZSTD_CCtx = struct ZSTD_CCtx_s;
+
 namespace vull::vpak {
 
 class Writer;
@@ -27,6 +29,8 @@ class WriteStream final : public Stream {
     Writer &m_writer;
     UniquePtr<Stream> m_stream;
     Entry &m_entry;
+    ZSTD_CCtx *m_cctx{nullptr};
+    uint8_t *m_buffer{nullptr};
     size_t m_block_link_offset{0};
     uint32_t m_compress_head{0};
     uint32_t m_compressed_size{0};
