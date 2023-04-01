@@ -102,6 +102,10 @@ enum class ReadFlags {
 
     /// Specifies that this read is via vkCmdDrawIndirect. Only valid for a buffer resource in a graphics pass.
     Indirect = 1u << 2u,
+
+    /// Specifies that the image is sampled via a uniform rather than as an attachment. Only valid for an image resource
+    /// in a graphics pass.
+    Sampled = 1u << 3u,
 };
 
 enum class WriteFlags {

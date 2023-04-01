@@ -347,7 +347,9 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
             consider_resource(id, vkb::AttachmentLoadOp::Clear, vkb::AttachmentStoreOp::Store);
         }
         for (auto [id, flags] : pass.reads()) {
-            if ((flags & ReadFlags::Additive) != ReadFlags::None) {
+            if ((flags & (ReadFlags::Additive | ReadFlags::Sampled)) != ReadFlags::None) {
+                // Ignore Additive reads as they are handled by vkb::AttachmentLoadOp::Load on the write side. Ignore
+                // non-attachment Sampled reads.
                 continue;
             }
             consider_resource(id, vkb::AttachmentLoadOp::Load, vkb::AttachmentStoreOp::None);
