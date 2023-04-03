@@ -2,6 +2,7 @@
 
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
+#include <vull/core/Main.hh>
 #include <vull/core/Scene.hh>
 #include <vull/core/Transform.hh>
 #include <vull/core/Window.hh>
@@ -60,7 +61,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 using namespace vull;
@@ -83,7 +83,30 @@ Vector<uint8_t> load(const char *path) {
     return binary;
 }
 
-void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validation) {
+} // namespace
+
+void vull_main(Vector<StringView> &&args) {
+    if (args.size() < 2) {
+        vull::println("usage: {} [--enable-vvl] <scene-name>", args[0]);
+        return;
+    }
+
+    StringView scene_name;
+    bool enable_validation = false;
+    for (const auto &arg : vull::slice(args, 1u)) {
+        if (arg == "--enable-vvl") {
+            enable_validation = true;
+        } else if (arg[0] == '-') {
+            vull::println("fatal: unknown option {}", arg);
+            return;
+        } else if (scene_name.empty()) {
+            scene_name = arg;
+        } else {
+            vull::println("fatal: unexpected argument {}", arg);
+            return;
+        }
+    }
+
     Window window(2560, 1440, true);
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
@@ -400,39 +423,6 @@ void main_task(Scheduler &scheduler, StringView scene_name, bool enable_validati
         graph.execute(cmd_buf, true);
         cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }
-    scheduler.stop();
+    Scheduler::current().stop();
     context.vkDeviceWaitIdle();
-}
-
-} // namespace
-
-int main(int argc, char **argv) {
-    Vector<StringView> args(argv, argv + argc);
-    if (args.size() < 2) {
-        vull::println("usage: {} [--enable-vvl] <scene-name>", args[0]);
-        return EXIT_SUCCESS;
-    }
-
-    StringView scene_name;
-    bool enable_validation = false;
-    for (const auto &arg : vull::slice(args, 1u)) {
-        if (arg == "--enable-vvl") {
-            enable_validation = true;
-        } else if (arg[0] == '-') {
-            vull::println("fatal: unknown option {}", arg);
-            return EXIT_FAILURE;
-        } else if (scene_name.empty()) {
-            scene_name = arg;
-        } else {
-            vull::println("fatal: unexpected argument {}", arg);
-            return EXIT_FAILURE;
-        }
-    }
-
-    Scheduler scheduler;
-    auto *tasklet = Tasklet::create();
-    tasklet->set_callable([&] {
-        main_task(scheduler, scene_name, enable_validation);
-    });
-    scheduler.start(tasklet);
 }

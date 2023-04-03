@@ -1,5 +1,6 @@
 vull_module(core Zstd::Zstd)
 vull_module(graphics vull::core vull::vulkan)
+vull_module(main vull::core)
 vull_module(physics vull::core)
 vull_module(script vull::core)
 vull_module(ui vull::core vull::vulkan Freetype::Freetype harfbuzz::harfbuzz)
