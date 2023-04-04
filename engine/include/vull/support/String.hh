@@ -35,6 +35,8 @@ public:
     char *data() { return m_data; }
     const char *data() const { return m_data; }
 
+    bool ends_with(StringView end);
+
     operator StringView() const { return view(); }
     StringView view() const { return {m_data, m_length}; }
 

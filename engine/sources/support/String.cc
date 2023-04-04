@@ -37,6 +37,19 @@ String &String::operator=(String &&other) {
     return *this;
 }
 
+bool String::ends_with(StringView end) {
+    if (end.empty()) {
+        return true;
+    }
+    if (empty()) {
+        return false;
+    }
+    if (end.length() > m_length) {
+        return false;
+    }
+    return memcmp(&m_data[m_length - end.length()], end.data(), end.length()) == 0;
+}
+
 bool String::operator==(const String &other) const {
     return StringView(m_data, m_length) == StringView(other.m_data, other.m_length);
 }
