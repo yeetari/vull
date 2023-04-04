@@ -3,9 +3,9 @@
 #include <vull/graphics/DefaultRenderer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
-#include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
@@ -105,7 +105,7 @@ vk::ResourceId SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId
         .output;
 }
 
-void SkyboxRenderer::load(vpak::ReadStream &stream) {
+void SkyboxRenderer::load(Stream &stream) {
     const auto pixel_count = 1024 * 1024 * 6;
     auto staging_buffer =
         m_context.create_buffer(pixel_count * 4, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);

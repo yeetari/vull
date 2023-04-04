@@ -18,8 +18,10 @@
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Tuple.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Buffer.hh>
@@ -391,7 +393,7 @@ void DefaultRenderer::create_pipelines() {
                                   .build(m_context);
 }
 
-void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
+void DefaultRenderer::load_scene(Scene &scene) {
     m_scene = &scene;
     m_texture_descriptor_buffer = m_context.create_buffer(
         scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
@@ -411,8 +413,8 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
         if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
             continue;
         }
-        const auto vertices_size = pack_reader.stat(mesh.vertex_data_name())->size;
-        const auto indices_size = pack_reader.stat(mesh.index_data_name())->size;
+        const auto vertices_size = vpak::stat(mesh.vertex_data_name())->size;
+        const auto indices_size = vpak::stat(mesh.index_data_name())->size;
         m_mesh_infos.set(mesh.vertex_data_name(),
                          MeshInfo{
                              .index_count = static_cast<uint32_t>(indices_size / sizeof(uint32_t)),
@@ -437,8 +439,8 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
             continue;
         }
 
-        auto vertex_entry = *pack_reader.stat(mesh.vertex_data_name());
-        auto vertex_stream = *pack_reader.open(mesh.vertex_data_name());
+        auto vertex_entry = *vpak::stat(mesh.vertex_data_name());
+        auto vertex_stream = *vpak::open(mesh.vertex_data_name());
         auto staging_buffer =
             m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
         VULL_EXPECT(vertex_stream.read({staging_buffer.mapped_raw(), vertex_entry.size}));
@@ -452,8 +454,8 @@ void DefaultRenderer::load_scene(Scene &scene, vpak::Reader &pack_reader) {
         });
         vertex_buffer_offset += vertex_entry.size;
 
-        auto index_entry = *pack_reader.stat(mesh.index_data_name());
-        auto index_stream = *pack_reader.open(mesh.index_data_name());
+        auto index_entry = *vpak::stat(mesh.index_data_name());
+        auto index_stream = *vpak::open(mesh.index_data_name());
         staging_buffer =
             m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
         VULL_EXPECT(index_stream.read({staging_buffer.mapped_raw(), index_entry.size}));

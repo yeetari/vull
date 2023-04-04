@@ -7,6 +7,7 @@
 #include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh> // IWYU pragma: keep
 
@@ -49,7 +50,7 @@ public:
     Reader &operator=(Reader &&) = delete;
 
     bool exists(StringView name) const;
-    Optional<ReadStream> open(StringView name) const;
+    UniquePtr<ReadStream> open(StringView name) const;
     Optional<Entry> stat(StringView name) const;
     const Vector<Entry> &entries() const { return m_entries; }
 };

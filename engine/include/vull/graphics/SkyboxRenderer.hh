@@ -13,15 +13,10 @@ class RenderGraph;
 
 } // namespace vull::vk
 
-namespace vull::vpak {
-
-class ReadStream;
-
-} // namespace vull::vpak
-
 namespace vull {
 
 class DefaultRenderer;
+struct Stream;
 
 class SkyboxRenderer {
     vk::Context &m_context;
@@ -41,7 +36,7 @@ public:
 
     vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, vk::ResourceId depth_image,
                               vk::ResourceId frame_ubo);
-    void load(vpak::ReadStream &stream);
+    void load(Stream &stream);
 };
 
 } // namespace vull

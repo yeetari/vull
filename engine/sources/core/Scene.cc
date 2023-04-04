@@ -4,6 +4,7 @@
 #include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Transform.hh>
+#include <vull/ecs/Entity.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Material.hh>
@@ -12,12 +13,14 @@
 #include <vull/maths/Mat.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/HashMap.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
+#include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Buffer.hh>
@@ -81,7 +84,7 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
     return parent_matrix * transform.matrix();
 }
 
-vk::SampledImage Scene::load_texture(vpak::ReadStream &stream) {
+vk::SampledImage Scene::load_texture(Stream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
     const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -174,7 +177,7 @@ vk::SampledImage Scene::load_texture(vpak::ReadStream &stream) {
     return image.full_view().sampled(to_sampler(sampler_kind));
 }
 
-void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
+void Scene::load(StringView scene_name) {
     // Register default components. Note that the order currently matters.
     m_world.register_component<Transform>();
     m_world.register_component<Mesh>();
@@ -183,16 +186,20 @@ void Scene::load(vpak::Reader &pack_reader, StringView scene_name) {
     m_world.register_component<BoundingSphere>();
 
     // Load world.
-    VULL_EXPECT(m_world.deserialise(pack_reader, scene_name));
+    VULL_EXPECT(m_world.deserialise(*vpak::open(scene_name))); // TODO
 
     // Load textures.
-    for (const auto &entry : pack_reader.entries()) {
-        switch (entry.type) {
-        case vpak::EntryType::Image:
-            auto stream = pack_reader.open(entry.name);
-            m_texture_indices.set(entry.name, m_textures.size());
-            m_textures.push(load_texture(*stream));
-            break;
+    auto preload_texture = [this](StringView name) {
+        auto stream = vpak::open(name);
+        m_texture_indices.set(name, m_textures.size());
+        m_textures.push(load_texture(*stream));
+    };
+    for (auto [entity, material] : m_world.view<Material>()) {
+        if (!m_texture_indices.contains(material.albedo_name())) {
+            preload_texture(material.albedo_name());
+        }
+        if (!m_texture_indices.contains(material.normal_name())) {
+            preload_texture(material.normal_name());
         }
     }
 }

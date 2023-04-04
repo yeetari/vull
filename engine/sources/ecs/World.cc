@@ -5,35 +5,29 @@
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/Stream.hh>
 #include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
-#include <vull/vpak/Reader.hh>
 #include <vull/vpak/Writer.hh>
 
 #include <stdint.h>
 
 namespace vull {
 
-Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_reader, StringView name) {
-    auto stream = pack_reader.open(name);
-    if (!stream) {
-        return WorldError::MissingEntry;
-    }
-
-    const auto entity_count = VULL_TRY(stream->read_varint<EntityId>());
+Result<void, StreamError, WorldError> World::deserialise(Stream &stream) {
+    const auto entity_count = VULL_TRY(stream.read_varint<EntityId>());
     m_entities.ensure_capacity(entity_count);
     for (EntityId i = 0; i < entity_count; i++) {
         m_entities.push(i);
     }
 
-    const auto set_count = VULL_TRY(stream->read_varint<uint32_t>());
+    const auto set_count = VULL_TRY(stream.read_varint<uint32_t>());
     for (uint32_t i = 0; i < set_count; i++) {
-        const auto set_entity_count = VULL_TRY(stream->read_varint<EntityId>());
+        const auto set_entity_count = VULL_TRY(stream.read_varint<EntityId>());
         if (set_entity_count == 0) {
             continue;
         }
@@ -42,9 +36,9 @@ Result<void, StreamError, WorldError> World::deserialise(vpak::Reader &pack_read
             return WorldError::InvalidComponent;
         }
         auto &set = m_component_sets[i];
-        set.deserialise(set_entity_count, *stream);
+        set.deserialise(set_entity_count, stream);
         for (EntityId j = 0; j < set_entity_count; j++) {
-            set.raw_ensure_index(VULL_TRY(stream->read_varint<EntityId>()));
+            set.raw_ensure_index(VULL_TRY(stream.read_varint<EntityId>()));
         }
     }
     return {};

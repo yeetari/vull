@@ -7,12 +7,13 @@
 
 namespace vull::vpak {
 
-class Reader;
 class Writer;
 
 } // namespace vull::vpak
 
 namespace vull {
+
+struct Stream;
 
 enum class WorldError {
     InvalidComponent,
@@ -21,7 +22,7 @@ enum class WorldError {
 
 class World : public EntityManager {
 public:
-    Result<void, StreamError, WorldError> deserialise(vpak::Reader &pack_reader, StringView name);
+    Result<void, StreamError, WorldError> deserialise(Stream &stream);
     Result<float, StreamError> serialise(vpak::Writer &pack_writer, StringView name);
 };
 

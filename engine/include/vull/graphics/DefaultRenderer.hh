@@ -24,12 +24,6 @@ class Shader; // IWYU pragma: keep
 
 } // namespace vull::vk
 
-namespace vull::vpak {
-
-class Reader;
-
-} // namespace vull::vpak
-
 namespace vull {
 
 class Scene;
@@ -115,7 +109,7 @@ public:
     DefaultRenderer &operator=(DefaultRenderer &&) = delete;
 
     Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> build_pass(vk::RenderGraph &graph, vk::ResourceId target);
-    void load_scene(Scene &scene, vpak::Reader &pack_reader);
+    void load_scene(Scene &scene);
     void update_globals(const Mat4f &proj, const Mat4f &view, const Vec3f &view_position);
     void set_cull_view_locked(bool locked) { m_cull_view_locked = locked; }
 

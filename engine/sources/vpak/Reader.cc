@@ -13,6 +13,7 @@
 #include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
@@ -129,9 +130,10 @@ bool Reader::exists(StringView name) const {
     return m_entries[m_phf.hash(name)].name.view() == name;
 }
 
-Optional<ReadStream> Reader::open(StringView name) const {
+UniquePtr<ReadStream> Reader::open(StringView name) const {
     const auto &entry = m_entries[m_phf.hash(name)];
-    return entry.name.view() == name ? ReadStream(m_data, entry.first_block) : Optional<ReadStream>();
+    return entry.name.view() == name ? vull::make_unique<ReadStream>(m_data, entry.first_block)
+                                     : UniquePtr<ReadStream>();
 }
 
 Optional<Entry> Reader::stat(StringView name) const {

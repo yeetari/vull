@@ -13,6 +13,7 @@ target_sources(vull-core PRIVATE
     tasklet/Tasklet.cc
     tasklet/Mutex.cc
     tasklet/x86_64_sysv.S
+    vpak/FileSystem.cc
     vpak/Reader.cc
     vpak/Writer.cc)
 

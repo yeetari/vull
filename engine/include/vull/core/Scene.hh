@@ -18,14 +18,9 @@ class Context;
 
 } // namespace vull::vk
 
-namespace vull::vpak {
-
-class ReadStream;
-class Reader;
-
-} // namespace vull::vpak
-
 namespace vull {
+
+struct Stream;
 
 class Scene {
     vk::Context &m_context;
@@ -34,7 +29,7 @@ class Scene {
     Vector<vk::Image> m_images;
     Vector<vk::SampledImage> m_textures;
 
-    vk::SampledImage load_texture(vpak::ReadStream &);
+    vk::SampledImage load_texture(Stream &);
 
 public:
     explicit Scene(vk::Context &context) : m_context(context) {}
@@ -46,7 +41,7 @@ public:
     Scene &operator=(Scene &&) = delete;
 
     Mat4f get_transform_matrix(EntityId entity);
-    void load(vpak::Reader &pack_reader, StringView scene_name);
+    void load(StringView scene_name);
 
     World &world() { return m_world; }
     Optional<const uint32_t &> texture_index(const String &name) const { return m_texture_indices.get(name); }

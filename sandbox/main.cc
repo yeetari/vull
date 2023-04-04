@@ -24,7 +24,6 @@
 #include <vull/physics/PhysicsEngine.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/Shape.hh>
-#include <vull/platform/File.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
@@ -32,7 +31,6 @@
 #include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
@@ -48,6 +46,7 @@
 #include <vull/ui/FontAtlas.hh>
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/TimeGraph.hh>
+#include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>
@@ -111,9 +110,8 @@ void vull_main(Vector<StringView> &&args) {
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file("scene.vpak", OpenMode::Read)));
     Scene scene(context);
-    scene.load(pack_reader, scene_name);
+    scene.load(scene_name);
 
     auto blit_tonemap_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/blit_tonemap.frag.spv").span()));
     auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
@@ -144,11 +142,11 @@ void vull_main(Vector<StringView> &&args) {
     shader_map.set("skybox-frag", vull::move(skybox_fs));
 
     DefaultRenderer default_renderer(context, vull::move(shader_map), swapchain.extent_3D());
-    default_renderer.load_scene(scene, pack_reader);
+    default_renderer.load_scene(scene);
 
     SkyboxRenderer skybox_renderer(context, default_renderer);
-    if (auto entry = pack_reader.open("/skybox")) {
-        skybox_renderer.load(*entry);
+    if (auto stream = vpak::open("/skybox")) {
+        skybox_renderer.load(*stream);
     }
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
