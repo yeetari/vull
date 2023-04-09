@@ -52,4 +52,4 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Run tests
-        run: ./build/engine/vull-tests
+        run: cmake --build build --target test
