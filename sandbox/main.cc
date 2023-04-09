@@ -28,7 +28,6 @@
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/HashMap.hh>
 #include <vull/support/HashSet.hh>
 #include <vull/support/Result.hh>
@@ -48,7 +47,6 @@
 #include <vull/ui/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/Reader.hh>
-#include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Queue.hh>
@@ -329,50 +327,6 @@ void vull_main(Vector<StringView> &&args) {
         ui_cmds.draw_text(font, {1.1f, 1.4f}, text_colour, "Frame time");
         cpu_time_graph.draw(ui_cmds, {1.4f, 2.5f}, font, "CPU time");
         gpu_time_graph.draw(ui_cmds, {1.4f, 8.5f}, font, "GPU time");
-
-        // Draw allocator information window.
-        ui_cmds.draw_rect({1.0f, 15.0f}, {14.0f, 0.5f}, {0.06f, 0.06f, 0.06f, 1.0f});
-        ui_cmds.draw_rect({1.0f, 15.5f}, {14.0f, 10.0f}, {0.06f, 0.06f, 0.06f, 0.75f});
-        ui_cmds.draw_text(font, {1.1f, 15.4f}, text_colour, "Allocator info");
-        float y_pos = 15.9f;
-        for (const auto &allocator : context.allocators()) {
-            if (allocator->heap_count() == 0) {
-                continue;
-            }
-
-            const auto heap_size_mib = allocator->heap_size() / 1024 / 1024;
-            ui_cmds.draw_text(font, {1.4f, y_pos}, text_colour,
-                              vull::format("Memory Type {} ({} MiB * {} heaps)", allocator->memory_type_index(),
-                                           heap_size_mib, allocator->heap_count()));
-            y_pos += 0.2f;
-
-            constexpr float graph_width = 13.2f;
-            constexpr float graph_height = 0.5f;
-            const float scale = graph_width / static_cast<float>(allocator->heap_size());
-
-            const auto heap_ranges = allocator->heap_ranges();
-            for (const auto &range : heap_ranges) {
-                uint32_t allocated = 0;
-                uint32_t allocations = 0;
-                for (float x_pos = 0.0f; const auto &block : range) {
-                    const float block_width = static_cast<float>(block.size) * scale;
-                    Vec3f colour = block.free ? Vec3f(0.6f) : Vec3f(0.2f, 0.8f, 0.2f);
-                    ui_cmds.draw_rect({1.4f + x_pos, y_pos}, {block_width, graph_height}, Vec4f(colour, 1.0f));
-                    x_pos += block_width;
-                    if (!block.free) {
-                        allocated += block.size;
-                        allocations++;
-                    }
-                }
-                y_pos += graph_height + 0.4f;
-                ui_cmds.draw_text(
-                    font, {1.4f, y_pos}, text_colour,
-                    vull::format("Allocations: {}    Used: {} B ({}%)", allocations, allocated,
-                                 static_cast<double>(allocated) / static_cast<double>(allocator->heap_size()) * 100.0));
-                y_pos += 0.4f;
-            }
-            y_pos += 0.6f;
-        }
 
         default_renderer.update_globals(projection, view_matrix, view_position);
 
