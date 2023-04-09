@@ -11,6 +11,10 @@ option(VULL_BUILD_GLTF "Build the vpak tool with glTF support" OFF)
 option(VULL_BUILD_SANDBOX "Build sandbox" ON)
 option(VULL_BUILD_TESTS "Build tests" OFF)
 
+if(VULL_BUILD_TESTS)
+    enable_testing()
+endif()
+
 find_package(Freetype)
 find_package(harfbuzz)
 find_package(X11)

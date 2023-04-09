@@ -30,4 +30,12 @@ if(VULL_BUILD_TESTS)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
     target_link_libraries(vull-tests PRIVATE vull::core)
+
+    add_custom_command(TARGET vull-tests
+            POST_BUILD
+            COMMAND "${CMAKE_COMMAND}"
+              -D "\"TEST_EXECUTABLE:FILEPATH=$<TARGET_FILE:vull-tests>\""
+              -P \"${CMAKE_SOURCE_DIR}/cmake/VullAddTests.cmake\"
+            BYPRODUCTS vull_tests.cmake)
+    set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES vull_tests.cmake)
 endif()
