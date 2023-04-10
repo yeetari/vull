@@ -73,6 +73,9 @@ public:
     const T &get() const;
 
     template <ContainsType<Ts...> T>
+    bool has() const;
+
+    template <ContainsType<Ts...> T>
     void set(T &&value);
 
     uint8_t index() const { return m_index; }
@@ -102,6 +105,12 @@ template <ContainsType<Ts...> T>
 const T &Variant<Ts...>::get() const {
     VULL_ASSERT(m_index == index_of<T>());
     return m_union.template get<T>();
+}
+
+template <typename... Ts>
+template <ContainsType<Ts...> T>
+bool Variant<Ts...>::has() const {
+    return m_index == index_of<T>();
 }
 
 template <typename... Ts>
