@@ -142,6 +142,8 @@ inline constexpr bool is_convertible_to = is_same<T, U> || requires(T obj) {
 
 template <typename T, typename U>
 concept ConvertibleTo = is_convertible_to<T, U>;
+template <typename T>
+concept TriviallyCopyable = is_trivially_copyable<T>;
 
 template <typename T>
 T declval();
