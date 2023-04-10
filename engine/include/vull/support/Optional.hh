@@ -57,6 +57,8 @@ public:
     explicit operator bool() const { return m_ptr != nullptr; }
     bool has_value() const { return m_ptr != nullptr; }
 
+    T *ptr() const { return m_ptr; }
+
     T &operator*();
     T *operator->();
     const T &operator*() const;
