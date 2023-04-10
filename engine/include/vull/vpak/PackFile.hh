@@ -66,6 +66,7 @@ enum class ImageFormat : uint8_t {
     Bc5Unorm = 2,
     RgUnorm = 3,
     RgbaUnorm = 4,
+    Bc7Srgb = 5,
 };
 
 enum class SamplerKind : uint8_t {

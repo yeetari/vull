@@ -3,11 +3,16 @@
 #include <vull/support/Stream.hh>
 
 #include <new>
+#ifdef BUILD_PNG
 #include <png.h>
+#endif
+
+// TODO: Proper error handling from libpng.
 
 namespace vull {
 
-// TODO: Proper error handling from libpng.
+#ifdef BUILD_PNG
+
 Result<PngStream, PngError, StreamError> PngStream::create(UniquePtr<Stream> &&stream) {
     Array<uint8_t, 8> signature{};
     VULL_TRY(stream->read(signature.span()));
@@ -67,5 +72,27 @@ void PngStream::read_row(Span<uint8_t> row) {
     VULL_ASSERT(row.size() >= m_row_byte_count);
     png_read_row(m_png, row.data(), nullptr);
 }
+
+#else
+
+Result<PngStream, PngError, StreamError> PngStream::create(UniquePtr<Stream> &&) {
+    return PngError::Missing;
+}
+
+PngStream::PngStream(UniquePtr<Stream> &&, png_structp, png_infop) {
+    VULL_ENSURE_NOT_REACHED();
+}
+
+PngStream::PngStream(PngStream &&) {
+    VULL_ENSURE_NOT_REACHED();
+}
+
+PngStream::~PngStream() = default;
+
+void PngStream::read_row(Span<uint8_t>) {
+    VULL_ENSURE_NOT_REACHED();
+}
+
+#endif
 
 } // namespace vull

@@ -14,6 +14,7 @@ struct Stream;
 enum class PngError {
     BadSignature,
     FailedAlloc,
+    Missing,
 };
 
 class PngStream {

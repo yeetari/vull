@@ -24,6 +24,8 @@
 #include <vull/vpak/Reader.hh>
 #include <vull/vpak/Writer.hh>
 
+#include <bc7enc.hh>
+#include <rgbcx.hh>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -336,6 +338,9 @@ int main(int argc, char **argv) {
         print_usage(argv[0]);
         return EXIT_SUCCESS;
     }
+
+    bc7enc_compress_block_init();
+    rgbcx::init();
 
     const auto command = args[1];
     if (command == "add") {

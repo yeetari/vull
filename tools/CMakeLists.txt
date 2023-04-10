@@ -1,7 +1,14 @@
 vull_executable(vpak vull::core vull::graphics)
-target_sources(vpak PRIVATE vpak/main.cc)
+target_sources(vpak PRIVATE
+    vpak/enc/bc7enc.cc
+    vpak/enc/rgbcx.cc
+    vpak/FloatImage.cc
+    vpak/main.cc
+    vpak/PngStream.cc)
+target_include_directories(vpak SYSTEM PRIVATE vpak/enc)
+set_source_files_properties(vpak/enc/bc7enc.cc PROPERTIES COMPILE_FLAGS -w)
+set_source_files_properties(vpak/enc/rgbcx.cc PROPERTIES COMPILE_FLAGS -w)
 
-# TODO: Split options, PNG support should be available regardless via another option.
 if(VULL_BUILD_GLTF)
     include(FetchContent)
     FetchContent_Declare(meshoptimizer
@@ -11,8 +18,6 @@ if(VULL_BUILD_GLTF)
     FetchContent_MakeAvailable(meshoptimizer)
     get_target_property(meshoptimizer_iid meshoptimizer INTERFACE_INCLUDE_DIRECTORIES)
     set_target_properties(meshoptimizer PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${meshoptimizer_iid}")
-
-    find_package(PNG REQUIRED)
 
     set(SIMDJSON_DISABLE_DEPRECATED_API TRUE CACHE BOOL "" FORCE)
     set(SIMDJSON_ENABLE_THREADS FALSE CACHE BOOL "" FORCE)
@@ -26,9 +31,14 @@ if(VULL_BUILD_GLTF)
     set_target_properties(simdjson PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${simdjson_iid}")
 
     target_compile_definitions(vpak PRIVATE BUILD_GLTF)
-    target_include_directories(vpak SYSTEM PRIVATE vpak/stb)
-    target_link_libraries(vpak PRIVATE meshoptimizer PNG::PNG simdjson)
-    target_sources(vpak PRIVATE vpak/GltfParser.cc vpak/PngStream.cc)
+    target_link_libraries(vpak PRIVATE meshoptimizer simdjson)
+    target_sources(vpak PRIVATE vpak/GltfParser.cc)
+endif()
+
+if(VULL_BUILD_PNG)
+    find_package(PNG REQUIRED)
+    target_compile_definitions(vpak PRIVATE BUILD_PNG)
+    target_link_libraries(vpak PRIVATE PNG::PNG)
 endif()
 
 vull_executable(vsi vull::core vull::script)

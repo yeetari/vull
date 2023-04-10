@@ -55,6 +55,8 @@ FormatInfo parse_format(uint8_t pack_format) {
         return {vkb::Format::R8G8Unorm, 2u, false};
     case vpak::ImageFormat::RgbaUnorm:
         return {vkb::Format::R8G8B8A8Unorm, 4u, false};
+    case vpak::ImageFormat::Bc7Srgb:
+        return {vkb::Format::Bc7SrgbBlock, 16u, true};
     default:
         return {vkb::Format::Undefined, 0u, false};
     }

@@ -1,5 +1,6 @@
 #include "GltfParser.hh"
 
+#include "FloatImage.hh"
 #include "PngStream.hh"
 
 #include <vull/core/BoundingBox.hh>
@@ -27,12 +28,9 @@
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Writer.hh>
 
-#define STB_DXT_IMPLEMENTATION
-#define STBD_FABS vull::abs
 #include <linux/futex.h>
 #include <meshoptimizer.h>
 #include <simdjson.h>
-#include <stb_dxt.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -266,153 +264,49 @@ void Converter::process_texture(uint64_t index, String &path, String desired_pat
         return;
     }
 
-    vpak::ImageFormat format;
+    Filter mipmap_filter;
+    vpak::ImageFormat vpak_format;
     switch (type) {
     case TextureType::Albedo:
-        format = png_stream.pixel_byte_count() == 4 ? vpak::ImageFormat::Bc3Srgba : vpak::ImageFormat::Bc1Srgb;
+        mipmap_filter = Filter::Box;
+        vpak_format = vpak::ImageFormat::Bc7Srgb;
         break;
     case TextureType::Normal:
-        format = vpak::ImageFormat::Bc5Unorm;
+        mipmap_filter = Filter::Gaussian;
+        vpak_format = vpak::ImageFormat::Bc5Unorm;
         break;
     }
 
-    auto width = png_stream.width();
-    auto height = png_stream.height();
-    const auto row_byte_count = png_stream.row_byte_count();
-    const auto mip_count = vull::log2(vull::max(width, height)) + 1u;
-    Vector<Vector<uint8_t>> mip_buffers(mip_count);
-
-    mip_buffers[0].resize_unsafe(width * height * pixel_byte_count);
-    for (uint32_t y = 0; y < height; y++) {
-        png_stream.read_row(mip_buffers[0].span().subspan(y * row_byte_count));
+    Vector<uint8_t> unorm_data(png_stream.row_byte_count() * png_stream.height());
+    for (uint32_t y = 0; y < png_stream.height(); y++) {
+        png_stream.read_row(unorm_data.span().subspan(y * png_stream.row_byte_count()));
     }
 
-    Vec2u source_size(width, height);
-    for (uint32_t i = 1; i < mip_count; i++) {
-        const auto mip_size = source_size >> 1;
-        mip_buffers[i].resize_unsafe(mip_size.x() * mip_size.y() * pixel_byte_count);
-
-        const auto scale = Vec2f(1.0f) / vull::max(mip_size - 1, Vec2u(1u));
-        const auto *source = mip_buffers[i - 1].data();
-        for (uint32_t y = 0; y < mip_size.y(); y++) {
-            for (uint32_t x = 0; x < mip_size.x(); x++) {
-                const auto sample_position = Vec2f(x, y) * scale;
-                const auto scaled_coord = sample_position * (source_size - 1);
-                const auto scaled_floor = vull::floor(scaled_coord);
-                const auto scaled_ceil = vull::ceil(scaled_coord);
-                const auto lerp_factor = scaled_coord - scaled_floor;
-
-                const auto sample_source = [&](const Vec2u &position) {
-                    const auto *pixel = &source[(position.y() * source_size.x() + position.x()) * pixel_byte_count];
-                    Vec4f texel(pixel[0], pixel[1], pixel[2], 0.0f);
-                    if (pixel_byte_count == 4) {
-                        texel[3] = pixel[3];
-                    }
-                    return texel;
-                };
-                const auto t0 = sample_source(scaled_floor);
-                const auto t1 = sample_source({scaled_ceil.x(), scaled_floor.y()});
-                const auto t2 = sample_source(scaled_ceil);
-                const auto t3 = sample_source({scaled_floor.x(), scaled_ceil.y()});
-
-                const auto l0 = vull::lerp(t0, t1, lerp_factor.x());
-                const auto l1 = vull::lerp(t2, t3, lerp_factor.x());
-                const auto l2 = vull::lerp(l0, l1, lerp_factor.y());
-
-                auto *pixel = &mip_buffers[i][(y * mip_size.x() + x) * pixel_byte_count];
-                pixel[0] = static_cast<uint8_t>(l2[0]);
-                pixel[1] = static_cast<uint8_t>(l2[1]);
-                pixel[2] = static_cast<uint8_t>(l2[2]);
-                if (pixel_byte_count == 4) {
-                    pixel[3] = static_cast<uint8_t>(l2[3]);
-                }
-            }
-        }
-        source_size >>= 1;
+    auto float_image =
+        FloatImage::from_unorm(unorm_data.span(), Vec2u(png_stream.width(), png_stream.height()), pixel_byte_count);
+    if (type == TextureType::Normal) {
+        float_image.colours_to_vectors();
+    }
+    float_image.build_mipchain(mipmap_filter);
+    if (type == TextureType::Normal) {
+        float_image.normalise();
+        float_image.vectors_to_colours();
     }
 
     constexpr uint32_t log_threshold_resolution = 11u;
-    uint32_t mip_offset = 0;
-    if (!m_max_resolution && width == height && mip_count > log_threshold_resolution) {
+    if (!m_max_resolution && float_image.mip_count() > log_threshold_resolution) {
         // Drop first mip.
-        width >>= 1;
-        height >>= 1;
-        mip_offset++;
+        float_image.drop_mips(1);
     }
 
-    auto entry = m_pack_writer.start_entry(path = vull::move(desired_path), vpak::EntryType::Image);
-    VULL_EXPECT(entry.write_byte(uint8_t(format)));
-    VULL_EXPECT(entry.write_byte(uint8_t(sampler_kind)));
-    VULL_EXPECT(entry.write_varint(width));
-    VULL_EXPECT(entry.write_varint(height));
-    VULL_EXPECT(entry.write_varint(mip_count - mip_offset));
-
-    for (uint32_t i = mip_offset; i < mip_count; i++) {
-        for (uint32_t block_y = 0; block_y < height; block_y += 4) {
-            for (uint32_t block_x = 0; block_x < width; block_x += 4) {
-                // TODO: These cases can probably be unified into one path.
-                switch (format) {
-                case vpak::ImageFormat::Bc1Srgb: {
-                    // 64-bit compressed block.
-                    Array<uint8_t, 8> compressed_block;
-
-                    // 64-byte (4x4 * 4 bytes per pixel (alpha padded)) input.
-                    Array<uint8_t, 64> source_block{};
-
-                    // = 16 bytes per row.
-                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
-                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
-                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
-                            memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 3);
-                        }
-                    }
-                    stb_compress_dxt_block(compressed_block.data(), source_block.data(), 0, STB_DXT_HIGHQUAL);
-                    VULL_EXPECT(entry.write(compressed_block.span()));
-                    break;
-                }
-                case vpak::ImageFormat::Bc3Srgba: {
-                    // 128-bit compressed block.
-                    Array<uint8_t, 16> compressed_block;
-
-                    // 64-byte (4x4 * 4 bytes per pixel) input.
-                    Array<uint8_t, 64> source_block{};
-
-                    // = 16 bytes per row.
-                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
-                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
-                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
-                            memcpy(&source_block[y * 16 + x * 4], &row[(block_x + x) * pixel_byte_count], 4);
-                        }
-                    }
-                    stb_compress_dxt_block(compressed_block.data(), source_block.data(), 1, STB_DXT_HIGHQUAL);
-                    VULL_EXPECT(entry.write(compressed_block.span()));
-                    break;
-                }
-                case vpak::ImageFormat::Bc5Unorm: {
-                    // 128-bit compressed block.
-                    Array<uint8_t, 16> compressed_block;
-
-                    // 32-byte (4x4 * 2 bytes per pixel) input.
-                    Array<uint8_t, 32> source_block{};
-
-                    // = 8 bytes per row.
-                    for (uint32_t y = 0; y < 4 && block_y + y < height; y++) {
-                        const auto *row = &mip_buffers[i][(block_y + y) * width * pixel_byte_count];
-                        for (uint32_t x = 0; x < 4 && block_x + x < width; x++) {
-                            memcpy(&source_block[y * 8 + x * 2], &row[(block_x + x) * pixel_byte_count], 2);
-                        }
-                    }
-                    stb_compress_bc5_block(compressed_block.data(), source_block.data());
-                    VULL_EXPECT(entry.write(compressed_block.span()));
-                    break;
-                }
-                }
-            }
-        }
-        width >>= 1;
-        height >>= 1;
-    }
-    entry.finish();
+    auto stream = m_pack_writer.start_entry(path = vull::move(desired_path), vpak::EntryType::Image);
+    VULL_EXPECT(stream.write_byte(uint8_t(vpak_format)));
+    VULL_EXPECT(stream.write_byte(uint8_t(sampler_kind)));
+    VULL_EXPECT(stream.write_varint(float_image.size().x()));
+    VULL_EXPECT(stream.write_varint(float_image.size().y()));
+    VULL_EXPECT(stream.write_varint(float_image.mip_count()));
+    VULL_EXPECT(float_image.block_compress(stream, type == TextureType::Normal));
+    stream.finish();
 }
 
 bool Converter::process_material(const simdjson::dom::element &material, uint64_t index) {
