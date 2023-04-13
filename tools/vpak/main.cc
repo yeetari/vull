@@ -1,6 +1,7 @@
 #ifdef BUILD_GLTF
 #include "GltfParser.hh"
 #endif
+#include "MadLut.hh"
 #include "PngStream.hh"
 
 #include <vull/core/Log.hh>
@@ -10,6 +11,8 @@
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/FixedBuffer.hh>
+#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -29,6 +32,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <zstd.h>
 
 using namespace vull;
 
@@ -330,6 +335,31 @@ int stat(const Vector<StringView> &args) {
     return EXIT_SUCCESS;
 }
 
+MadLut load_lut(char *executable_path) {
+    char *last_slash = executable_path;
+    for (char *path = executable_path; *path != '\0'; path++) {
+        if (*path == '/') {
+            last_slash = path;
+        }
+    }
+    auto parent_path = String::copy_raw(executable_path, static_cast<size_t>(last_slash - executable_path));
+    auto file = VULL_EXPECT(vull::open_file(vull::format("{}/mad_lut.bin.zst", parent_path), OpenMode::Read));
+
+    struct stat stat {};
+    fstat(file.fd(), &stat);
+    const auto file_size = static_cast<size_t>(stat.st_size);
+    auto compressed_buffer = FixedBuffer<uint8_t>::create_uninitialised(file_size);
+    VULL_EXPECT(file.create_stream().read({compressed_buffer.data(), static_cast<uint32_t>(file_size)}));
+
+    const auto lut_size = ZSTD_getFrameContentSize(compressed_buffer.data(), file_size);
+    VULL_ENSURE(lut_size != ZSTD_CONTENTSIZE_ERROR && lut_size != ZSTD_CONTENTSIZE_UNKNOWN);
+
+    auto lut = FixedBuffer<uint8_t>::create_uninitialised(lut_size);
+    auto rc = ZSTD_decompress(lut.data(), lut.size(), compressed_buffer.data(), compressed_buffer.size());
+    VULL_ENSURE(ZSTD_isError(rc) == 0);
+    return MadLut(vull::move(lut));
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -341,6 +371,8 @@ int main(int argc, char **argv) {
 
     bc7enc_compress_block_init();
     rgbcx::init();
+    auto lut = load_lut(argv[0]);
+    MadLut::set_instance(&lut);
 
     const auto command = args[1];
     if (command == "add") {

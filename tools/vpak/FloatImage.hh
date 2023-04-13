@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MadInst.hh"
+
 #include <vull/maths/Vec.hh>
 #include <vull/support/FixedBuffer.hh>
 #include <vull/support/Result.hh>
@@ -12,11 +14,6 @@
 namespace vull {
 
 struct Stream;
-
-enum class Filter {
-    Box,
-    Gaussian,
-};
 
 class FloatImage {
     Vec2u m_size;

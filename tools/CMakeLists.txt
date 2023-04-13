@@ -3,11 +3,17 @@ target_sources(vpak PRIVATE
     vpak/enc/bc7enc.cc
     vpak/enc/rgbcx.cc
     vpak/FloatImage.cc
+    vpak/MadInst.cc
+    vpak/MadLut.cc
     vpak/main.cc
     vpak/PngStream.cc)
 target_include_directories(vpak SYSTEM PRIVATE vpak/enc)
 set_source_files_properties(vpak/enc/bc7enc.cc PROPERTIES COMPILE_FLAGS -w)
 set_source_files_properties(vpak/enc/rgbcx.cc PROPERTIES COMPILE_FLAGS -w)
+configure_file(vpak/mad_lut.bin.zst ${CMAKE_CURRENT_BINARY_DIR}/mad_lut.bin.zst COPYONLY)
+
+vull_executable(vpak-build-lut vull::core)
+target_sources(vpak-build-lut PRIVATE vpak/build-lut.cc vpak/MadInst.cc)
 
 if(VULL_BUILD_GLTF)
     include(FetchContent)

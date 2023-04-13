@@ -1,9 +1,12 @@
 #include "FloatImage.hh"
+#include "MadLut.hh"
 
+#include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/FixedBuffer.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -19,83 +22,26 @@
 namespace vull {
 namespace {
 
-float box_filter(float t) {
-    return t <= 0.5f ? 1.0f : 0.0f;
-}
-
-float gaussian_filter(float t) {
-    if (t >= 2.0f) {
-        return 0.0f;
-    }
-    const float scale = 1.0f / vull::sqrt(vull::half_pi<float>);
-    return vull::exp(-2.0f * t * t) * scale;
-}
-
 void resample_1d(const FixedBuffer<float> &source, FixedBuffer<float> &target, Vec2u source_size, uint32_t target_width,
                  uint32_t channel_count, Filter filter) {
-    struct MadInst {
-        uint32_t target_index;
-        uint32_t source_index;
-        float weight;
-    };
-    Vector<MadInst> program;
-
-    auto filter_bounds = static_cast<float>(target_width);
-    if (filter == Filter::Gaussian) {
-        filter_bounds *= 2.0f;
+    auto program = MadLut::instance()->lookup(source_size, target_width, filter);
+    if (program.empty()) {
+        vull::warn("[mad-lut] LUT miss {}x{} -> {} ({})", source_size.x(), source_size.y(), target_width,
+                   vull::enum_name(filter));
+        program = build_mad_program(source_size, target_width, filter);
     }
 
-    const float dtarget = 1.0f / static_cast<float>(target_width);
-    float xtarget = dtarget / 2.0f;
-    for (uint32_t itarget = 0; itarget < target_width; itarget++, xtarget += dtarget) {
-        uint32_t count = 0;
-        float sum = 0.0f;
-
-        const auto isource_lower = int32_t((xtarget - filter_bounds) * static_cast<float>(source_size.x()));
-        const auto isource_upper = int32_t(vull::ceil((xtarget + filter_bounds) * static_cast<float>(source_size.x())));
-        for (int32_t isource = isource_lower; isource <= isource_upper; isource++) {
-            const float xsource = (static_cast<float>(isource) + 0.5f) / static_cast<float>(source_size.x());
-            const bool outside_image = isource < 0 || isource >= static_cast<int32_t>(source_size.x());
-            const bool outside_range = xsource < 0.0f || xsource >= 1.0f;
-            if (outside_image || outside_range) {
-                continue;
-            }
-            const float t = static_cast<float>(target_width) * vull::abs(xsource - xtarget);
-            const float weight = filter == Filter::Gaussian ? gaussian_filter(t) : box_filter(t);
-            if (weight != 0.0f) {
-                program.push({itarget, static_cast<uint32_t>(isource), weight});
-                count++;
-                sum += weight;
-            }
-        }
-
-        if (sum != 0.0f) {
-            for (uint32_t i = 0; i < count; i++) {
-                program[program.size() - count + i].weight /= sum;
-            }
-        }
-    }
-
-    auto old_program = vull::move(program);
-    program.ensure_capacity(old_program.size() * channel_count);
-    for (auto mad : old_program) {
-        mad.source_index *= channel_count;
-        mad.target_index *= channel_count;
-        for (uint32_t i = 0; i < channel_count; i++) {
-            program.push(mad);
-            mad.source_index++;
-            mad.target_index++;
-        }
-    }
-
-    const auto *source_row = source.data();
-    auto *target_row = target.data();
     for (uint32_t row = 0; row < source_size.y(); row++) {
-        for (auto mad : program) {
-            target_row[mad.target_index] += source_row[mad.source_index] * mad.weight;
+        const auto row_target_offset = row * target_width * channel_count;
+        const auto row_source_offset = row * source_size.x() * channel_count;
+        for (const auto &inst : program) {
+            const auto inst_target_offset = inst.target_index * channel_count;
+            const auto inst_source_offset = inst.source_index * channel_count;
+            for (uint32_t i = 0; i < channel_count; i++) {
+                target[row_target_offset + inst_target_offset + i] +=
+                    source[row_source_offset + inst_source_offset + i] * inst.weight;
+            }
         }
-        target_row += target_width * channel_count;
-        source_row += source_size.x() * channel_count;
     }
 }
 
@@ -129,8 +75,9 @@ Result<void, StreamError> FloatImage::block_compress_bc5(Stream &stream, FixedBu
             }
 
             // 128-bit compressed block.
+            // TODO: Use encode_bc5_hq for --ultra
             Array<uint8_t, 16> compressed_block;
-            rgbcx::encode_bc5_hq(compressed_block.data(), source_block.data(), 0, 1, 2);
+            rgbcx::encode_bc5(compressed_block.data(), source_block.data(), 0, 1, 2);
             VULL_TRY(stream.write(compressed_block.span()));
         }
     }
