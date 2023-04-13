@@ -62,6 +62,7 @@ struct Stream {
 
     Result<String, StreamError> read_string();
     Result<void, StreamError> write_string(StringView string);
+    Result<void, StreamError> write_c_string(StringView string);
 };
 
 template <Integral T>

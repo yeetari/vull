@@ -51,4 +51,9 @@ Result<void, StreamError> Stream::write_string(StringView string) {
     return {};
 }
 
+Result<void, StreamError> Stream::write_c_string(StringView string) {
+    VULL_TRY(write(string.as<const void, uint32_t>()));
+    return {};
+}
+
 } // namespace vull
