@@ -6,6 +6,13 @@
 #include <vull/support/Variant.hh>
 
 // TODO: Find a way to avoid using statement-expressions?
+#define VULL_ASSUME(expr, ...)                                                                                         \
+    ({                                                                                                                 \
+        auto _result_assume = (expr);                                                                                  \
+        VULL_ASSERT(!_result_assume.is_error() __VA_OPT__(, ) __VA_ARGS__);                                            \
+        _result_assume.disown_value();                                                                                 \
+    })
+
 #define VULL_EXPECT(expr, ...)                                                                                         \
     ({                                                                                                                 \
         auto _result_expect = (expr);                                                                                  \
