@@ -6,13 +6,13 @@ A vulkan rendering engine written in C++ 20.
 
 ## Dependencies
 
+* [bc7enc_rdo](https://github.com/richgel999/bc7enc_rdo) (for vpak tool)
 * [freetype](https://freetype.org)
 * [harfbuzz](https://github.com/harfbuzz/harfbuzz)
 * [libpng](https://github.com/glennrp/libpng) (for vpak tool)
 * [meshoptimizer](https://github.com/zeux/meshoptimizer) (for vpak tool)
 * [shaderc](https://github.com/google/shaderc) (for offline shader compilation step)
 * [simdjson](https://github.com/simdjson/simdjson) (for vpak tool)
-* [stb_dxt](https://github.com/nothings/stb) (for vpak tool)
 * [xcb](https://xcb.freedesktop.org)
 * [zstd](https://github.com/facebook/zstd)
 
