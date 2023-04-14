@@ -6,7 +6,6 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Format.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
@@ -15,25 +14,9 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 
-#include <cmath>
 #include <stdint.h>
 
 namespace vull::script {
-namespace {
-
-bool is_digit(uint8_t ch) {
-    return ch >= '0' && ch <= '9';
-}
-
-bool is_ident(uint8_t ch) {
-    return ((static_cast<unsigned char>(ch) | 32u) - 'a' < 26) || ch == '_';
-}
-
-bool is_space(uint8_t ch) {
-    return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t';
-}
-
-} // namespace
 
 Lexer::Lexer(String file_name, UniquePtr<Stream> &&stream)
     : m_file_name(vull::move(file_name)), m_stream(vull::move(stream)) {
@@ -48,39 +31,6 @@ Lexer::Lexer(String file_name, UniquePtr<Stream> &&stream)
     m_data.push(0);
 }
 
-double Lexer::parse_number(uint8_t ch) {
-    double value = ch - '0';
-    while (is_digit(ch = m_data[m_head++])) {
-        value = value * 10 + (ch - '0');
-    }
-
-    if (ch != '.') {
-        m_head--;
-        return value;
-    }
-
-    double addend = 0;
-    double power = 1;
-    while (is_digit(ch = m_data[m_head++])) {
-        addend = addend * 10 + (ch - '0');
-        power *= 10;
-    }
-    value += addend / power;
-
-    if (ch != 'e') [[likely]] {
-        m_head--;
-        return value;
-    }
-
-    unsigned exponent = 0;
-    while (is_digit(ch = m_data[m_head])) {
-        exponent = exponent * 10 + (ch - '0');
-        m_head++;
-    }
-    value *= ::pow(10, exponent);
-    return value;
-}
-
 Token Lexer::next_token() {
     while (is_space(m_data[m_head])) {
         m_head++;
@@ -89,7 +39,7 @@ Token Lexer::next_token() {
     const auto position = m_head;
     uint8_t ch = m_data[m_head++];
     if (is_digit(ch)) {
-        return {parse_number(ch), position};
+        return {parse_double(ch), position};
     }
     if (is_ident(ch)) {
         const auto cur_head = m_head;
@@ -128,24 +78,6 @@ Token Lexer::next_token() {
         }
         return {static_cast<TokenKind>(ch), position};
     }
-}
-
-const Token &Lexer::peek() {
-    if (!m_peek_token) {
-        m_peek_token = next_token();
-    }
-    return *m_peek_token;
-}
-
-Token Lexer::next() {
-    if (m_peek_token) {
-        auto token = *m_peek_token;
-        if (token.kind() != TokenKind::Eof) {
-            m_peek_token.clear();
-        }
-        return token;
-    }
-    return next_token();
 }
 
 SourcePosition Lexer::recover_position(const Token &token) const {

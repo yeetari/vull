@@ -2,7 +2,7 @@
 
 #include <vull/container/Vector.hh>
 #include <vull/script/Token.hh>
-#include <vull/support/Optional.hh>
+#include <vull/support/LexerBase.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
@@ -19,21 +19,25 @@ struct SourcePosition {
     uint32_t column;
 };
 
-class Lexer {
+class Lexer : public LexerBase<Lexer, Token> {
+    friend LexerBase<Lexer, Token>;
+
+private:
     String m_file_name;
     UniquePtr<Stream> m_stream;
-    Optional<Token> m_peek_token;
     Vector<uint8_t> m_data;
     uint32_t m_head{0};
 
-    double parse_number(uint8_t);
+    static bool is_eof(const Token &token) { return token.kind() == TokenKind::Eof; }
+    void skip_char() { m_head++; }
+    void unskip_char() { m_head--; }
+    uint8_t peek_char() { return m_data[m_head]; }
+    uint8_t next_char() { return m_data[m_head++]; }
     Token next_token();
 
 public:
     Lexer(String file_name, UniquePtr<Stream> &&stream);
 
-    const Token &peek();
-    Token next();
     SourcePosition recover_position(const Token &token) const;
 };
 
