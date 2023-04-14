@@ -1,7 +1,7 @@
 #include <vull/script/ConstantPool.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/script/Value.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull::script {
 

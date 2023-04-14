@@ -1,9 +1,9 @@
 #include "MadInst.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 namespace {

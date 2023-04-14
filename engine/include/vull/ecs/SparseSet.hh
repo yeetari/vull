@@ -1,10 +1,10 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 

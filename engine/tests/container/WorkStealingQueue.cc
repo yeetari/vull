@@ -1,5 +1,6 @@
-#include <vull/support/WorkStealingQueue.hh>
+#include <vull/container/WorkStealingQueue.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
@@ -7,7 +8,6 @@
 #include <vull/support/Test.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <pthread.h>
 #include <stdlib.h>

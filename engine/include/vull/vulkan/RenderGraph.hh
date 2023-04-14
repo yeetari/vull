@@ -1,12 +1,12 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/RenderGraphDefs.hh> // IWYU pragma: export
 #include <vull/vulkan/Vulkan.hh>

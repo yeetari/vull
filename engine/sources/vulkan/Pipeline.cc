@@ -1,11 +1,11 @@
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/PipelineBuilder.hh>
 
-#include <vull/support/Array.hh>
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>

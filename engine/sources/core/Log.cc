@@ -1,8 +1,9 @@
 #include <vull/core/Log.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/platform/SystemMutex.hh>
 #include <vull/platform/Timer.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Optional.hh>
@@ -10,7 +11,6 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
 #include <errno.h>

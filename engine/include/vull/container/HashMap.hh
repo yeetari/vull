@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vull/support/HashSet.hh>
-#include <vull/support/MapEntry.hh> // IWYU pragma: export
+#include <vull/container/HashSet.hh>
+#include <vull/container/MapEntry.hh> // IWYU pragma: export
 
 namespace vull {
 

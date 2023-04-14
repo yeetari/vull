@@ -1,3 +1,4 @@
+#include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
@@ -8,6 +9,7 @@
 #include <vull/script/Value.hh>
 #include <vull/script/Vm.hh>
 #include <vull/support/Algorithm.hh>
+#include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
@@ -15,7 +17,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdlib.h>
 

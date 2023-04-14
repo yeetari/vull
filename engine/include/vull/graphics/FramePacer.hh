@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vull/support/HashMap.hh>
+#include <vull/container/HashMap.hh>
+#include <vull/container/Vector.hh>
 #include <vull/support/StringView.hh> // IWYU pragma: keep
 #include <vull/support/UniquePtr.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Semaphore.hh>
 

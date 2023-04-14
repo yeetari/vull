@@ -1,7 +1,7 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stddef.h>
 #include <stdint.h>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/Result.hh>
@@ -8,7 +9,6 @@
 #include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh> // IWYU pragma: keep
 
 #include <stddef.h>

@@ -1,11 +1,11 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 

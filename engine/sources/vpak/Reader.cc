@@ -1,9 +1,10 @@
 #include <vull/vpak/Reader.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
@@ -15,7 +16,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 
 #include <string.h>

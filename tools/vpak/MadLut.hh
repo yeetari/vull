@@ -2,11 +2,11 @@
 
 #include "MadInst.hh"
 
+#include <vull/container/FixedBuffer.hh>
+#include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
-#include <vull/support/FixedBuffer.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 

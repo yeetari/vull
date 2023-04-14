@@ -1,6 +1,6 @@
 #include <vull/maths/Random.hh>
 
-#include <vull/support/Array.hh>
+#include <vull/container/Array.hh>
 #include <vull/support/Utility.hh>
 
 #include <stdint.h>

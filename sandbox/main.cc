@@ -1,5 +1,9 @@
 #include "FreeCamera.hh"
 
+#include <vull/container/Array.hh>
+#include <vull/container/HashMap.hh>
+#include <vull/container/HashSet.hh>
+#include <vull/container/Vector.hh>
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Main.hh>
@@ -26,10 +30,7 @@
 #include <vull/physics/Shape.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/HashMap.hh>
-#include <vull/support/HashSet.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
@@ -37,7 +38,6 @@
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/CommandList.hh>

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <vull/container/Array.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
-#include <vull/support/Array.hh>
 
 namespace vull {
 

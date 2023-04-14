@@ -1,8 +1,8 @@
 #include <vull/vulkan/Image.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>

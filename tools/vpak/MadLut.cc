@@ -1,16 +1,16 @@
 #include "MadLut.hh"
 
+#include <vull/container/Array.hh>
+#include <vull/container/FixedBuffer.hh>
+#include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Enum.hh>
-#include <vull/support/FixedBuffer.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 namespace {

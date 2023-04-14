@@ -1,5 +1,6 @@
 #include <vull/script/Builder.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/script/Bytecode.hh>
 #include <vull/script/ConstantPool.hh>
 #include <vull/script/Value.hh>
@@ -7,7 +8,6 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull::script {
 namespace {

@@ -1,3 +1,4 @@
+#include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Span.hh>
@@ -6,7 +7,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdlib.h>
 

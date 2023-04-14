@@ -1,12 +1,12 @@
 #include <vull/support/StringBuilder.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 #include <stdio.h>

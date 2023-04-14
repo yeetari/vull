@@ -1,12 +1,12 @@
 #include <vull/script/Parser.hh>
 
+#include <vull/container/HashMap.hh>
 #include <vull/core/Log.hh>
 #include <vull/script/Builder.hh>
 #include <vull/script/Lexer.hh>
 #include <vull/script/Token.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
-#include <vull/support/HashMap.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>

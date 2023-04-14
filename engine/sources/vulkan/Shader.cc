@@ -1,12 +1,12 @@
 #include <vull/vulkan/Shader.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/support/Algorithm.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Spirv.hh>
 #include <vull/vulkan/Vulkan.hh>

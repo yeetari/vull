@@ -1,8 +1,8 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>

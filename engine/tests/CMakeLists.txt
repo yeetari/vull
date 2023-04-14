@@ -1,6 +1,6 @@
 target_sources(vull-tests PRIVATE
+    container/PerfectMap.cc
+    container/WorkStealingQueue.cc
     ecs/Entity.cc
     support/Enum.cc
-    support/PerfectMap.cc
-    support/WorkStealingQueue.cc
     main.cc)

@@ -3,6 +3,9 @@
 #include "FloatImage.hh"
 #include "PngStream.hh"
 
+#include <vull/container/HashMap.hh>
+#include <vull/container/PerfectMap.hh>
+#include <vull/container/Vector.hh>
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
@@ -17,11 +20,8 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Format.hh>
-#include <vull/support/HashMap.hh>
-#include <vull/support/PerfectMap.hh>
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/SpanStream.hh>
-#include <vull/support/Vector.hh>
 #include <vull/tasklet/Mutex.hh>
 #include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh>

@@ -1,5 +1,8 @@
 #include <vull/core/Scene.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/HashMap.hh>
+#include <vull/container/Vector.hh>
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
@@ -11,15 +14,12 @@
 #include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
-#include <vull/support/Array.hh>
-#include <vull/support/HashMap.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>

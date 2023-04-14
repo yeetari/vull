@@ -1,10 +1,10 @@
 #include <vull/ecs/Entity.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/SparseSet.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 

@@ -1,10 +1,10 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Hash.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 

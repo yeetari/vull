@@ -1,9 +1,9 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>

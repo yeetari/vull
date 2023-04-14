@@ -1,10 +1,10 @@
 #include <vull/vpak/FileSystem.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 

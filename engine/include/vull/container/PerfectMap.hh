@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vull/support/MapEntry.hh>
+#include <vull/container/MapEntry.hh>
+#include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 

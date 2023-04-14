@@ -1,7 +1,8 @@
 #include <vull/script/Lexer.hh>
 
+#include <vull/container/Array.hh>
+#include <vull/container/Vector.hh>
 #include <vull/script/Token.hh>
-#include <vull/support/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Format.hh>
@@ -13,7 +14,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <cmath>
 #include <stdint.h>

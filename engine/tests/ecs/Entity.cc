@@ -1,12 +1,12 @@
 #include <vull/ecs/Entity.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/ecs/Component.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 using namespace vull;
 

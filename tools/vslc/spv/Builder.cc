@@ -1,10 +1,10 @@
 #include "Builder.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #define ENUM_WORD(value) static_cast<Word>((value))
 #define INST_WORD(opcode, word_count) ((ENUM_WORD(opcode) & 0xffffu) | ((word_count) << 16u))

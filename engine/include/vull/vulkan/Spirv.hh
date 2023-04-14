@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vull/support/Array.hh>
+#include <vull/container/Array.hh>
 
 #include <stdint.h>
 

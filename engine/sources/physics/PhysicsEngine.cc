@@ -1,5 +1,6 @@
 #include <vull/physics/PhysicsEngine.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/core/Transform.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
@@ -16,7 +17,6 @@
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 namespace vull {
 

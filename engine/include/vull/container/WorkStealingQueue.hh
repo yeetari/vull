@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vull/support/Array.hh>
+#include <vull/container/Array.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Optional.hh> // IWYU pragma: keep
 #include <vull/support/Utility.hh>

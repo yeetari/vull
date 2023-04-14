@@ -1,8 +1,8 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/tasklet/Tasklet.hh>
 
 #include <pthread.h>

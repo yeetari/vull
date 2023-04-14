@@ -1,10 +1,10 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/script/Bytecode.hh>
 #include <vull/script/Value.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/UniquePtr.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 

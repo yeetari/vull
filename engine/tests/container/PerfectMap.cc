@@ -1,13 +1,13 @@
-#include <vull/support/PerfectMap.hh>
+#include <vull/container/PerfectMap.hh>
 
+#include <vull/container/MapEntry.hh>
+#include <vull/container/Vector.hh>
 #include <vull/support/Integral.hh>
-#include <vull/support/MapEntry.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stddef.h>
 

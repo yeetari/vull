@@ -1,7 +1,7 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/Vulkan.hh>
 

@@ -3,8 +3,8 @@
 #include "Ast.hh"
 #include "Type.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Vector.hh>
 
 class Legaliser : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     // TODO: Somewhat duplicated with spv::Backend, maybe a legalised HIR would be better?

@@ -1,10 +1,10 @@
 #include "Ast.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdio.h>
 

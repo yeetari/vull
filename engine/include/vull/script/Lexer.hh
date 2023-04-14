@@ -1,12 +1,12 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/script/Token.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 

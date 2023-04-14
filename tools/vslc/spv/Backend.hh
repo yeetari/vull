@@ -5,8 +5,8 @@
 #include "Builder.hh"
 #include "Spirv.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Vector.hh>
 
 namespace spv {
 

@@ -1,12 +1,12 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh> // IWYU pragma: keep
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/tasklet/Mutex.hh>
 
 #include <stdint.h>

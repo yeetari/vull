@@ -1,5 +1,6 @@
 #include <vull/vulkan/Swapchain.hh>
 
+#include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Algorithm.hh>
@@ -7,7 +8,6 @@
 #include <vull/support/Enum.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
-#include <vull/support/Vector.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Queue.hh>

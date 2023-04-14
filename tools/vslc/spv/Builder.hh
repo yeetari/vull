@@ -2,10 +2,10 @@
 
 #include "Spirv.hh"
 
+#include <vull/container/Vector.hh>
 #include <vull/support/Function.hh> // IWYU pragma: keep
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Vector.hh>
 
 #include <stdint.h>
 

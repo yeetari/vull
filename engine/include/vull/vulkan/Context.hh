@@ -1,7 +1,7 @@
 #pragma once
 
+#include <vull/container/Vector.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
-#include <vull/support/Vector.hh>
 #include <vull/tasklet/Mutex.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Buffer.hh>
