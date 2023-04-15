@@ -30,6 +30,9 @@ public:
     FixedBuffer &operator=(const FixedBuffer &) = delete;
     FixedBuffer &operator=(FixedBuffer &&);
 
+    Span<T, size_t> span() { return {m_data, m_size}; }
+    Span<const T, size_t> span() const { return {m_data, m_size}; }
+
     T *begin() { return m_data; }
     T *end() { return m_data + m_size; }
     const T *begin() const { return m_data; }
