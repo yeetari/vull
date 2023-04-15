@@ -5,4 +5,5 @@ target_sources(vull-tests PRIVATE
     maths/Epsilon.cc
     maths/Relational.cc
     support/Enum.cc
+    support/Variant.cc
     main.cc)

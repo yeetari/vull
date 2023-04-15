@@ -1,15 +1,22 @@
 #pragma once
 
+#include <vull/support/Assert.hh>
 #include <vull/support/Union.hh>
+#include <vull/support/Utility.hh>
+
+#include <stdint.h>
 
 namespace vull {
 
 template <typename... Ts>
 class Variant {
     static_assert(sizeof...(Ts) < 255, "Variant too large");
-    static constexpr uint8_t k_null_index = 255u;
+    template <typename... Us>
+    friend class Variant;
+
+private:
     Union<Ts...> m_union;
-    uint8_t m_index{k_null_index};
+    uint8_t m_index;
 
     template <typename T>
     static consteval auto index_of() {
@@ -25,22 +32,35 @@ class Variant {
         return true;
     }
 
-    template <typename...>
-    void downcast_helper(Variant &) const {}
-    template <typename T, typename... Rest>
-    void downcast_helper(Variant &new_variant) const {
-        if (m_index == index_of<T>()) {
-            new_variant.set(m_union.template get<T>());
-            return;
+    template <typename T>
+    bool maybe_move(Variant &from) {
+        if (from.m_index != index_of<T>()) {
+            return false;
         }
-        downcast_helper<Rest...>(new_variant);
+        m_union.template set<T>(move(from.m_union.template get<T>()));
+        m_index = from.m_index;
+        return true;
+    }
+
+    template <typename T, typename... Us>
+    bool maybe_downcast(Variant<Us...> &new_variant) const {
+        if (m_index != index_of<T>()) {
+            return false;
+        }
+        if constexpr (TypeList<Us...>::template contains<T>()) {
+            new_variant.m_union.template set<T>(m_union.template get<T>());
+            new_variant.m_index = Variant<Us...>::template index_of<T>();
+            return true;
+        }
+        return false;
     }
 
     template <typename... Us>
     struct Downcast {
         Variant<Us...> operator()(const Variant &variant) {
             Variant<Us...> new_variant;
-            variant.downcast_helper<Ts...>(new_variant);
+            [[maybe_unused]] bool success = (variant.maybe_downcast<Ts, Us...>(new_variant) || ...);
+            VULL_ASSERT(success);
             return new_variant;
         }
     };
@@ -50,20 +70,20 @@ class Variant {
         U operator()(const Variant &variant) { return variant.get<U>(); }
     };
 
-public:
     Variant() = default;
+
+public:
     template <ContainsType<Ts...> T>
     Variant(const T &value) : m_union(value), m_index(index_of<T>()) {}
     template <ContainsType<Ts...> T>
-    Variant(T &&value) : m_union(move(value)), m_index(index_of<T>()) {}
+    Variant(T &&value) : m_union(move(value)), m_index(index_of<T>()) {} // NOLINT
     Variant(const Variant &) = delete;
-    Variant(Variant &&) = delete;
-    ~Variant() { clear(); }
+    Variant(Variant &&);
+    ~Variant();
 
     Variant &operator=(const Variant &) = delete;
-    Variant &operator=(Variant &&) = delete;
+    Variant &operator=(Variant &&);
 
-    void clear();
     template <ContainsType<Ts...>... Us>
     auto downcast() const;
 
@@ -76,15 +96,30 @@ public:
     bool has() const;
 
     template <ContainsType<Ts...> T>
+    void set(const T &value);
+    template <ContainsType<Ts...> T>
     void set(T &&value);
 
     uint8_t index() const { return m_index; }
 };
 
 template <typename... Ts>
-void Variant<Ts...>::clear() {
+Variant<Ts...>::Variant(Variant &&other) {
+    (maybe_move<Ts>(other) || ...);
+}
+
+template <typename... Ts>
+Variant<Ts...>::~Variant() {
     (maybe_destruct<Ts>() || ...);
-    m_index = k_null_index;
+}
+
+template <typename... Ts>
+Variant<Ts...> &Variant<Ts...>::operator=(Variant &&other) {
+    if (this != &other) {
+        (maybe_destruct<Ts>() || ...);
+        (maybe_move<Ts>(other) || ...);
+    }
+    return *this;
 }
 
 template <typename... Ts>
@@ -115,8 +150,16 @@ bool Variant<Ts...>::has() const {
 
 template <typename... Ts>
 template <ContainsType<Ts...> T>
+void Variant<Ts...>::set(const T &value) {
+    (maybe_destruct<Ts>() || ...);
+    m_union.set(value);
+    m_index = index_of<T>();
+}
+
+template <typename... Ts>
+template <ContainsType<Ts...> T>
 void Variant<Ts...>::set(T &&value) {
-    clear();
+    (maybe_destruct<Ts>() || ...);
     m_union.set(forward<T>(value));
     m_index = index_of<T>();
 }
