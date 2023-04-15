@@ -32,6 +32,9 @@ struct Union {
     }
     ~Union() = default;
 
+    Union &operator=(const Union &) = delete;
+    Union &operator=(Union &&) = delete;
+
     template <ContainsType<Ts...> T>
     void set(const T &value) {
         new (data) T(value);
