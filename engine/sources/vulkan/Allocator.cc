@@ -169,10 +169,10 @@ void Heap::unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index
 
 Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
-    size = vull::align_up(size, k_minimum_allocation_size);
+    size = vull::max(size, k_minimum_allocation_size);
 
     // Round up to next block size.
-    size = vull::align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
+    size += 1u << (vull::log2(size) - k_sl_count_log2);
 
     auto [fl_index, sl_index] = mapping(size);
     auto sl_bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
@@ -335,10 +335,7 @@ Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
         return allocate_dedicated(size);
     }
 
-    const auto remainder = size % alignment;
-    if (remainder != 0) {
-        size = size + alignment - remainder;
-    }
+    size = vull::align_up(size, alignment);
 
     // TODO: More granular locking, don't include vulkan calls.
     ScopedLock lock(m_mutex);
