@@ -29,6 +29,11 @@ target_sources(vull-graphics PRIVATE
     terrain/QuadTree.cc
     terrain/Terrain.cc)
 
+target_sources(vull-json PRIVATE
+    json/Lexer.cc
+    json/Parser.cc
+    json/Tree.cc)
+
 target_sources(vull-main PRIVATE core/Main.cc)
 
 target_sources(vull-physics PRIVATE

@@ -1,5 +1,6 @@
 vull_module(core Zstd::Zstd)
 vull_module(graphics vull::core vull::vulkan)
+vull_module(json vull::core)
 vull_module(main vull::core)
 vull_module(physics vull::core)
 vull_module(script vull::core)
@@ -30,7 +31,7 @@ if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
-    target_link_libraries(vull-tests PRIVATE vull::core)
+    target_link_libraries(vull-tests PRIVATE vull::core vull::json)
 
     add_custom_command(TARGET vull-tests
             POST_BUILD
