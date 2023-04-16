@@ -60,12 +60,22 @@ double LexerBase<Derived, TokenType>::parse_double(auto ch) {
         return value;
     }
 
+    bool negative_exponent = false;
+    switch (derived().peek_char()) {
+    case '-':
+        negative_exponent = true;
+        [[fallthrough]];
+    case '+':
+        derived().skip_char();
+        break;
+    }
+
     unsigned exponent = 0;
     while (is_digit(ch = derived().peek_char())) {
         exponent = exponent * 10 + static_cast<unsigned>(ch - '0');
         derived().skip_char();
     }
-    value *= ::pow(10, exponent);
+    value *= ::pow(10, negative_exponent ? -exponent : exponent);
     return value;
 }
 

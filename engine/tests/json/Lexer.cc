@@ -94,6 +94,17 @@ TEST_SUITE(JsonLexer, {
         EXPECT(lexer.next().kind() == json::TokenKind::Eof);
     }
 
+    TEST_CASE(NegativeExponent) {
+        json::Lexer lexer("1234e-5 -1234.56E-5");
+        auto first = lexer.next();
+        EXPECT(first.kind() == json::TokenKind::Number);
+        EXPECT(vull::fuzzy_equal(first.number(), 1234e-5));
+        auto second = lexer.next();
+        EXPECT(second.kind() == json::TokenKind::Number);
+        EXPECT(vull::fuzzy_equal(second.number(), -1234.56e-5));
+        EXPECT(lexer.next().kind() == json::TokenKind::Eof);
+    }
+
     TEST_CASE(EmptyString) {
         json::Lexer lexer("\"\"");
         auto token = lexer.next();

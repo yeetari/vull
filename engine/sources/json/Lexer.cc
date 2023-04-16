@@ -30,12 +30,12 @@ Token Lexer::next_token() {
     }
 
     if (ch == '-') {
-        if (!is_digit(ch = m_source[m_head++]) || ch == '0') {
+        if (!is_digit(ch = m_source[m_head++])) {
             return Token(TokenKind::Invalid);
         }
         return Token(-parse_double(ch));
     }
-    if (is_digit(ch) && ch != '0') {
+    if (is_digit(ch)) {
         return Token(parse_double(ch));
     }
 
