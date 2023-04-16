@@ -245,6 +245,18 @@ constexpr auto cref(const T &ref) {
     return RefWrapper<const T>(ref);
 }
 
+constexpr auto maybe_unwrap(auto t) {
+    return t;
+}
+template <typename T>
+constexpr T &maybe_unwrap(T &t) {
+    return t;
+}
+template <typename T>
+constexpr T &maybe_unwrap(RefWrapper<T> t) {
+    return static_cast<T &>(t);
+}
+
 template <typename T>
 struct UnrapRefWrapper {
     using type = T;

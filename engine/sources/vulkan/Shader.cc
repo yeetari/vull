@@ -121,11 +121,11 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
     }
 
     Vector<IdInfo> id_infos(id_bound);
-    auto id_info = [&](spv::Id id) -> Result<RefWrapper<IdInfo>, ShaderError> {
+    auto id_info = [&](spv::Id id) -> Result<IdInfo &, ShaderError> {
         if (id >= id_bound) {
             return ShaderError::Malformed;
         }
-        return vull::ref(id_infos[id]);
+        return id_infos[id];
     };
     auto type_format = [&](spv::Id id) -> Result<vkb::Format, ShaderError> {
         const IdInfo &info = VULL_TRY(id_info(id));
