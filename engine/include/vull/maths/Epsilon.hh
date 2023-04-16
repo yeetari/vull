@@ -9,6 +9,8 @@ template <typename T>
 inline constexpr T k_fixed_epsilon;
 template <>
 inline constexpr float k_fixed_epsilon<float> = 1e-5f;
+template <>
+inline constexpr double k_fixed_epsilon<double> = 1e-10;
 
 template <typename T, unsigned L>
 constexpr Vec<bool, L> epsilon_equal(const Vec<T, L> &lhs, const Vec<T, L> &rhs, const Vec<T, L> &epsilon) {
