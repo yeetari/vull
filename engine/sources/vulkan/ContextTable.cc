@@ -138,6 +138,7 @@ void ContextTable::load_device() {
     m_vkCmdUpdateBuffer = reinterpret_cast<PFN_vkCmdUpdateBuffer>(vkGetDeviceProcAddr("vkCmdUpdateBuffer"));
     m_vkCmdWaitEvents = reinterpret_cast<PFN_vkCmdWaitEvents>(vkGetDeviceProcAddr("vkCmdWaitEvents"));
     m_vkCmdWaitEvents2 = reinterpret_cast<PFN_vkCmdWaitEvents2>(vkGetDeviceProcAddr("vkCmdWaitEvents2"));
+    m_vkCmdWriteBufferMarker2AMD = reinterpret_cast<PFN_vkCmdWriteBufferMarker2AMD>(vkGetDeviceProcAddr("vkCmdWriteBufferMarker2AMD"));
     m_vkCmdWriteTimestamp = reinterpret_cast<PFN_vkCmdWriteTimestamp>(vkGetDeviceProcAddr("vkCmdWriteTimestamp"));
     m_vkCmdWriteTimestamp2 = reinterpret_cast<PFN_vkCmdWriteTimestamp2>(vkGetDeviceProcAddr("vkCmdWriteTimestamp2"));
     m_vkCreateBuffer = reinterpret_cast<PFN_vkCreateBuffer>(vkGetDeviceProcAddr("vkCreateBuffer"));
@@ -193,11 +194,13 @@ void ContextTable::load_device() {
     m_vkFreeCommandBuffers = reinterpret_cast<PFN_vkFreeCommandBuffers>(vkGetDeviceProcAddr("vkFreeCommandBuffers"));
     m_vkFreeDescriptorSets = reinterpret_cast<PFN_vkFreeDescriptorSets>(vkGetDeviceProcAddr("vkFreeDescriptorSets"));
     m_vkFreeMemory = reinterpret_cast<PFN_vkFreeMemory>(vkGetDeviceProcAddr("vkFreeMemory"));
+    m_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT = reinterpret_cast<PFN_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT>(vkGetDeviceProcAddr("vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT"));
     m_vkGetBufferDeviceAddress = reinterpret_cast<PFN_vkGetBufferDeviceAddress>(vkGetDeviceProcAddr("vkGetBufferDeviceAddress"));
     m_vkGetBufferMemoryRequirements = reinterpret_cast<PFN_vkGetBufferMemoryRequirements>(vkGetDeviceProcAddr("vkGetBufferMemoryRequirements"));
     m_vkGetBufferMemoryRequirements2 = reinterpret_cast<PFN_vkGetBufferMemoryRequirements2>(vkGetDeviceProcAddr("vkGetBufferMemoryRequirements2"));
     m_vkGetBufferOpaqueCaptureAddress = reinterpret_cast<PFN_vkGetBufferOpaqueCaptureAddress>(vkGetDeviceProcAddr("vkGetBufferOpaqueCaptureAddress"));
     m_vkGetBufferOpaqueCaptureDescriptorDataEXT = reinterpret_cast<PFN_vkGetBufferOpaqueCaptureDescriptorDataEXT>(vkGetDeviceProcAddr("vkGetBufferOpaqueCaptureDescriptorDataEXT"));
+    m_vkGetCommandPoolMemoryConsumption = reinterpret_cast<PFN_vkGetCommandPoolMemoryConsumption>(vkGetDeviceProcAddr("vkGetCommandPoolMemoryConsumption"));
     m_vkGetDescriptorEXT = reinterpret_cast<PFN_vkGetDescriptorEXT>(vkGetDeviceProcAddr("vkGetDescriptorEXT"));
     m_vkGetDescriptorSetLayoutBindingOffsetEXT = reinterpret_cast<PFN_vkGetDescriptorSetLayoutBindingOffsetEXT>(vkGetDeviceProcAddr("vkGetDescriptorSetLayoutBindingOffsetEXT"));
     m_vkGetDescriptorSetLayoutSizeEXT = reinterpret_cast<PFN_vkGetDescriptorSetLayoutSizeEXT>(vkGetDeviceProcAddr("vkGetDescriptorSetLayoutSizeEXT"));
@@ -213,6 +216,7 @@ void ContextTable::load_device() {
     m_vkGetDeviceQueue = reinterpret_cast<PFN_vkGetDeviceQueue>(vkGetDeviceProcAddr("vkGetDeviceQueue"));
     m_vkGetDeviceQueue2 = reinterpret_cast<PFN_vkGetDeviceQueue2>(vkGetDeviceProcAddr("vkGetDeviceQueue2"));
     m_vkGetEventStatus = reinterpret_cast<PFN_vkGetEventStatus>(vkGetDeviceProcAddr("vkGetEventStatus"));
+    m_vkGetFaultData = reinterpret_cast<PFN_vkGetFaultData>(vkGetDeviceProcAddr("vkGetFaultData"));
     m_vkGetFenceStatus = reinterpret_cast<PFN_vkGetFenceStatus>(vkGetDeviceProcAddr("vkGetFenceStatus"));
     m_vkGetImageMemoryRequirements = reinterpret_cast<PFN_vkGetImageMemoryRequirements>(vkGetDeviceProcAddr("vkGetImageMemoryRequirements"));
     m_vkGetImageMemoryRequirements2 = reinterpret_cast<PFN_vkGetImageMemoryRequirements2>(vkGetDeviceProcAddr("vkGetImageMemoryRequirements2"));
@@ -224,6 +228,7 @@ void ContextTable::load_device() {
     m_vkGetPipelineCacheData = reinterpret_cast<PFN_vkGetPipelineCacheData>(vkGetDeviceProcAddr("vkGetPipelineCacheData"));
     m_vkGetPrivateData = reinterpret_cast<PFN_vkGetPrivateData>(vkGetDeviceProcAddr("vkGetPrivateData"));
     m_vkGetQueryPoolResults = reinterpret_cast<PFN_vkGetQueryPoolResults>(vkGetDeviceProcAddr("vkGetQueryPoolResults"));
+    m_vkGetQueueCheckpointData2NV = reinterpret_cast<PFN_vkGetQueueCheckpointData2NV>(vkGetDeviceProcAddr("vkGetQueueCheckpointData2NV"));
     m_vkGetRenderAreaGranularity = reinterpret_cast<PFN_vkGetRenderAreaGranularity>(vkGetDeviceProcAddr("vkGetRenderAreaGranularity"));
     m_vkGetSamplerOpaqueCaptureDescriptorDataEXT = reinterpret_cast<PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT>(vkGetDeviceProcAddr("vkGetSamplerOpaqueCaptureDescriptorDataEXT"));
     m_vkGetSemaphoreCounterValue = reinterpret_cast<PFN_vkGetSemaphoreCounterValue>(vkGetDeviceProcAddr("vkGetSemaphoreCounterValue"));
@@ -613,6 +618,10 @@ void ContextTable::vkCmdWaitEvents2(CommandBuffer commandBuffer, uint32_t eventC
     return m_vkCmdWaitEvents2(commandBuffer, eventCount, pEvents, pDependencyInfos);
 }
 
+void ContextTable::vkCmdWriteBufferMarker2AMD(CommandBuffer commandBuffer, PipelineStage2 stage, Buffer dstBuffer, DeviceSize dstOffset, uint32_t marker) const {
+    return m_vkCmdWriteBufferMarker2AMD(commandBuffer, stage, dstBuffer, dstOffset, marker);
+}
+
 void ContextTable::vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query) const {
     return m_vkCmdWriteTimestamp(commandBuffer, pipelineStage, queryPool, query);
 }
@@ -881,6 +890,10 @@ void ContextTable::vkFreeMemory(DeviceMemory memory) const {
     return m_vkFreeMemory(m_device, memory, nullptr);
 }
 
+Result ContextTable::vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT(const AccelerationStructureCaptureDescriptorDataInfoEXT *pInfo, void *pData) const {
+    return m_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT(m_device, pInfo, pData);
+}
+
 DeviceAddress ContextTable::vkGetBufferDeviceAddress(const BufferDeviceAddressInfo *pInfo) const {
     return m_vkGetBufferDeviceAddress(m_device, pInfo);
 }
@@ -899,6 +912,10 @@ uint64_t ContextTable::vkGetBufferOpaqueCaptureAddress(const BufferDeviceAddress
 
 Result ContextTable::vkGetBufferOpaqueCaptureDescriptorDataEXT(const BufferCaptureDescriptorDataInfoEXT *pInfo, void *pData) const {
     return m_vkGetBufferOpaqueCaptureDescriptorDataEXT(m_device, pInfo, pData);
+}
+
+void ContextTable::vkGetCommandPoolMemoryConsumption(CommandPool commandPool, CommandBuffer commandBuffer, CommandPoolMemoryConsumption *pConsumption) const {
+    return m_vkGetCommandPoolMemoryConsumption(m_device, commandPool, commandBuffer, pConsumption);
 }
 
 void ContextTable::vkGetDescriptorEXT(const DescriptorGetInfoEXT *pDescriptorInfo, size_t dataSize, void *pDescriptor) const {
@@ -963,6 +980,10 @@ void ContextTable::vkGetDeviceQueue2(const DeviceQueueInfo2 *pQueueInfo, Queue *
 
 Result ContextTable::vkGetEventStatus(Event event) const {
     return m_vkGetEventStatus(m_device, event);
+}
+
+Result ContextTable::vkGetFaultData(FaultQueryBehavior faultQueryBehavior, Bool *pUnrecordedFaults, uint32_t *pFaultCount, FaultData *pFaults) const {
+    return m_vkGetFaultData(m_device, faultQueryBehavior, pUnrecordedFaults, pFaultCount, pFaults);
 }
 
 Result ContextTable::vkGetFenceStatus(Fence fence) const {
@@ -1103,6 +1124,10 @@ void ContextTable::vkGetPrivateData(ObjectType objectType, uint64_t objectHandle
 
 Result ContextTable::vkGetQueryPoolResults(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags) const {
     return m_vkGetQueryPoolResults(m_device, queryPool, firstQuery, queryCount, dataSize, pData, stride, flags);
+}
+
+void ContextTable::vkGetQueueCheckpointData2NV(Queue queue, uint32_t *pCheckpointDataCount, CheckpointData2NV *pCheckpointData) const {
+    return m_vkGetQueueCheckpointData2NV(queue, pCheckpointDataCount, pCheckpointData);
 }
 
 void ContextTable::vkGetRenderAreaGranularity(RenderPass renderPass, Extent2D *pGranularity) const {

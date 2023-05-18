@@ -102,8 +102,8 @@ for vk_type in registry.findall('types/type'):
 for extension_name in desired_extensions.copy():
     extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
     assert extension
-    if dependencies := extension.get('requires'):
-        for dependency in dependencies.split(','):
+    if dependencies := extension.get('depends'):
+        for dependency in dependencies.split('+'):
             desired_extensions.add(dependency)
 
 # Build a list of desired commands, enum extensions and types, starting with core ones and then any from extensions.
@@ -221,6 +221,9 @@ private:
         file.write('    {} {}('.format(convert_type(command.findtext('proto/type')), name))
         param_index = 0
         for param in command.findall('param'):
+            if api := param.get('api'):
+                if api == 'vulkansc':
+                    continue
             param_name = param.findtext('name')
             if param_name == 'device' or param_name == 'instance' or param_name == 'physicalDevice' \
                     or param_name == 'pAllocator':
@@ -294,6 +297,9 @@ namespace vull::vkb {
         file.write('{} ContextTable::{}('.format(convert_type(command.findtext('proto/type')), name))
         param_index = 0
         for param in command.findall('param'):
+            if api := param.get('api'):
+                if api == 'vulkansc':
+                    continue
             param_name = param.findtext('name')
             if param_name == 'device' or param_name == 'instance' or param_name == 'physicalDevice' \
                     or param_name == 'pAllocator':
@@ -314,6 +320,9 @@ namespace vull::vkb {
         file.write('    return m_{}('.format(name))
         param_index = 0
         for param in command.findall('param'):
+            if api := param.get('api'):
+                if api == 'vulkansc':
+                    continue
             param_name = param.findtext('name')
             if param_name == 'device':
                 param_name = 'm_device'
@@ -392,7 +401,7 @@ namespace vull::vkb {
         if vk_type.get('alias'):
             continue
         converted_type_name = convert_type(type_name)
-        if converted_type_name not in existing_enums or converted_type_name == 'PipelineCacheCreateFlags':
+        if converted_type_name not in existing_enums:
             file.write('using {} = {};\n'.format(converted_type_name, convert_type(vk_type.findtext('type'))))
     file.write('\n')
 
@@ -470,21 +479,22 @@ namespace vull::vkb {
             file.write('}\n')
         file.write('\n')
 
-    # Emit function pointers.
-    file.write('// Function pointers.\n')
-    for type_name, vk_type in sorted(filter(lambda ty: ty[1].get('category') == 'funcpointer', desired_types),
-                                     key=itemgetter(0)):
-        file.write('{}\n'.format(''.join(vk_type.itertext()).replace('Vk', '')))
-    file.write('\n')
-
-    # Emit structs and unions.
+    # Emit function pointers, structs, and unions.
     file.write('// Structs and unions.\n')
-    for type_name, vk_type in filter(lambda ty: ty[1].get('category') == 'struct' or ty[1].get('category') == 'union',
-                                     desired_types):
+    for type_name, vk_type in filter(
+            lambda ty: ty[1].get('category') == 'funcpointer' or ty[1].get('category') == 'struct' or ty[1].get(
+                    'category') == 'union',
+            desired_types):
         if vk_type.get('alias'):
+            continue
+        if vk_type.get('category') == 'funcpointer':
+            file.write('{}\n\n'.format(''.join(map(convert_type, vk_type.itertext()))))
             continue
         file.write('{} {} {{\n'.format(vk_type.get('category'), convert_type(type_name)))
         for member in vk_type.findall('member'):
+            if api := member.get('api'):
+                if api == 'vulkansc':
+                    continue
             member_text = ''
             for part in member.iter():
                 if part.tag != 'comment' and part.text:
@@ -507,6 +517,9 @@ namespace vull::vkb {
                                                    convert_type(command.findtext('proto/type'))))
         param_index = 0
         for param in command.findall('param'):
+            if api := param.get('api'):
+                if api == 'vulkansc':
+                    continue
             if param_index != 0:
                 file.write(', ')
             param_str = ''
