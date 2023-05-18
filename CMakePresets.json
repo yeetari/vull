@@ -11,7 +11,7 @@
       "hidden": true,
       "binaryDir": "${sourceDir}/build-${presetName}",
       "cacheVariables": {
-        "CMAKE_CXX_FLAGS_DEBUG": "-Og -ggdb3",
+        "CMAKE_CXX_FLAGS_DEBUG": "-ggdb3",
         "CMAKE_CXX_FLAGS_RELEASE": "-O2 -DNDEBUG",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "On",
         "VULL_BUILD_TESTS": "On",
