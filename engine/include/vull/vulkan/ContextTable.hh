@@ -110,7 +110,6 @@ private:
     PFN_vkCmdUpdateBuffer m_vkCmdUpdateBuffer;
     PFN_vkCmdWaitEvents m_vkCmdWaitEvents;
     PFN_vkCmdWaitEvents2 m_vkCmdWaitEvents2;
-    PFN_vkCmdWriteBufferMarker2AMD m_vkCmdWriteBufferMarker2AMD;
     PFN_vkCmdWriteTimestamp m_vkCmdWriteTimestamp;
     PFN_vkCmdWriteTimestamp2 m_vkCmdWriteTimestamp2;
     PFN_vkCreateBuffer m_vkCreateBuffer;
@@ -180,13 +179,11 @@ private:
     PFN_vkFreeCommandBuffers m_vkFreeCommandBuffers;
     PFN_vkFreeDescriptorSets m_vkFreeDescriptorSets;
     PFN_vkFreeMemory m_vkFreeMemory;
-    PFN_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT m_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetBufferDeviceAddress m_vkGetBufferDeviceAddress;
     PFN_vkGetBufferMemoryRequirements m_vkGetBufferMemoryRequirements;
     PFN_vkGetBufferMemoryRequirements2 m_vkGetBufferMemoryRequirements2;
     PFN_vkGetBufferOpaqueCaptureAddress m_vkGetBufferOpaqueCaptureAddress;
     PFN_vkGetBufferOpaqueCaptureDescriptorDataEXT m_vkGetBufferOpaqueCaptureDescriptorDataEXT;
-    PFN_vkGetCommandPoolMemoryConsumption m_vkGetCommandPoolMemoryConsumption;
     PFN_vkGetDescriptorEXT m_vkGetDescriptorEXT;
     PFN_vkGetDescriptorSetLayoutBindingOffsetEXT m_vkGetDescriptorSetLayoutBindingOffsetEXT;
     PFN_vkGetDescriptorSetLayoutSizeEXT m_vkGetDescriptorSetLayoutSizeEXT;
@@ -203,7 +200,6 @@ private:
     PFN_vkGetDeviceQueue m_vkGetDeviceQueue;
     PFN_vkGetDeviceQueue2 m_vkGetDeviceQueue2;
     PFN_vkGetEventStatus m_vkGetEventStatus;
-    PFN_vkGetFaultData m_vkGetFaultData;
     PFN_vkGetFenceStatus m_vkGetFenceStatus;
     PFN_vkGetImageMemoryRequirements m_vkGetImageMemoryRequirements;
     PFN_vkGetImageMemoryRequirements2 m_vkGetImageMemoryRequirements2;
@@ -239,7 +235,6 @@ private:
     PFN_vkGetPipelineCacheData m_vkGetPipelineCacheData;
     PFN_vkGetPrivateData m_vkGetPrivateData;
     PFN_vkGetQueryPoolResults m_vkGetQueryPoolResults;
-    PFN_vkGetQueueCheckpointData2NV m_vkGetQueueCheckpointData2NV;
     PFN_vkGetRenderAreaGranularity m_vkGetRenderAreaGranularity;
     PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT m_vkGetSamplerOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetSemaphoreCounterValue m_vkGetSemaphoreCounterValue;
@@ -368,7 +363,6 @@ public:
     void vkCmdUpdateBuffer(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize dataSize, const void *pData) const;
     void vkCmdWaitEvents(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers) const;
     void vkCmdWaitEvents2(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos) const;
-    void vkCmdWriteBufferMarker2AMD(CommandBuffer commandBuffer, PipelineStage2 stage, Buffer dstBuffer, DeviceSize dstOffset, uint32_t marker) const;
     void vkCmdWriteTimestamp(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query) const;
     void vkCmdWriteTimestamp2(CommandBuffer commandBuffer, PipelineStage2 stage, QueryPool queryPool, uint32_t query) const;
     Result vkCreateBuffer(const BufferCreateInfo *pCreateInfo, Buffer *pBuffer) const;
@@ -438,13 +432,11 @@ public:
     void vkFreeCommandBuffers(CommandPool commandPool, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers) const;
     Result vkFreeDescriptorSets(DescriptorPool descriptorPool, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets) const;
     void vkFreeMemory(DeviceMemory memory) const;
-    Result vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT(const AccelerationStructureCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     DeviceAddress vkGetBufferDeviceAddress(const BufferDeviceAddressInfo *pInfo) const;
     void vkGetBufferMemoryRequirements(Buffer buffer, MemoryRequirements *pMemoryRequirements) const;
     void vkGetBufferMemoryRequirements2(const BufferMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
     uint64_t vkGetBufferOpaqueCaptureAddress(const BufferDeviceAddressInfo *pInfo) const;
     Result vkGetBufferOpaqueCaptureDescriptorDataEXT(const BufferCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
-    void vkGetCommandPoolMemoryConsumption(CommandPool commandPool, CommandBuffer commandBuffer, CommandPoolMemoryConsumption *pConsumption) const;
     void vkGetDescriptorEXT(const DescriptorGetInfoEXT *pDescriptorInfo, size_t dataSize, void *pDescriptor) const;
     void vkGetDescriptorSetLayoutBindingOffsetEXT(DescriptorSetLayout layout, uint32_t binding, DeviceSize *pOffset) const;
     void vkGetDescriptorSetLayoutSizeEXT(DescriptorSetLayout layout, DeviceSize *pLayoutSizeInBytes) const;
@@ -461,7 +453,6 @@ public:
     void vkGetDeviceQueue(uint32_t queueFamilyIndex, uint32_t queueIndex, Queue *pQueue) const;
     void vkGetDeviceQueue2(const DeviceQueueInfo2 *pQueueInfo, Queue *pQueue) const;
     Result vkGetEventStatus(Event event) const;
-    Result vkGetFaultData(FaultQueryBehavior faultQueryBehavior, Bool *pUnrecordedFaults, uint32_t *pFaultCount, FaultData *pFaults) const;
     Result vkGetFenceStatus(Fence fence) const;
     void vkGetImageMemoryRequirements(Image image, MemoryRequirements *pMemoryRequirements) const;
     void vkGetImageMemoryRequirements2(const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
@@ -497,7 +488,6 @@ public:
     Result vkGetPipelineCacheData(PipelineCache pipelineCache, size_t *pDataSize, void *pData) const;
     void vkGetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData) const;
     Result vkGetQueryPoolResults(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags) const;
-    void vkGetQueueCheckpointData2NV(Queue queue, uint32_t *pCheckpointDataCount, CheckpointData2NV *pCheckpointData) const;
     void vkGetRenderAreaGranularity(RenderPass renderPass, Extent2D *pGranularity) const;
     Result vkGetSamplerOpaqueCaptureDescriptorDataEXT(const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     Result vkGetSemaphoreCounterValue(Semaphore semaphore, uint64_t *pValue) const;

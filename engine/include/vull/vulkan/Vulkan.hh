@@ -63,6 +63,7 @@ using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
 using InstanceCreateFlags = Flags;
 using MemoryMapFlags = Flags;
+using PipelineCacheCreateFlags = Flags;
 using PipelineColorBlendStateCreateFlags = Flags;
 using PipelineDepthStencilStateCreateFlags = Flags;
 using PipelineDynamicStateCreateFlags = Flags;
@@ -82,8 +83,6 @@ using SubpassDescriptionFlags = Flags;
 using XcbSurfaceCreateFlagsKHR = Flags;
 
 // Handles.
-using AccelerationStructureKHR = struct AccelerationStructureKHR_T *;
-using AccelerationStructureNV = struct AccelerationStructureNV_T *;
 using Buffer = struct Buffer_T *;
 using BufferView = struct BufferView_T *;
 using CommandBuffer = struct CommandBuffer_T *;
@@ -167,17 +166,6 @@ enum class Access2 : uint64_t {
     ShaderStorageRead = 1ull << 33ull,
     ShaderStorageWrite = 1ull << 34ull,
     DescriptorBufferReadEXT = 1ull << 41ull,
-    TransformFeedbackWriteEXT = 1ull << 25ull,
-    TransformFeedbackCounterReadEXT = 1ull << 26ull,
-    TransformFeedbackCounterWriteEXT = 1ull << 27ull,
-    ConditionalRenderingReadEXT = 1ull << 20ull,
-    CommandPreprocessReadNV = 1ull << 17ull,
-    CommandPreprocessWriteNV = 1ull << 18ull,
-    FragmentShadingRateAttachmentReadKHR = 1ull << 23ull,
-    AccelerationStructureReadKHR = 1ull << 21ull,
-    AccelerationStructureWriteKHR = 1ull << 22ull,
-    FragmentDensityMapReadEXT = 1ull << 24ull,
-    ColorAttachmentReadNoncoherentEXT = 1ull << 19ull,
 };
 inline constexpr Access2 operator&(Access2 lhs, Access2 rhs) {
     return static_cast<Access2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
@@ -672,27 +660,6 @@ inline constexpr ExternalSemaphoreHandleTypeFlags operator&(ExternalSemaphoreHan
 inline constexpr ExternalSemaphoreHandleTypeFlags operator|(ExternalSemaphoreHandleTypeFlags lhs, ExternalSemaphoreHandleTypeFlags rhs) {
     return static_cast<ExternalSemaphoreHandleTypeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
-
-enum class FaultLevel {
-    Unassigned = 0,
-    Critical = 1,
-    Recoverable = 2,
-    Warning = 3,
-};
-
-enum class FaultQueryBehavior {
-    GetAndClearAllFaults = 0,
-};
-
-enum class FaultType {
-    Invalid = 0,
-    Unassigned = 1,
-    Implementation = 2,
-    System = 3,
-    PhysicalDevice = 4,
-    CommandBufferFull = 5,
-    InvalidApiUsage = 6,
-};
 
 enum class FenceCreateFlags {
     None = 0,
@@ -1202,7 +1169,6 @@ enum class MemoryHeapFlags {
     None = 0,
     DeviceLocal = 1u << 0u,
     MultiInstance = 1u << 1u,
-    SeuSafe = 1u << 2u,
 };
 inline constexpr MemoryHeapFlags operator&(MemoryHeapFlags lhs, MemoryHeapFlags rhs) {
     return static_cast<MemoryHeapFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
@@ -1288,26 +1254,8 @@ enum class PipelineBindPoint {
     Compute = 1,
 };
 
-enum class PipelineCacheCreateFlags {
-    None = 0,
-    ExternallySynchronized = 1u << 0u,
-    ReadOnly = 1u << 1u,
-    UseApplicationStorage = 1u << 2u,
-};
-inline constexpr PipelineCacheCreateFlags operator&(PipelineCacheCreateFlags lhs, PipelineCacheCreateFlags rhs) {
-    return static_cast<PipelineCacheCreateFlags>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
-}
-inline constexpr PipelineCacheCreateFlags operator|(PipelineCacheCreateFlags lhs, PipelineCacheCreateFlags rhs) {
-    return static_cast<PipelineCacheCreateFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
-}
-
 enum class PipelineCacheHeaderVersion {
     One = 1,
-    SafetyCriticalOne = 1000298001,
-};
-
-enum class PipelineCacheValidationVersion {
-    SafetyCriticalOne = 1,
 };
 
 enum class PipelineCreateFlags {
@@ -1340,10 +1288,6 @@ inline constexpr PipelineCreationFeedbackFlags operator&(PipelineCreationFeedbac
 inline constexpr PipelineCreationFeedbackFlags operator|(PipelineCreationFeedbackFlags lhs, PipelineCreationFeedbackFlags rhs) {
     return static_cast<PipelineCreationFeedbackFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
-
-enum class PipelineMatchControl {
-    ApplicationUuidExactMatch = 0,
-};
 
 enum class PipelineShaderStageCreateFlags {
     None = 0,
@@ -1410,15 +1354,6 @@ enum class PipelineStage2 : uint64_t {
     IndexInput = 1ull << 36ull,
     VertexAttributeInput = 1ull << 37ull,
     PreRasterizationShaders = 1ull << 38ull,
-    TransformFeedbackEXT = 1ull << 24ull,
-    ConditionalRenderingEXT = 1ull << 18ull,
-    CommandPreprocessNV = 1ull << 17ull,
-    FragmentShadingRateAttachmentKHR = 1ull << 22ull,
-    AccelerationStructureBuildKHR = 1ull << 25ull,
-    RayTracingShaderKHR = 1ull << 21ull,
-    FragmentDensityProcessEXT = 1ull << 23ull,
-    TaskShaderEXT = 1ull << 19ull,
-    MeshShaderEXT = 1ull << 20ull,
 };
 inline constexpr PipelineStage2 operator&(PipelineStage2 lhs, PipelineStage2 rhs) {
     return static_cast<PipelineStage2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
@@ -1578,9 +1513,6 @@ enum class Result {
     ErrorFragmentation = -1000161000,
     ErrorInvalidOpaqueCaptureAddress = -1000257000,
     PipelineCompileRequired = 1000297000,
-    ErrorValidationFailed = -1000011001,
-    ErrorInvalidPipelineCacheData = -1000298000,
-    ErrorNoPipelineMatch = -1000298001,
     ErrorSurfaceLostKHR = -1000000000,
     ErrorNativeWindowInUseKHR = -1000000001,
     SuboptimalKHR = 1000001003,
@@ -1966,15 +1898,6 @@ enum class StructureType {
     PhysicalDeviceMaintenance4Properties = 1000413001,
     DeviceBufferMemoryRequirements = 1000413002,
     DeviceImageMemoryRequirements = 1000413003,
-    PhysicalDeviceVulkanSc10Features = 1000298000,
-    PhysicalDeviceVulkanSc10Properties = 1000298001,
-    DeviceObjectReservationCreateInfo = 1000298002,
-    CommandPoolMemoryReservationCreateInfo = 1000298003,
-    CommandPoolMemoryConsumption = 1000298004,
-    PipelinePoolSize = 1000298005,
-    FaultData = 1000298007,
-    FaultCallbackInfo = 1000298008,
-    PipelineOfflineCreateInfo = 1000298010,
     DebugUtilsObjectNameInfoEXT = 1000128000,
     DebugUtilsObjectTagInfoEXT = 1000128001,
     DebugUtilsLabelEXT = 1000128002,
@@ -1992,7 +1915,6 @@ enum class StructureType {
     OpaqueCaptureDescriptorDataCreateInfoEXT = 1000316010,
     DescriptorBufferBindingInfoEXT = 1000316011,
     DescriptorBufferBindingPushDescriptorBufferHandleEXT = 1000316012,
-    AccelerationStructureCaptureDescriptorDataInfoEXT = 1000316009,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     ValidationFeaturesEXT = 1000247000,
     SwapchainCreateInfoKHR = 1000001000,
@@ -2004,8 +1926,6 @@ enum class StructureType {
     DeviceGroupPresentInfoKHR = 1000060011,
     DeviceGroupSwapchainCreateInfoKHR = 1000060012,
     XcbSurfaceCreateInfoKHR = 1000005000,
-    QueueFamilyCheckpointProperties2NV = 1000314008,
-    CheckpointData2NV = 1000314009,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
 };
 
@@ -2134,43 +2054,6 @@ enum class VertexInputRate {
 };
 
 // Structs and unions.
-struct Extent2D {
-    uint32_t width;
-    uint32_t height;
-};
-
-struct Extent3D {
-    uint32_t width;
-    uint32_t height;
-    uint32_t depth;
-};
-
-struct Offset2D {
-    int32_t x;
-    int32_t y;
-};
-
-struct Offset3D {
-    int32_t x;
-    int32_t y;
-    int32_t z;
-};
-
-struct Rect2D {
-    Offset2D offset;
-    Extent2D extent;
-};
-
-struct BaseInStructure {
-    StructureType sType;
-    const struct BaseInStructure *pNext;
-};
-
-struct BaseOutStructure {
-    StructureType sType;
-    struct BaseOutStructure *pNext;
-};
-
 struct BufferMemoryBarrier {
     StructureType sType;
     const void *pNext;
@@ -2290,20 +2173,6 @@ struct ApplicationInfo {
     uint32_t apiVersion;
 };
 
-struct FormatProperties {
-    FormatFeature linearTilingFeatures;
-    FormatFeature optimalTilingFeatures;
-    FormatFeature bufferFeatures;
-};
-
-struct ImageFormatProperties {
-    Extent3D maxExtent;
-    uint32_t maxMipLevels;
-    uint32_t maxArrayLayers;
-    SampleCount sampleCounts;
-    DeviceSize maxResourceSize;
-};
-
 struct InstanceCreateInfo {
     StructureType sType;
     const void *pNext;
@@ -2315,14 +2184,13 @@ struct InstanceCreateInfo {
     const char * const*ppEnabledExtensionNames;
 };
 
-struct MemoryHeap {
-    DeviceSize size;
-    MemoryHeapFlags flags;
-};
-
-struct MemoryType {
-    MemoryPropertyFlags propertyFlags;
-    uint32_t heapIndex;
+struct DeviceQueueCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    DeviceQueueCreateFlags flags;
+    uint32_t queueFamilyIndex;
+    uint32_t queueCount;
+    const float *pQueuePriorities;
 };
 
 struct PhysicalDeviceFeatures {
@@ -2383,158 +2251,6 @@ struct PhysicalDeviceFeatures {
     Bool inheritedQueries;
 };
 
-struct PhysicalDeviceLimits {
-    uint32_t maxImageDimension1D;
-    uint32_t maxImageDimension2D;
-    uint32_t maxImageDimension3D;
-    uint32_t maxImageDimensionCube;
-    uint32_t maxImageArrayLayers;
-    uint32_t maxTexelBufferElements;
-    uint32_t maxUniformBufferRange;
-    uint32_t maxStorageBufferRange;
-    uint32_t maxPushConstantsSize;
-    uint32_t maxMemoryAllocationCount;
-    uint32_t maxSamplerAllocationCount;
-    DeviceSize bufferImageGranularity;
-    DeviceSize sparseAddressSpaceSize;
-    uint32_t maxBoundDescriptorSets;
-    uint32_t maxPerStageDescriptorSamplers;
-    uint32_t maxPerStageDescriptorUniformBuffers;
-    uint32_t maxPerStageDescriptorStorageBuffers;
-    uint32_t maxPerStageDescriptorSampledImages;
-    uint32_t maxPerStageDescriptorStorageImages;
-    uint32_t maxPerStageDescriptorInputAttachments;
-    uint32_t maxPerStageResources;
-    uint32_t maxDescriptorSetSamplers;
-    uint32_t maxDescriptorSetUniformBuffers;
-    uint32_t maxDescriptorSetUniformBuffersDynamic;
-    uint32_t maxDescriptorSetStorageBuffers;
-    uint32_t maxDescriptorSetStorageBuffersDynamic;
-    uint32_t maxDescriptorSetSampledImages;
-    uint32_t maxDescriptorSetStorageImages;
-    uint32_t maxDescriptorSetInputAttachments;
-    uint32_t maxVertexInputAttributes;
-    uint32_t maxVertexInputBindings;
-    uint32_t maxVertexInputAttributeOffset;
-    uint32_t maxVertexInputBindingStride;
-    uint32_t maxVertexOutputComponents;
-    uint32_t maxTessellationGenerationLevel;
-    uint32_t maxTessellationPatchSize;
-    uint32_t maxTessellationControlPerVertexInputComponents;
-    uint32_t maxTessellationControlPerVertexOutputComponents;
-    uint32_t maxTessellationControlPerPatchOutputComponents;
-    uint32_t maxTessellationControlTotalOutputComponents;
-    uint32_t maxTessellationEvaluationInputComponents;
-    uint32_t maxTessellationEvaluationOutputComponents;
-    uint32_t maxGeometryShaderInvocations;
-    uint32_t maxGeometryInputComponents;
-    uint32_t maxGeometryOutputComponents;
-    uint32_t maxGeometryOutputVertices;
-    uint32_t maxGeometryTotalOutputComponents;
-    uint32_t maxFragmentInputComponents;
-    uint32_t maxFragmentOutputAttachments;
-    uint32_t maxFragmentDualSrcAttachments;
-    uint32_t maxFragmentCombinedOutputResources;
-    uint32_t maxComputeSharedMemorySize;
-    uint32_t maxComputeWorkGroupCount [3];
-    uint32_t maxComputeWorkGroupInvocations;
-    uint32_t maxComputeWorkGroupSize [3];
-    uint32_t subPixelPrecisionBits;
-    uint32_t subTexelPrecisionBits;
-    uint32_t mipmapPrecisionBits;
-    uint32_t maxDrawIndexedIndexValue;
-    uint32_t maxDrawIndirectCount;
-    float maxSamplerLodBias;
-    float maxSamplerAnisotropy;
-    uint32_t maxViewports;
-    uint32_t maxViewportDimensions [2];
-    float viewportBoundsRange [2];
-    uint32_t viewportSubPixelBits;
-    size_t minMemoryMapAlignment;
-    DeviceSize minTexelBufferOffsetAlignment;
-    DeviceSize minUniformBufferOffsetAlignment;
-    DeviceSize minStorageBufferOffsetAlignment;
-    int32_t minTexelOffset;
-    uint32_t maxTexelOffset;
-    int32_t minTexelGatherOffset;
-    uint32_t maxTexelGatherOffset;
-    float minInterpolationOffset;
-    float maxInterpolationOffset;
-    uint32_t subPixelInterpolationOffsetBits;
-    uint32_t maxFramebufferWidth;
-    uint32_t maxFramebufferHeight;
-    uint32_t maxFramebufferLayers;
-    SampleCount framebufferColorSampleCounts;
-    SampleCount framebufferDepthSampleCounts;
-    SampleCount framebufferStencilSampleCounts;
-    SampleCount framebufferNoAttachmentsSampleCounts;
-    uint32_t maxColorAttachments;
-    SampleCount sampledImageColorSampleCounts;
-    SampleCount sampledImageIntegerSampleCounts;
-    SampleCount sampledImageDepthSampleCounts;
-    SampleCount sampledImageStencilSampleCounts;
-    SampleCount storageImageSampleCounts;
-    uint32_t maxSampleMaskWords;
-    Bool timestampComputeAndGraphics;
-    float timestampPeriod;
-    uint32_t maxClipDistances;
-    uint32_t maxCullDistances;
-    uint32_t maxCombinedClipAndCullDistances;
-    uint32_t discreteQueuePriorities;
-    float pointSizeRange [2];
-    float lineWidthRange [2];
-    float pointSizeGranularity;
-    float lineWidthGranularity;
-    Bool strictLines;
-    Bool standardSampleLocations;
-    DeviceSize optimalBufferCopyOffsetAlignment;
-    DeviceSize optimalBufferCopyRowPitchAlignment;
-    DeviceSize nonCoherentAtomSize;
-};
-
-struct PhysicalDeviceMemoryProperties {
-    uint32_t memoryTypeCount;
-    MemoryType memoryTypes [k_max_memory_types ];
-    uint32_t memoryHeapCount;
-    MemoryHeap memoryHeaps [k_max_memory_heaps ];
-};
-
-struct PhysicalDeviceSparseProperties {
-    Bool residencyStandard2DBlockShape;
-    Bool residencyStandard2DMultisampleBlockShape;
-    Bool residencyStandard3DBlockShape;
-    Bool residencyAlignedMipSize;
-    Bool residencyNonResidentStrict;
-};
-
-struct PhysicalDeviceProperties {
-    uint32_t apiVersion;
-    uint32_t driverVersion;
-    uint32_t vendorID;
-    uint32_t deviceID;
-    PhysicalDeviceType deviceType;
-    char deviceName [k_max_physical_device_name_size ];
-    uint8_t pipelineCacheUUID [k_uuid_size ];
-    PhysicalDeviceLimits limits;
-    PhysicalDeviceSparseProperties sparseProperties;
-};
-
-struct QueueFamilyProperties {
-    QueueFlags queueFlags;
-    uint32_t queueCount;
-    uint32_t timestampValidBits;
-    Extent3D minImageTransferGranularity;
-};
-
-struct DeviceQueueCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    DeviceQueueCreateFlags flags;
-    uint32_t queueFamilyIndex;
-    uint32_t queueCount;
-    const float *pQueuePriorities;
-};
-
 struct DeviceCreateInfo {
     StructureType sType;
     const void *pNext;
@@ -2587,12 +2303,6 @@ struct MemoryAllocateInfo {
     uint32_t memoryTypeIndex;
 };
 
-struct MemoryRequirements {
-    DeviceSize size;
-    DeviceSize alignment;
-    uint32_t memoryTypeBits;
-};
-
 struct SparseMemoryBind {
     DeviceSize resourceOffset;
     DeviceSize size;
@@ -2617,6 +2327,18 @@ struct ImageSubresource {
     ImageAspect aspectMask;
     uint32_t mipLevel;
     uint32_t arrayLayer;
+};
+
+struct Offset3D {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+};
+
+struct Extent3D {
+    uint32_t width;
+    uint32_t height;
+    uint32_t depth;
 };
 
 struct SparseImageMemoryBind {
@@ -2649,20 +2371,6 @@ struct BindSparseInfo {
     const Semaphore *pSignalSemaphores;
 };
 
-struct SparseImageFormatProperties {
-    ImageAspect aspectMask;
-    Extent3D imageGranularity;
-    SparseImageFormatFlags flags;
-};
-
-struct SparseImageMemoryRequirements {
-    SparseImageFormatProperties formatProperties;
-    uint32_t imageMipTailFirstLod;
-    DeviceSize imageMipTailSize;
-    DeviceSize imageMipTailOffset;
-    DeviceSize imageMipTailStride;
-};
-
 struct FenceCreateInfo {
     StructureType sType;
     const void *pNext;
@@ -2690,17 +2398,6 @@ struct QueryPoolCreateInfo {
     QueryPipelineStatisticFlags pipelineStatistics;
 };
 
-struct BufferCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    BufferCreateFlags flags;
-    DeviceSize size;
-    BufferUsage usage;
-    SharingMode sharingMode;
-    uint32_t queueFamilyIndexCount;
-    const uint32_t *pQueueFamilyIndices;
-};
-
 struct BufferViewCreateInfo {
     StructureType sType;
     const void *pNext;
@@ -2709,24 +2406,6 @@ struct BufferViewCreateInfo {
     Format format;
     DeviceSize offset;
     DeviceSize range;
-};
-
-struct ImageCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    ImageCreateFlags flags;
-    ImageType imageType;
-    Format format;
-    Extent3D extent;
-    uint32_t mipLevels;
-    uint32_t arrayLayers;
-    SampleCount samples;
-    ImageTiling tiling;
-    ImageUsage usage;
-    SharingMode sharingMode;
-    uint32_t queueFamilyIndexCount;
-    const uint32_t *pQueueFamilyIndices;
-    ImageLayout initialLayout;
 };
 
 struct SubresourceLayout {
@@ -2849,6 +2528,21 @@ struct Viewport {
     float height;
     float minDepth;
     float maxDepth;
+};
+
+struct Offset2D {
+    int32_t x;
+    int32_t y;
+};
+
+struct Extent2D {
+    uint32_t width;
+    uint32_t height;
+};
+
+struct Rect2D {
+    Offset2D offset;
+    Extent2D extent;
 };
 
 struct PipelineViewportStateCreateInfo {
@@ -3015,18 +2709,6 @@ struct CopyDescriptorSet {
     uint32_t descriptorCount;
 };
 
-struct DescriptorBufferInfo {
-    Buffer buffer;
-    DeviceSize offset;
-    DeviceSize range;
-};
-
-struct DescriptorImageInfo {
-    Sampler sampler;
-    ImageView imageView;
-    ImageLayout imageLayout;
-};
-
 struct DescriptorPoolSize {
     DescriptorType type;
     uint32_t descriptorCount;
@@ -3065,6 +2747,18 @@ struct DescriptorSetLayoutCreateInfo {
     const DescriptorSetLayoutBinding *pBindings;
 };
 
+struct DescriptorImageInfo {
+    Sampler sampler;
+    ImageView imageView;
+    ImageLayout imageLayout;
+};
+
+struct DescriptorBufferInfo {
+    Buffer buffer;
+    DeviceSize offset;
+    DeviceSize range;
+};
+
 struct WriteDescriptorSet {
     StructureType sType;
     const void *pNext;
@@ -3076,6 +2770,18 @@ struct WriteDescriptorSet {
     const DescriptorImageInfo *pImageInfo;
     const DescriptorBufferInfo *pBufferInfo;
     const BufferView *pTexelBufferView;
+};
+
+struct FramebufferCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    FramebufferCreateFlags flags;
+    RenderPass renderPass;
+    uint32_t attachmentCount;
+    const ImageView *pAttachments;
+    uint32_t width;
+    uint32_t height;
+    uint32_t layers;
 };
 
 struct AttachmentDescription {
@@ -3093,18 +2799,6 @@ struct AttachmentDescription {
 struct AttachmentReference {
     uint32_t attachment;
     ImageLayout layout;
-};
-
-struct FramebufferCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    FramebufferCreateFlags flags;
-    RenderPass renderPass;
-    uint32_t attachmentCount;
-    const ImageView *pAttachments;
-    uint32_t width;
-    uint32_t height;
-    uint32_t layers;
 };
 
 struct SubpassDescription {
@@ -3394,10 +3088,30 @@ struct ImageSparseMemoryRequirementsInfo2 {
     Image image;
 };
 
+struct MemoryRequirements {
+    DeviceSize size;
+    DeviceSize alignment;
+    uint32_t memoryTypeBits;
+};
+
 struct MemoryRequirements2 {
     StructureType sType;
     void *pNext;
     MemoryRequirements memoryRequirements;
+};
+
+struct SparseImageFormatProperties {
+    ImageAspect aspectMask;
+    Extent3D imageGranularity;
+    SparseImageFormatFlags flags;
+};
+
+struct SparseImageMemoryRequirements {
+    SparseImageFormatProperties formatProperties;
+    uint32_t imageMipTailFirstLod;
+    DeviceSize imageMipTailSize;
+    DeviceSize imageMipTailOffset;
+    DeviceSize imageMipTailStride;
 };
 
 struct SparseImageMemoryRequirements2 {
@@ -3412,16 +3126,159 @@ struct PhysicalDeviceFeatures2 {
     PhysicalDeviceFeatures features;
 };
 
+struct PhysicalDeviceLimits {
+    uint32_t maxImageDimension1D;
+    uint32_t maxImageDimension2D;
+    uint32_t maxImageDimension3D;
+    uint32_t maxImageDimensionCube;
+    uint32_t maxImageArrayLayers;
+    uint32_t maxTexelBufferElements;
+    uint32_t maxUniformBufferRange;
+    uint32_t maxStorageBufferRange;
+    uint32_t maxPushConstantsSize;
+    uint32_t maxMemoryAllocationCount;
+    uint32_t maxSamplerAllocationCount;
+    DeviceSize bufferImageGranularity;
+    DeviceSize sparseAddressSpaceSize;
+    uint32_t maxBoundDescriptorSets;
+    uint32_t maxPerStageDescriptorSamplers;
+    uint32_t maxPerStageDescriptorUniformBuffers;
+    uint32_t maxPerStageDescriptorStorageBuffers;
+    uint32_t maxPerStageDescriptorSampledImages;
+    uint32_t maxPerStageDescriptorStorageImages;
+    uint32_t maxPerStageDescriptorInputAttachments;
+    uint32_t maxPerStageResources;
+    uint32_t maxDescriptorSetSamplers;
+    uint32_t maxDescriptorSetUniformBuffers;
+    uint32_t maxDescriptorSetUniformBuffersDynamic;
+    uint32_t maxDescriptorSetStorageBuffers;
+    uint32_t maxDescriptorSetStorageBuffersDynamic;
+    uint32_t maxDescriptorSetSampledImages;
+    uint32_t maxDescriptorSetStorageImages;
+    uint32_t maxDescriptorSetInputAttachments;
+    uint32_t maxVertexInputAttributes;
+    uint32_t maxVertexInputBindings;
+    uint32_t maxVertexInputAttributeOffset;
+    uint32_t maxVertexInputBindingStride;
+    uint32_t maxVertexOutputComponents;
+    uint32_t maxTessellationGenerationLevel;
+    uint32_t maxTessellationPatchSize;
+    uint32_t maxTessellationControlPerVertexInputComponents;
+    uint32_t maxTessellationControlPerVertexOutputComponents;
+    uint32_t maxTessellationControlPerPatchOutputComponents;
+    uint32_t maxTessellationControlTotalOutputComponents;
+    uint32_t maxTessellationEvaluationInputComponents;
+    uint32_t maxTessellationEvaluationOutputComponents;
+    uint32_t maxGeometryShaderInvocations;
+    uint32_t maxGeometryInputComponents;
+    uint32_t maxGeometryOutputComponents;
+    uint32_t maxGeometryOutputVertices;
+    uint32_t maxGeometryTotalOutputComponents;
+    uint32_t maxFragmentInputComponents;
+    uint32_t maxFragmentOutputAttachments;
+    uint32_t maxFragmentDualSrcAttachments;
+    uint32_t maxFragmentCombinedOutputResources;
+    uint32_t maxComputeSharedMemorySize;
+    uint32_t maxComputeWorkGroupCount [3];
+    uint32_t maxComputeWorkGroupInvocations;
+    uint32_t maxComputeWorkGroupSize [3];
+    uint32_t subPixelPrecisionBits;
+    uint32_t subTexelPrecisionBits;
+    uint32_t mipmapPrecisionBits;
+    uint32_t maxDrawIndexedIndexValue;
+    uint32_t maxDrawIndirectCount;
+    float maxSamplerLodBias;
+    float maxSamplerAnisotropy;
+    uint32_t maxViewports;
+    uint32_t maxViewportDimensions [2];
+    float viewportBoundsRange [2];
+    uint32_t viewportSubPixelBits;
+    size_t minMemoryMapAlignment;
+    DeviceSize minTexelBufferOffsetAlignment;
+    DeviceSize minUniformBufferOffsetAlignment;
+    DeviceSize minStorageBufferOffsetAlignment;
+    int32_t minTexelOffset;
+    uint32_t maxTexelOffset;
+    int32_t minTexelGatherOffset;
+    uint32_t maxTexelGatherOffset;
+    float minInterpolationOffset;
+    float maxInterpolationOffset;
+    uint32_t subPixelInterpolationOffsetBits;
+    uint32_t maxFramebufferWidth;
+    uint32_t maxFramebufferHeight;
+    uint32_t maxFramebufferLayers;
+    SampleCount framebufferColorSampleCounts;
+    SampleCount framebufferDepthSampleCounts;
+    SampleCount framebufferStencilSampleCounts;
+    SampleCount framebufferNoAttachmentsSampleCounts;
+    uint32_t maxColorAttachments;
+    SampleCount sampledImageColorSampleCounts;
+    SampleCount sampledImageIntegerSampleCounts;
+    SampleCount sampledImageDepthSampleCounts;
+    SampleCount sampledImageStencilSampleCounts;
+    SampleCount storageImageSampleCounts;
+    uint32_t maxSampleMaskWords;
+    Bool timestampComputeAndGraphics;
+    float timestampPeriod;
+    uint32_t maxClipDistances;
+    uint32_t maxCullDistances;
+    uint32_t maxCombinedClipAndCullDistances;
+    uint32_t discreteQueuePriorities;
+    float pointSizeRange [2];
+    float lineWidthRange [2];
+    float pointSizeGranularity;
+    float lineWidthGranularity;
+    Bool strictLines;
+    Bool standardSampleLocations;
+    DeviceSize optimalBufferCopyOffsetAlignment;
+    DeviceSize optimalBufferCopyRowPitchAlignment;
+    DeviceSize nonCoherentAtomSize;
+};
+
+struct PhysicalDeviceSparseProperties {
+    Bool residencyStandard2DBlockShape;
+    Bool residencyStandard2DMultisampleBlockShape;
+    Bool residencyStandard3DBlockShape;
+    Bool residencyAlignedMipSize;
+    Bool residencyNonResidentStrict;
+};
+
+struct PhysicalDeviceProperties {
+    uint32_t apiVersion;
+    uint32_t driverVersion;
+    uint32_t vendorID;
+    uint32_t deviceID;
+    PhysicalDeviceType deviceType;
+    char deviceName [k_max_physical_device_name_size ];
+    uint8_t pipelineCacheUUID [k_uuid_size ];
+    PhysicalDeviceLimits limits;
+    PhysicalDeviceSparseProperties sparseProperties;
+};
+
 struct PhysicalDeviceProperties2 {
     StructureType sType;
     void *pNext;
     PhysicalDeviceProperties properties;
 };
 
+struct FormatProperties {
+    FormatFeature linearTilingFeatures;
+    FormatFeature optimalTilingFeatures;
+    FormatFeature bufferFeatures;
+};
+
 struct FormatProperties2 {
     StructureType sType;
     void *pNext;
     FormatProperties formatProperties;
+};
+
+struct ImageFormatProperties {
+    Extent3D maxExtent;
+    uint32_t maxMipLevels;
+    uint32_t maxArrayLayers;
+    SampleCount sampleCounts;
+    DeviceSize maxResourceSize;
 };
 
 struct ImageFormatProperties2 {
@@ -3440,10 +3297,34 @@ struct PhysicalDeviceImageFormatInfo2 {
     ImageCreateFlags flags;
 };
 
+struct QueueFamilyProperties {
+    QueueFlags queueFlags;
+    uint32_t queueCount;
+    uint32_t timestampValidBits;
+    Extent3D minImageTransferGranularity;
+};
+
 struct QueueFamilyProperties2 {
     StructureType sType;
     void *pNext;
     QueueFamilyProperties queueFamilyProperties;
+};
+
+struct MemoryType {
+    MemoryPropertyFlags propertyFlags;
+    uint32_t heapIndex;
+};
+
+struct MemoryHeap {
+    DeviceSize size;
+    MemoryHeapFlags flags;
+};
+
+struct PhysicalDeviceMemoryProperties {
+    uint32_t memoryTypeCount;
+    MemoryType memoryTypes [k_max_memory_types ];
+    uint32_t memoryHeapCount;
+    MemoryHeap memoryHeaps [k_max_memory_heaps ];
 };
 
 struct PhysicalDeviceMemoryProperties2 {
@@ -3623,16 +3504,16 @@ struct DescriptorUpdateTemplateCreateInfo {
     uint32_t set;
 };
 
-struct ExternalMemoryProperties {
-    ExternalMemoryFeature externalMemoryFeatures;
-    ExternalMemoryHandleTypeFlags exportFromImportedHandleTypes;
-    ExternalMemoryHandleTypeFlags compatibleHandleTypes;
-};
-
 struct PhysicalDeviceExternalImageFormatInfo {
     StructureType sType;
     const void *pNext;
     ExternalMemoryHandleTypeFlags handleType;
+};
+
+struct ExternalMemoryProperties {
+    ExternalMemoryFeature externalMemoryFeatures;
+    ExternalMemoryHandleTypeFlags exportFromImportedHandleTypes;
+    ExternalMemoryHandleTypeFlags compatibleHandleTypes;
 };
 
 struct ExternalImageFormatProperties {
@@ -4817,10 +4698,39 @@ struct PhysicalDeviceMaintenance4Properties {
     DeviceSize maxBufferSize;
 };
 
+struct BufferCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    BufferCreateFlags flags;
+    DeviceSize size;
+    BufferUsage usage;
+    SharingMode sharingMode;
+    uint32_t queueFamilyIndexCount;
+    const uint32_t *pQueueFamilyIndices;
+};
+
 struct DeviceBufferMemoryRequirements {
     StructureType sType;
     const void *pNext;
     const BufferCreateInfo *pCreateInfo;
+};
+
+struct ImageCreateInfo {
+    StructureType sType;
+    const void *pNext;
+    ImageCreateFlags flags;
+    ImageType imageType;
+    Format format;
+    Extent3D extent;
+    uint32_t mipLevels;
+    uint32_t arrayLayers;
+    SampleCount samples;
+    ImageTiling tiling;
+    ImageUsage usage;
+    SharingMode sharingMode;
+    uint32_t queueFamilyIndexCount;
+    const uint32_t *pQueueFamilyIndices;
+    ImageLayout initialLayout;
 };
 
 struct DeviceImageMemoryRequirements {
@@ -4828,155 +4738,6 @@ struct DeviceImageMemoryRequirements {
     const void *pNext;
     const ImageCreateInfo *pCreateInfo;
     ImageAspect planeAspect;
-};
-
-struct PhysicalDeviceVulkanSC10Features {
-    StructureType sType;
-    void *pNext;
-    Bool shaderAtomicInstructions;
-};
-
-struct PhysicalDeviceVulkanSC10Properties {
-    StructureType sType;
-    void *pNext;
-    Bool deviceNoDynamicHostAllocations;
-    Bool deviceDestroyFreesMemory;
-    Bool commandPoolMultipleCommandBuffersRecording;
-    Bool commandPoolResetCommandBuffer;
-    Bool commandBufferSimultaneousUse;
-    Bool secondaryCommandBufferNullOrImagelessFramebuffer;
-    Bool recycleDescriptorSetMemory;
-    Bool recyclePipelineMemory;
-    uint32_t maxRenderPassSubpasses;
-    uint32_t maxRenderPassDependencies;
-    uint32_t maxSubpassInputAttachments;
-    uint32_t maxSubpassPreserveAttachments;
-    uint32_t maxFramebufferAttachments;
-    uint32_t maxDescriptorSetLayoutBindings;
-    uint32_t maxQueryFaultCount;
-    uint32_t maxCallbackFaultCount;
-    uint32_t maxCommandPoolCommandBuffers;
-    DeviceSize maxCommandBufferSize;
-};
-
-struct PipelinePoolSize {
-    StructureType sType;
-    const void *pNext;
-    DeviceSize poolEntrySize;
-    uint32_t poolEntryCount;
-};
-
-struct DeviceObjectReservationCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    uint32_t pipelineCacheCreateInfoCount;
-    const PipelineCacheCreateInfo *pPipelineCacheCreateInfos;
-    uint32_t pipelinePoolSizeCount;
-    const PipelinePoolSize *pPipelinePoolSizes;
-    uint32_t semaphoreRequestCount;
-    uint32_t commandBufferRequestCount;
-    uint32_t fenceRequestCount;
-    uint32_t deviceMemoryRequestCount;
-    uint32_t bufferRequestCount;
-    uint32_t imageRequestCount;
-    uint32_t eventRequestCount;
-    uint32_t queryPoolRequestCount;
-    uint32_t bufferViewRequestCount;
-    uint32_t imageViewRequestCount;
-    uint32_t layeredImageViewRequestCount;
-    uint32_t pipelineCacheRequestCount;
-    uint32_t pipelineLayoutRequestCount;
-    uint32_t renderPassRequestCount;
-    uint32_t graphicsPipelineRequestCount;
-    uint32_t computePipelineRequestCount;
-    uint32_t descriptorSetLayoutRequestCount;
-    uint32_t samplerRequestCount;
-    uint32_t descriptorPoolRequestCount;
-    uint32_t descriptorSetRequestCount;
-    uint32_t framebufferRequestCount;
-    uint32_t commandPoolRequestCount;
-    uint32_t samplerYcbcrConversionRequestCount;
-    uint32_t surfaceRequestCount;
-    uint32_t swapchainRequestCount;
-    uint32_t displayModeRequestCount;
-    uint32_t subpassDescriptionRequestCount;
-    uint32_t attachmentDescriptionRequestCount;
-    uint32_t descriptorSetLayoutBindingRequestCount;
-    uint32_t descriptorSetLayoutBindingLimit;
-    uint32_t maxImageViewMipLevels;
-    uint32_t maxImageViewArrayLayers;
-    uint32_t maxLayeredImageViewMipLevels;
-    uint32_t maxOcclusionQueriesPerPool;
-    uint32_t maxPipelineStatisticsQueriesPerPool;
-    uint32_t maxTimestampQueriesPerPool;
-    uint32_t maxImmutableSamplersPerDescriptorSetLayout;
-};
-
-struct CommandPoolMemoryReservationCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    DeviceSize commandPoolReservedSize;
-    uint32_t commandPoolMaxCommandBuffers;
-};
-
-struct CommandPoolMemoryConsumption {
-    StructureType sType;
-    void *pNext;
-    DeviceSize commandPoolAllocated;
-    DeviceSize commandPoolReservedSize;
-    DeviceSize commandBufferAllocated;
-};
-
-struct FaultData {
-    StructureType sType;
-    void *pNext;
-    FaultLevel faultLevel;
-    FaultType faultType;
-};
-
-typedef void (VKAPI_PTR *PFN_vkFaultCallbackFunction)(
-    Bool                                    unrecordedFaults,
-    uint32_t                                    faultCount,
-    const FaultData*                          pFaults); 
-
-struct FaultCallbackInfo {
-    StructureType sType;
-    void *pNext;
-    uint32_t faultCount;
-    FaultData *pFaults;
-    PFN_vkFaultCallbackFunction pfnFaultCallback;
-};
-
-struct PipelineOfflineCreateInfo {
-    StructureType sType;
-    const void *pNext;
-    uint8_t pipelineIdentifier [k_uuid_size ];
-    PipelineMatchControl matchControl;
-    DeviceSize poolEntrySize;
-};
-
-struct PipelineCacheStageValidationIndexEntry {
-    uint64_t codeSize;
-    uint64_t codeOffset;
-};
-
-struct PipelineCacheSafetyCriticalIndexEntry {
-    uint8_t pipelineIdentifier [k_uuid_size ];
-    uint64_t pipelineMemorySize;
-    uint64_t jsonSize;
-    uint64_t jsonOffset;
-    uint32_t stageIndexCount;
-    uint32_t stageIndexStride;
-    uint64_t stageIndexOffset;
-};
-
-struct PipelineCacheHeaderVersionSafetyCriticalOne {
-    PipelineCacheHeaderVersionOne headerVersionOne;
-    PipelineCacheValidationVersion validationVersion;
-    uint32_t implementationData;
-    uint32_t pipelineIndexCount;
-    uint32_t pipelineIndexStride;
-    uint64_t pipelineIndexOffset;
 };
 
 struct DebugUtilsLabelEXT {
@@ -5088,14 +4849,6 @@ struct PhysicalDeviceDescriptorBufferFeaturesEXT {
     Bool descriptorBufferPushDescriptors;
 };
 
-struct DescriptorAddressInfoEXT {
-    StructureType sType;
-    void *pNext;
-    DeviceAddress address;
-    DeviceSize range;
-    Format format;
-};
-
 struct DescriptorBufferBindingInfoEXT {
     StructureType sType;
     void *pNext;
@@ -5107,6 +4860,14 @@ struct DescriptorBufferBindingPushDescriptorBufferHandleEXT {
     StructureType sType;
     void *pNext;
     Buffer buffer;
+};
+
+struct DescriptorAddressInfoEXT {
+    StructureType sType;
+    void *pNext;
+    DeviceAddress address;
+    DeviceSize range;
+    Format format;
 };
 
 union DescriptorDataEXT {
@@ -5157,13 +4918,6 @@ struct OpaqueCaptureDescriptorDataCreateInfoEXT {
     StructureType sType;
     const void *pNext;
     const void *opaqueCaptureDescriptorData;
-};
-
-struct AccelerationStructureCaptureDescriptorDataInfoEXT {
-    StructureType sType;
-    const void *pNext;
-    AccelerationStructureKHR accelerationStructure;
-    AccelerationStructureNV accelerationStructureNV;
 };
 
 struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
@@ -5294,19 +5048,6 @@ struct XcbSurfaceCreateInfoKHR {
     xcb_window_t window;
 };
 
-struct QueueFamilyCheckpointProperties2NV {
-    StructureType sType;
-    void *pNext;
-    PipelineStage2 checkpointExecutionStageMask;
-};
-
-struct CheckpointData2NV {
-    StructureType sType;
-    void *pNext;
-    PipelineStage2 stage;
-    void *pCheckpointMarker;
-};
-
 struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
     StructureType sType;
     void *pNext;
@@ -5418,7 +5159,6 @@ using PFN_vkCmdSetViewportWithCount = void (*)(CommandBuffer commandBuffer, uint
 using PFN_vkCmdUpdateBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize dataSize, const void *pData);
 using PFN_vkCmdWaitEvents = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, PipelineStage srcStageMask, PipelineStage dstStageMask, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers);
 using PFN_vkCmdWaitEvents2 = void (*)(CommandBuffer commandBuffer, uint32_t eventCount, const Event *pEvents, const DependencyInfo *pDependencyInfos);
-using PFN_vkCmdWriteBufferMarker2AMD = void (*)(CommandBuffer commandBuffer, PipelineStage2 stage, Buffer dstBuffer, DeviceSize dstOffset, uint32_t marker);
 using PFN_vkCmdWriteTimestamp = void (*)(CommandBuffer commandBuffer, PipelineStage pipelineStage, QueryPool queryPool, uint32_t query);
 using PFN_vkCmdWriteTimestamp2 = void (*)(CommandBuffer commandBuffer, PipelineStage2 stage, QueryPool queryPool, uint32_t query);
 using PFN_vkCreateBuffer = Result (*)(Device device, const BufferCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Buffer *pBuffer);
@@ -5488,13 +5228,11 @@ using PFN_vkFlushMappedMemoryRanges = Result (*)(Device device, uint32_t memoryR
 using PFN_vkFreeCommandBuffers = void (*)(Device device, CommandPool commandPool, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers);
 using PFN_vkFreeDescriptorSets = Result (*)(Device device, DescriptorPool descriptorPool, uint32_t descriptorSetCount, const DescriptorSet *pDescriptorSets);
 using PFN_vkFreeMemory = void (*)(Device device, DeviceMemory memory, const AllocationCallbacks *pAllocator);
-using PFN_vkGetAccelerationStructureOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const AccelerationStructureCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetBufferDeviceAddress = DeviceAddress (*)(Device device, const BufferDeviceAddressInfo *pInfo);
 using PFN_vkGetBufferMemoryRequirements = void (*)(Device device, Buffer buffer, MemoryRequirements *pMemoryRequirements);
 using PFN_vkGetBufferMemoryRequirements2 = void (*)(Device device, const BufferMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements);
 using PFN_vkGetBufferOpaqueCaptureAddress = uint64_t (*)(Device device, const BufferDeviceAddressInfo *pInfo);
 using PFN_vkGetBufferOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const BufferCaptureDescriptorDataInfoEXT *pInfo, void *pData);
-using PFN_vkGetCommandPoolMemoryConsumption = void (*)(Device device, CommandPool commandPool, CommandBuffer commandBuffer, CommandPoolMemoryConsumption *pConsumption);
 using PFN_vkGetDescriptorEXT = void (*)(Device device, const DescriptorGetInfoEXT *pDescriptorInfo, size_t dataSize, void *pDescriptor);
 using PFN_vkGetDescriptorSetLayoutBindingOffsetEXT = void (*)(Device device, DescriptorSetLayout layout, uint32_t binding, DeviceSize *pOffset);
 using PFN_vkGetDescriptorSetLayoutSizeEXT = void (*)(Device device, DescriptorSetLayout layout, DeviceSize *pLayoutSizeInBytes);
@@ -5511,7 +5249,6 @@ using PFN_vkGetDeviceProcAddr = PFN_vkVoidFunction (*)(Device device, const char
 using PFN_vkGetDeviceQueue = void (*)(Device device, uint32_t queueFamilyIndex, uint32_t queueIndex, Queue *pQueue);
 using PFN_vkGetDeviceQueue2 = void (*)(Device device, const DeviceQueueInfo2 *pQueueInfo, Queue *pQueue);
 using PFN_vkGetEventStatus = Result (*)(Device device, Event event);
-using PFN_vkGetFaultData = Result (*)(Device device, FaultQueryBehavior faultQueryBehavior, Bool *pUnrecordedFaults, uint32_t *pFaultCount, FaultData *pFaults);
 using PFN_vkGetFenceStatus = Result (*)(Device device, Fence fence);
 using PFN_vkGetImageMemoryRequirements = void (*)(Device device, Image image, MemoryRequirements *pMemoryRequirements);
 using PFN_vkGetImageMemoryRequirements2 = void (*)(Device device, const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements);
@@ -5548,7 +5285,6 @@ using PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR = Bool (*)(PhysicalDevice
 using PFN_vkGetPipelineCacheData = Result (*)(Device device, PipelineCache pipelineCache, size_t *pDataSize, void *pData);
 using PFN_vkGetPrivateData = void (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData);
 using PFN_vkGetQueryPoolResults = Result (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void *pData, DeviceSize stride, QueryResultFlags flags);
-using PFN_vkGetQueueCheckpointData2NV = void (*)(Queue queue, uint32_t *pCheckpointDataCount, CheckpointData2NV *pCheckpointData);
 using PFN_vkGetRenderAreaGranularity = void (*)(Device device, RenderPass renderPass, Extent2D *pGranularity);
 using PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetSemaphoreCounterValue = Result (*)(Device device, Semaphore semaphore, uint64_t *pValue);

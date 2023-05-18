@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
+import operator
 import sys
-import warnings
 from argparse import ArgumentParser
 from operator import itemgetter
 from urllib import request
@@ -10,7 +10,7 @@ from xml.etree import ElementTree
 from ordered_set import OrderedSet
 
 
-# Removes the Vk prefix from a type name.
+# Rewrite a vulkan type.
 def convert_type(orig):
     if orig == 'VkBool32':
         return 'Bool'
@@ -26,16 +26,18 @@ def convert_type(orig):
             if index + 8 < len(orig):
                 new_suffix += orig[index + 8:]
             orig = orig[:index]
+
         # Hardcoded list of enum endings to omit the Flags suffix from.
-        if not orig.endswith('Access') and not orig.endswith('Aspect') and not orig.endswith(
-                'Component') and not orig.endswith('Count') and not orig.endswith('Feature') and not orig.endswith(
-            'Mode') and not orig.endswith('Stage') and not orig.endswith('Usage'):
+        endings = ['Access', 'Aspect', 'Component', 'Count', 'Feature', 'Mode', 'Stage', 'Usage']
+        if not any([orig.endswith(ending) for ending in endings]):
             orig += 'Flags'
         orig += new_suffix
+
+    # Strip Vk prefix, we have our own namespace.
     return orig[2:] if orig.startswith('Vk') else orig
 
 
-# A post order DFS to visit the type order graph.
+# A post order depth first search to visit the type order graph.
 def dfs(graph, visited, node, action):
     if node not in visited and node in graph:
         visited.add(node)
@@ -62,15 +64,58 @@ def is_parent_of(parent_name, derived_name):
     return any([is_parent_of(parent_name, p) for p in parents.split(',')])
 
 
-desired_extensions = OrderedSet([
-    'VK_EXT_debug_utils',
-    'VK_EXT_descriptor_buffer',
-    'VK_EXT_shader_atomic_float2',
-    'VK_EXT_validation_features',
-    'VK_KHR_surface',
-    'VK_KHR_swapchain',
-    'VK_KHR_xcb_surface',
-])
+def evaluate_depends(attribute, contains_set):
+    token = ''
+    tokens = []
+    for char in attribute:
+        if char not in '+,()':
+            token += char
+        else:
+            if token:
+                tokens.append(token)
+            tokens.append(char)
+            token = ''
+    if token:
+        tokens.append(token)
+
+    operator_stack = []
+    rpn = []
+    for token in tokens:
+        if token not in '+,()':
+            rpn.append(token)
+        elif token in '+,':
+            while operator_stack and operator_stack[-1] in '+,':
+                rpn.append(operator_stack.pop())
+            operator_stack.append(token)
+        elif token == '(':
+            operator_stack.append('(')
+        elif token == ')':
+            while operator_stack[-1] != '(':
+                rpn.append(operator_stack.pop())
+            operator_stack.pop()
+    while operator_stack:
+        rpn.append(operator_stack.pop())
+
+    stack = []
+    for atom in rpn:
+        if atom not in '+,':
+            stack.append(atom in contains_set)
+        else:
+            op_fns = {'+': operator.and_, ',': operator.or_}
+            rhs = stack.pop()
+            lhs = stack.pop()
+            stack.append(op_fns[atom](lhs, rhs))
+
+    assert len(stack) == 1
+    return stack.pop()
+
+
+def parse_depends(element):
+    if attribute := element.get('depends'):
+        assert all(char not in attribute for char in ['(', ')', ','])
+        return list(attribute.split('+'))
+    return []
+
 
 args_parser = ArgumentParser(description='Parse vk.xml')
 args_parser.add_argument('--download-latest', action='store_true')
@@ -83,11 +128,32 @@ if args.download_latest:
 with open('vk.xml', 'rb') as file:
     registry = ElementTree.parse(file)
 
-# Build a dictionary of command names (e.g. 'vkCreateImage') to command elements, first handling the base commands,
-# then any aliases.
+# OrderedSet to ensure generation is deterministic.
+desired_extension_names = OrderedSet([
+    'VK_EXT_debug_utils',
+    'VK_EXT_descriptor_buffer',
+    'VK_EXT_shader_atomic_float2',
+    'VK_EXT_validation_features',
+    'VK_KHR_surface',
+    'VK_KHR_swapchain',
+    'VK_KHR_xcb_surface',
+])
+
+# Make sure any dependency extensions are added.
+for extension_name in desired_extension_names.copy():
+    extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
+    assert extension
+    for dependency in filter(lambda x: x not in desired_extension_names, parse_depends(extension)):
+        print('Implicitly generating {}, needed by {}'.format(dependency, extension_name))
+        desired_extension_names.add(dependency)
+
+# Build a dictionary of command names (e.g. 'vkCreateImage') to command elements, first handling the base commands.
 command_dict = {}
 for command in filter(lambda cmd: not cmd.get('alias'), registry.findall('commands/command')):
     command_dict[command.findtext('proto/name')] = command
+
+# Handle any aliases, but effectively discard them by making them point to the original type as we don't want to
+# generate aliases in our header.
 for alias in filter(lambda cmd: cmd.get('alias'), registry.findall('commands/command')):
     command_dict[alias.get('name')] = command_dict[alias.get('alias')]
 
@@ -98,39 +164,38 @@ for vk_type in registry.findall('types/type'):
     assert name
     type_dict[name] = vk_type
 
-# Make sure any dependency extensions are added.
-for extension_name in desired_extensions.copy():
-    extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
-    assert extension
-    if dependencies := extension.get('depends'):
-        for dependency in dependencies.split('+'):
-            desired_extensions.add(dependency)
+# Build a list of XML paths from enabled core features and extensions.
+enabled_feature_names = []
+enabled_feature_paths = []
+for core_version in ['1_0', '1_1', '1_2', '1_3']:
+    enabled_feature_names.append('VK_VERSION_{}'.format(core_version))
+    enabled_feature_paths.append('.//feature[@name="VK_VERSION_{}"]'.format(core_version))
+for extension_name in desired_extension_names:
+    enabled_feature_names.append(extension_name)
+    enabled_feature_paths.append('.//extension[@name="{}"]'.format(extension_name))
 
-# Build a list of desired commands, enum extensions and types, starting with core ones and then any from extensions.
+# Build a list of desired commands, enum extensions and types.
 desired_command_names = []
 desired_enum_extensions = []
 desired_type_names = []
-for core_command in registry.findall('feature/require/command'):
-    desired_command_names.append(core_command.get('name'))
-for core_enum_extension in registry.findall('feature/require/enum'):
-    desired_enum_extensions.append((core_enum_extension, None))
-for core_type in registry.findall('feature/require/type'):
-    desired_type_names.append(core_type.get('name'))
-for extension_name in desired_extensions:
-    extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
-    assert extension
-    if extension.get('supported') == 'disabled':
-        warnings.warn('Extension {} is disabled'.format(extension_name))
-        continue
-    for functionality in extension.findall('require'):
-        if functionality.get('extension') and functionality.get('extension') not in desired_extensions:
-            continue
-        for extension_command in functionality.findall('command'):
-            desired_command_names.append(extension_command.get('name'))
-        for extension_enum_extension in functionality.findall('enum'):
-            desired_enum_extensions.append((extension_enum_extension, extension.get('number')))
-        for extension_type in functionality.findall('type'):
-            desired_type_names.append(extension_type.get('name'))
+for feature in map(lambda path: registry.find(path), enabled_feature_paths):
+    assert feature and feature.get('supported') != 'disabled'
+
+    # Presence of type attribute signifies whether this feature is a core feature or an extension.
+    extension_number = feature.get('number') if feature.get('type') else None
+
+    feature_name = feature.get('name')
+    for functionality in feature.findall('require'):
+        if depends := functionality.get('depends'):
+            if not evaluate_depends(depends, enabled_feature_names):
+                print('Skipping functionality of {} gated behind {}'.format(feature_name, depends))
+                continue
+        for command in functionality.findall('command'):
+            desired_command_names.append(command.get('name'))
+        for enum_extension in functionality.findall('enum'):
+            desired_enum_extensions.append((enum_extension, extension_number))
+        for vk_type in functionality.findall('type'):
+            desired_type_names.append(vk_type.get('name'))
 
 # Build a list of desired commands to be emitted.
 desired_commands = []
@@ -161,22 +226,21 @@ for enum_extension, extnumber in filter(lambda e: e[0].get('extends') and not e[
     }))
 
 # Build a type order graph. We need this for emitting types in the right order.
-# TODO: Do we need to do this, it seems some of the requires attributes in the spec are incorrect? How does the real
-#       generator ensure correct order? In any case, this should still be a relatively future-proof solution.
 type_order_graph = {}
 for type_name in desired_type_names:
     vk_type = type_dict.get(type_name)
     if type_name not in type_order_graph:
         type_order_graph[type_name] = OrderedSet()
-    for foo in vk_type.findall('type'):
-        if foo.text in desired_type_names:
-            type_order_graph[type_name].add(foo.text)
+
+    for param_type in vk_type.findall('type'):
+        if param_type.text in desired_type_names:
+            type_order_graph[type_name].add(param_type.text)
+
     for member in vk_type.findall('member'):
         if member_type := member.findtext('type'):
             type_order_graph[type_name].add(member_type)
 
             # Some types (e.g. VkSurfaceTransformFlagsKHR) aren't included as a type in the extension definition.
-            # TODO: Report this as a spec bug?
             if member_type not in desired_type_names:
                 desired_type_names.append(member_type)
 
@@ -185,8 +249,17 @@ desired_types = []
 type_order_visited = set()
 for type_name in desired_type_names:
     vk_type = type_dict.get(type_name)
-    if vk_type.get('category') == 'funcpointer' and len(type_order_graph[type_name]) != 0:
+
+    # Type order graph leaf nodes become DFS root nodes.
+    has_users = False
+    for use_set in type_order_graph.values():
+        if type_name in use_set:
+            has_users = True
+            break
+
+    if has_users:
         continue
+
     dfs(type_order_graph, type_order_visited, type_name, lambda node: desired_types.append((node, type_dict.get(node))))
 
 # Generate context table header.
@@ -406,7 +479,7 @@ namespace vull::vkb {
         if vk_type.get('alias'):
             continue
         converted_type_name = convert_type(type_name)
-        if converted_type_name not in existing_enums:
+        if converted_type_name not in existing_enums or converted_type_name == 'PipelineCacheCreateFlags':
             file.write('using {} = {};\n'.format(converted_type_name, convert_type(vk_type.findtext('type'))))
     file.write('\n')
 
@@ -488,7 +561,7 @@ namespace vull::vkb {
     file.write('// Structs and unions.\n')
     for type_name, vk_type in filter(
             lambda ty: ty[1].get('category') == 'funcpointer' or ty[1].get('category') == 'struct' or ty[1].get(
-                    'category') == 'union',
+                'category') == 'union',
             desired_types):
         if vk_type.get('alias'):
             continue
