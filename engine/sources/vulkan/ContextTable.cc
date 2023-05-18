@@ -12,8 +12,10 @@ void ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) 
 }
 
 void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {
+    m_vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
     m_vkCreateDevice = reinterpret_cast<PFN_vkCreateDevice>(vkGetInstanceProcAddr(m_instance, "vkCreateDevice"));
     m_vkCreateXcbSurfaceKHR = reinterpret_cast<PFN_vkCreateXcbSurfaceKHR>(vkGetInstanceProcAddr(m_instance, "vkCreateXcbSurfaceKHR"));
+    m_vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
     m_vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(vkGetInstanceProcAddr(m_instance, "vkDestroyInstance"));
     m_vkDestroySurfaceKHR = reinterpret_cast<PFN_vkDestroySurfaceKHR>(vkGetInstanceProcAddr(m_instance, "vkDestroySurfaceKHR"));
     m_vkEnumerateDeviceExtensionProperties = reinterpret_cast<PFN_vkEnumerateDeviceExtensionProperties>(vkGetInstanceProcAddr(m_instance, "vkEnumerateDeviceExtensionProperties"));
@@ -45,6 +47,7 @@ void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr
     m_vkGetPhysicalDeviceSurfaceSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
     m_vkGetPhysicalDeviceToolProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceToolProperties>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceToolProperties"));
     m_vkGetPhysicalDeviceXcbPresentationSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR"));
+    m_vkSubmitDebugUtilsMessageEXT = reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(vkGetInstanceProcAddr(m_instance, "vkSubmitDebugUtilsMessageEXT"));
 }
 
 void ContextTable::load_device() {
@@ -58,6 +61,7 @@ void ContextTable::load_device() {
     m_vkBindBufferMemory2 = reinterpret_cast<PFN_vkBindBufferMemory2>(vkGetDeviceProcAddr("vkBindBufferMemory2"));
     m_vkBindImageMemory = reinterpret_cast<PFN_vkBindImageMemory>(vkGetDeviceProcAddr("vkBindImageMemory"));
     m_vkBindImageMemory2 = reinterpret_cast<PFN_vkBindImageMemory2>(vkGetDeviceProcAddr("vkBindImageMemory2"));
+    m_vkCmdBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkCmdBeginDebugUtilsLabelEXT"));
     m_vkCmdBeginQuery = reinterpret_cast<PFN_vkCmdBeginQuery>(vkGetDeviceProcAddr("vkCmdBeginQuery"));
     m_vkCmdBeginRenderPass = reinterpret_cast<PFN_vkCmdBeginRenderPass>(vkGetDeviceProcAddr("vkCmdBeginRenderPass"));
     m_vkCmdBeginRenderPass2 = reinterpret_cast<PFN_vkCmdBeginRenderPass2>(vkGetDeviceProcAddr("vkCmdBeginRenderPass2"));
@@ -92,12 +96,14 @@ void ContextTable::load_device() {
     m_vkCmdDrawIndexedIndirectCount = reinterpret_cast<PFN_vkCmdDrawIndexedIndirectCount>(vkGetDeviceProcAddr("vkCmdDrawIndexedIndirectCount"));
     m_vkCmdDrawIndirect = reinterpret_cast<PFN_vkCmdDrawIndirect>(vkGetDeviceProcAddr("vkCmdDrawIndirect"));
     m_vkCmdDrawIndirectCount = reinterpret_cast<PFN_vkCmdDrawIndirectCount>(vkGetDeviceProcAddr("vkCmdDrawIndirectCount"));
+    m_vkCmdEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkCmdEndDebugUtilsLabelEXT"));
     m_vkCmdEndQuery = reinterpret_cast<PFN_vkCmdEndQuery>(vkGetDeviceProcAddr("vkCmdEndQuery"));
     m_vkCmdEndRenderPass = reinterpret_cast<PFN_vkCmdEndRenderPass>(vkGetDeviceProcAddr("vkCmdEndRenderPass"));
     m_vkCmdEndRenderPass2 = reinterpret_cast<PFN_vkCmdEndRenderPass2>(vkGetDeviceProcAddr("vkCmdEndRenderPass2"));
     m_vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRendering>(vkGetDeviceProcAddr("vkCmdEndRendering"));
     m_vkCmdExecuteCommands = reinterpret_cast<PFN_vkCmdExecuteCommands>(vkGetDeviceProcAddr("vkCmdExecuteCommands"));
     m_vkCmdFillBuffer = reinterpret_cast<PFN_vkCmdFillBuffer>(vkGetDeviceProcAddr("vkCmdFillBuffer"));
+    m_vkCmdInsertDebugUtilsLabelEXT = reinterpret_cast<PFN_vkCmdInsertDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkCmdInsertDebugUtilsLabelEXT"));
     m_vkCmdNextSubpass = reinterpret_cast<PFN_vkCmdNextSubpass>(vkGetDeviceProcAddr("vkCmdNextSubpass"));
     m_vkCmdNextSubpass2 = reinterpret_cast<PFN_vkCmdNextSubpass2>(vkGetDeviceProcAddr("vkCmdNextSubpass2"));
     m_vkCmdPipelineBarrier = reinterpret_cast<PFN_vkCmdPipelineBarrier>(vkGetDeviceProcAddr("vkCmdPipelineBarrier"));
@@ -236,7 +242,10 @@ void ContextTable::load_device() {
     m_vkInvalidateMappedMemoryRanges = reinterpret_cast<PFN_vkInvalidateMappedMemoryRanges>(vkGetDeviceProcAddr("vkInvalidateMappedMemoryRanges"));
     m_vkMapMemory = reinterpret_cast<PFN_vkMapMemory>(vkGetDeviceProcAddr("vkMapMemory"));
     m_vkMergePipelineCaches = reinterpret_cast<PFN_vkMergePipelineCaches>(vkGetDeviceProcAddr("vkMergePipelineCaches"));
+    m_vkQueueBeginDebugUtilsLabelEXT = reinterpret_cast<PFN_vkQueueBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkQueueBeginDebugUtilsLabelEXT"));
     m_vkQueueBindSparse = reinterpret_cast<PFN_vkQueueBindSparse>(vkGetDeviceProcAddr("vkQueueBindSparse"));
+    m_vkQueueEndDebugUtilsLabelEXT = reinterpret_cast<PFN_vkQueueEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkQueueEndDebugUtilsLabelEXT"));
+    m_vkQueueInsertDebugUtilsLabelEXT = reinterpret_cast<PFN_vkQueueInsertDebugUtilsLabelEXT>(vkGetDeviceProcAddr("vkQueueInsertDebugUtilsLabelEXT"));
     m_vkQueuePresentKHR = reinterpret_cast<PFN_vkQueuePresentKHR>(vkGetDeviceProcAddr("vkQueuePresentKHR"));
     m_vkQueueSubmit = reinterpret_cast<PFN_vkQueueSubmit>(vkGetDeviceProcAddr("vkQueueSubmit"));
     m_vkQueueSubmit2 = reinterpret_cast<PFN_vkQueueSubmit2>(vkGetDeviceProcAddr("vkQueueSubmit2"));
@@ -247,6 +256,8 @@ void ContextTable::load_device() {
     m_vkResetEvent = reinterpret_cast<PFN_vkResetEvent>(vkGetDeviceProcAddr("vkResetEvent"));
     m_vkResetFences = reinterpret_cast<PFN_vkResetFences>(vkGetDeviceProcAddr("vkResetFences"));
     m_vkResetQueryPool = reinterpret_cast<PFN_vkResetQueryPool>(vkGetDeviceProcAddr("vkResetQueryPool"));
+    m_vkSetDebugUtilsObjectNameEXT = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(vkGetDeviceProcAddr("vkSetDebugUtilsObjectNameEXT"));
+    m_vkSetDebugUtilsObjectTagEXT = reinterpret_cast<PFN_vkSetDebugUtilsObjectTagEXT>(vkGetDeviceProcAddr("vkSetDebugUtilsObjectTagEXT"));
     m_vkSetEvent = reinterpret_cast<PFN_vkSetEvent>(vkGetDeviceProcAddr("vkSetEvent"));
     m_vkSetPrivateData = reinterpret_cast<PFN_vkSetPrivateData>(vkGetDeviceProcAddr("vkSetPrivateData"));
     m_vkSignalSemaphore = reinterpret_cast<PFN_vkSignalSemaphore>(vkGetDeviceProcAddr("vkSignalSemaphore"));
@@ -296,6 +307,10 @@ Result ContextTable::vkBindImageMemory(Image image, DeviceMemory memory, DeviceS
 
 Result ContextTable::vkBindImageMemory2(uint32_t bindInfoCount, const BindImageMemoryInfo *pBindInfos) const {
     return m_vkBindImageMemory2(m_device, bindInfoCount, pBindInfos);
+}
+
+void ContextTable::vkCmdBeginDebugUtilsLabelEXT(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo) const {
+    return m_vkCmdBeginDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
 }
 
 void ContextTable::vkCmdBeginQuery(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query, QueryControlFlags flags) const {
@@ -434,6 +449,10 @@ void ContextTable::vkCmdDrawIndirectCount(CommandBuffer commandBuffer, Buffer bu
     return m_vkCmdDrawIndirectCount(commandBuffer, buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
 }
 
+void ContextTable::vkCmdEndDebugUtilsLabelEXT(CommandBuffer commandBuffer) const {
+    return m_vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
 void ContextTable::vkCmdEndQuery(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query) const {
     return m_vkCmdEndQuery(commandBuffer, queryPool, query);
 }
@@ -456,6 +475,10 @@ void ContextTable::vkCmdExecuteCommands(CommandBuffer commandBuffer, uint32_t co
 
 void ContextTable::vkCmdFillBuffer(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize size, uint32_t data) const {
     return m_vkCmdFillBuffer(commandBuffer, dstBuffer, dstOffset, size, data);
+}
+
+void ContextTable::vkCmdInsertDebugUtilsLabelEXT(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo) const {
+    return m_vkCmdInsertDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
 }
 
 void ContextTable::vkCmdNextSubpass(CommandBuffer commandBuffer, SubpassContents contents) const {
@@ -646,6 +669,10 @@ Result ContextTable::vkCreateComputePipelines(PipelineCache pipelineCache, uint3
     return m_vkCreateComputePipelines(m_device, pipelineCache, createInfoCount, pCreateInfos, nullptr, pPipelines);
 }
 
+Result ContextTable::vkCreateDebugUtilsMessengerEXT(const DebugUtilsMessengerCreateInfoEXT *pCreateInfo, DebugUtilsMessengerEXT *pMessenger) const {
+    return m_vkCreateDebugUtilsMessengerEXT(m_instance, pCreateInfo, nullptr, pMessenger);
+}
+
 Result ContextTable::vkCreateDescriptorPool(const DescriptorPoolCreateInfo *pCreateInfo, DescriptorPool *pDescriptorPool) const {
     return m_vkCreateDescriptorPool(m_device, pCreateInfo, nullptr, pDescriptorPool);
 }
@@ -748,6 +775,10 @@ void ContextTable::vkDestroyBufferView(BufferView bufferView) const {
 
 void ContextTable::vkDestroyCommandPool(CommandPool commandPool) const {
     return m_vkDestroyCommandPool(m_device, commandPool, nullptr);
+}
+
+void ContextTable::vkDestroyDebugUtilsMessengerEXT(DebugUtilsMessengerEXT messenger) const {
+    return m_vkDestroyDebugUtilsMessengerEXT(m_instance, messenger, nullptr);
 }
 
 void ContextTable::vkDestroyDescriptorPool(DescriptorPool descriptorPool) const {
@@ -1158,8 +1189,20 @@ Result ContextTable::vkMergePipelineCaches(PipelineCache dstCache, uint32_t srcC
     return m_vkMergePipelineCaches(m_device, dstCache, srcCacheCount, pSrcCaches);
 }
 
+void ContextTable::vkQueueBeginDebugUtilsLabelEXT(Queue queue, const DebugUtilsLabelEXT *pLabelInfo) const {
+    return m_vkQueueBeginDebugUtilsLabelEXT(queue, pLabelInfo);
+}
+
 Result ContextTable::vkQueueBindSparse(Queue queue, uint32_t bindInfoCount, const BindSparseInfo *pBindInfo, Fence fence) const {
     return m_vkQueueBindSparse(queue, bindInfoCount, pBindInfo, fence);
+}
+
+void ContextTable::vkQueueEndDebugUtilsLabelEXT(Queue queue) const {
+    return m_vkQueueEndDebugUtilsLabelEXT(queue);
+}
+
+void ContextTable::vkQueueInsertDebugUtilsLabelEXT(Queue queue, const DebugUtilsLabelEXT *pLabelInfo) const {
+    return m_vkQueueInsertDebugUtilsLabelEXT(queue, pLabelInfo);
 }
 
 Result ContextTable::vkQueuePresentKHR(Queue queue, const PresentInfoKHR *pPresentInfo) const {
@@ -1202,6 +1245,14 @@ void ContextTable::vkResetQueryPool(QueryPool queryPool, uint32_t firstQuery, ui
     return m_vkResetQueryPool(m_device, queryPool, firstQuery, queryCount);
 }
 
+Result ContextTable::vkSetDebugUtilsObjectNameEXT(const DebugUtilsObjectNameInfoEXT *pNameInfo) const {
+    return m_vkSetDebugUtilsObjectNameEXT(m_device, pNameInfo);
+}
+
+Result ContextTable::vkSetDebugUtilsObjectTagEXT(const DebugUtilsObjectTagInfoEXT *pTagInfo) const {
+    return m_vkSetDebugUtilsObjectTagEXT(m_device, pTagInfo);
+}
+
 Result ContextTable::vkSetEvent(Event event) const {
     return m_vkSetEvent(m_device, event);
 }
@@ -1212,6 +1263,10 @@ Result ContextTable::vkSetPrivateData(ObjectType objectType, uint64_t objectHand
 
 Result ContextTable::vkSignalSemaphore(const SemaphoreSignalInfo *pSignalInfo) const {
     return m_vkSignalSemaphore(m_device, pSignalInfo);
+}
+
+void ContextTable::vkSubmitDebugUtilsMessageEXT(DebugUtilsMessageSeverityFlagsEXT messageSeverity, DebugUtilsMessageTypeFlagsEXT messageTypes, const DebugUtilsMessengerCallbackDataEXT *pCallbackData) const {
+    return m_vkSubmitDebugUtilsMessageEXT(m_instance, messageSeverity, messageTypes, pCallbackData);
 }
 
 void ContextTable::vkTrimCommandPool(CommandPool commandPool, CommandPoolTrimFlags flags) const {

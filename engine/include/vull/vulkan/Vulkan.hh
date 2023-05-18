@@ -56,6 +56,8 @@ public:
 // Bitmasks.
 using BufferViewCreateFlags = Flags;
 using CommandPoolTrimFlags = Flags;
+using DebugUtilsMessengerCallbackDataFlagsEXT = Flags;
+using DebugUtilsMessengerCreateFlagsEXT = Flags;
 using DescriptorPoolResetFlags = Flags;
 using DescriptorUpdateTemplateCreateFlags = Flags;
 using DeviceCreateFlags = Flags;
@@ -86,6 +88,7 @@ using Buffer = struct Buffer_T *;
 using BufferView = struct BufferView_T *;
 using CommandBuffer = struct CommandBuffer_T *;
 using CommandPool = struct CommandPool_T *;
+using DebugUtilsMessengerEXT = struct DebugUtilsMessengerEXT_T *;
 using DescriptorPool = struct DescriptorPool_T *;
 using DescriptorSet = struct DescriptorSet_T *;
 using DescriptorSetLayout = struct DescriptorSetLayout_T *;
@@ -402,6 +405,31 @@ inline constexpr CullMode operator&(CullMode lhs, CullMode rhs) {
 }
 inline constexpr CullMode operator|(CullMode lhs, CullMode rhs) {
     return static_cast<CullMode>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+}
+
+enum class DebugUtilsMessageSeverityFlagsEXT {
+    Verbose = 1u << 0u,
+    Info = 1u << 4u,
+    Warning = 1u << 8u,
+    Error = 1u << 12u,
+};
+inline constexpr DebugUtilsMessageSeverityFlagsEXT operator&(DebugUtilsMessageSeverityFlagsEXT lhs, DebugUtilsMessageSeverityFlagsEXT rhs) {
+    return static_cast<DebugUtilsMessageSeverityFlagsEXT>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+}
+inline constexpr DebugUtilsMessageSeverityFlagsEXT operator|(DebugUtilsMessageSeverityFlagsEXT lhs, DebugUtilsMessageSeverityFlagsEXT rhs) {
+    return static_cast<DebugUtilsMessageSeverityFlagsEXT>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+}
+
+enum class DebugUtilsMessageTypeFlagsEXT {
+    General = 1u << 0u,
+    Validation = 1u << 1u,
+    Performance = 1u << 2u,
+};
+inline constexpr DebugUtilsMessageTypeFlagsEXT operator&(DebugUtilsMessageTypeFlagsEXT lhs, DebugUtilsMessageTypeFlagsEXT rhs) {
+    return static_cast<DebugUtilsMessageTypeFlagsEXT>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+}
+inline constexpr DebugUtilsMessageTypeFlagsEXT operator|(DebugUtilsMessageTypeFlagsEXT lhs, DebugUtilsMessageTypeFlagsEXT rhs) {
+    return static_cast<DebugUtilsMessageTypeFlagsEXT>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
 
 enum class DependencyFlags {
@@ -1229,6 +1257,7 @@ enum class ObjectType {
     SamplerYcbcrConversion = 1000156000,
     DescriptorUpdateTemplate = 1000085000,
     PrivateDataSlot = 1000295000,
+    DebugUtilsMessengerEXT = 1000128000,
     SurfaceKHR = 1000000000,
     SwapchainKHR = 1000001000,
 };
@@ -1946,6 +1975,11 @@ enum class StructureType {
     FaultData = 1000298007,
     FaultCallbackInfo = 1000298008,
     PipelineOfflineCreateInfo = 1000298010,
+    DebugUtilsObjectNameInfoEXT = 1000128000,
+    DebugUtilsObjectTagInfoEXT = 1000128001,
+    DebugUtilsLabelEXT = 1000128002,
+    DebugUtilsMessengerCallbackDataEXT = 1000128003,
+    DebugUtilsMessengerCreateInfoEXT = 1000128004,
     PhysicalDeviceDescriptorBufferPropertiesEXT = 1000316000,
     PhysicalDeviceDescriptorBufferDensityMapPropertiesEXT = 1000316001,
     PhysicalDeviceDescriptorBufferFeaturesEXT = 1000316002,
@@ -2206,36 +2240,36 @@ struct PipelineCacheHeaderVersionOne {
     uint8_t pipelineCacheUUID [k_uuid_size ];
 };
 
+typedef void (VKAPI_PTR *PFN_vkVoidFunction)(void); 
+
 typedef void* (VKAPI_PTR *PFN_vkAllocationFunction)(
     void*                                       pUserData,
     size_t                                      size,
     size_t                                      alignment,
-    SystemAllocationScope                     allocationScope);
-
-typedef void (VKAPI_PTR *PFN_vkFreeFunction)(
-    void*                                       pUserData,
-    void*                                       pMemory);
-
-typedef void (VKAPI_PTR *PFN_vkInternalAllocationNotification)(
-    void*                                       pUserData,
-    size_t                                      size,
-    InternalAllocationType                    allocationType,
-    SystemAllocationScope                     allocationScope);
-
-typedef void (VKAPI_PTR *PFN_vkInternalFreeNotification)(
-    void*                                       pUserData,
-    size_t                                      size,
-    InternalAllocationType                    allocationType,
-    SystemAllocationScope                     allocationScope);
+    SystemAllocationScope                     allocationScope); 
 
 typedef void* (VKAPI_PTR *PFN_vkReallocationFunction)(
     void*                                       pUserData,
     void*                                       pOriginal,
     size_t                                      size,
     size_t                                      alignment,
-    SystemAllocationScope                     allocationScope);
+    SystemAllocationScope                     allocationScope); 
 
-typedef void (VKAPI_PTR *PFN_vkVoidFunction)(void);
+typedef void (VKAPI_PTR *PFN_vkFreeFunction)(
+    void*                                       pUserData,
+    void*                                       pMemory); 
+
+typedef void (VKAPI_PTR *PFN_vkInternalAllocationNotification)(
+    void*                                       pUserData,
+    size_t                                      size,
+    InternalAllocationType                    allocationType,
+    SystemAllocationScope                     allocationScope); 
+
+typedef void (VKAPI_PTR *PFN_vkInternalFreeNotification)(
+    void*                                       pUserData,
+    size_t                                      size,
+    InternalAllocationType                    allocationType,
+    SystemAllocationScope                     allocationScope); 
 
 struct AllocationCallbacks {
     void *pUserData;
@@ -4903,7 +4937,7 @@ struct FaultData {
 typedef void (VKAPI_PTR *PFN_vkFaultCallbackFunction)(
     Bool                                    unrecordedFaults,
     uint32_t                                    faultCount,
-    const FaultData*                          pFaults);
+    const FaultData*                          pFaults); 
 
 struct FaultCallbackInfo {
     StructureType sType;
@@ -4943,6 +4977,62 @@ struct PipelineCacheHeaderVersionSafetyCriticalOne {
     uint32_t pipelineIndexCount;
     uint32_t pipelineIndexStride;
     uint64_t pipelineIndexOffset;
+};
+
+struct DebugUtilsLabelEXT {
+    StructureType sType;
+    const void *pNext;
+    const char *pLabelName;
+    float color [4];
+};
+
+struct DebugUtilsObjectNameInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    ObjectType objectType;
+    uint64_t objectHandle;
+    const char *pObjectName;
+};
+
+struct DebugUtilsMessengerCallbackDataEXT {
+    StructureType sType;
+    const void *pNext;
+    DebugUtilsMessengerCallbackDataFlagsEXT flags;
+    const char *pMessageIdName;
+    int32_t messageIdNumber;
+    const char *pMessage;
+    uint32_t queueLabelCount;
+    const DebugUtilsLabelEXT *pQueueLabels;
+    uint32_t cmdBufLabelCount;
+    const DebugUtilsLabelEXT *pCmdBufLabels;
+    uint32_t objectCount;
+    const DebugUtilsObjectNameInfoEXT *pObjects;
+};
+
+typedef Bool (VKAPI_PTR *PFN_vkDebugUtilsMessengerCallbackEXT)(
+    DebugUtilsMessageSeverityFlagsEXT           messageSeverity,
+    DebugUtilsMessageTypeFlagsEXT                  messageTypes,
+    const DebugUtilsMessengerCallbackDataEXT*      pCallbackData,
+    void*                                            pUserData); 
+
+struct DebugUtilsMessengerCreateInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    DebugUtilsMessengerCreateFlagsEXT flags;
+    DebugUtilsMessageSeverityFlagsEXT messageSeverity;
+    DebugUtilsMessageTypeFlagsEXT messageType;
+    PFN_vkDebugUtilsMessengerCallbackEXT pfnUserCallback;
+    void *pUserData;
+};
+
+struct DebugUtilsObjectTagInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    ObjectType objectType;
+    uint64_t objectHandle;
+    uint64_t tagName;
+    size_t tagSize;
+    const void *pTag;
 };
 
 struct PhysicalDeviceDescriptorBufferPropertiesEXT {
@@ -5245,6 +5335,7 @@ using PFN_vkBindBufferMemory = Result (*)(Device device, Buffer buffer, DeviceMe
 using PFN_vkBindBufferMemory2 = Result (*)(Device device, uint32_t bindInfoCount, const BindBufferMemoryInfo *pBindInfos);
 using PFN_vkBindImageMemory = Result (*)(Device device, Image image, DeviceMemory memory, DeviceSize memoryOffset);
 using PFN_vkBindImageMemory2 = Result (*)(Device device, uint32_t bindInfoCount, const BindImageMemoryInfo *pBindInfos);
+using PFN_vkCmdBeginDebugUtilsLabelEXT = void (*)(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo);
 using PFN_vkCmdBeginQuery = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query, QueryControlFlags flags);
 using PFN_vkCmdBeginRenderPass = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, SubpassContents contents);
 using PFN_vkCmdBeginRenderPass2 = void (*)(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, const SubpassBeginInfo *pSubpassBeginInfo);
@@ -5279,12 +5370,14 @@ using PFN_vkCmdDrawIndexedIndirect = void (*)(CommandBuffer commandBuffer, Buffe
 using PFN_vkCmdDrawIndexedIndirectCount = void (*)(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, Buffer countBuffer, DeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
 using PFN_vkCmdDrawIndirect = void (*)(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, uint32_t drawCount, uint32_t stride);
 using PFN_vkCmdDrawIndirectCount = void (*)(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, Buffer countBuffer, DeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
+using PFN_vkCmdEndDebugUtilsLabelEXT = void (*)(CommandBuffer commandBuffer);
 using PFN_vkCmdEndQuery = void (*)(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query);
 using PFN_vkCmdEndRenderPass = void (*)(CommandBuffer commandBuffer);
 using PFN_vkCmdEndRenderPass2 = void (*)(CommandBuffer commandBuffer, const SubpassEndInfo *pSubpassEndInfo);
 using PFN_vkCmdEndRendering = void (*)(CommandBuffer commandBuffer);
 using PFN_vkCmdExecuteCommands = void (*)(CommandBuffer commandBuffer, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers);
 using PFN_vkCmdFillBuffer = void (*)(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize size, uint32_t data);
+using PFN_vkCmdInsertDebugUtilsLabelEXT = void (*)(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo);
 using PFN_vkCmdNextSubpass = void (*)(CommandBuffer commandBuffer, SubpassContents contents);
 using PFN_vkCmdNextSubpass2 = void (*)(CommandBuffer commandBuffer, const SubpassBeginInfo *pSubpassBeginInfo, const SubpassEndInfo *pSubpassEndInfo);
 using PFN_vkCmdPipelineBarrier = void (*)(CommandBuffer commandBuffer, PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers);
@@ -5332,6 +5425,7 @@ using PFN_vkCreateBuffer = Result (*)(Device device, const BufferCreateInfo *pCr
 using PFN_vkCreateBufferView = Result (*)(Device device, const BufferViewCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, BufferView *pView);
 using PFN_vkCreateCommandPool = Result (*)(Device device, const CommandPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, CommandPool *pCommandPool);
 using PFN_vkCreateComputePipelines = Result (*)(Device device, PipelineCache pipelineCache, uint32_t createInfoCount, const ComputePipelineCreateInfo *pCreateInfos, const AllocationCallbacks *pAllocator, Pipeline *pPipelines);
+using PFN_vkCreateDebugUtilsMessengerEXT = Result (*)(Instance instance, const DebugUtilsMessengerCreateInfoEXT *pCreateInfo, const AllocationCallbacks *pAllocator, DebugUtilsMessengerEXT *pMessenger);
 using PFN_vkCreateDescriptorPool = Result (*)(Device device, const DescriptorPoolCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, DescriptorPool *pDescriptorPool);
 using PFN_vkCreateDescriptorSetLayout = Result (*)(Device device, const DescriptorSetLayoutCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, DescriptorSetLayout *pSetLayout);
 using PFN_vkCreateDescriptorUpdateTemplate = Result (*)(Device device, const DescriptorUpdateTemplateCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, DescriptorUpdateTemplate *pDescriptorUpdateTemplate);
@@ -5358,6 +5452,7 @@ using PFN_vkCreateXcbSurfaceKHR = Result (*)(Instance instance, const XcbSurface
 using PFN_vkDestroyBuffer = void (*)(Device device, Buffer buffer, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyBufferView = void (*)(Device device, BufferView bufferView, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyCommandPool = void (*)(Device device, CommandPool commandPool, const AllocationCallbacks *pAllocator);
+using PFN_vkDestroyDebugUtilsMessengerEXT = void (*)(Instance instance, DebugUtilsMessengerEXT messenger, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyDescriptorPool = void (*)(Device device, DescriptorPool descriptorPool, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyDescriptorSetLayout = void (*)(Device device, DescriptorSetLayout descriptorSetLayout, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyDescriptorUpdateTemplate = void (*)(Device device, DescriptorUpdateTemplate descriptorUpdateTemplate, const AllocationCallbacks *pAllocator);
@@ -5461,7 +5556,10 @@ using PFN_vkGetSwapchainImagesKHR = Result (*)(Device device, SwapchainKHR swapc
 using PFN_vkInvalidateMappedMemoryRanges = Result (*)(Device device, uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges);
 using PFN_vkMapMemory = Result (*)(Device device, DeviceMemory memory, DeviceSize offset, DeviceSize size, MemoryMapFlags flags, void ** ppData);
 using PFN_vkMergePipelineCaches = Result (*)(Device device, PipelineCache dstCache, uint32_t srcCacheCount, const PipelineCache *pSrcCaches);
+using PFN_vkQueueBeginDebugUtilsLabelEXT = void (*)(Queue queue, const DebugUtilsLabelEXT *pLabelInfo);
 using PFN_vkQueueBindSparse = Result (*)(Queue queue, uint32_t bindInfoCount, const BindSparseInfo *pBindInfo, Fence fence);
+using PFN_vkQueueEndDebugUtilsLabelEXT = void (*)(Queue queue);
+using PFN_vkQueueInsertDebugUtilsLabelEXT = void (*)(Queue queue, const DebugUtilsLabelEXT *pLabelInfo);
 using PFN_vkQueuePresentKHR = Result (*)(Queue queue, const PresentInfoKHR *pPresentInfo);
 using PFN_vkQueueSubmit = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo *pSubmits, Fence fence);
 using PFN_vkQueueSubmit2 = Result (*)(Queue queue, uint32_t submitCount, const SubmitInfo2 *pSubmits, Fence fence);
@@ -5472,9 +5570,12 @@ using PFN_vkResetDescriptorPool = Result (*)(Device device, DescriptorPool descr
 using PFN_vkResetEvent = Result (*)(Device device, Event event);
 using PFN_vkResetFences = Result (*)(Device device, uint32_t fenceCount, const Fence *pFences);
 using PFN_vkResetQueryPool = void (*)(Device device, QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount);
+using PFN_vkSetDebugUtilsObjectNameEXT = Result (*)(Device device, const DebugUtilsObjectNameInfoEXT *pNameInfo);
+using PFN_vkSetDebugUtilsObjectTagEXT = Result (*)(Device device, const DebugUtilsObjectTagInfoEXT *pTagInfo);
 using PFN_vkSetEvent = Result (*)(Device device, Event event);
 using PFN_vkSetPrivateData = Result (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t data);
 using PFN_vkSignalSemaphore = Result (*)(Device device, const SemaphoreSignalInfo *pSignalInfo);
+using PFN_vkSubmitDebugUtilsMessageEXT = void (*)(Instance instance, DebugUtilsMessageSeverityFlagsEXT messageSeverity, DebugUtilsMessageTypeFlagsEXT messageTypes, const DebugUtilsMessengerCallbackDataEXT *pCallbackData);
 using PFN_vkTrimCommandPool = void (*)(Device device, CommandPool commandPool, CommandPoolTrimFlags flags);
 using PFN_vkUnmapMemory = void (*)(Device device, DeviceMemory memory);
 using PFN_vkUpdateDescriptorSetWithTemplate = void (*)(Device device, DescriptorSet descriptorSet, DescriptorUpdateTemplate descriptorUpdateTemplate, const void *pData);

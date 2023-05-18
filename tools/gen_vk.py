@@ -12,7 +12,6 @@ from ordered_set import OrderedSet
 
 # Removes the Vk prefix from a type name.
 def convert_type(orig):
-    assert orig
     if orig == 'VkBool32':
         return 'Bool'
     if 'Flags' in orig or 'FlagBits' in orig:
@@ -64,6 +63,7 @@ def is_parent_of(parent_name, derived_name):
 
 
 desired_extensions = OrderedSet([
+    'VK_EXT_debug_utils',
     'VK_EXT_descriptor_buffer',
     'VK_EXT_shader_atomic_float2',
     'VK_EXT_validation_features',
@@ -168,6 +168,9 @@ for type_name in desired_type_names:
     vk_type = type_dict.get(type_name)
     if type_name not in type_order_graph:
         type_order_graph[type_name] = OrderedSet()
+    for foo in vk_type.findall('type'):
+        if foo.text in desired_type_names:
+            type_order_graph[type_name].add(foo.text)
     for member in vk_type.findall('member'):
         if member_type := member.findtext('type'):
             type_order_graph[type_name].add(member_type)
@@ -182,6 +185,8 @@ desired_types = []
 type_order_visited = set()
 for type_name in desired_type_names:
     vk_type = type_dict.get(type_name)
+    if vk_type.get('category') == 'funcpointer' and len(type_order_graph[type_name]) != 0:
+        continue
     dfs(type_order_graph, type_order_visited, type_name, lambda node: desired_types.append((node, type_dict.get(node))))
 
 # Generate context table header.
@@ -488,7 +493,9 @@ namespace vull::vkb {
         if vk_type.get('alias'):
             continue
         if vk_type.get('category') == 'funcpointer':
-            file.write('{}\n\n'.format(''.join(map(convert_type, vk_type.itertext()))))
+            text = ''.join(map(convert_type, vk_type.itertext()))
+            text = ''.join(map(lambda x: convert_type(x) + ' ', text.split(' ')))
+            file.write('{}\n\n'.format(text))
             continue
         file.write('{} {} {{\n'.format(vk_type.get('category'), convert_type(type_name)))
         for member in vk_type.findall('member'):

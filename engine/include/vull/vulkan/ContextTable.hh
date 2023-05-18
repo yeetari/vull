@@ -27,6 +27,7 @@ private:
     PFN_vkBindBufferMemory2 m_vkBindBufferMemory2;
     PFN_vkBindImageMemory m_vkBindImageMemory;
     PFN_vkBindImageMemory2 m_vkBindImageMemory2;
+    PFN_vkCmdBeginDebugUtilsLabelEXT m_vkCmdBeginDebugUtilsLabelEXT;
     PFN_vkCmdBeginQuery m_vkCmdBeginQuery;
     PFN_vkCmdBeginRenderPass m_vkCmdBeginRenderPass;
     PFN_vkCmdBeginRenderPass2 m_vkCmdBeginRenderPass2;
@@ -61,12 +62,14 @@ private:
     PFN_vkCmdDrawIndexedIndirectCount m_vkCmdDrawIndexedIndirectCount;
     PFN_vkCmdDrawIndirect m_vkCmdDrawIndirect;
     PFN_vkCmdDrawIndirectCount m_vkCmdDrawIndirectCount;
+    PFN_vkCmdEndDebugUtilsLabelEXT m_vkCmdEndDebugUtilsLabelEXT;
     PFN_vkCmdEndQuery m_vkCmdEndQuery;
     PFN_vkCmdEndRenderPass m_vkCmdEndRenderPass;
     PFN_vkCmdEndRenderPass2 m_vkCmdEndRenderPass2;
     PFN_vkCmdEndRendering m_vkCmdEndRendering;
     PFN_vkCmdExecuteCommands m_vkCmdExecuteCommands;
     PFN_vkCmdFillBuffer m_vkCmdFillBuffer;
+    PFN_vkCmdInsertDebugUtilsLabelEXT m_vkCmdInsertDebugUtilsLabelEXT;
     PFN_vkCmdNextSubpass m_vkCmdNextSubpass;
     PFN_vkCmdNextSubpass2 m_vkCmdNextSubpass2;
     PFN_vkCmdPipelineBarrier m_vkCmdPipelineBarrier;
@@ -114,6 +117,7 @@ private:
     PFN_vkCreateBufferView m_vkCreateBufferView;
     PFN_vkCreateCommandPool m_vkCreateCommandPool;
     PFN_vkCreateComputePipelines m_vkCreateComputePipelines;
+    PFN_vkCreateDebugUtilsMessengerEXT m_vkCreateDebugUtilsMessengerEXT;
     PFN_vkCreateDescriptorPool m_vkCreateDescriptorPool;
     PFN_vkCreateDescriptorSetLayout m_vkCreateDescriptorSetLayout;
     PFN_vkCreateDescriptorUpdateTemplate m_vkCreateDescriptorUpdateTemplate;
@@ -140,6 +144,7 @@ private:
     PFN_vkDestroyBuffer m_vkDestroyBuffer;
     PFN_vkDestroyBufferView m_vkDestroyBufferView;
     PFN_vkDestroyCommandPool m_vkDestroyCommandPool;
+    PFN_vkDestroyDebugUtilsMessengerEXT m_vkDestroyDebugUtilsMessengerEXT;
     PFN_vkDestroyDescriptorPool m_vkDestroyDescriptorPool;
     PFN_vkDestroyDescriptorSetLayout m_vkDestroyDescriptorSetLayout;
     PFN_vkDestroyDescriptorUpdateTemplate m_vkDestroyDescriptorUpdateTemplate;
@@ -242,7 +247,10 @@ private:
     PFN_vkInvalidateMappedMemoryRanges m_vkInvalidateMappedMemoryRanges;
     PFN_vkMapMemory m_vkMapMemory;
     PFN_vkMergePipelineCaches m_vkMergePipelineCaches;
+    PFN_vkQueueBeginDebugUtilsLabelEXT m_vkQueueBeginDebugUtilsLabelEXT;
     PFN_vkQueueBindSparse m_vkQueueBindSparse;
+    PFN_vkQueueEndDebugUtilsLabelEXT m_vkQueueEndDebugUtilsLabelEXT;
+    PFN_vkQueueInsertDebugUtilsLabelEXT m_vkQueueInsertDebugUtilsLabelEXT;
     PFN_vkQueuePresentKHR m_vkQueuePresentKHR;
     PFN_vkQueueSubmit m_vkQueueSubmit;
     PFN_vkQueueSubmit2 m_vkQueueSubmit2;
@@ -253,9 +261,12 @@ private:
     PFN_vkResetEvent m_vkResetEvent;
     PFN_vkResetFences m_vkResetFences;
     PFN_vkResetQueryPool m_vkResetQueryPool;
+    PFN_vkSetDebugUtilsObjectNameEXT m_vkSetDebugUtilsObjectNameEXT;
+    PFN_vkSetDebugUtilsObjectTagEXT m_vkSetDebugUtilsObjectTagEXT;
     PFN_vkSetEvent m_vkSetEvent;
     PFN_vkSetPrivateData m_vkSetPrivateData;
     PFN_vkSignalSemaphore m_vkSignalSemaphore;
+    PFN_vkSubmitDebugUtilsMessageEXT m_vkSubmitDebugUtilsMessageEXT;
     PFN_vkTrimCommandPool m_vkTrimCommandPool;
     PFN_vkUnmapMemory m_vkUnmapMemory;
     PFN_vkUpdateDescriptorSetWithTemplate m_vkUpdateDescriptorSetWithTemplate;
@@ -274,6 +285,7 @@ public:
     Result vkBindBufferMemory2(uint32_t bindInfoCount, const BindBufferMemoryInfo *pBindInfos) const;
     Result vkBindImageMemory(Image image, DeviceMemory memory, DeviceSize memoryOffset) const;
     Result vkBindImageMemory2(uint32_t bindInfoCount, const BindImageMemoryInfo *pBindInfos) const;
+    void vkCmdBeginDebugUtilsLabelEXT(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo) const;
     void vkCmdBeginQuery(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query, QueryControlFlags flags) const;
     void vkCmdBeginRenderPass(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, SubpassContents contents) const;
     void vkCmdBeginRenderPass2(CommandBuffer commandBuffer, const RenderPassBeginInfo *pRenderPassBegin, const SubpassBeginInfo *pSubpassBeginInfo) const;
@@ -308,12 +320,14 @@ public:
     void vkCmdDrawIndexedIndirectCount(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, Buffer countBuffer, DeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride) const;
     void vkCmdDrawIndirect(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, uint32_t drawCount, uint32_t stride) const;
     void vkCmdDrawIndirectCount(CommandBuffer commandBuffer, Buffer buffer, DeviceSize offset, Buffer countBuffer, DeviceSize countBufferOffset, uint32_t maxDrawCount, uint32_t stride) const;
+    void vkCmdEndDebugUtilsLabelEXT(CommandBuffer commandBuffer) const;
     void vkCmdEndQuery(CommandBuffer commandBuffer, QueryPool queryPool, uint32_t query) const;
     void vkCmdEndRenderPass(CommandBuffer commandBuffer) const;
     void vkCmdEndRenderPass2(CommandBuffer commandBuffer, const SubpassEndInfo *pSubpassEndInfo) const;
     void vkCmdEndRendering(CommandBuffer commandBuffer) const;
     void vkCmdExecuteCommands(CommandBuffer commandBuffer, uint32_t commandBufferCount, const CommandBuffer *pCommandBuffers) const;
     void vkCmdFillBuffer(CommandBuffer commandBuffer, Buffer dstBuffer, DeviceSize dstOffset, DeviceSize size, uint32_t data) const;
+    void vkCmdInsertDebugUtilsLabelEXT(CommandBuffer commandBuffer, const DebugUtilsLabelEXT *pLabelInfo) const;
     void vkCmdNextSubpass(CommandBuffer commandBuffer, SubpassContents contents) const;
     void vkCmdNextSubpass2(CommandBuffer commandBuffer, const SubpassBeginInfo *pSubpassBeginInfo, const SubpassEndInfo *pSubpassEndInfo) const;
     void vkCmdPipelineBarrier(CommandBuffer commandBuffer, PipelineStage srcStageMask, PipelineStage dstStageMask, DependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const MemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const BufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const ImageMemoryBarrier *pImageMemoryBarriers) const;
@@ -361,6 +375,7 @@ public:
     Result vkCreateBufferView(const BufferViewCreateInfo *pCreateInfo, BufferView *pView) const;
     Result vkCreateCommandPool(const CommandPoolCreateInfo *pCreateInfo, CommandPool *pCommandPool) const;
     Result vkCreateComputePipelines(PipelineCache pipelineCache, uint32_t createInfoCount, const ComputePipelineCreateInfo *pCreateInfos, Pipeline *pPipelines) const;
+    Result vkCreateDebugUtilsMessengerEXT(const DebugUtilsMessengerCreateInfoEXT *pCreateInfo, DebugUtilsMessengerEXT *pMessenger) const;
     Result vkCreateDescriptorPool(const DescriptorPoolCreateInfo *pCreateInfo, DescriptorPool *pDescriptorPool) const;
     Result vkCreateDescriptorSetLayout(const DescriptorSetLayoutCreateInfo *pCreateInfo, DescriptorSetLayout *pSetLayout) const;
     Result vkCreateDescriptorUpdateTemplate(const DescriptorUpdateTemplateCreateInfo *pCreateInfo, DescriptorUpdateTemplate *pDescriptorUpdateTemplate) const;
@@ -387,6 +402,7 @@ public:
     void vkDestroyBuffer(Buffer buffer) const;
     void vkDestroyBufferView(BufferView bufferView) const;
     void vkDestroyCommandPool(CommandPool commandPool) const;
+    void vkDestroyDebugUtilsMessengerEXT(DebugUtilsMessengerEXT messenger) const;
     void vkDestroyDescriptorPool(DescriptorPool descriptorPool) const;
     void vkDestroyDescriptorSetLayout(DescriptorSetLayout descriptorSetLayout) const;
     void vkDestroyDescriptorUpdateTemplate(DescriptorUpdateTemplate descriptorUpdateTemplate) const;
@@ -489,7 +505,10 @@ public:
     Result vkInvalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges) const;
     Result vkMapMemory(DeviceMemory memory, DeviceSize offset, DeviceSize size, MemoryMapFlags flags, void ** ppData) const;
     Result vkMergePipelineCaches(PipelineCache dstCache, uint32_t srcCacheCount, const PipelineCache *pSrcCaches) const;
+    void vkQueueBeginDebugUtilsLabelEXT(Queue queue, const DebugUtilsLabelEXT *pLabelInfo) const;
     Result vkQueueBindSparse(Queue queue, uint32_t bindInfoCount, const BindSparseInfo *pBindInfo, Fence fence) const;
+    void vkQueueEndDebugUtilsLabelEXT(Queue queue) const;
+    void vkQueueInsertDebugUtilsLabelEXT(Queue queue, const DebugUtilsLabelEXT *pLabelInfo) const;
     Result vkQueuePresentKHR(Queue queue, const PresentInfoKHR *pPresentInfo) const;
     Result vkQueueSubmit(Queue queue, uint32_t submitCount, const SubmitInfo *pSubmits, Fence fence) const;
     Result vkQueueSubmit2(Queue queue, uint32_t submitCount, const SubmitInfo2 *pSubmits, Fence fence) const;
@@ -500,9 +519,12 @@ public:
     Result vkResetEvent(Event event) const;
     Result vkResetFences(uint32_t fenceCount, const Fence *pFences) const;
     void vkResetQueryPool(QueryPool queryPool, uint32_t firstQuery, uint32_t queryCount) const;
+    Result vkSetDebugUtilsObjectNameEXT(const DebugUtilsObjectNameInfoEXT *pNameInfo) const;
+    Result vkSetDebugUtilsObjectTagEXT(const DebugUtilsObjectTagInfoEXT *pTagInfo) const;
     Result vkSetEvent(Event event) const;
     Result vkSetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t data) const;
     Result vkSignalSemaphore(const SemaphoreSignalInfo *pSignalInfo) const;
+    void vkSubmitDebugUtilsMessageEXT(DebugUtilsMessageSeverityFlagsEXT messageSeverity, DebugUtilsMessageTypeFlagsEXT messageTypes, const DebugUtilsMessengerCallbackDataEXT *pCallbackData) const;
     void vkTrimCommandPool(CommandPool commandPool, CommandPoolTrimFlags flags) const;
     void vkUnmapMemory(DeviceMemory memory) const;
     void vkUpdateDescriptorSetWithTemplate(DescriptorSet descriptorSet, DescriptorUpdateTemplate descriptorUpdateTemplate, const void *pData) const;
