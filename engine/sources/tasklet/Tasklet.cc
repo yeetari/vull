@@ -11,7 +11,7 @@ namespace vull {
 namespace {
 
 constexpr size_t k_pool_size = 256 * 1024 * 1024;
-constexpr size_t k_size = 131072; // TODO: Decrease.
+constexpr size_t k_size = 262144; // TODO: Decrease.
 
 class Pool {
     uint8_t *m_base;
