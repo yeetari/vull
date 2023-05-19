@@ -2,6 +2,7 @@
 
 #include <vull/container/Vector.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StringView.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -48,6 +49,10 @@ public:
 
     CommandBuffer &operator=(const CommandBuffer &) = delete;
     CommandBuffer &operator=(CommandBuffer &&) = delete;
+
+    void begin_label(StringView label);
+    void insert_label(StringView label);
+    void end_label();
 
     void set_viewport(Span<vkb::Viewport> viewports, uint32_t first = 0);
     void set_scissor(Span<vkb::Rect2D> scissors, uint32_t first = 0);

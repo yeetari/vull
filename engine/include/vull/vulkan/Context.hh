@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/container/Vector.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/tasklet/Mutex.hh>
 #include <vull/vulkan/Allocation.hh>
@@ -34,6 +35,8 @@ class Context : public vkb::ContextTable {
     Mutex m_queues_mutex;
 
     Allocator &allocator_for(const vkb::MemoryRequirements &, MemoryUsage);
+    template <vkb::ObjectType ObjectType>
+    void set_object_name(const void *object, StringView name) const;
 
 public:
     explicit Context(bool enable_validation);
@@ -47,6 +50,10 @@ public:
     Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
+
+    template <typename T>
+    void set_object_name(const T &object, StringView name) const;
+
     size_t descriptor_size(vkb::DescriptorType type) const;
     vkb::Sampler get_sampler(Sampler sampler) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;

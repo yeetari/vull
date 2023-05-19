@@ -3,6 +3,7 @@
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
@@ -79,6 +80,28 @@ void CommandBuffer::emit_descriptor_binds() {
     }
     m_descriptor_buffers.clear();
     m_descriptor_buffer_bindings.clear();
+}
+
+void CommandBuffer::begin_label(StringView label) {
+    vkb::DebugUtilsLabelEXT label_info{
+        .sType = vkb::StructureType::DebugUtilsLabelEXT,
+        .pLabelName = label.data(),
+        .color{1.0f, 1.0f, 1.0f, 1.0f},
+    };
+    m_context.vkCmdBeginDebugUtilsLabelEXT(m_cmd_buf, &label_info);
+}
+
+void CommandBuffer::insert_label(StringView label) {
+    vkb::DebugUtilsLabelEXT label_info{
+        .sType = vkb::StructureType::DebugUtilsLabelEXT,
+        .pLabelName = label.data(),
+        .color{1.0f, 1.0f, 1.0f, 1.0f},
+    };
+    m_context.vkCmdInsertDebugUtilsLabelEXT(m_cmd_buf, &label_info);
+}
+
+void CommandBuffer::end_label() {
+    m_context.vkCmdEndDebugUtilsLabelEXT(m_cmd_buf);
 }
 
 void CommandBuffer::set_viewport(Span<vkb::Viewport> viewports, uint32_t first) {

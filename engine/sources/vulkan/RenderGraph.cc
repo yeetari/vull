@@ -4,6 +4,7 @@
 #include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Format.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
@@ -296,6 +297,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
 #ifdef RG_DEBUG
     vull::debug("RenderGraph::record_pass({})", pass.name());
 #endif
+    cmd_buf.begin_label(vull::format("Pass {}", pass.name()));
 
     // Emit barrier.
     Vector<vkb::ImageMemoryBarrier2> image_barriers;
@@ -389,6 +391,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
     if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
         cmd_buf.end_rendering();
     }
+    cmd_buf.end_label();
 }
 
 void RenderGraph::execute(CommandBuffer &cmd_buf, bool record_timestamps) {

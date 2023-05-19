@@ -5,8 +5,10 @@
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/ScopedLock.hh>
+#include <vull/support/String.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/Allocation.hh>
@@ -308,6 +310,7 @@ Allocation Allocator::allocate_dedicated(uint32_t size) {
     };
     vkb::DeviceMemory memory;
     VULL_ENSURE(m_context.vkAllocateMemory(&memory_ai, &memory) == vkb::Result::Success);
+    m_context.set_object_name(memory, vull::format("Dedicated allocation (type {})", m_memory_type_index));
 
     void *mapped_data = nullptr;
     if (m_mappable) {
@@ -366,6 +369,7 @@ Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
         }
         vull::trace("[vulkan] New heap of size {} created for memory type {}", m_heap_size >> shift,
                     m_memory_type_index);
+        m_context.set_object_name(memory, vull::format("Heap allocation (type {})", m_memory_type_index));
 
         void *mapped_data = nullptr;
         if (m_mappable) {

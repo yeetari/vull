@@ -77,7 +77,11 @@ Frame &FramePacer::request_frame() {
 }
 
 Frame::Frame(const vk::Context &context)
-    : m_fence(context, true), m_acquire_semaphore(context), m_present_semaphore(context) {}
+    : m_fence(context, true), m_acquire_semaphore(context), m_present_semaphore(context) {
+    context.set_object_name(m_fence, "Frame fence");
+    context.set_object_name(m_acquire_semaphore, "Acquire semaphore");
+    context.set_object_name(m_present_semaphore, "Present semaphore");
+}
 
 Frame::~Frame() = default;
 

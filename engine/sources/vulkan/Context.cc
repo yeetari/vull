@@ -19,10 +19,12 @@
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/ContextTable.hh>
+#include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Sampler.hh>
+#include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <dlfcn.h>
@@ -57,6 +59,34 @@ vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
 
 } // namespace
 
+template <vkb::ObjectType ObjectType>
+void Context::set_object_name(const void *object, StringView name) const {
+    vkb::DebugUtilsObjectNameInfoEXT name_info{
+        .sType = vkb::StructureType::DebugUtilsObjectNameInfoEXT,
+        .objectType = ObjectType,
+        .objectHandle = __builtin_bit_cast(uint64_t, object),
+        .pObjectName = name.data(),
+    };
+    vkSetDebugUtilsObjectNameEXT(&name_info);
+}
+
+template <>
+void Context::set_object_name(const vkb::DeviceMemory &object, StringView name) const {
+    set_object_name<vkb::ObjectType::DeviceMemory>(object, name);
+}
+template <>
+void Context::set_object_name(const Fence &object, StringView name) const {
+    set_object_name<vkb::ObjectType::Fence>(*object, name);
+}
+template <>
+void Context::set_object_name(const vkb::Sampler &object, StringView name) const {
+    set_object_name<vkb::ObjectType::Sampler>(object, name);
+}
+template <>
+void Context::set_object_name(const Semaphore &object, StringView name) const {
+    set_object_name<vkb::ObjectType::Semaphore>(*object, name);
+}
+
 Context::Context(bool enable_validation) : ContextTable{} {
     void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
     if (libvulkan == nullptr) {
@@ -68,6 +98,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
     load_loader(vkGetInstanceProcAddr);
 
     Array enabled_instance_extensions{
+        "VK_EXT_debug_utils",
         "VK_KHR_get_physical_device_properties2",
         "VK_KHR_surface",
         "VK_KHR_xcb_surface",
@@ -290,6 +321,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .maxLod = vkb::k_lod_clamp_none,
     };
     VULL_ENSURE(vkCreateSampler(&nearest_sampler_ci, &m_nearest_sampler) == vkb::Result::Success);
+    set_object_name(m_nearest_sampler, "Nearest sampler");
 
     vkb::SamplerCreateInfo linear_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
@@ -301,6 +333,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .maxLod = vkb::k_lod_clamp_none,
     };
     VULL_ENSURE(vkCreateSampler(&linear_sampler_ci, &m_linear_sampler) == vkb::Result::Success);
+    set_object_name(m_linear_sampler, "Linear sampler");
 
     vkb::SamplerReductionModeCreateInfo depth_reduction_mode_ci{
         .sType = vkb::StructureType::SamplerReductionModeCreateInfo,
@@ -315,6 +348,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .maxLod = vkb::k_lod_clamp_none,
     };
     VULL_ENSURE(vkCreateSampler(&depth_reduce_sampler_ci, &m_depth_reduce_sampler) == vkb::Result::Success);
+    set_object_name(m_depth_reduce_sampler, "Depth reduce sampler");
 
     vkb::SamplerCreateInfo shadow_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
@@ -326,6 +360,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .borderColor = vkb::BorderColor::FloatOpaqueWhite,
     };
     VULL_ENSURE(vkCreateSampler(&shadow_sampler_ci, &m_shadow_sampler) == vkb::Result::Success);
+    set_object_name(m_shadow_sampler, "Shadow sampler");
 }
 
 Context::~Context() {
