@@ -15,8 +15,11 @@
 #include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/random.h>
 #include <unistd.h>
+// IWYU pragma: no_include <bits/types/siginfo_t.h>
 
 namespace vull {
 
@@ -157,6 +160,17 @@ static Tasklet *pick_next() {
     vull_load_context(s_current_tasklet = next, nullptr);
 }
 
+[[noreturn]] static void segfault_handler(int, siginfo_t *info, void *) {
+    const auto address = reinterpret_cast<uintptr_t>(info->si_addr);
+    const auto *tasklet = static_cast<void *>(Tasklet::current());
+    if (Tasklet::is_guard_page(address)) {
+        fprintf(stderr, "Stack overflow in tasklet %p\n", tasklet);
+    } else {
+        fprintf(stderr, "Segfault at address 0x%lx in tasklet %p\n", address, tasklet);
+    }
+    abort();
+}
+
 void *Scheduler::worker_entry(void *worker_ptr) {
     auto &[scheduler, queue, _] = *static_cast<Worker *>(worker_ptr);
     s_queue = queue.ptr();
@@ -164,9 +178,17 @@ void *Scheduler::worker_entry(void *worker_ptr) {
 
     sigset_t sig_set;
     sigfillset(&sig_set);
+    sigdelset(&sig_set, SIGSEGV);
     if (pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0) {
         vull::error("[tasklet] Failed to mask signals");
     }
+
+    struct sigaction sa {
+        .sa_flags = SA_SIGINFO,
+    };
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = &segfault_handler;
+    sigaction(SIGSEGV, &sa, nullptr);
 
     while (s_rng_state == 0) {
         VULL_ENSURE(getrandom(&s_rng_state, sizeof(uint32_t), 0) == sizeof(uint32_t));

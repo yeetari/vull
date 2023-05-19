@@ -33,6 +33,7 @@ class Tasklet {
 public:
     static Tasklet *create();
     static Tasklet *current();
+    static bool is_guard_page(uintptr_t page);
 
     Tasklet(size_t size);
     Tasklet(const Tasklet &) = delete;

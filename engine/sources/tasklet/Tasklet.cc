@@ -1,11 +1,13 @@
 #include <vull/tasklet/Tasklet.hh>
 
+#include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Utility.hh>
 
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 namespace vull {
 namespace {
@@ -23,11 +25,17 @@ public:
 
     Tasklet *allocate();
     void free(Tasklet *tasklet);
+    bool is_guard_page(uintptr_t page);
 };
 
 Pool::Pool() {
     m_base =
         static_cast<uint8_t *>(mmap(nullptr, k_pool_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
+
+    const auto page_size = static_cast<size_t>(getpagesize());
+    for (uint8_t *page = m_base; page < m_base + k_pool_size; page += k_size) {
+        mprotect(page + page_size, page_size, PROT_NONE);
+    }
 }
 
 Tasklet *Pool::allocate() {
@@ -50,6 +58,16 @@ void Pool::free(Tasklet *tasklet) {
     } while (!m_next_free.compare_exchange_weak(next_free, tasklet));
 }
 
+bool Pool::is_guard_page(uintptr_t page) {
+    const auto page_size = static_cast<uintptr_t>(getpagesize());
+    page = vull::align_down(page, page_size);
+    const auto base = reinterpret_cast<uintptr_t>(m_base);
+    if (page < base + page_size) {
+        return false;
+    }
+    return (page - base - page_size) % k_size == 0;
+}
+
 VULL_GLOBAL(Pool s_pool);
 
 } // namespace
@@ -63,6 +81,10 @@ extern "C" void vull_free_tasklet(Tasklet *tasklet) {
 
 Tasklet *Tasklet::create() {
     return s_pool.allocate();
+}
+
+bool Tasklet::is_guard_page(uintptr_t page) {
+    return s_pool.is_guard_page(page);
 }
 
 } // namespace vull
