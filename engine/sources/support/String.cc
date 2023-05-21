@@ -32,8 +32,9 @@ String::~String() {
 }
 
 String &String::operator=(String &&other) {
-    m_data = exchange(other.m_data, nullptr);
-    m_length = exchange(other.m_length, 0u);
+    String moved(vull::move(other));
+    vull::swap(m_data, moved.m_data);
+    vull::swap(m_length, moved.m_length);
     return *this;
 }
 
