@@ -30,6 +30,7 @@
 #include <dlfcn.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 namespace vull::vk {
 namespace {
@@ -55,6 +56,32 @@ const char *queue_flag_string(uint32_t bit) {
 // TODO: This should be generated in Vulkan.hh
 vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
     return static_cast<vkb::MemoryPropertyFlags>(~static_cast<uint32_t>(flags));
+}
+
+vkb::Bool validation_callback(vkb::DebugUtilsMessageSeverityFlagsEXT severity, vkb::DebugUtilsMessageTypeFlagsEXT,
+                              const vkb::DebugUtilsMessengerCallbackDataEXT *callback_data, void *) {
+    StringBuilder sb;
+    sb.append(callback_data->pMessageIdName);
+    sb.append('\n');
+    for (uint32_t i = 0; i < callback_data->objectCount; i++) {
+        const auto &object = callback_data->pObjects[i];
+        sb.append("\t\t\t   [{}] {h}, type: {}", i, object.objectHandle, vull::to_underlying(object.objectType));
+        if (object.pObjectName != nullptr) {
+            sb.append(", name: {}", object.pObjectName);
+        }
+        if (i != callback_data->objectCount - 1) {
+            sb.append('\n');
+        }
+    }
+
+    if (severity == vkb::DebugUtilsMessageSeverityFlagsEXT::Warning) {
+        vull::warn("[vulkan] Validation warning: {}", sb.build());
+        return false;
+    }
+
+    vull::error("[vulkan] Validation error: {}", sb.build());
+    vull::close_log();
+    abort();
 }
 
 } // namespace
@@ -144,6 +171,15 @@ Context::Context(bool enable_validation) : ContextTable{} {
     }
     VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
     load_instance(vkGetInstanceProcAddr);
+
+    vkb::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_ci{
+        .sType = vkb::StructureType::DebugUtilsMessengerCreateInfoEXT,
+        .messageSeverity =
+            vkb::DebugUtilsMessageSeverityFlagsEXT::Warning | vkb::DebugUtilsMessageSeverityFlagsEXT::Error,
+        .messageType = vkb::DebugUtilsMessageTypeFlagsEXT::Validation,
+        .pfnUserCallback = &validation_callback,
+    };
+    vkCreateDebugUtilsMessengerEXT(&debug_utils_messenger_ci, &m_debug_utils_messenger);
 
     // TODO: Better device selection.
     uint32_t physical_device_count = 1;
@@ -371,6 +407,7 @@ Context::~Context() {
     vkDestroySampler(m_linear_sampler);
     vkDestroySampler(m_nearest_sampler);
     vkDestroyDevice();
+    vkDestroyDebugUtilsMessengerEXT(m_debug_utils_messenger);
     vkDestroyInstance();
 }
 

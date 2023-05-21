@@ -21,6 +21,7 @@ class Allocator;
 class Queue;
 
 class Context : public vkb::ContextTable {
+    vkb::DebugUtilsMessengerEXT m_debug_utils_messenger;
     vkb::PhysicalDeviceProperties m_properties{};
     vkb::PhysicalDeviceDescriptorBufferPropertiesEXT m_descriptor_buffer_properties{};
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
