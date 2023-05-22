@@ -369,17 +369,9 @@ int main(int argc, char **argv) {
         return EXIT_SUCCESS;
     }
 
-    bc7enc_compress_block_init();
-    rgbcx::init();
-    auto lut = load_lut(argv[0]);
-    MadLut::set_instance(&lut);
-
     const auto command = args[1];
     if (command == "add") {
         return add(args);
-    }
-    if (command == "add-gltf") {
-        return add_gltf(args);
     }
     if (command == "add-skybox") {
         return add_skybox(args);
@@ -392,6 +384,14 @@ int main(int argc, char **argv) {
     }
     if (command == "stat") {
         return stat(args);
+    }
+
+    bc7enc_compress_block_init();
+    rgbcx::init();
+    auto lut = load_lut(argv[0]);
+    MadLut::set_instance(&lut);
+    if (command == "add-gltf") {
+        return add_gltf(args);
     }
 
     vull::println("fatal: unknown command '{}'", command);
