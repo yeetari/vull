@@ -21,6 +21,7 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vpak/PackFile.hh>
@@ -76,8 +77,8 @@ int add(const Vector<StringView> &args) {
     bool fast = false;
     bool ultra = false;
     StringView vpak_path;
-    StringView input_path;
-    StringView entry_name;
+    Vector<Tuple<StringView, StringView>> inputs;
+    StringView next_input_path;
     for (const auto arg : vull::slice(args, 2u)) {
         if (arg == "--fast") {
             fast = true;
@@ -88,13 +89,11 @@ int add(const Vector<StringView> &args) {
             return EXIT_FAILURE;
         } else if (vpak_path.empty()) {
             vpak_path = arg;
-        } else if (input_path.empty()) {
-            input_path = arg;
-        } else if (entry_name.empty()) {
-            entry_name = arg;
+        } else if (next_input_path.empty()) {
+            next_input_path = arg;
         } else {
-            vull::println("fatal: unexpected argument {}", arg);
-            return EXIT_FAILURE;
+            inputs.push(vull::make_tuple(next_input_path, arg));
+            next_input_path = {};
         }
     }
 
@@ -107,14 +106,6 @@ int add(const Vector<StringView> &args) {
         vull::println("fatal: missing <vpak> argument");
         return EXIT_FAILURE;
     }
-    if (input_path.empty()) {
-        vull::println("fatal: missing <file> argument");
-        return EXIT_FAILURE;
-    }
-    if (entry_name.empty()) {
-        vull::println("fatal: missing <name> argument");
-        return EXIT_FAILURE;
-    }
 
     auto compression_level = vpak::CompressionLevel::Normal;
     if (fast) {
@@ -124,25 +115,25 @@ int add(const Vector<StringView> &args) {
         compression_level = vpak::CompressionLevel::Ultra;
     }
 
-    auto input_file_or_error = vull::open_file(input_path, OpenMode::Read);
-    if (input_file_or_error.is_error()) {
-        vull::println("fatal: failed to open input file {}", input_path);
-        return EXIT_FAILURE;
-    }
-    auto input_file = input_file_or_error.disown_value();
-    auto input_stream = input_file.create_stream();
-
     auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
     vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
+    for (auto [input_path, entry_name] : inputs) {
+        auto input_file_or_error = vull::open_file(input_path, OpenMode::Read);
+        if (input_file_or_error.is_error()) {
+            vull::println("fatal: failed to open input file {}", input_path);
+            return EXIT_FAILURE;
+        }
+        auto input_file = input_file_or_error.disown_value();
+        auto input_stream = input_file.create_stream();
 
-    auto entry_stream = pack_writer.start_entry(entry_name, vpak::EntryType::Blob);
-
-    Array<uint8_t, 128 * 1024> buffer;
-    size_t bytes_read = 0;
-    while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
-        VULL_EXPECT(entry_stream.write({buffer.data(), static_cast<uint32_t>(bytes_read)}));
+        auto entry_stream = pack_writer.start_entry(entry_name, vpak::EntryType::Blob);
+        Array<uint8_t, 128 * 1024> buffer;
+        size_t bytes_read;
+        while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
+            VULL_EXPECT(entry_stream.write({buffer.data(), static_cast<uint32_t>(bytes_read)}));
+        }
+        entry_stream.finish();
     }
-    entry_stream.finish();
     pack_writer.finish();
     return EXIT_SUCCESS;
 }
