@@ -17,6 +17,7 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Sampler.hh>
+#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -38,13 +39,15 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
     };
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_set_layout) == vkb::Result::Success);
 
+    auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.vert"));
+    auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.frag"));
     m_pipeline = vk::PipelineBuilder()
                      // TODO(swapchain-format): Don't hardcode format.
                      .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
                      .add_set_layout(default_renderer.main_set_layout())
                      .add_set_layout(m_set_layout)
-                     .add_shader(default_renderer.get_shader("skybox-vert"))
-                     .add_shader(default_renderer.get_shader("skybox-frag"))
+                     .add_shader(vertex_shader)
+                     .add_shader(fragment_shader)
                      .set_depth_format(vkb::Format::D32Sfloat)
                      .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, false)
                      .set_topology(vkb::PrimitiveTopology::TriangleList)

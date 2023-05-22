@@ -10,7 +10,6 @@ namespace vull::vk {
 
 class Context;
 class RenderGraph;
-class Shader;
 
 } // namespace vull::vk
 
@@ -26,7 +25,7 @@ class Renderer {
     Vec2f m_global_scale{96.0f / 2.54f};
 
 public:
-    Renderer(vk::Context &context, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader);
+    explicit Renderer(vk::Context &context);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();

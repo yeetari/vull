@@ -1,12 +1,20 @@
 #include <vull/vulkan/Shader.hh>
 
 #include <vull/container/Array.hh>
+#include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StreamError.hh>
+#include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
+#include <vull/vpak/FileSystem.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Spirv.hh>
 #include <vull/vulkan/Vulkan.hh>
@@ -279,6 +287,15 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
     }
     shader.set_module(module);
     return vull::move(shader);
+}
+
+Result<Shader, ShaderError, StreamError> Shader::load(const Context &context, StringView name) {
+    auto entry = vpak::stat(name);
+    auto stream = vpak::open(name);
+    VULL_ENSURE(entry && stream);
+    auto binary = FixedBuffer<uint8_t>::create_uninitialised(entry->size);
+    VULL_TRY(stream->read(binary.span().as<uint8_t, uint32_t>()));
+    return VULL_TRY(parse(context, binary.span().as<uint8_t, uint32_t>()));
 }
 
 Shader::Shader(Shader &&other) {

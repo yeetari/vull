@@ -92,8 +92,8 @@ struct Vertex {
 
 } // namespace
 
-DefaultRenderer::DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, vkb::Extent3D viewport_extent)
-    : m_context(context), m_viewport_extent(viewport_extent), m_shader_map(vull::move(shader_map)) {
+DefaultRenderer::DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent)
+    : m_context(context), m_viewport_extent(viewport_extent) {
     m_tile_extent = {
         .width = vull::ceil_div(m_viewport_extent.width, k_tile_size),
         .height = vull::ceil_div(m_viewport_extent.height, k_tile_size),
@@ -327,22 +327,25 @@ void DefaultRenderer::create_pipelines() {
         .pData = &late,
     };
 
+    auto gbuffer_vert = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/default.vert"));
+    auto gbuffer_frag = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/default.frag"));
     m_gbuffer_pipeline = vk::PipelineBuilder()
                              .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
                              .add_colour_attachment(vkb::Format::R16G16Snorm)
                              .add_set_layout(m_main_set_layout)
                              .add_set_layout(m_texture_set_layout)
-                             .add_shader(*m_shader_map.get("gbuffer-vert"), specialization_info)
-                             .add_shader(*m_shader_map.get("gbuffer-frag"), specialization_info)
+                             .add_shader(gbuffer_vert, specialization_info)
+                             .add_shader(gbuffer_frag, specialization_info)
                              .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                              .set_depth_format(vkb::Format::D32Sfloat)
                              .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
                              .set_topology(vkb::PrimitiveTopology::TriangleList)
                              .build(m_context);
 
+    auto shadow_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/shadow.vert"));
     m_shadow_pipeline = vk::PipelineBuilder()
                             .add_set_layout(m_main_set_layout)
-                            .add_shader(*m_shader_map.get("shadow"), specialization_info)
+                            .add_shader(shadow_shader, specialization_info)
                             .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                             .set_depth_bias(2.0f, 5.0f)
                             .set_depth_format(vkb::Format::D32Sfloat)
@@ -354,41 +357,45 @@ void DefaultRenderer::create_pipelines() {
                             .set_topology(vkb::PrimitiveTopology::TriangleList)
                             .build(m_context);
 
+    auto depth_reduce_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/depth_reduce.comp"));
     m_depth_reduce_pipeline = vk::PipelineBuilder()
                                   .add_set_layout(m_reduce_set_layout)
-                                  .add_shader(*m_shader_map.get("depth-reduce"))
+                                  .add_shader(depth_reduce_shader)
                                   .set_push_constant_range({
                                       .stageFlags = vkb::ShaderStage::Compute,
                                       .size = sizeof(DepthReduceData),
                                   })
                                   .build(m_context);
 
-    m_early_cull_pipeline = vk::PipelineBuilder()
-                                .add_set_layout(m_main_set_layout)
-                                .add_shader(*m_shader_map.get("draw-cull"))
-                                .build(m_context);
+    auto draw_cull_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/draw_cull.comp"));
+    m_early_cull_pipeline =
+        vk::PipelineBuilder().add_set_layout(m_main_set_layout).add_shader(draw_cull_shader).build(m_context);
 
     m_late_cull_pipeline = vk::PipelineBuilder()
                                .add_set_layout(m_main_set_layout)
-                               .add_shader(*m_shader_map.get("draw-cull"), late_specialization_info)
+                               .add_shader(draw_cull_shader, late_specialization_info)
                                .build(m_context);
 
+    auto light_cull_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/light_cull.comp"));
     m_light_cull_pipeline = vk::PipelineBuilder()
                                 .add_set_layout(m_main_set_layout)
-                                .add_shader(*m_shader_map.get("light-cull"), specialization_info)
+                                .add_shader(light_cull_shader, specialization_info)
                                 .build(m_context);
 
+    auto deferred_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/deferred.comp"));
     m_deferred_pipeline = vk::PipelineBuilder()
                               .add_set_layout(m_main_set_layout)
-                              .add_shader(*m_shader_map.get("deferred"), specialization_info)
+                              .add_shader(deferred_shader, specialization_info)
                               .build(m_context);
 
+    auto triangle_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/fst.vert"));
+    auto blit_tonemap_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/blit_tonemap.frag"));
     m_blit_tonemap_pipeline = vk::PipelineBuilder()
                                   // TODO(swapchain-format): Don't hardcode format.
                                   .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
                                   .add_set_layout(m_main_set_layout)
-                                  .add_shader(*m_shader_map.get("fst"))
-                                  .add_shader(*m_shader_map.get("blit-tonemap"))
+                                  .add_shader(triangle_shader)
+                                  .add_shader(blit_tonemap_shader)
                                   .set_topology(vkb::PrimitiveTopology::TriangleList)
                                   .build(m_context);
 }

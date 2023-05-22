@@ -6,6 +6,7 @@ project(vull ASM CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(VullModule)
+include(VullVpak)
 
 option(VULL_BUILD_GLTF "Build the vpak tool with glTF support" OFF)
 option(VULL_BUILD_PNG "Build the vpak tool with PNG support" OFF)
@@ -22,21 +23,23 @@ find_package(X11)
 find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
-function(target_add_shader target shader)
-    set(source ${CMAKE_CURRENT_SOURCE_DIR}/${shader})
-    set(output ${CMAKE_CURRENT_BINARY_DIR}/${shader}.spv)
-    cmake_path(GET output PARENT_PATH parent_dir)
+function(add_shader name)
+    set(source ${CMAKE_CURRENT_SOURCE_DIR}/${name})
+    set(binary ${CMAKE_CURRENT_BINARY_DIR}/${name}.spv)
     cmake_path(GET source EXTENSION extension)
     string(SUBSTRING ${extension} 1 -1 extension)
     string(TOUPPER ${extension} extension)
-    file(MAKE_DIRECTORY ${parent_dir})
+    cmake_path(GET binary PARENT_PATH binary_dir)
+    file(MAKE_DIRECTORY ${binary_dir})
     add_custom_command(
-        OUTPUT ${output}
-        COMMAND ${GLSLC} -MD -O -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${output}
+        OUTPUT ${binary}
+        COMMAND ${GLSLC} -MD -O -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${binary}
         DEPENDS ${source}
-        DEPFILE ${output}.d
+        DEPFILE ${binary}.d
         VERBATIM)
-    set_property(TARGET ${target} APPEND PROPERTY SOURCES ${output})
+
+    # TODO: This shouldn't be needed.
+    set_property(TARGET vull-vulkan APPEND PROPERTY SOURCES ${binary})
 endfunction()
 
 add_subdirectory(engine)

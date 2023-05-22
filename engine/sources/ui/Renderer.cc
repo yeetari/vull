@@ -4,6 +4,7 @@
 #include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/CommandList.hh>
 #include <vull/vulkan/CommandBuffer.hh>
@@ -15,14 +16,14 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Sampler.hh>
+#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context, const vk::Shader &vertex_shader, const vk::Shader &fragment_shader)
-    : m_context(context) {
+Renderer::Renderer(vk::Context &context) : m_context(context) {
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
@@ -63,6 +64,8 @@ Renderer::Renderer(vk::Context &context, const vk::Shader &vertex_shader, const 
         .colorWriteMask =
             vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
     };
+    auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/ui.vert"));
+    auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/ui.frag"));
     m_pipeline = vk::PipelineBuilder()
                      // TODO(swapchain-format): Don't hardcode format.
                      .add_colour_attachment(vkb::Format::B8G8R8A8Srgb, blend_state)

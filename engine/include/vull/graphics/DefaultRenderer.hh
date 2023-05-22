@@ -4,13 +4,11 @@
 #include <vull/container/HashMap.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/RenderGraphDefs.hh>
-#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -27,8 +25,6 @@ class Shader; // IWYU pragma: keep
 namespace vull {
 
 class Scene;
-
-using ShaderMap = HashMap<String, vk::Shader>;
 
 class DefaultRenderer {
     struct ShadowInfo {
@@ -51,7 +47,6 @@ class DefaultRenderer {
     vk::Context &m_context;
     vkb::Extent2D m_tile_extent{};
     vkb::Extent3D m_viewport_extent{};
-    ShaderMap m_shader_map;
 
     vkb::DescriptorSetLayout m_main_set_layout;
     vkb::DescriptorSetLayout m_texture_set_layout;
@@ -100,7 +95,7 @@ class DefaultRenderer {
     void update_cascades();
 
 public:
-    DefaultRenderer(vk::Context &context, ShaderMap &&shader_map, vkb::Extent3D viewport_extent);
+    DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent);
     DefaultRenderer(const DefaultRenderer &) = delete;
     DefaultRenderer(DefaultRenderer &&) = delete;
     ~DefaultRenderer();
@@ -115,8 +110,6 @@ public:
 
     // TODO: Remove.
     vkb::DescriptorSetLayout main_set_layout() const { return m_main_set_layout; }
-    vkb::Extent3D viewport_extent() const { return m_viewport_extent; }
-    vk::Shader &get_shader(const String &name) { return *m_shader_map.get(name); }
 };
 
 } // namespace vull

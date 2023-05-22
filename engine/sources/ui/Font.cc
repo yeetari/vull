@@ -1,6 +1,7 @@
 #include <vull/ui/Font.hh>
 
 #include <vull/container/Array.hh>
+#include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
@@ -8,8 +9,12 @@
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Mutex.hh>
+#include <vull/vpak/FileSystem.hh>
+#include <vull/vpak/PackFile.hh>
+#include <vull/vpak/Reader.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
 // IWYU pragma: no_include "freetype/config/ftheader.h"
@@ -17,6 +22,7 @@
 #include <freetype/freetype.h>
 #include <freetype/fterrors.h>
 #include <freetype/ftimage.h>
+#include <freetype/fttypes.h>
 #include <hb-ft.h>
 #include <hb.h>
 
@@ -35,23 +41,33 @@ ShapingView::~ShapingView() {
     hb_buffer_destroy(m_buffer);
 }
 
-Result<Font, FontLoadError> Font::load(StringView path, long size) {
+Result<Font, FontLoadError> Font::load(StringView name, long size) {
     FT_Library library;
     if (FT_Init_FreeType(&library) != FT_Err_Ok) {
         return FontLoadError::FreetypeError;
     }
 
+    auto entry = vpak::stat(name);
+    auto stream = vpak::open(name);
+    if (!entry || !stream) {
+        return FontLoadError::NotFound;
+    }
+
+    auto bytes = ByteBuffer::create_uninitialised(entry->size);
+    VULL_EXPECT(stream->read(bytes.span().as<uint8_t, uint32_t>()));
+
     FT_Face face;
-    if (FT_New_Face(library, path.data(), 0, &face) != FT_Err_Ok) {
+    if (FT_New_Memory_Face(library, bytes.data(), static_cast<FT_Long>(bytes.size()), 0, &face) != FT_Err_Ok) {
         return FontLoadError::FreetypeError;
     }
     if (FT_Set_Char_Size(face, size * 64l, 0, 0, 0) != FT_Err_Ok) {
         return FontLoadError::FreetypeError;
     }
-    return Font(library, face);
+    return Font(library, vull::move(bytes), face);
 }
 
-Font::Font(FT_Library library, FT_Face face) : m_library(library), m_hb_font(hb_ft_font_create_referenced(face)) {
+Font::Font(FT_Library library, ByteBuffer &&bytes, FT_Face face)
+    : m_library(library), m_bytes(vull::move(bytes)), m_hb_font(hb_ft_font_create_referenced(face)) {
     hb_ft_font_set_funcs(m_hb_font);
     m_glyph_cache.ensure_size(static_cast<uint32_t>(face->num_glyphs));
 }

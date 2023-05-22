@@ -52,12 +52,9 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
-#include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
-#include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 using namespace vull;
@@ -67,20 +64,6 @@ namespace vull::vk {
 class CommandBuffer;
 
 } // namespace vull::vk
-
-namespace {
-
-Vector<uint8_t> load(const char *path) {
-    FILE *file = fopen(path, "rb");
-    fseek(file, 0, SEEK_END);
-    Vector<uint8_t> binary(static_cast<uint32_t>(ftell(file)));
-    fseek(file, 0, SEEK_SET);
-    VULL_ENSURE(fread(binary.data(), 1, binary.size(), file) == binary.size());
-    fclose(file);
-    return binary;
-}
-
-} // namespace
 
 void vull_main(Vector<StringView> &&args) {
     if (args.size() < 2) {
@@ -111,35 +94,7 @@ void vull_main(Vector<StringView> &&args) {
     Scene scene(context);
     scene.load(scene_name);
 
-    auto blit_tonemap_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/blit_tonemap.frag.spv").span()));
-    auto default_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.vert.spv").span()));
-    auto default_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/default.frag.spv").span()));
-    auto deferred_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/deferred.comp.spv").span()));
-    auto depth_reduce_shader =
-        VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/depth_reduce.comp.spv").span()));
-    auto draw_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/draw_cull.comp.spv").span()));
-    auto fst_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/fst.vert.spv").span()));
-    auto light_cull_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/light_cull.comp.spv").span()));
-    auto shadow_shader = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/shadow.vert.spv").span()));
-    auto skybox_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/skybox.vert.spv").span()));
-    auto skybox_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/skybox.frag.spv").span()));
-    auto ui_vs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.vert.spv").span()));
-    auto ui_fs = VULL_EXPECT(vk::Shader::parse(context, load("engine/shaders/ui.frag.spv").span()));
-
-    ShaderMap shader_map;
-    shader_map.set("blit-tonemap", vull::move(blit_tonemap_fs));
-    shader_map.set("gbuffer-vert", vull::move(default_vs));
-    shader_map.set("gbuffer-frag", vull::move(default_fs));
-    shader_map.set("deferred", vull::move(deferred_shader));
-    shader_map.set("depth-reduce", vull::move(depth_reduce_shader));
-    shader_map.set("draw-cull", vull::move(draw_cull_shader));
-    shader_map.set("fst", vull::move(fst_vs));
-    shader_map.set("light-cull", vull::move(light_cull_shader));
-    shader_map.set("shadow", vull::move(shadow_shader));
-    shader_map.set("skybox-vert", vull::move(skybox_vs));
-    shader_map.set("skybox-frag", vull::move(skybox_fs));
-
-    DefaultRenderer default_renderer(context, vull::move(shader_map), swapchain.extent_3D());
+    DefaultRenderer default_renderer(context, swapchain.extent_3D());
     default_renderer.load_scene(scene);
 
     SkyboxRenderer skybox_renderer(context, default_renderer);
@@ -149,12 +104,12 @@ void vull_main(Vector<StringView> &&args) {
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
-    ui::Renderer ui_renderer(context, ui_vs, ui_fs);
+    ui::Renderer ui_renderer(context);
     ui::TimeGraph cpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.4f, 0.6f, 0.5f));
     ui::TimeGraph gpu_time_graph(Vec2f(7.5f, 4.5f), Vec3f(0.8f, 0.5f, 0.7f));
     ui_renderer.set_global_scale(window.ppcm());
 
-    auto font = VULL_EXPECT(ui::Font::load("../engine/fonts/Inter-Medium.otf", 18));
+    auto font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
     ui::FontAtlas atlas(context, Vec2u(1024, 1024));
 
     auto &world = scene.world();

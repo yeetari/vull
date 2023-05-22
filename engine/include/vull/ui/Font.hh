@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh> // IWYU pragma: keep
@@ -23,6 +24,7 @@ namespace vull::ui {
 
 enum class FontLoadError {
     FreetypeError,
+    NotFound,
 };
 
 struct GlyphInfo {
@@ -78,18 +80,19 @@ public:
 
 class Font {
     FT_Library m_library;
+    ByteBuffer m_bytes;
     hb_font_t *m_hb_font;
     mutable Vector<Optional<GlyphInfo>> m_glyph_cache;
     mutable Mutex m_mutex;
 
 public:
-    static Result<Font, FontLoadError> load(StringView path, long size);
+    static Result<Font, FontLoadError> load(StringView name, long size);
 
-    Font(FT_Library library, FT_Face face);
+    Font(FT_Library library, ByteBuffer &&bytes, FT_Face face);
     Font(const Font &) = delete;
     Font(Font &&other)
-        : m_library(vull::exchange(other.m_library, nullptr)), m_hb_font(vull::exchange(other.m_hb_font, nullptr)),
-          m_glyph_cache(vull::move(other.m_glyph_cache)) {}
+        : m_library(vull::exchange(other.m_library, nullptr)), m_bytes(vull::move(other.m_bytes)),
+          m_hb_font(vull::exchange(other.m_hb_font, nullptr)), m_glyph_cache(vull::move(other.m_glyph_cache)) {}
     ~Font();
 
     Font &operator=(const Font &) = delete;

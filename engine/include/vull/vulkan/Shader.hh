@@ -3,6 +3,8 @@
 #include <vull/container/Vector.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StreamError.hh>
+#include <vull/support/StringView.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -38,7 +40,7 @@ class Shader {
 
 public:
     static Result<Shader, ShaderError> parse(const Context &context, Span<const uint8_t> data);
-    Shader() = default; // TODO: Only needed for (bad) HashSet implementation.
+    static Result<Shader, ShaderError, StreamError> load(const Context &context, StringView name);
     Shader(const Shader &) = delete;
     Shader(Shader &&);
     ~Shader();

@@ -12,20 +12,37 @@ add_subdirectory(sources)
 target_include_directories(vull-core PUBLIC include)
 target_include_directories(vull-script PRIVATE sources)
 
-# Default shaders.
-target_add_shader(vull-graphics shaders/blit_tonemap.frag)
-target_add_shader(vull-graphics shaders/default.frag)
-target_add_shader(vull-graphics shaders/default.vert)
-target_add_shader(vull-graphics shaders/deferred.comp)
-target_add_shader(vull-graphics shaders/depth_reduce.comp)
-target_add_shader(vull-graphics shaders/draw_cull.comp)
-target_add_shader(vull-graphics shaders/fst.vert)
-target_add_shader(vull-graphics shaders/light_cull.comp)
-target_add_shader(vull-graphics shaders/shadow.vert)
-target_add_shader(vull-graphics shaders/skybox.frag)
-target_add_shader(vull-graphics shaders/skybox.vert)
-target_add_shader(vull-graphics shaders/ui.frag)
-target_add_shader(vull-graphics shaders/ui.vert)
+add_shader(shaders/blit_tonemap.frag)
+add_shader(shaders/default.frag)
+add_shader(shaders/default.vert)
+add_shader(shaders/deferred.comp)
+add_shader(shaders/depth_reduce.comp)
+add_shader(shaders/draw_cull.comp)
+add_shader(shaders/fst.vert)
+add_shader(shaders/light_cull.comp)
+add_shader(shaders/shadow.vert)
+add_shader(shaders/skybox.frag)
+add_shader(shaders/skybox.vert)
+add_shader(shaders/ui.frag)
+add_shader(shaders/ui.vert)
+
+function(vull_depend_builtin target)
+    target_add_vpak(${target} builtin.vpak
+        ${CMAKE_SOURCE_DIR}/engine/fonts/Inter-Medium.otf /fonts/Inter-Medium
+        ${CMAKE_BINARY_DIR}/engine/shaders/blit_tonemap.frag.spv /shaders/blit_tonemap.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/default.frag.spv /shaders/default.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/default.vert.spv /shaders/default.vert
+        ${CMAKE_BINARY_DIR}/engine/shaders/deferred.comp.spv /shaders/deferred.comp
+        ${CMAKE_BINARY_DIR}/engine/shaders/depth_reduce.comp.spv /shaders/depth_reduce.comp
+        ${CMAKE_BINARY_DIR}/engine/shaders/draw_cull.comp.spv /shaders/draw_cull.comp
+        ${CMAKE_BINARY_DIR}/engine/shaders/fst.vert.spv /shaders/fst.vert
+        ${CMAKE_BINARY_DIR}/engine/shaders/light_cull.comp.spv /shaders/light_cull.comp
+        ${CMAKE_BINARY_DIR}/engine/shaders/shadow.vert.spv /shaders/shadow.vert
+        ${CMAKE_BINARY_DIR}/engine/shaders/skybox.frag.spv /shaders/skybox.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/skybox.vert.spv /shaders/skybox.vert
+        ${CMAKE_BINARY_DIR}/engine/shaders/ui.frag.spv /shaders/ui.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/ui.vert.spv /shaders/ui.vert)
+endfunction()
 
 if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
@@ -34,10 +51,10 @@ if(VULL_BUILD_TESTS)
     target_link_libraries(vull-tests PRIVATE vull::core vull::json)
 
     add_custom_command(TARGET vull-tests
-            POST_BUILD
-            COMMAND "${CMAKE_COMMAND}"
-              -D "\"TEST_EXECUTABLE:FILEPATH=$<TARGET_FILE:vull-tests>\""
-              -P \"${CMAKE_SOURCE_DIR}/cmake/VullAddTests.cmake\"
-            BYPRODUCTS vull_tests.cmake)
+        POST_BUILD
+        COMMAND "${CMAKE_COMMAND}"
+        -D "\"TEST_EXECUTABLE:FILEPATH=$<TARGET_FILE:vull-tests>\""
+        -P \"${CMAKE_SOURCE_DIR}/cmake/VullAddTests.cmake\"
+        BYPRODUCTS vull_tests.cmake)
     set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES vull_tests.cmake)
 endif()
