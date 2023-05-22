@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/Span.hh>
 #include <vull/support/Utility.hh>
 
 #include <stddef.h>
@@ -47,6 +48,8 @@ public:
     size_t size() const { return m_size; }
     size_t size_bytes() const { return m_size * sizeof(T); }
 };
+
+using ByteBuffer = FixedBuffer<uint8_t>;
 
 template <TriviallyCopyable T>
 FixedBuffer<T> &FixedBuffer<T>::operator=(FixedBuffer &&other) {
