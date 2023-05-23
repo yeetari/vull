@@ -55,6 +55,11 @@ struct Stream {
     template <Integral T>
     Result<void, StreamError> write_be(T value);
 
+    template <Integral T>
+    Result<T, StreamError> read_le();
+    template <Integral T>
+    Result<void, StreamError> write_le(T value);
+
     template <UnsignedIntegral T>
     Result<T, StreamError> read_varint();
     template <UnsignedIntegral T>
@@ -85,6 +90,32 @@ Result<void, StreamError> Stream::write_be(T value) {
     Array<uint8_t, sizeof(T)> bytes;
     for (uint32_t i = 0; i < sizeof(T); i++) {
         const auto shift = (sizeof(T) - i - 1) * T(8);
+        bytes[i] = static_cast<uint8_t>((value >> shift) & 0xffu);
+    }
+    VULL_TRY(write(bytes.span()));
+    return {};
+}
+
+template <Integral T>
+Result<T, StreamError> Stream::read_le() {
+    Array<uint8_t, sizeof(T)> bytes;
+    if (VULL_TRY(read(bytes.span())) != sizeof(T)) {
+        return StreamError::Truncated;
+    }
+
+    T value = 0;
+    for (uint32_t i = 0; i < sizeof(T); i++) {
+        const auto shift = i * T(8);
+        value |= static_cast<T>(bytes[i]) << shift;
+    }
+    return value;
+}
+
+template <Integral T>
+Result<void, StreamError> Stream::write_le(T value) {
+    Array<uint8_t, sizeof(T)> bytes;
+    for (uint32_t i = 0; i < sizeof(T); i++) {
+        const auto shift = i * T(8);
         bytes[i] = static_cast<uint8_t>((value >> shift) & 0xffu);
     }
     VULL_TRY(write(bytes.span()));
