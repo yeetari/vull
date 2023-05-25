@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Union.hh>
 #include <vull/support/Utility.hh>
 
@@ -32,13 +33,13 @@ private:
         return true;
     }
 
-    template <typename T>
-    bool maybe_move(Variant &from) {
-        if (from.m_index != index_of<T>()) {
+    template <typename T, typename... Us>
+    bool maybe_move(Variant<Us...> &from) {
+        if (!from.template has<T>()) {
             return false;
         }
-        m_union.template set<T>(move(from.m_union.template get<T>()));
-        m_index = from.m_index;
+        m_union.template set<T>(vull::move(from.m_union.template get<T>()));
+        m_index = index_of<T>();
         return true;
     }
 
@@ -78,7 +79,8 @@ public:
     template <ContainsType<Ts...> T>
     Variant(T &&value) : m_union(move(value)), m_index(index_of<T>()) {} // NOLINT
     Variant(const Variant &) = delete;
-    Variant(Variant &&);
+    template <ContainsType<Ts...>... Us>
+    Variant(Variant<Us...> &&);
     ~Variant();
 
     Variant &operator=(const Variant &) = delete;
@@ -88,12 +90,17 @@ public:
     auto downcast() const;
 
     template <ContainsType<Ts...> T>
+    bool has() const;
+
+    template <ContainsType<Ts...> T>
     T &get();
     template <ContainsType<Ts...> T>
     const T &get() const;
 
     template <ContainsType<Ts...> T>
-    bool has() const;
+    Optional<T &> try_get();
+    template <ContainsType<Ts...> T>
+    Optional<const T &> try_get() const;
 
     template <ContainsType<Ts...> T>
     void set(const T &value);
@@ -104,8 +111,9 @@ public:
 };
 
 template <typename... Ts>
-Variant<Ts...>::Variant(Variant &&other) {
-    (maybe_move<Ts>(other) || ...);
+template <ContainsType<Ts...>... Us>
+Variant<Ts...>::Variant(Variant<Us...> &&other) {
+    (maybe_move<Us, Us...>(other) || ...);
 }
 
 template <typename... Ts>
@@ -130,22 +138,34 @@ auto Variant<Ts...>::downcast() const {
 
 template <typename... Ts>
 template <ContainsType<Ts...> T>
+bool Variant<Ts...>::has() const {
+    return m_index == index_of<T>();
+}
+
+template <typename... Ts>
+template <ContainsType<Ts...> T>
 T &Variant<Ts...>::get() {
-    VULL_ASSERT(m_index == index_of<T>());
+    VULL_ASSERT(has<T>());
     return m_union.template get<T>();
 }
 
 template <typename... Ts>
 template <ContainsType<Ts...> T>
 const T &Variant<Ts...>::get() const {
-    VULL_ASSERT(m_index == index_of<T>());
+    VULL_ASSERT(has<T>());
     return m_union.template get<T>();
 }
 
 template <typename... Ts>
 template <ContainsType<Ts...> T>
-bool Variant<Ts...>::has() const {
-    return m_index == index_of<T>();
+Optional<T &> Variant<Ts...>::try_get() {
+    return has<T>() ? m_union.template get<T>() : Optional<T &>();
+}
+
+template <typename... Ts>
+template <ContainsType<Ts...> T>
+Optional<const T &> Variant<Ts...>::try_get() const {
+    return has<T>() ? m_union.template get<T>() : Optional<const T &>();
 }
 
 template <typename... Ts>
