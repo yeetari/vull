@@ -209,5 +209,4 @@ constexpr T square_magnitude(const Vec<T, L> &vec) {
 
 } // namespace vull
 
-#include "VecSimd.in"
 #undef ENUMERATE_OPS
