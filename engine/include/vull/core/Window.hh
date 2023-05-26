@@ -6,10 +6,12 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Function.hh>
 #include <vull/vulkan/Swapchain.hh>
+#include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
-#include <xcb/xcb.h>
-#include <xcb/xproto.h>
+// IWYU pragma: no_include <xcb/xproto.h>
+
+using xcb_intern_atom_reply_t = struct xcb_intern_atom_reply_t;
 
 namespace vull::vk {
 
