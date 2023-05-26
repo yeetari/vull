@@ -44,6 +44,24 @@ function(vull_depend_builtin target)
         ${CMAKE_BINARY_DIR}/engine/shaders/ui.vert.spv /shaders/ui.vert)
 endfunction()
 
+set_target_properties(vull-vulkan PROPERTIES
+    UNITY_BUILD ON
+    UNITY_BUILD_MODE GROUP)
+set_source_files_properties(
+    sources/vulkan/Buffer.cc
+    sources/vulkan/CommandBuffer.cc
+    sources/vulkan/DescriptorBuilder.cc
+    sources/vulkan/Fence.cc
+    sources/vulkan/Image.cc
+    sources/vulkan/Pipeline.cc
+    sources/vulkan/QueryPool.cc
+    sources/vulkan/Queue.cc
+    sources/vulkan/Semaphore.cc
+    sources/vulkan/Shader.cc
+    sources/vulkan/Swapchain.cc
+    PROPERTIES UNITY_GROUP "vulkan-wrappers"
+)
+
 if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
     add_subdirectory(tests)
