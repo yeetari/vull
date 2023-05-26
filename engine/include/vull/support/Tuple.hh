@@ -2,10 +2,6 @@
 
 #include <vull/support/Utility.hh>
 
-#if __has_include(<utility>)
-#include <utility>
-#endif
-
 #include <stddef.h>
 
 namespace vull {
@@ -59,14 +55,10 @@ constexpr auto make_tuple(Ts &&...ts) {
 
 namespace std {
 
-#if !__has_include(<utility>)
-
 template <size_t I, typename T>
 struct tuple_element;
 template <typename T>
 struct tuple_size;
-
-#endif
 
 template <size_t I, typename... Ts>
 struct tuple_element<I, vull::Tuple<Ts...>> {
