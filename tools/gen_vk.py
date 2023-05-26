@@ -426,8 +426,12 @@ with open('../engine/include/vull/vulkan/Vulkan.hh', 'w') as file:
 // NOLINTBEGIN
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
-#include <xcb/xcb.h>
+
+using xcb_connection_t = struct xcb_connection_t;
+using xcb_window_t = uint32_t;
+using xcb_visualid_t = uint32_t;
 
 namespace vull::vkb {
 
