@@ -9,6 +9,7 @@
 
 namespace vull {
 
+// NOLINTBEGIN(cppcoreguidelines-special-member-functions)
 template <typename... Ts>
 class Variant {
     static_assert(sizeof...(Ts) < 255, "Variant too large");
@@ -109,6 +110,7 @@ public:
 
     uint8_t index() const { return m_index; }
 };
+// NOLINTEND(cppcoreguidelines-special-member-functions)
 
 template <typename... Ts>
 template <ContainsType<Ts...>... Us>
