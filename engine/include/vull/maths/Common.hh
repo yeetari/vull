@@ -2,8 +2,6 @@
 
 #include <vull/support/Assert.hh>
 
-#include <math.h>
-
 namespace vull {
 
 template <typename T>
@@ -112,47 +110,47 @@ constexpr T align_up(T value, T alignment) {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-constexpr float exp(float x) {
-    return ::expf(x);
+inline float exp(float x) {
+    return __builtin_expf(x);
 }
 
-constexpr float fmod(float x, float y) {
-    return ::fmodf(x, y);
+inline float fmod(float x, float y) {
+    return __builtin_fmodf(x, y);
 }
 
-constexpr float sin(float angle) {
-    return ::sinf(angle);
+inline float sin(float angle) {
+    return __builtin_sinf(angle);
 }
 
-constexpr float cos(float angle) {
-    return ::cosf(angle);
+inline float cos(float angle) {
+    return __builtin_cosf(angle);
 }
 
-constexpr float tan(float angle) {
-    return ::tanf(angle);
+inline float tan(float angle) {
+    return __builtin_tanf(angle);
 }
 
-constexpr float ceil(float x) {
-    return ::ceilf(x);
+inline float ceil(float x) {
+    return __builtin_ceilf(x);
 }
 
-constexpr float floor(float x) {
-    return ::floorf(x);
+inline float floor(float x) {
+    return __builtin_floorf(x);
 }
 
-constexpr float round(float x) {
-    return ::roundf(x);
+inline float round(float x) {
+    return __builtin_roundf(x);
 }
 
-constexpr float sqrt(float x) {
-    return ::sqrtf(x);
+inline float sqrt(float x) {
+    return __builtin_sqrtf(x);
 }
 
-constexpr float pow(float x, float y) {
-    return ::powf(x, y);
+inline float pow(float x, float y) {
+    return __builtin_powf(x, y);
 }
 
-constexpr float hypot(float a, float b) {
+inline float hypot(float a, float b) {
     return sqrt(a * a + b * b);
 }
 

@@ -2,8 +2,6 @@
 
 #include <vull/support/Optional.hh>
 
-#include <cmath>
-
 namespace vull {
 
 template <typename Derived, typename TokenType>
@@ -75,7 +73,7 @@ double LexerBase<Derived, TokenType>::parse_double(auto ch) {
         exponent = exponent * 10 + static_cast<unsigned>(ch - '0');
         derived().skip_char();
     }
-    value *= ::pow(10, negative_exponent ? -exponent : exponent);
+    value *= __builtin_pow(10, negative_exponent ? -exponent : exponent);
     return value;
 }
 
