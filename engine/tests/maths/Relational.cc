@@ -26,6 +26,14 @@ TEST_SUITE(Relational, {
         EXPECT(vull::any(Vec<bool, 2>(true, false)));
     }
 
+    TEST_CASE(Select) {
+        auto vec = vull::select(Vec4u(1, 2, 3, 4), Vec4u(5, 6, 7, 8), Vec<bool, 4>(false, true, false, true));
+        EXPECT(vec.x() == 1);
+        EXPECT(vec.y() == 6);
+        EXPECT(vec.z() == 3);
+        EXPECT(vec.w() == 8);
+    }
+
     TEST_CASE(Equal_Neither) {
         auto vec = vull::equal(Vec2u(5, 10), Vec2u(15, 20));
         EXPECT(!vec.x() && !vec.y());

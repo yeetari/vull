@@ -22,6 +22,15 @@ constexpr bool any(const Vec<bool, L> &vec) {
     return ret;
 }
 
+template <typename T, unsigned L>
+constexpr Vec<T, L> select(const Vec<T, L> &lhs, const Vec<T, L> &rhs, const Vec<bool, L> &cond) {
+    Vec<T, L> ret;
+    for (unsigned i = 0; i < L; i++) {
+        ret[i] = cond[i] ? rhs[i] : lhs[i];
+    }
+    return ret;
+}
+
 #define DEFINE_CMP(name, op)                                                                                           \
     template <typename T, unsigned L>                                                                                  \
     constexpr Vec<bool, L> name(const Vec<T, L> &lhs, const Vec<T, L> &rhs) {                                          \
