@@ -4,6 +4,7 @@ target_sources(vull-tests PRIVATE
     ecs/Entity.cc
     json/Lexer.cc
     json/Parser.cc
+    maths/Colour.cc
     maths/Epsilon.cc
     maths/Relational.cc
     support/Enum.cc

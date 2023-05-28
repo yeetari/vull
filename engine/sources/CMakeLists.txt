@@ -3,6 +3,7 @@ target_sources(vull-core PRIVATE
     core/Transform.cc
     ecs/Entity.cc
     ecs/World.cc
+    maths/Colour.cc
     maths/Random.cc
     platform/Linux.cc
     support/Assert.cc
