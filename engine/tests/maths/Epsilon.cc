@@ -24,17 +24,21 @@ TEST_SUITE(Epsilon, {
     }
 
     TEST_CASE(Small) {
+        EXPECT(!vull::fuzzy_equal(0.0001f, 0.0002f));
+        EXPECT(!vull::fuzzy_equal(0.0002f, 0.0001f));
         EXPECT(vull::fuzzy_equal(0.000000001000001f, 0.000000001000002f));
         EXPECT(vull::fuzzy_equal(0.000000001000002f, 0.000000001000001f));
-        EXPECT(!vull::fuzzy_equal(0.000000000001002f, 0.000000000001001f));
-        EXPECT(!vull::fuzzy_equal(0.000000000001001f, 0.000000000001002f));
+        EXPECT(vull::fuzzy_equal(0.000000000001002f, 0.000000000001001f));
+        EXPECT(vull::fuzzy_equal(0.000000000001001f, 0.000000000001002f));
     }
 
     TEST_CASE(SmallNegative) {
+        EXPECT(!vull::fuzzy_equal(-0.0001f, -0.0002f));
+        EXPECT(!vull::fuzzy_equal(-0.0002f, -0.0001f));
         EXPECT(vull::fuzzy_equal(-0.000000001000001f, -0.000000001000002f));
         EXPECT(vull::fuzzy_equal(-0.000000001000002f, -0.000000001000001f));
-        EXPECT(!vull::fuzzy_equal(-0.000000000001002f, -0.000000000001001f));
-        EXPECT(!vull::fuzzy_equal(-0.000000000001001f, -0.000000000001002f));
+        EXPECT(vull::fuzzy_equal(-0.000000000001002f, -0.000000000001001f));
+        EXPECT(vull::fuzzy_equal(-0.000000000001001f, -0.000000000001002f));
     }
 
     TEST_CASE(NearOne) {
@@ -63,12 +67,19 @@ TEST_SUITE(Epsilon, {
         EXPECT(!vull::fuzzy_equal(FLT_MAX, FLT_MAX / 2));
         EXPECT(!vull::fuzzy_equal(FLT_MAX, -FLT_MAX / 2));
         EXPECT(!vull::fuzzy_equal(-FLT_MAX, FLT_MAX / 2));
+
+        EXPECT(!vull::fuzzy_zero(FLT_MAX));
+        EXPECT(!vull::fuzzy_zero(-FLT_MAX));
     }
 
     TEST_CASE(NearZero) {
+        EXPECT(vull::fuzzy_equal(0.0f, 0.0f));
         EXPECT(vull::fuzzy_equal(0.0f, -0.0f));
-        EXPECT(!vull::fuzzy_equal(0.00000001f, 0.0f));
-        EXPECT(!vull::fuzzy_equal(-0.00000001f, 0.0f));
+        EXPECT(vull::fuzzy_equal(-0.0f, -0.0f));
+        EXPECT(vull::fuzzy_equal(0.00000001f, 0.0f));
+        EXPECT(vull::fuzzy_equal(-0.00000001f, 0.0f));
+        EXPECT(vull::fuzzy_equal(FLT_MIN, 0.0f));
+        EXPECT(vull::fuzzy_equal(FLT_EPSILON, 0.0f));
 
         EXPECT(vull::fuzzy_zero(0.0f));
         EXPECT(vull::fuzzy_zero(-0.0f));
