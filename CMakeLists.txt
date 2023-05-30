@@ -42,6 +42,7 @@ function(add_shader name)
     set_property(TARGET vull-vulkan APPEND PROPERTY SOURCES ${binary})
 endfunction()
 
+add_subdirectory(docs)
 add_subdirectory(engine)
 if(VULL_BUILD_SANDBOX)
     add_subdirectory(sandbox)
