@@ -14,7 +14,6 @@ class Colour {
 public:
     /**
      * Creates a colour from RGB(A) components in linear space.
-     *
      * @param r red
      * @param g green
      * @param b blue
@@ -33,7 +32,6 @@ public:
 
     /**
      * Creates a colour from RGB(A) components in the sRGB colour space.
-     *
      * @param r red
      * @param g green
      * @param b blue
@@ -45,7 +43,6 @@ public:
 
     /**
      * Creates a colour from HSL(A) components, assumed to be in the sRGB colour space.
-     *
      * @param h hue
      * @param s saturation
      * @param l lightness
@@ -57,7 +54,6 @@ public:
 
     /**
      * Generates a random colour.
-     *
      * @return a Colour in linear space
      */
     static Colour make_random();
