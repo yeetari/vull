@@ -37,11 +37,11 @@ class Window {
 
     HashMap<Key, Function<KeyCallback>> m_key_press_callbacks;
     HashMap<Key, Function<KeyCallback>> m_key_release_callbacks;
-    HashMap<Button, Function<MouseCallback>> m_mouse_press_callbacks;
-    HashMap<Button, Function<MouseCallback>> m_mouse_release_callbacks;
+    HashMap<MouseButton, Function<MouseCallback>> m_mouse_press_callbacks;
+    HashMap<MouseButton, Function<MouseCallback>> m_mouse_release_callbacks;
     Function<MouseMoveCallback> m_mouse_move_callback;
 
-    ButtonMask m_buttons;
+    MouseButtonMask m_buttons;
     Array<bool, static_cast<uint8_t>(Key::Count)> m_keys{};
     bool m_should_close{false};
 
@@ -62,19 +62,21 @@ public:
     void hide_cursor();
     void show_cursor();
     void poll_events();
-    bool is_button_pressed(Button button) const;
+    bool is_button_pressed(MouseButton button) const;
     bool is_key_pressed(Key key) const;
 
     void on_key_press(Key key, Function<KeyCallback> &&callback);
     void on_key_release(Key key, Function<KeyCallback> &&callback);
-    void on_mouse_press(Button button, Function<MouseCallback> &&callback);
-    void on_mouse_release(Button button, Function<MouseCallback> &&callback);
+    void on_mouse_press(MouseButton button, Function<MouseCallback> &&callback);
+    void on_mouse_release(MouseButton button, Function<MouseCallback> &&callback);
     void on_mouse_move(Function<MouseMoveCallback> &&callback);
 
     float aspect_ratio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
     Vec2f ppcm() const { return m_ppcm; }
     uint32_t width() const { return m_width; }
     uint32_t height() const { return m_height; }
+    Vec2u mouse_position() const { return {m_mouse_x, m_mouse_y}; }
+    bool cursor_hidden() const { return m_cursor_hidden; }
     bool should_close() const { return m_should_close; }
 };
 

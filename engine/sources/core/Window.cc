@@ -178,16 +178,16 @@ void Window::show_cursor() {
     xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &cursor);
 }
 
-static ButtonMask translate_button(uint8_t button) {
+static MouseButtonMask translate_button(uint8_t button) {
     switch (button) {
     case XCB_BUTTON_INDEX_1:
-        return ButtonMask::Left;
+        return MouseButtonMask::Left;
     case XCB_BUTTON_INDEX_2:
-        return ButtonMask::Middle;
+        return MouseButtonMask::Middle;
     case XCB_BUTTON_INDEX_3:
-        return ButtonMask::Right;
+        return MouseButtonMask::Right;
     default:
-        return ButtonMask::None;
+        return MouseButtonMask::None;
     }
 }
 
@@ -242,7 +242,7 @@ void Window::poll_events() {
         case XCB_BUTTON_RELEASE: {
             const auto *mouse_event = reinterpret_cast<xcb_button_press_event_t *>(event);
             const auto button = translate_button(mouse_event->detail);
-            m_buttons ^= (-ButtonMask(event_id == XCB_BUTTON_PRESS) ^ m_buttons) & button;
+            m_buttons ^= (-MouseButtonMask(event_id == XCB_BUTTON_PRESS) ^ m_buttons) & button;
 
             Vec2f position(m_mouse_x, m_mouse_y);
             if (event_id == XCB_BUTTON_PRESS && m_mouse_press_callbacks.contains(button)) {
@@ -295,8 +295,8 @@ void Window::poll_events() {
     }
 }
 
-bool Window::is_button_pressed(Button button) const {
-    return (m_buttons & button) != ButtonMask::None;
+bool Window::is_button_pressed(MouseButton button) const {
+    return (m_buttons & button) != MouseButtonMask::None;
 }
 
 bool Window::is_key_pressed(Key key) const {
@@ -311,11 +311,11 @@ void Window::on_key_release(Key key, Function<KeyCallback> &&callback) {
     m_key_release_callbacks.set(key, vull::move(callback));
 }
 
-void Window::on_mouse_press(Button button, Function<MouseCallback> &&callback) {
+void Window::on_mouse_press(MouseButton button, Function<MouseCallback> &&callback) {
     m_mouse_press_callbacks.set(button, vull::move(callback));
 }
 
-void Window::on_mouse_release(Button button, Function<MouseCallback> &&callback) {
+void Window::on_mouse_release(MouseButton button, Function<MouseCallback> &&callback) {
     m_mouse_release_callbacks.set(button, vull::move(callback));
 }
 

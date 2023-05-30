@@ -149,14 +149,14 @@ void vull_main(Vector<StringView> &&args) {
     });
 
     bool mouse_visible = false;
-    window.on_mouse_release(Button::Middle, [&](Vec2f) {
+    window.on_mouse_release(MouseButton::Middle, [&](Vec2f) {
         mouse_visible = !mouse_visible;
         mouse_visible ? window.show_cursor() : window.hide_cursor();
     });
 
     float camera_pitch = 0.0f;
     float camera_yaw = 0.0f;
-    window.on_mouse_move([&](Vec2f delta, Vec2f, ButtonMask) {
+    window.on_mouse_move([&](Vec2f delta, Vec2f, MouseButtonMask) {
         if (free_camera_active) {
             free_camera.handle_mouse_move(delta);
             return;
@@ -183,7 +183,7 @@ void vull_main(Vector<StringView> &&args) {
         float dt = frame_timer.elapsed();
         frame_timer.reset();
 
-        if (window.is_button_pressed(Button::Right)) {
+        if (window.is_button_pressed(MouseButton::Right)) {
             dt /= 5.0f;
         }
 
@@ -243,7 +243,7 @@ void vull_main(Vector<StringView> &&args) {
         }
 
         // Player shooting.
-        if (window.is_button_pressed(Button::Left) && fire_time >= 0.1f) {
+        if (window.is_button_pressed(MouseButton::Left) && fire_time >= 0.1f) {
             constexpr float bullet_mass = 0.2f;
             const auto spawn_point = Vec3f(0.0f, 1.0f, 0.0f) + view_forward * 2.0f;
             auto box = world.create_entity();
