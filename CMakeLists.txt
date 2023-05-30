@@ -2,7 +2,7 @@
 # >= 3.21 required for DEPFILE support with the Visual Studio generator
 # >= 3.24 required for the X11::xcb_randr target
 cmake_minimum_required(VERSION 3.24)
-project(vull ASM CXX)
+project(vull VERSION 0.1.0 LANGUAGES ASM CXX)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(VullModule)
