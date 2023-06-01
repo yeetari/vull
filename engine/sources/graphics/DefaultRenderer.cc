@@ -447,10 +447,10 @@ void DefaultRenderer::load_scene(Scene &scene) {
         }
 
         auto vertex_entry = *vpak::stat(mesh.vertex_data_name());
-        auto vertex_stream = *vpak::open(mesh.vertex_data_name());
+        auto vertex_stream = vpak::open(mesh.vertex_data_name());
         auto staging_buffer =
             m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(vertex_stream.read({staging_buffer.mapped_raw(), vertex_entry.size}));
+        VULL_EXPECT(vertex_stream->read({staging_buffer.mapped_raw(), vertex_entry.size}));
 
         m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
             vkb::BufferCopy copy{
@@ -462,10 +462,10 @@ void DefaultRenderer::load_scene(Scene &scene) {
         vertex_buffer_offset += vertex_entry.size;
 
         auto index_entry = *vpak::stat(mesh.index_data_name());
-        auto index_stream = *vpak::open(mesh.index_data_name());
+        auto index_stream = vpak::open(mesh.index_data_name());
         staging_buffer =
             m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(index_stream.read({staging_buffer.mapped_raw(), index_entry.size}));
+        VULL_EXPECT(index_stream->read({staging_buffer.mapped_raw(), index_entry.size}));
 
         m_context.graphics_queue().immediate_submit([&](vk::CommandBuffer &cmd_buf) {
             vkb::BufferCopy copy{

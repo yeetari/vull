@@ -14,6 +14,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+using ZSTD_DCtx = struct ZSTD_DCtx_s;
+
 namespace vull {
 
 class File;
@@ -27,9 +29,17 @@ class ReadStream final : public Stream {
     size_t m_block_start;
     size_t m_compressed_size{0};
     size_t m_offset{0};
+    ZSTD_DCtx *m_dctx{nullptr};
+    uint8_t *m_buffer{nullptr};
 
 public:
     ReadStream(LargeSpan<uint8_t> data, size_t first_block);
+    ReadStream(const ReadStream &) = delete;
+    ReadStream(ReadStream &&) = delete;
+    ~ReadStream() override;
+
+    ReadStream &operator=(const ReadStream &) = delete;
+    ReadStream &operator=(ReadStream &&) = delete;
 
     // TODO: override read_byte for a faster path.
     Result<size_t, StreamError> read(Span<void> data) override;

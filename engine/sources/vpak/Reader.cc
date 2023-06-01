@@ -26,26 +26,49 @@
 namespace vull::vpak {
 namespace {
 
-VULL_GLOBAL(thread_local ZSTD_DCtx *s_dctx = nullptr);
-VULL_GLOBAL(thread_local uint8_t *s_dbuffer = nullptr);
-VULL_GLOBAL(thread_local struct ThreadDestructor { // NOLINT
-    ~ThreadDestructor() {
-        delete[] s_dbuffer;
-        ZSTD_freeDCtx(s_dctx);
+struct Context {
+    ZSTD_DCtx *dctx;
+    uint8_t *buffer;
+
+    Context() {
+        dctx = ZSTD_createDCtx();
+        buffer = new uint8_t[ZSTD_DStreamOutSize()];
     }
-} s_destructor);
+    Context(ZSTD_DCtx *ctx, uint8_t *buf) : dctx(ctx), buffer(buf) {}
+    Context(const Context &) = delete;
+    Context(Context &&other)
+        : dctx(vull::exchange(other.dctx, nullptr)), buffer(vull::exchange(other.buffer, nullptr)) {}
+    ~Context() {
+        if (dctx == nullptr) {
+            return;
+        }
+        delete[] buffer;
+        ZSTD_freeDCtx(dctx);
+    }
+
+    Context &operator=(const Context &) = delete;
+    Context &operator=(Context &&) = delete;
+};
+VULL_GLOBAL(thread_local Vector<Context> s_contexts);
 
 } // namespace
 
 ReadStream::ReadStream(LargeSpan<uint8_t> data, size_t first_block) : m_data(data), m_block_start(first_block) {
-    static_cast<void>(s_destructor);
-    if (s_dctx == nullptr) {
-        VULL_ASSERT(s_dbuffer == nullptr);
-        s_dctx = ZSTD_createDCtx();
-        s_dbuffer = new uint8_t[ZSTD_DStreamOutSize()];
+    if (s_contexts.empty()) {
+        s_contexts.emplace();
     }
-    ZSTD_DCtx_reset(s_dctx, ZSTD_reset_session_only);
+
+    auto &context = s_contexts.last();
+    m_dctx = vull::exchange(context.dctx, nullptr);
+    m_buffer = vull::exchange(context.buffer, nullptr);
+    s_contexts.pop();
+
+    ZSTD_DCtx_reset(m_dctx, ZSTD_reset_session_only);
     m_compressed_size = ZSTD_findFrameCompressedSize(m_data.byte_offset(m_block_start), m_data.size() - m_block_start);
+}
+
+ReadStream::~ReadStream() {
+    s_contexts.emplace(m_dctx, m_buffer);
 }
 
 Result<size_t, StreamError> ReadStream::read(Span<void> data) {
@@ -59,13 +82,13 @@ Result<size_t, StreamError> ReadStream::read(Span<void> data) {
 
         // Use a temporary buffer to avoid reading back from uncached vulkan memory.
         ZSTD_outBuffer output{
-            .dst = s_dbuffer,
+            .dst = m_buffer,
             // TODO: Always read ZSTD_DStreamOutSize and cache data for next call to read().
             .size = vull::min(data.size() - bytes_read, static_cast<uint32_t>(ZSTD_DStreamOutSize())),
         };
-        size_t rc = ZSTD_decompressStream(s_dctx, &output, &input);
+        size_t rc = ZSTD_decompressStream(m_dctx, &output, &input);
         VULL_ENSURE(ZSTD_isError(rc) == 0);
-        memcpy(data.byte_offset(bytes_read), s_dbuffer, output.pos);
+        memcpy(data.byte_offset(bytes_read), m_buffer, output.pos);
         bytes_read += output.pos;
 
         m_compressed_size -= input.pos;
