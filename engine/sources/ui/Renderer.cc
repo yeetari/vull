@@ -23,7 +23,7 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context) : m_context(context) {
+Renderer::Renderer(vk::Context &context, Vec2f global_scale) : m_context(context), m_global_scale(global_scale) {
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,

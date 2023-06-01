@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/container/Vector.hh>
+#include <vull/maths/Colour.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
@@ -35,7 +36,7 @@ private:
         Vec2f size;
         Vec2f uv_a;
         Vec2f uv_c;
-        Vec4f colour;
+        Colour colour;
         uint32_t texture_index;
     };
     const Vec2f m_global_scale;
@@ -51,9 +52,11 @@ private:
 
 public:
     void bind_atlas(FontAtlas &atlas);
-    void draw_rect(const Vec2f &position, const Vec2f &size, const Vec4f &colour);
+    void draw_rect(const Vec2f &position, const Vec2f &size, const Colour &colour);
     void draw_image(const Vec2f &position, const Vec2f &size, const vk::SampledImage &image);
-    void draw_text(Font &font, Vec2f position, const Vec4f &colour, StringView text);
+    void draw_text(Font &font, Vec2f position, const Colour &colour, StringView text);
+
+    Vec2f global_scale() const { return m_global_scale; }
 };
 
 } // namespace vull::ui

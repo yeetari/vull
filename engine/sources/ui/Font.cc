@@ -3,6 +3,8 @@
 #include <vull/container/Array.hh>
 #include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
+#include <vull/maths/Common.hh>
+#include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
@@ -128,6 +130,18 @@ ShapingView Font::shape(StringView text) const {
     auto *glyph_infos = hb_buffer_get_glyph_infos(buffer, &glyph_count);
     auto *glyph_positions = hb_buffer_get_glyph_positions(buffer, &glyph_count);
     return {buffer, glyph_infos, glyph_positions, glyph_count};
+}
+
+Vec2u Font::text_bounds(StringView text) const {
+    Vec2i bounds;
+    for (const auto [glyph_index, advance, offset] : shape(text)) {
+        const auto glyph_height = static_cast<int32_t>(ensure_glyph(glyph_index).bitmap_extent.y());
+        bounds.set_x(bounds.x() + advance.x());
+        bounds.set_y(vull::max(bounds.y(), glyph_height));
+    }
+
+    const auto abs_bounds = static_cast<Vec2u>(vull::abs(bounds));
+    return {abs_bounds.x() >> 6u, abs_bounds.y()};
 }
 
 } // namespace vull::ui

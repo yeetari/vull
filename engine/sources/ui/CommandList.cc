@@ -2,6 +2,7 @@
 
 #include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
+#include <vull/maths/Colour.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
@@ -39,7 +40,7 @@ void CommandList::bind_atlas(FontAtlas &atlas) {
     m_atlas = &atlas;
 }
 
-void CommandList::draw_rect(const Vec2f &position, const Vec2f &size, const Vec4f &colour) {
+void CommandList::draw_rect(const Vec2f &position, const Vec2f &size, const Colour &colour) {
     m_commands.push({
         .position = position * m_global_scale,
         .size = size * m_global_scale,
@@ -52,12 +53,12 @@ void CommandList::draw_image(const Vec2f &position, const Vec2f &size, const vk:
         .position = position * m_global_scale,
         .size = size * m_global_scale,
         .uv_c = Vec2f(1.0f),
-        .colour = Vec4f(1.0f),
+        .colour = Colour::white(),
         .texture_index = get_texture_index(image),
     });
 }
 
-void CommandList::draw_text(Font &font, Vec2f position, const Vec4f &colour, StringView text) {
+void CommandList::draw_text(Font &font, Vec2f position, const Colour &colour, StringView text) {
     position *= m_global_scale;
     for (const auto [glyph_index, advance, offset] : font.shape(text)) {
         const auto glyph_info = m_atlas->ensure_glyph(font, glyph_index);
@@ -153,22 +154,22 @@ void CommandList::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2
             Vertex{
                 .position = a,
                 .uv = uv_a,
-                .colour = command.colour,
+                .colour = command.colour.rgba(),
             },
             Vertex{
                 .position = b,
                 .uv = uv_b,
-                .colour = command.colour,
+                .colour = command.colour.rgba(),
             },
             Vertex{
                 .position = c,
                 .uv = uv_c,
-                .colour = command.colour,
+                .colour = command.colour.rgba(),
             },
             Vertex{
                 .position = d,
                 .uv = uv_d,
-                .colour = command.colour,
+                .colour = command.colour.rgba(),
             },
         };
         memcpy(&vertex_data[vertex_index], vertices.data(), vertices.size_bytes());

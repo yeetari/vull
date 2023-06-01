@@ -51,11 +51,20 @@ target_sources(vull-script PRIVATE
     script/Vm.cc)
 
 target_sources(vull-ui PRIVATE
+    ui/layout/BoxLayout.cc
+    ui/layout/Pane.cc
+    ui/layout/ScreenPane.cc
+    ui/widget/Button.cc
+    ui/widget/Label.cc
+    ui/widget/Slider.cc
+    ui/widget/TimeGraph.cc
     ui/CommandList.cc
+    ui/Element.cc
     ui/Font.cc
     ui/FontAtlas.cc
     ui/Renderer.cc
-    ui/TimeGraph.cc)
+    ui/Tree.cc
+    ui/Window.cc)
 
 target_sources(vull-vulkan PRIVATE
     vulkan/Allocator.cc
