@@ -259,18 +259,20 @@ void Window::poll_events() {
         case XCB_MOTION_NOTIFY: {
             const auto *motion_event = reinterpret_cast<xcb_motion_notify_event_t *>(event);
             had_mouse_move = true;
-            m_mouse_x = motion_event->event_x;
-            m_mouse_y = motion_event->event_y;
-
             if (m_cursor_hidden) {
-                // TODO: Delta should still work when cursor visible.
+                // TODO: Don't do this.
                 delta_x += motion_event->event_x - static_cast<int16_t>(m_width / 2);  // NOLINT
                 delta_y += motion_event->event_y - static_cast<int16_t>(m_height / 2); // NOLINT
                 if (motion_event->event_x != m_width / 2 || motion_event->event_y != m_height / 2) {
                     xcb_warp_pointer(m_connection, m_id, m_id, 0, 0, m_width, m_height,
                                      static_cast<int16_t>(m_width / 2), static_cast<int16_t>(m_height / 2));
                 }
+            } else {
+                delta_x += motion_event->event_x - m_mouse_x; // NOLINT
+                delta_y += motion_event->event_y - m_mouse_y; // NOLINT
             }
+            m_mouse_x = motion_event->event_x;
+            m_mouse_y = motion_event->event_y;
             break;
         }
         case XCB_CLIENT_MESSAGE: {
