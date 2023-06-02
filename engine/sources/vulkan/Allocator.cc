@@ -181,9 +181,16 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
     size = vull::max(size, k_minimum_allocation_size);
 
-    // Round up to next block size.
+    // Round up to next block size and ensure aligned to a second level boundary.
+    // TODO: No-one else aligns to a SL boundary?
     size += 1u << (vull::log2(size) - k_sl_count_log2);
+    size = vull::align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
 
+    // Search for a suitable block by firstly finding the most optimal bucket for our size with the mapping function. We
+    // then mask away any unsuitable sizes in the second level bitset. If it's non-zero after that, there is at least
+    // one suitable bucket with a free block in it for us to use, of which we can find the index of with ffs. If not, we
+    // need to move up to the next first level bucket. If there are none, the heap is full (at least for any sizes >=
+    // size).
     auto [fl_index, sl_index] = mapping(size);
     auto sl_bitset = m_sl_bitsets[fl_index] & (~0u << sl_index);
     if (sl_bitset == 0) {
