@@ -59,7 +59,8 @@ struct Block {
     Block *prev_phys;
     Block *next_phys;
     uint32_t offset;
-    uint32_t size; // LSb == free flag
+    uint32_t size;
+    bool free;
 };
 
 struct BlockMapping {
@@ -85,7 +86,7 @@ class Heap {
     Block *m_root_block;
 
     void link_block(Block *block);
-    void unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index);
+    void unlink_block(Block *block, uint32_t fl_index, uint32_t sl_index);
 
 public:
     Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data);
@@ -107,12 +108,12 @@ public:
 Heap::Heap(vkb::DeviceMemory memory, vkb::DeviceSize size, void *mapped_data)
     : m_memory(memory), m_mapped_data(mapped_data) {
     // Create initial block with full size.
-    auto *block = new Block{
-        .size = static_cast<uint32_t>(size) | 1u,
+    m_root_block = new Block{
+        .size = static_cast<uint32_t>(size),
     };
-    block->prev_phys = block;
-    block->next_phys = block;
-    link_block(m_root_block = block);
+    m_root_block->prev_phys = m_root_block;
+    m_root_block->next_phys = m_root_block;
+    link_block(m_root_block);
 }
 
 Heap::~Heap() {
@@ -129,8 +130,11 @@ Heap::~Heap() {
 
 // Insert a block into its bucket's free list and make it the head.
 void Heap::link_block(Block *block) {
-    const auto [fl_index, sl_index] = mapping(block->size & ~1u);
-    block->prev_free = nullptr;
+    VULL_ASSERT(!block->free);
+    VULL_ASSERT(block->prev_free == nullptr && block->next_free == nullptr);
+    block->free = true;
+
+    const auto [fl_index, sl_index] = mapping(block->size);
     block->next_free = vull::exchange(m_block_map[fl_index][sl_index], block);
     if (block->next_free != nullptr) {
         block->next_free->prev_free = block;
@@ -140,9 +144,10 @@ void Heap::link_block(Block *block) {
 }
 
 // Unlink block from free list.
-void Heap::unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index) {
+void Heap::unlink_block(Block *block, uint32_t fl_index, uint32_t sl_index) {
     auto *prev_free = block->prev_free;
     auto *next_free = block->next_free;
+    VULL_ASSERT(block->free);
     VULL_ASSERT(prev_free != nullptr || next_free != nullptr || m_block_map[fl_index][sl_index] == block);
 
     if (prev_free != nullptr) {
@@ -152,8 +157,11 @@ void Heap::unlink_block(const Block *block, uint32_t fl_index, uint32_t sl_index
         next_free->prev_free = prev_free;
     }
 
+    block->free = false;
+    block->prev_free = nullptr;
+    block->next_free = nullptr;
     if (m_block_map[fl_index][sl_index] != block) {
-        // Block wasn't head of free list.
+        // Block wasn't head of the free list.
         return;
     }
 
@@ -191,10 +199,9 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     sl_index = vull::ffs(sl_bitset);
 
     auto *block = m_block_map[fl_index][sl_index];
-    VULL_ASSERT((block->size & 1u) == 1u, "Attempted allocation of non-free block");
+    VULL_ASSERT(block->free, "Attempted allocation of non-free block");
 
-    // Clear free flag. It's now safe to use block.size directly after this point.
-    block->size &= ~1u;
+    // Remove block from its bucket's free list.
     unlink_block(block, fl_index, sl_index);
 
     VULL_ASSERT(block->size >= size);
@@ -204,7 +211,7 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
         // space.
         auto *remainder_block = new Block{
             .offset = block->offset + size,
-            .size = (block->size - size) | 1u,
+            .size = block->size - size,
         };
         block->size = size;
 
@@ -224,11 +231,10 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
 
 void Heap::free(const AllocationInfo &allocation) {
     auto *block = static_cast<Block *>(allocation.block);
-    VULL_ASSERT((block->size & 1u) == 0u, "Block already free");
+    VULL_ASSERT(!block->free, "Block already free");
 
     // Try to coalesce free neighbouring blocks. The offset check is needed as the physical list is circular.
-    if (auto *prev = block->prev_phys; (prev->size & 1u) == 1u && prev->offset < block->offset) {
-        prev->size &= ~1u;
+    if (auto *prev = block->prev_phys; prev->free && prev->offset < block->offset) {
         const auto [fl_index, sl_index] = mapping(prev->size);
         unlink_block(prev, fl_index, sl_index);
 
@@ -244,9 +250,8 @@ void Heap::free(const AllocationInfo &allocation) {
         }
         delete prev;
     }
-    if (auto *next = block->next_phys; (next->size & 1u) == 1u && next->offset > block->offset) {
+    if (auto *next = block->next_phys; next->free && next->offset > block->offset) {
         VULL_ASSERT(m_root_block != next);
-        next->size &= ~1u;
         const auto [fl_index, sl_index] = mapping(next->size);
         unlink_block(next, fl_index, sl_index);
 
@@ -257,8 +262,7 @@ void Heap::free(const AllocationInfo &allocation) {
         delete next;
     }
 
-    // Remark the block as free and insert it back into its bucket's free list.
-    block->size |= 1u;
+    // Insert the block back into its bucket's free list.
     link_block(block);
 }
 
@@ -268,8 +272,8 @@ Vector<HeapRange> Heap::ranges() const {
     do {
         ranges.push({
             .start = block->offset,
-            .size = block->size & ~1u,
-            .free = (block->size & 1u) == 1u,
+            .size = block->size,
+            .free = block->free,
         });
         block = block->next_phys;
     } while (block != m_root_block);
