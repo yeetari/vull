@@ -20,6 +20,8 @@ add_shader(shaders/depth_reduce.comp)
 add_shader(shaders/draw_cull.comp)
 add_shader(shaders/fst.vert)
 add_shader(shaders/light_cull.comp)
+add_shader(shaders/object.frag)
+add_shader(shaders/object.vert)
 add_shader(shaders/shadow.vert)
 add_shader(shaders/skybox.frag)
 add_shader(shaders/skybox.vert)
@@ -38,6 +40,8 @@ function(vull_depend_builtin target)
         ${CMAKE_BINARY_DIR}/engine/shaders/draw_cull.comp.spv /shaders/draw_cull.comp
         ${CMAKE_BINARY_DIR}/engine/shaders/fst.vert.spv /shaders/fst.vert
         ${CMAKE_BINARY_DIR}/engine/shaders/light_cull.comp.spv /shaders/light_cull.comp
+        ${CMAKE_BINARY_DIR}/engine/shaders/object.frag.spv /shaders/object.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/object.vert.spv /shaders/object.vert
         ${CMAKE_BINARY_DIR}/engine/shaders/shadow.vert.spv /shaders/shadow.vert
         ${CMAKE_BINARY_DIR}/engine/shaders/skybox.frag.spv /shaders/skybox.frag
         ${CMAKE_BINARY_DIR}/engine/shaders/skybox.vert.spv /shaders/skybox.vert
