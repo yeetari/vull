@@ -33,7 +33,7 @@ function(add_shader name)
     file(MAKE_DIRECTORY ${binary_dir})
     add_custom_command(
         OUTPUT ${binary}
-        COMMAND ${GLSLC} -MD -O -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${binary}
+        COMMAND ${GLSLC} -MD -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${binary}
         DEPENDS ${source}
         DEPFILE ${binary}.d
         VERBATIM)
