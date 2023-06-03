@@ -4,9 +4,16 @@ A vulkan rendering engine written in C++ 20.
 
 ![screenshot](docs/screenshot.jpg)
 
+## Features
+
+* Render graph based vulkan abstraction
+* Work-stealing coroutine job system
+* Retained mode GUI
+* Compressed pack file format
+
 ## Dependencies
 
-* [bc7enc_rdo](https://github.com/richgel999/bc7enc_rdo) (for vpak tool)
+* [bc7enc_rdo](https://github.com/richgel999/bc7enc_rdo) (for vpak tool; vendored)
 * [freetype](https://freetype.org)
 * [harfbuzz](https://github.com/harfbuzz/harfbuzz)
 * [libpng](https://github.com/glennrp/libpng) (for vpak tool)
@@ -45,38 +52,41 @@ is not currently supported.
      x11-libs/libxcb \
      x11-libs/xcb-util
 
-Note that meshoptimizer and simdjson are always linked to via `FetchContent`, and `std_dxt` is vendored. The vulkan
-validation layers (`vulkan-layers`) are not required but are extremely useful for development.
+Note that `meshoptimizer` and `simdjson` are always linked to via `FetchContent`, and that `bc7enc_rdo` is vendored. The
+vulkan validation layers (`vulkan-layers`) are not required but are extremely useful for development and testing.
 
 ### Configuring CMake
 
-To configure vull, use:
+To configure vull, use one of the available presets:
 
     cmake . \
+     --preset release-gcc \
      -Bbuild \
-     -DCMAKE_BUILD_TYPE=Release \
      -DVULL_BUILD_SANDBOX=ON \
+     -DVULL_BUILD_TESTS=ON \
      -GNinja
 
 #### Available options
 
-| Option                | Description                          | Default Value |
-|-----------------------|--------------------------------------|---------------|
-| `VULL_BUILD_GLTF`     | Build vpak tool with glTF support    | `OFF`         |
-| `VULL_BUILD_SANDBOX`  | Build sandbox application            | `ON`          |
-| `VULL_BUILD_TESTS`    | Build tests                          | `OFF`         |
-| `VULL_BUILD_WARNINGS` | Build with compiler warnings enabled | `OFF`         |
+| Option               | Description                           | Default Value |
+|----------------------|---------------------------------------|---------------|
+| `VULL_BUILD_GLTF`    | Build the vpak tool with glTF support | `OFF`         |
+| `VULL_BUILD_PNG`     | Build the vpak tool with PNG support  | `OFF`         |
+| `VULL_BUILD_SANDBOX` | Build the sandbox application         | `ON`          |
+| `VULL_BUILD_TESTS`   | Build tests                           | `OFF`         |
 
 ### Building
 
     cmake --build build
 
-### Running
+### Running the tests
 
-Depending on the options passed to CMake, five executables can be produced after building:
+If `VULL_BUILD_TESTS` is enabled, tests can be run with
 
-* `./build/engine/vull-tests`
-* `./build/sandbox/vull-sandbox`
-* `./build/tools/vpak`
-* `./build/tools/vsi`
-* `./build/tools/vslc`
+    cmake --build build --target test
+
+## Building the documentation
+
+If doxygen is available, documentation can be built with
+
+    cmake --build build --target vull-docs
