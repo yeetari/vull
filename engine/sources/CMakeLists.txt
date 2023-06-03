@@ -56,6 +56,7 @@ target_sources(vull-ui PRIVATE
     ui/layout/Pane.cc
     ui/layout/ScreenPane.cc
     ui/widget/Button.cc
+    ui/widget/ImageLabel.cc
     ui/widget/Label.cc
     ui/widget/Slider.cc
     ui/widget/TimeGraph.cc
