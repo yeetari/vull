@@ -14,6 +14,8 @@
 #include <vull/graphics/DeferredRenderer.hh>
 #include <vull/graphics/FramePacer.hh>
 #include <vull/graphics/GBuffer.hh>
+#include <vull/graphics/Mesh.hh>
+#include <vull/graphics/ObjectRenderer.hh>
 #include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
@@ -26,6 +28,7 @@
 #include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
@@ -42,11 +45,15 @@
 #include <vull/ui/layout/Pane.hh>
 #include <vull/ui/layout/ScreenPane.hh>
 #include <vull/ui/widget/Button.hh>
+#include <vull/ui/widget/ImageLabel.hh>
+#include <vull/ui/widget/Slider.hh>
 #include <vull/ui/widget/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
+#include <vull/vulkan/Image.hh>
+#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
@@ -160,6 +167,35 @@ void vull_main(Vector<StringView> &&args) {
         window.close();
     });
 
+    bool has_suzanne = vpak::stat("/meshes/Suzanne.0/vertex").has_value();
+    Optional<ui::Slider &> suzanne_slider;
+    Optional<ObjectRenderer> object_renderer;
+    Optional<vk::Image> suzanne_image;
+    if (has_suzanne) {
+        vkb::ImageCreateInfo image_ci{
+            .sType = vkb::StructureType::ImageCreateInfo,
+            .imageType = vkb::ImageType::_2D,
+            .format = vkb::Format::R8G8B8A8Unorm,
+            .extent = {256, 256, 1},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = vkb::SampleCount::_1,
+            .tiling = vkb::ImageTiling::Optimal,
+            .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::ColorAttachment,
+            .sharingMode = vkb::SharingMode::Exclusive,
+            .initialLayout = vkb::ImageLayout::Undefined,
+        };
+        suzanne_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+
+        auto &suzanne_window = screen_pane.add_child<ui::Window>("Suzanne");
+        suzanne_window.content_pane().add_child<ui::ImageLabel>(*suzanne_image);
+        suzanne_slider = suzanne_window.content_pane().add_child<ui::Slider>(0.0f, 2.0f * vull::pi<float>);
+        suzanne_slider->set_value(vull::pi<float>);
+
+        object_renderer.emplace(context);
+        object_renderer->load(Mesh("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index"));
+    }
+
     Timer frame_timer;
     cpu_time_graph.new_bar();
     while (!window.should_close()) {
@@ -190,6 +226,10 @@ void vull_main(Vector<StringView> &&args) {
         // Update camera.
         free_camera.update(window, dt);
 
+        if (has_suzanne) {
+            object_renderer->set_rotation(suzanne_slider->value());
+        }
+
         Timer ui_timer;
         auto ui_painter = ui_renderer.new_painter();
         ui_painter.bind_atlas(atlas);
@@ -212,6 +252,11 @@ void vull_main(Vector<StringView> &&args) {
         ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
 
         auto &submit_pass = graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
+        if (has_suzanne) {
+            vk::ResourceId suzanne_id = graph.import("suzanne", *suzanne_image);
+            object_renderer->build_pass(graph, suzanne_id);
+            submit_pass.read(suzanne_id);
+        }
         submit_pass.set_on_execute([&](vk::CommandBuffer &cmd_buf) {
             Array signal_semaphores{
                 vkb::SemaphoreSubmitInfo{
