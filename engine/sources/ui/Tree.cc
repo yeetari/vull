@@ -56,12 +56,13 @@ void Tree::update_hover() {
 }
 
 void Tree::handle_element_destruct(Element &element) {
-    m_need_hover_update = true;
     if (m_active_element.ptr() == &element) {
         m_active_element = {};
+        m_need_hover_update = true;
     }
     if (m_hovered_element.ptr() == &element) {
         m_hovered_element = {};
+        m_need_hover_update = true;
     }
 }
 
