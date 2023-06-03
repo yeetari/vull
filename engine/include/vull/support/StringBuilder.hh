@@ -65,7 +65,7 @@ template <typename... Args>
 void StringBuilder::append(StringView fmt, const Args &...args) {
     size_t index = 0;
     (append_part(fmt, index, args), ...);
-    m_buffer.extend(LargeSpan<const char>{fmt.begin() + index, fmt.length() - index});
+    m_buffer.extend(Span<const char>{fmt.begin() + index, fmt.length() - index});
 }
 
 } // namespace vull

@@ -37,7 +37,7 @@ Result<PngStream, PngError, StreamError> PngStream::create(UniquePtr<Stream> &&s
 static void read_fn(png_structp png, png_bytep out_data, size_t size) {
     // TODO: Forward errors.
     auto &stream = *static_cast<PngStream *>(png_get_io_ptr(png));
-    VULL_EXPECT(stream.stream().read({out_data, static_cast<uint32_t>(size)}));
+    VULL_EXPECT(stream.stream().read({out_data, size}));
 }
 
 PngStream::PngStream(UniquePtr<Stream> &&stream, png_structp png, png_infop info)

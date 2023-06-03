@@ -25,7 +25,7 @@ class File;
 namespace vull::vpak {
 
 class ReadStream final : public Stream {
-    const LargeSpan<uint8_t> m_data;
+    const Span<uint8_t> m_data;
     size_t m_block_start;
     size_t m_compressed_size{0};
     size_t m_offset{0};
@@ -33,7 +33,7 @@ class ReadStream final : public Stream {
     uint8_t *m_buffer{nullptr};
 
 public:
-    ReadStream(LargeSpan<uint8_t> data, size_t first_block);
+    ReadStream(Span<uint8_t> data, size_t first_block);
     ReadStream(const ReadStream &) = delete;
     ReadStream(ReadStream &&) = delete;
     ~ReadStream() override;
@@ -46,7 +46,7 @@ public:
 };
 
 class Reader {
-    LargeSpan<uint8_t> m_data;
+    Span<uint8_t> m_data;
     Vector<Entry> m_entries;
     PerfectHasher m_phf;
 

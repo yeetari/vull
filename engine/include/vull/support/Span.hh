@@ -7,10 +7,10 @@
 
 namespace vull {
 
-template <typename T, typename SizeT = uint32_t>
+template <typename T>
 class Span {
     T *m_data{nullptr};
-    SizeT m_size{0};
+    size_t m_size{0};
 
     template <typename U>
     using const_t = copy_const<T, U>;
@@ -20,63 +20,60 @@ class Span {
 
 public:
     constexpr Span() = default;
-    constexpr Span(T *data, SizeT size) : m_data(data), m_size(size) {}
+    constexpr Span(T *data, size_t size) : m_data(data), m_size(size) {}
     constexpr Span(no_void_t &object) requires(!is_void) : m_data(&object), m_size(1) {}
 
-    template <typename U, typename SizeU = SizeT>
-    constexpr Span<U, SizeU> as() const;
-    constexpr const_t<uint8_t> *byte_offset(SizeT offset) const;
-    constexpr Span<T, SizeT> subspan(SizeT offset) const;
-    constexpr Span<T, SizeT> subspan(SizeT offset, SizeT size) const;
+    template <typename U>
+    constexpr Span<U> as() const;
+    constexpr const_t<uint8_t> *byte_offset(size_t offset) const;
+    constexpr Span<T> subspan(size_t offset) const;
+    constexpr Span<T> subspan(size_t offset, size_t size) const;
 
     // Allow implicit conversion from `Span<T>` to `Span<void>`.
-    constexpr operator Span<void, SizeT>() const requires(!is_const<T>) { return {data(), size_bytes()}; }
-    constexpr operator Span<const void, SizeT>() const requires(!is_void) { return {data(), size_bytes()}; }
-    constexpr operator Span<const T, SizeT>() const { return {data(), size_bytes()}; }
+    constexpr operator Span<void>() const requires(!is_const<T>) { return {data(), size_bytes()}; }
+    constexpr operator Span<const void>() const requires(!is_void) { return {data(), size_bytes()}; }
+    constexpr operator Span<const T>() const { return {data(), size_bytes()}; }
 
     constexpr T *begin() const { return m_data; }
     constexpr T *end() const { return m_data + m_size; }
 
     template <typename U = no_void_t>
-    constexpr U &operator[](SizeT index) const requires(!is_void);
+    constexpr U &operator[](size_t index) const requires(!is_void);
     constexpr bool empty() const { return m_size == 0; }
     constexpr T *data() const { return m_data; }
-    constexpr SizeT size() const { return m_size; }
-    constexpr SizeT size_bytes() const { return m_size * sizeof(T); }
+    constexpr size_t size() const { return m_size; }
+    constexpr size_t size_bytes() const { return m_size * sizeof(T); }
 };
 
 template <typename T>
-using LargeSpan = Span<T, size_t>;
-
-template <typename T, typename SizeT>
-template <typename U, typename SizeU>
-constexpr Span<U, SizeU> Span<T, SizeT>::as() const {
-    return {reinterpret_cast<U *>(m_data), static_cast<SizeU>(m_size)};
+template <typename U>
+constexpr Span<U> Span<T>::as() const {
+    return {reinterpret_cast<U *>(m_data), m_size};
 }
 
-template <typename T, typename SizeT>
-constexpr typename Span<T, SizeT>::template const_t<uint8_t> *Span<T, SizeT>::byte_offset(SizeT offset) const {
+template <typename T>
+constexpr typename Span<T>::template const_t<uint8_t> *Span<T>::byte_offset(size_t offset) const {
     return as<const_t<uint8_t>>().data() + offset;
 }
 
-template <typename T, typename SizeT>
-constexpr Span<T, SizeT> Span<T, SizeT>::subspan(SizeT offset) const {
+template <typename T>
+constexpr Span<T> Span<T>::subspan(size_t offset) const {
     return {m_data + offset, m_size - offset};
 }
 
-template <typename T, typename SizeT>
-constexpr Span<T, SizeT> Span<T, SizeT>::subspan(SizeT offset, SizeT size) const {
+template <typename T>
+constexpr Span<T> Span<T>::subspan(size_t offset, size_t size) const {
     return {m_data + offset, size};
 }
 
-template <typename T, typename SizeT>
+template <typename T>
 template <typename U>
-constexpr U &Span<T, SizeT>::operator[](SizeT index) const requires(!is_void) {
+constexpr U &Span<T>::operator[](size_t index) const requires(!is_void) {
     return begin()[index];
 }
 
-template <typename T, typename SizeT>
-constexpr Span<T, SizeT> make_span(T *data, SizeT size) {
+template <typename T>
+constexpr Span<T> make_span(T *data, size_t size) {
     return {data, size};
 }
 

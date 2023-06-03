@@ -56,7 +56,7 @@ Result<Font, FontLoadError> Font::load(StringView name, long size) {
     }
 
     auto bytes = ByteBuffer::create_uninitialised(entry->size);
-    VULL_EXPECT(stream->read(bytes.span().as<uint8_t, uint32_t>()));
+    VULL_EXPECT(stream->read(bytes.span()));
 
     FT_Face face;
     if (FT_New_Memory_Face(library, bytes.data(), static_cast<FT_Long>(bytes.size()), 0, &face) != FT_Err_Ok) {

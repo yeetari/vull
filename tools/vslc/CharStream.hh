@@ -7,7 +7,7 @@
 
 class CharStream {
     FILE *m_file;
-    vull::LargeSpan<const char> m_data;
+    vull::Span<const char> m_data;
     size_t m_position{0};
     size_t m_line{1};
     size_t m_column{1};

@@ -8,6 +8,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/SpanStream.hh>
 #include <vull/support/Stream.hh>
 #include <vull/support/Utility.hh>
@@ -18,7 +19,7 @@ namespace {
 } // namespace
 
 SpanStream MadLut::lookup(uint32_t offset) {
-    SpanStream stream({m_buffer.data(), static_cast<uint32_t>(m_buffer.size())});
+    SpanStream stream(m_buffer.span());
     VULL_ASSUME(stream.seek(offset, SeekMode::Set));
     return stream;
 }

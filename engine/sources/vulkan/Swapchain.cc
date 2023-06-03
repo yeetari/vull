@@ -133,7 +133,7 @@ uint32_t Swapchain::acquire_image(vkb::Semaphore semaphore) const {
 void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphores) const {
     vkb::PresentInfoKHR present_info{
         .sType = vkb::StructureType::PresentInfoKHR,
-        .waitSemaphoreCount = wait_semaphores.size(),
+        .waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size()),
         .pWaitSemaphores = wait_semaphores.data(),
         .swapchainCount = 1,
         .pSwapchains = &m_swapchain,

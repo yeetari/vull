@@ -130,7 +130,7 @@ int add(const Vector<StringView> &args) {
         Array<uint8_t, 128 * 1024> buffer;
         size_t bytes_read;
         while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
-            VULL_EXPECT(entry_stream.write({buffer.data(), static_cast<uint32_t>(bytes_read)}));
+            VULL_EXPECT(entry_stream.write({buffer.data(), bytes_read}));
         }
         entry_stream.finish();
     }
@@ -340,7 +340,7 @@ MadLut load_lut(char *executable_path) {
     fstat(file.fd(), &stat);
     const auto file_size = static_cast<size_t>(stat.st_size);
     auto compressed_buffer = FixedBuffer<uint8_t>::create_uninitialised(file_size);
-    VULL_EXPECT(file.create_stream().read({compressed_buffer.data(), static_cast<uint32_t>(file_size)}));
+    VULL_EXPECT(file.create_stream().read({compressed_buffer.data(), file_size}));
 
     const auto lut_size = ZSTD_getFrameContentSize(compressed_buffer.data(), file_size);
     VULL_ENSURE(lut_size != ZSTD_CONTENTSIZE_ERROR && lut_size != ZSTD_CONTENTSIZE_UNKNOWN);

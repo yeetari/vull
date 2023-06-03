@@ -34,8 +34,6 @@ Result<void, StreamError> Stream::write_byte(uint8_t byte) {
     return {};
 }
 
-// TODO: Inconsistent Span sizing, maybe Span can be reworked to default to size_t and allow implicit size type
-//       upcasting.
 Result<String, StreamError> Stream::read_string() {
     const auto length = VULL_TRY(read_varint<uint32_t>());
     String value(length);
@@ -47,12 +45,12 @@ Result<String, StreamError> Stream::read_string() {
 
 Result<void, StreamError> Stream::write_string(StringView string) {
     VULL_TRY(write_varint(string.length()));
-    VULL_TRY(write(string.as<const void, uint32_t>()));
+    VULL_TRY(write(string));
     return {};
 }
 
 Result<void, StreamError> Stream::write_c_string(StringView string) {
-    VULL_TRY(write(string.as<const void, uint32_t>()));
+    VULL_TRY(write(string));
     return {};
 }
 

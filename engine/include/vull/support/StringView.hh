@@ -7,7 +7,7 @@
 
 namespace vull {
 
-class StringView : public Span<const char, size_t> {
+class StringView : public Span<const char> {
 public:
     using Span::Span;
     constexpr StringView(const char *c_string) : Span(c_string, __builtin_strlen(c_string)) {}

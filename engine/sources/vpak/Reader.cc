@@ -53,7 +53,7 @@ VULL_GLOBAL(thread_local Vector<Context> s_contexts);
 
 } // namespace
 
-ReadStream::ReadStream(LargeSpan<uint8_t> data, size_t first_block) : m_data(data), m_block_start(first_block) {
+ReadStream::ReadStream(Span<uint8_t> data, size_t first_block) : m_data(data), m_block_start(first_block) {
     if (s_contexts.empty()) {
         s_contexts.emplace();
     }
@@ -84,7 +84,7 @@ Result<size_t, StreamError> ReadStream::read(Span<void> data) {
         ZSTD_outBuffer output{
             .dst = m_buffer,
             // TODO: Always read ZSTD_DStreamOutSize and cache data for next call to read().
-            .size = vull::min(data.size() - bytes_read, static_cast<uint32_t>(ZSTD_DStreamOutSize())),
+            .size = vull::min(data.size() - bytes_read, ZSTD_DStreamOutSize()),
         };
         size_t rc = ZSTD_decompressStream(m_dctx, &output, &input);
         VULL_ENSURE(ZSTD_isError(rc) == 0);

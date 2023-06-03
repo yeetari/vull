@@ -22,8 +22,8 @@ QueryPool::~QueryPool() {
 }
 
 void QueryPool::read_host(Span<uint64_t> data, uint32_t first) const {
-    m_context.vkGetQueryPoolResults(m_pool, first, data.size(), data.size_bytes(), data.data(), sizeof(uint64_t),
-                                    vkb::QueryResultFlags::_64);
+    m_context.vkGetQueryPoolResults(m_pool, first, static_cast<uint32_t>(data.size()), data.size_bytes(), data.data(),
+                                    sizeof(uint64_t), vkb::QueryResultFlags::_64);
 }
 
 void QueryPool::recreate(uint32_t count, vkb::QueryType type) {

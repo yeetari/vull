@@ -54,9 +54,9 @@ public:
     void pop();
 
     // TODO: Would it be better to add Span<T &> support?
-    Span<StorageType, SizeType> span() { return {m_data, m_size}; }
-    Span<const StorageType, SizeType> span() const { return {m_data, m_size}; }
-    Span<StorageType, SizeType> take_all();
+    Span<StorageType> span() { return {m_data, static_cast<size_t>(m_size)}; }
+    Span<const StorageType> span() const { return {m_data, static_cast<size_t>(m_size)}; }
+    Span<StorageType> take_all();
     StorageType take_last();
 
     StorageType *begin() { return m_data; }
@@ -196,10 +196,10 @@ void Vector<T, SizeType>::extend(const Container &container) {
     if (container.empty()) {
         return;
     }
-    ensure_capacity(m_size + container.size());
+    ensure_capacity(m_size + static_cast<SizeType>(container.size()));
     if constexpr (is_trivially_copyable<StorageType>) {
         memcpy(end(), container.data(), container.size_bytes());
-        m_size += container.size();
+        m_size += static_cast<SizeType>(container.size());
     } else {
         for (const auto &elem : container) {
             push(elem);
@@ -237,7 +237,7 @@ void Vector<T, SizeType>::pop() {
 }
 
 template <typename T, typename SizeType>
-Span<typename Vector<T, SizeType>::StorageType, SizeType> Vector<T, SizeType>::take_all() {
+Span<typename Vector<T, SizeType>::StorageType> Vector<T, SizeType>::take_all() {
     m_capacity = 0;
     return {exchange(m_data, nullptr), exchange(m_size, SizeType(0))};
 }

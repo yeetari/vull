@@ -32,7 +32,7 @@ public:
 
     Buffer create_staging() const;
     void copy_from(const Buffer &src, Queue &queue) const;
-    void upload(LargeSpan<const void> data) const;
+    void upload(Span<const void> data) const;
 
     Context &context() const;
     vkb::Buffer operator*() const { return m_buffer; }

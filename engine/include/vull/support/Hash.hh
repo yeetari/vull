@@ -17,9 +17,9 @@ struct Hash<T> {
     hash_t operator()(T t, hash_t seed) const { return seed + hash_t(t % UINT32_MAX); }
 };
 
-template <typename T, typename SizeT>
-struct Hash<Span<T, SizeT>> {
-    hash_t operator()(Span<T, SizeT> span, hash_t hash = 0) const {
+template <typename T>
+struct Hash<Span<T>> {
+    hash_t operator()(Span<T> span, hash_t hash = 0) const {
         for (uint8_t byte : span.template as<const uint8_t>()) {
             hash += hash_t(byte);
             hash += hash << 10u;
@@ -33,7 +33,7 @@ struct Hash<Span<T, SizeT>> {
 };
 
 template <>
-struct Hash<class StringView> : public Hash<Span<const char, size_t>> {};
+struct Hash<class StringView> : public Hash<Span<const char>> {};
 
 template <typename T>
 hash_t hash_of(const T &object, hash_t seed = 0) {

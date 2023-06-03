@@ -94,7 +94,7 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
     if (data.size() % sizeof(spv::Word) != 0) {
         return ShaderError::BadSize;
     }
-    const uint32_t total_word_count = data.size() / sizeof(spv::Word);
+    const auto total_word_count = static_cast<uint32_t>(data.size() / sizeof(spv::Word));
     if (total_word_count < 5) {
         return ShaderError::BadSize;
     }
@@ -294,8 +294,8 @@ Result<Shader, ShaderError, StreamError> Shader::load(const Context &context, St
     auto stream = vpak::open(name);
     VULL_ENSURE(entry && stream);
     auto binary = FixedBuffer<uint8_t>::create_uninitialised(entry->size);
-    VULL_TRY(stream->read(binary.span().as<uint8_t, uint32_t>()));
-    return VULL_TRY(parse(context, binary.span().as<uint8_t, uint32_t>()));
+    VULL_TRY(stream->read(binary.span()));
+    return VULL_TRY(parse(context, binary.span()));
 }
 
 Shader::Shader(Shader &&other) {

@@ -99,7 +99,7 @@ void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::Se
 
     // TODO(small-vector)
     Vector<vkb::SemaphoreSubmitInfo> signal_sems;
-    signal_sems.ensure_capacity(signal_semaphores.size() + 1);
+    signal_sems.ensure_capacity(static_cast<uint32_t>(signal_semaphores.size()) + 1);
     signal_sems.extend(signal_semaphores);
     signal_sems.push({
         .sType = vkb::StructureType::SemaphoreSubmitInfo,
@@ -113,7 +113,7 @@ void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::Se
     };
     vkb::SubmitInfo2 submit_info{
         .sType = vkb::StructureType::SubmitInfo2,
-        .waitSemaphoreInfoCount = wait_semaphores.size(),
+        .waitSemaphoreInfoCount = static_cast<uint32_t>(wait_semaphores.size()),
         .pWaitSemaphoreInfos = wait_semaphores.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmd_buf_si,

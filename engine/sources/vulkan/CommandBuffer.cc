@@ -105,11 +105,11 @@ void CommandBuffer::end_label() {
 }
 
 void CommandBuffer::set_viewport(Span<vkb::Viewport> viewports, uint32_t first) {
-    m_context.vkCmdSetViewport(m_cmd_buf, first, viewports.size(), viewports.data());
+    m_context.vkCmdSetViewport(m_cmd_buf, first, static_cast<uint32_t>(viewports.size()), viewports.data());
 }
 
 void CommandBuffer::set_scissor(Span<vkb::Rect2D> scissors, uint32_t first) {
-    m_context.vkCmdSetScissor(m_cmd_buf, first, scissors.size(), scissors.data());
+    m_context.vkCmdSetScissor(m_cmd_buf, first, static_cast<uint32_t>(scissors.size()), scissors.data());
 }
 
 void CommandBuffer::begin_rendering(const vkb::RenderingInfo &rendering_info) const {
@@ -176,12 +176,13 @@ void CommandBuffer::bind_vertex_buffer(const Buffer &buffer) const {
 }
 
 void CommandBuffer::copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const {
-    m_context.vkCmdCopyBuffer(m_cmd_buf, *src, *dst, regions.size(), regions.data());
+    m_context.vkCmdCopyBuffer(m_cmd_buf, *src, *dst, static_cast<uint32_t>(regions.size()), regions.data());
 }
 
 void CommandBuffer::copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                                          Span<vkb::BufferImageCopy> regions) const {
-    m_context.vkCmdCopyBufferToImage(m_cmd_buf, *src, *dst, dst_layout, regions.size(), regions.data());
+    m_context.vkCmdCopyBufferToImage(m_cmd_buf, *src, *dst, dst_layout, static_cast<uint32_t>(regions.size()),
+                                     regions.data());
 }
 
 void CommandBuffer::zero_buffer(const Buffer &buffer, vkb::DeviceSize offset, vkb::DeviceSize size) {
