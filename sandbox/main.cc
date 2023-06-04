@@ -174,7 +174,9 @@ void vull_main(Vector<StringView> &&args) {
         const auto pass_times = frame.pass_times();
         gpu_time_graph.new_bar();
         for (const auto &[name, time] : pass_times) {
-            gpu_time_graph.push_section(name, time);
+            if (name != "submit") {
+                gpu_time_graph.push_section(name, time);
+            }
         }
 
         // Step physics.
