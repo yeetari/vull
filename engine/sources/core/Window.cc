@@ -29,7 +29,7 @@
 
 namespace vull {
 
-Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width), m_height(height) {
+Window::Window(Optional<uint16_t> width, Optional<uint16_t> height, bool fullscreen) {
     // Open an X connection.
     m_connection = xcb_connect(nullptr, nullptr);
     VULL_ENSURE(xcb_connection_has_error(m_connection) == 0, "Failed to create X connection");
@@ -40,8 +40,12 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
                                 XCB_EVENT_MASK_BUTTON_MOTION | XCB_EVENT_MASK_BUTTON_PRESS |
                                 XCB_EVENT_MASK_BUTTON_RELEASE;
     xcb_screen_t *screen = xcb_setup_roots_iterator(xcb_get_setup(m_connection)).data;
-    xcb_create_window(m_connection, screen->root_depth, m_id, screen->root, 0, 0, static_cast<uint16_t>(width),
-                      static_cast<uint16_t>(height), 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual,
+
+    m_width = width.value_or(screen->width_in_pixels);
+    m_height = height.value_or(screen->height_in_pixels);
+
+    xcb_create_window(m_connection, screen->root_depth, m_id, screen->root, 0, 0, static_cast<uint16_t>(m_width),
+                      static_cast<uint16_t>(m_height), 0, XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual,
                       XCB_CW_EVENT_MASK, &event_mask);
     xcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, m_id, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, 4, "vull");
 
@@ -92,7 +96,7 @@ Window::Window(uint16_t width, uint16_t height, bool fullscreen) : m_width(width
 
     auto width_cm = static_cast<float>(output_info->mm_width) / 10.0f;
     auto height_cm = width_cm / aspect_ratio();
-    m_ppcm = {static_cast<float>(width) / width_cm, static_cast<float>(height) / height_cm};
+    m_ppcm = {static_cast<float>(m_width) / width_cm, static_cast<float>(m_height) / height_cm};
 
     free(primary_output);
     free(output_info);

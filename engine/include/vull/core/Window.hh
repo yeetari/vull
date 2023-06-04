@@ -5,6 +5,7 @@
 #include <vull/core/Input.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Function.hh>
+#include <vull/support/Optional.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -22,8 +23,8 @@ class Context;
 namespace vull {
 
 class Window {
-    const uint16_t m_width;
-    const uint16_t m_height;
+    uint16_t m_width;
+    uint16_t m_height;
     xcb_connection_t *m_connection;
     xcb_intern_atom_reply_t *m_delete_window_atom{nullptr};
     uint32_t m_id{0};
@@ -49,7 +50,13 @@ class Window {
     Key translate_keycode(uint8_t keycode);
 
 public:
-    Window(uint16_t width, uint16_t height, bool fullscreen);
+    /**
+     * Create a new window and make it visible.
+     * @param width      width in pixels of the new window. if nullopt, match the root screen width
+     * @param height     height in pixels of the new window. if nullopt, match the root screen height
+     * @param fullscreen true to make window fullscreen, false otherwise
+     */
+    Window(Optional<uint16_t> width, Optional<uint16_t> height, bool fullscreen);
     Window(const Window &) = delete;
     Window(Window &&) = delete;
     ~Window();

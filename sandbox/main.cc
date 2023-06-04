@@ -51,6 +51,8 @@
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
 
+#include <stdint.h>
+
 using namespace vull;
 
 namespace vull::vk {
@@ -81,7 +83,7 @@ void vull_main(Vector<StringView> &&args) {
         }
     }
 
-    Window window(2560, 1440, true);
+    Window window({}, {}, true);
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
