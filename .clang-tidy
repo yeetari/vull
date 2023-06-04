@@ -164,9 +164,6 @@ Checks: >
   readability-uppercase-literal-suffix,
 FormatStyle: file
 CheckOptions:
-  - key: bugprone-assert-side-effect.AssertMacros
-    value: VULL_ASSERT,VULL_ASSERT_PEDANTIC
-  - key: performance-unnecessary-value-param.AllowedTypes
-    value: Optional
-  - key: readability-uppercase-literal-suffix.NewSuffixes
-    value: f;u;l;ul;ull
+  bugprone-assert-side-effect.AssertMacros: VULL_ASSERT,VULL_ASSERT_PEDANTIC
+  performance-unnecessary-value-param.AllowedTypes: Optional
+  readability-uppercase-literal-suffix.NewSuffixes: f;u;l;ul;ull
