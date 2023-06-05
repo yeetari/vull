@@ -25,6 +25,7 @@ enum class Capability {
 };
 
 enum class Decoration {
+    SpecId = 1,
     BuiltIn = 11,
     Location = 30,
 };
@@ -45,10 +46,13 @@ enum class MemoryModel {
 
 enum class Op {
     Nop = 0,
+    Name = 5,
     MemoryModel = 14,
     EntryPoint = 15,
     Capability = 17,
     TypeVoid = 19,
+    TypeBool = 20,
+    TypeInt = 21,
     TypeFloat = 22,
     TypeVector = 23,
     TypeMatrix = 24,
@@ -56,6 +60,9 @@ enum class Op {
     TypeFunction = 33,
     Constant = 43,
     ConstantComposite = 44,
+    SpecConstantTrue = 48,
+    SpecConstantFalse = 49,
+    SpecConstant = 50,
     Function = 54,
     FunctionEnd = 56,
     Variable = 59,

@@ -4,7 +4,9 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StreamError.hh>
+#include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/vulkan/Spirv.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -25,15 +27,24 @@ enum class ShaderError {
 };
 
 class Shader {
+    struct ConstantInfo {
+        String name;
+        spv::Id id;
+        uint32_t size;
+    };
+
+private:
     const Context *m_context{nullptr};
     vkb::ShaderModule m_module{nullptr};
     vkb::ShaderStage m_stage{vkb::ShaderStage::All};
+    Vector<ConstantInfo> m_constants;
     Vector<vkb::VertexInputAttributeDescription> m_vertex_attributes;
     uint32_t m_vertex_stride{0};
 
     explicit Shader(const Context &context) : m_context(&context) {}
     void set_module(vkb::ShaderModule module) { m_module = module; }
     void set_stage(vkb::ShaderStage stage) { m_stage = stage; }
+    void add_constant(spv::Id id, String name, uint32_t size);
     void add_vertex_attribute(uint32_t location, vkb::Format format);
     void set_vertex_stride(uint32_t stride) { m_vertex_stride = stride; }
     Vector<vkb::VertexInputAttributeDescription> &vertex_attributes() { return m_vertex_attributes; }
@@ -50,6 +61,7 @@ public:
 
     vkb::ShaderModule module() const { return m_module; }
     vkb::ShaderStage stage() const { return m_stage; }
+    const Vector<ConstantInfo> &constants() const { return m_constants; }
     const Vector<vkb::VertexInputAttributeDescription> &vertex_attributes() const { return m_vertex_attributes; }
     uint32_t vertex_stride() const { return m_vertex_stride; }
 };

@@ -2,13 +2,19 @@
 #include <vull/vulkan/PipelineBuilder.hh>
 
 #include <vull/container/Array.hh>
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
+#include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Shader.hh>
 #include <vull/vulkan/Vulkan.hh>
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace vull::vk {
 
@@ -52,15 +58,24 @@ PipelineBuilder &PipelineBuilder::add_set_layout(vkb::DescriptorSetLayout set_la
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::add_shader(const Shader &shader, Optional<const vkb::SpecializationInfo &> si) {
+PipelineBuilder &PipelineBuilder::add_shader(const Shader &shader) {
     m_shaders.push(shader);
-    m_shader_cis.push({
-        .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-        .stage = shader.stage(),
-        .module = shader.module(),
-        .pName = "main",
-        .pSpecializationInfo = si ? &*si : nullptr,
-    });
+    return *this;
+}
+
+template <>
+PipelineBuilder &PipelineBuilder::set_constant(String name, bool value) {
+    m_constants.set(vull::move(name), value ? 1 : 0);
+    return *this;
+}
+template <>
+PipelineBuilder &PipelineBuilder::set_constant(String name, uint32_t value) {
+    m_constants.set(vull::move(name), value);
+    return *this;
+}
+template <>
+PipelineBuilder &PipelineBuilder::set_constant(String name, uint64_t value) {
+    m_constants.set(vull::move(name), value);
     return *this;
 }
 
@@ -103,7 +118,7 @@ PipelineBuilder &PipelineBuilder::set_topology(vkb::PrimitiveTopology topology) 
     return *this;
 }
 
-Pipeline PipelineBuilder::build(const Context &context) {
+PipelineResult PipelineBuilder::build(const Context &context) {
     vkb::PipelineLayoutCreateInfo layout_ci{
         .sType = vkb::StructureType::PipelineLayoutCreateInfo,
         .setLayoutCount = m_set_layouts.size(),
@@ -112,20 +127,60 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .pPushConstantRanges = &m_push_constant_range,
     };
     vkb::PipelineLayout layout;
-    VULL_ENSURE(context.vkCreatePipelineLayout(&layout_ci, &layout) == vkb::Result::Success);
+    if (auto result = context.vkCreatePipelineLayout(&layout_ci, &layout); result != vkb::Result::Success) {
+        return result;
+    }
+
+    // TODO(small-vector)
+    Vector<vkb::PipelineShaderStageCreateInfo> shader_cis;
+    Vector<vkb::SpecializationInfo> specialization_infos;
+    specialization_infos.ensure_capacity(m_shaders.size());
+    for (const Shader &shader : m_shaders) {
+        Vector<vkb::SpecializationMapEntry> specialization_map_entries;
+        Vector<size_t> specialization_values;
+        for (const auto &constant : shader.constants()) {
+            if (!m_constants.contains(constant.name)) {
+                return UnspecifiedConstantError{constant.name};
+            }
+
+            specialization_map_entries.push({
+                .constantID = constant.id,
+                .offset = specialization_values.size_bytes(),
+                .size = constant.size,
+            });
+            specialization_values.push(*m_constants.get(constant.name));
+        }
+
+        auto &specialization_info = specialization_infos.emplace(vkb::SpecializationInfo{
+            .mapEntryCount = specialization_map_entries.size(),
+            .pMapEntries = specialization_map_entries.take_all().data(),
+            .dataSize = specialization_values.size_bytes(),
+            .pData = specialization_values.take_all().data(),
+        });
+        shader_cis.push({
+            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
+            .stage = shader.stage(),
+            .module = shader.module(),
+            .pName = "main",
+            .pSpecializationInfo = &specialization_info,
+        });
+    }
 
     if (m_colour_formats.empty() && m_depth_format == vkb::Format::Undefined) {
-        VULL_ASSERT(m_shader_cis.size() == 1);
+        VULL_ASSERT(shader_cis.size() == 1);
         vkb::ComputePipelineCreateInfo pipeline_ci{
             .sType = vkb::StructureType::ComputePipelineCreateInfo,
             // TODO: Is it bad to always pass this? (do any drivers care?)
             .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
-            .stage = m_shader_cis.first(),
+            .stage = shader_cis.first(),
             .layout = layout,
         };
         vkb::Pipeline pipeline;
-        VULL_ENSURE(context.vkCreateComputePipelines(nullptr, 1, &pipeline_ci, &pipeline) == vkb::Result::Success);
-        return {context, pipeline, layout, vkb::PipelineBindPoint::Compute};
+        if (auto result = context.vkCreateComputePipelines(nullptr, 1, &pipeline_ci, &pipeline);
+            result != vkb::Result::Success) {
+            return result;
+        }
+        return Pipeline(context, pipeline, layout, vkb::PipelineBindPoint::Compute);
     }
 
     vkb::PipelineRenderingCreateInfo rendering_ci{
@@ -208,8 +263,8 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .sType = vkb::StructureType::GraphicsPipelineCreateInfo,
         .pNext = &rendering_ci,
         .flags = vkb::PipelineCreateFlags::DescriptorBufferEXT,
-        .stageCount = m_shader_cis.size(),
-        .pStages = m_shader_cis.data(),
+        .stageCount = shader_cis.size(),
+        .pStages = shader_cis.data(),
         .pVertexInputState = &vertex_input_state_ci,
         .pInputAssemblyState = &input_assembly_state_ci,
         .pViewportState = &viewport_state_ci,
@@ -221,8 +276,11 @@ Pipeline PipelineBuilder::build(const Context &context) {
         .layout = layout,
     };
     vkb::Pipeline pipeline;
-    VULL_ENSURE(context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &pipeline) == vkb::Result::Success);
-    return {context, pipeline, layout, vkb::PipelineBindPoint::Graphics};
+    if (auto result = context.vkCreateGraphicsPipelines(nullptr, 1, &pipeline_ci, &pipeline);
+        result != vkb::Result::Success) {
+        return result;
+    }
+    return Pipeline(context, pipeline, layout, vkb::PipelineBindPoint::Graphics);
 }
 
 } // namespace vull::vk

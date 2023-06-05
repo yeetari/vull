@@ -66,15 +66,15 @@ Renderer::Renderer(vk::Context &context, Vec2f global_scale) : m_context(context
     };
     auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/ui.vert"));
     auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/ui.frag"));
-    m_pipeline = vk::PipelineBuilder()
-                     // TODO(swapchain-format): Don't hardcode format.
-                     .add_colour_attachment(vkb::Format::B8G8R8A8Srgb, blend_state)
-                     .add_set_layout(m_descriptor_set_layout)
-                     .add_shader(vertex_shader)
-                     .add_shader(fragment_shader)
-                     .set_push_constant_range(push_constant_range)
-                     .set_topology(vkb::PrimitiveTopology::TriangleList)
-                     .build(m_context);
+    m_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                 // TODO(swapchain-format): Don't hardcode format.
+                                 .add_colour_attachment(vkb::Format::B8G8R8A8Srgb, blend_state)
+                                 .add_set_layout(m_descriptor_set_layout)
+                                 .add_shader(vertex_shader)
+                                 .add_shader(fragment_shader)
+                                 .set_push_constant_range(push_constant_range)
+                                 .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                 .build(m_context));
 
     vkb::ImageCreateInfo image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,

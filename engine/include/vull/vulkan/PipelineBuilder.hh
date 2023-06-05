@@ -1,7 +1,10 @@
 #pragma once
 
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
+#include <vull/support/String.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/Vulkan.hh>
 
@@ -10,12 +13,18 @@ namespace vull::vk {
 class Context;
 class Shader;
 
+struct UnspecifiedConstantError {
+    StringView name;
+};
+
+using PipelineResult = Result<Pipeline, vkb::Result, UnspecifiedConstantError>;
+
 class PipelineBuilder {
+    HashMap<String, size_t> m_constants;
     Vector<vkb::PipelineColorBlendAttachmentState> m_blend_states;
     Vector<vkb::Format> m_colour_formats;
     Vector<vkb::DescriptorSetLayout> m_set_layouts;
     Vector<const Shader &> m_shaders;
-    Vector<vkb::PipelineShaderStageCreateInfo> m_shader_cis;
     vkb::CullMode m_cull_mode{vkb::CullMode::None};
     float m_depth_bias_cf{0.0f};
     float m_depth_bias_sf{0.0f};
@@ -32,7 +41,9 @@ public:
     PipelineBuilder &add_colour_attachment(vkb::Format format,
                                            Optional<const vkb::PipelineColorBlendAttachmentState &> blend_state = {});
     PipelineBuilder &add_set_layout(vkb::DescriptorSetLayout set_layout);
-    PipelineBuilder &add_shader(const Shader &shader, Optional<const vkb::SpecializationInfo &> si = {});
+    PipelineBuilder &add_shader(const Shader &shader);
+    template <typename T>
+    PipelineBuilder &set_constant(String name, T value);
     PipelineBuilder &set_cull_mode(vkb::CullMode cull_mode, vkb::FrontFace front_face);
     PipelineBuilder &set_depth_bias(float cf, float sf);
     PipelineBuilder &set_depth_format(vkb::Format format);
@@ -40,7 +51,7 @@ public:
     PipelineBuilder &set_polygon_mode(vkb::PolygonMode polygon_mode);
     PipelineBuilder &set_push_constant_range(const vkb::PushConstantRange &push_constant_range);
     PipelineBuilder &set_topology(vkb::PrimitiveTopology topology);
-    Pipeline build(const Context &context);
+    PipelineResult build(const Context &context);
 };
 
 } // namespace vull::vk

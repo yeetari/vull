@@ -41,17 +41,17 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
 
     auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.vert"));
     auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.frag"));
-    m_pipeline = vk::PipelineBuilder()
-                     // TODO(swapchain-format): Don't hardcode format.
-                     .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
-                     .add_set_layout(default_renderer.main_set_layout())
-                     .add_set_layout(m_set_layout)
-                     .add_shader(vertex_shader)
-                     .add_shader(fragment_shader)
-                     .set_depth_format(vkb::Format::D32Sfloat)
-                     .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, false)
-                     .set_topology(vkb::PrimitiveTopology::TriangleList)
-                     .build(m_context);
+    m_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                 // TODO(swapchain-format): Don't hardcode format.
+                                 .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
+                                 .add_set_layout(default_renderer.main_set_layout())
+                                 .add_set_layout(m_set_layout)
+                                 .add_shader(vertex_shader)
+                                 .add_shader(fragment_shader)
+                                 .set_depth_format(vkb::Format::D32Sfloat)
+                                 .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, false)
+                                 .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                 .build(m_context));
 
     vkb::ImageCreateInfo image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,

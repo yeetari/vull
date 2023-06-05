@@ -39,7 +39,6 @@
 #include <vull/vulkan/Vulkan.hh>
 
 #include <float.h>
-#include <stddef.h>
 #include <string.h>
 
 namespace vull {
@@ -268,136 +267,89 @@ void DefaultRenderer::create_resources() {
 }
 
 void DefaultRenderer::create_pipelines() {
-    struct SpecializationData {
-        uint32_t viewport_width;
-        uint32_t viewport_height;
-        uint32_t tile_size;
-        uint32_t tile_max_light_count;
-        uint32_t row_tile_count;
-    } specialization_data{
-        .viewport_width = m_viewport_extent.width,
-        .viewport_height = m_viewport_extent.height,
-        .tile_size = k_tile_size,
-        .tile_max_light_count = k_tile_max_light_count,
-        .row_tile_count = m_tile_extent.width,
-    };
-    Array specialization_map_entries{
-        vkb::SpecializationMapEntry{
-            .constantID = 0,
-            .offset = offsetof(SpecializationData, viewport_width),
-            .size = sizeof(SpecializationData::viewport_width),
-        },
-        vkb::SpecializationMapEntry{
-            .constantID = 1,
-            .offset = offsetof(SpecializationData, viewport_height),
-            .size = sizeof(SpecializationData::viewport_height),
-        },
-        vkb::SpecializationMapEntry{
-            .constantID = 2,
-            .offset = offsetof(SpecializationData, tile_size),
-            .size = sizeof(SpecializationData::tile_size),
-        },
-        vkb::SpecializationMapEntry{
-            .constantID = 3,
-            .offset = offsetof(SpecializationData, tile_max_light_count),
-            .size = sizeof(SpecializationData::tile_max_light_count),
-        },
-        vkb::SpecializationMapEntry{
-            .constantID = 4,
-            .offset = offsetof(SpecializationData, row_tile_count),
-            .size = sizeof(SpecializationData::row_tile_count),
-        },
-    };
-    vkb::SpecializationInfo specialization_info{
-        .mapEntryCount = specialization_map_entries.size(),
-        .pMapEntries = specialization_map_entries.data(),
-        .dataSize = sizeof(SpecializationData),
-        .pData = &specialization_data,
-    };
-
-    vkb::SpecializationMapEntry late_map_entry{
-        .constantID = 0,
-        .size = sizeof(vkb::Bool),
-    };
-    vkb::Bool late = true;
-    vkb::SpecializationInfo late_specialization_info{
-        .mapEntryCount = 1,
-        .pMapEntries = &late_map_entry,
-        .dataSize = sizeof(vkb::Bool),
-        .pData = &late,
-    };
-
     auto gbuffer_vert = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/default.vert"));
     auto gbuffer_frag = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/default.frag"));
-    m_gbuffer_pipeline = vk::PipelineBuilder()
-                             .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
-                             .add_colour_attachment(vkb::Format::R16G16Snorm)
-                             .add_set_layout(m_main_set_layout)
-                             .add_set_layout(m_texture_set_layout)
-                             .add_shader(gbuffer_vert, specialization_info)
-                             .add_shader(gbuffer_frag, specialization_info)
-                             .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
-                             .set_depth_format(vkb::Format::D32Sfloat)
-                             .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
-                             .set_topology(vkb::PrimitiveTopology::TriangleList)
-                             .build(m_context);
+    m_gbuffer_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                         .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
+                                         .add_colour_attachment(vkb::Format::R16G16Snorm)
+                                         .add_set_layout(m_main_set_layout)
+                                         .add_set_layout(m_texture_set_layout)
+                                         .add_shader(gbuffer_vert)
+                                         .add_shader(gbuffer_frag)
+                                         .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
+                                         .set_depth_format(vkb::Format::D32Sfloat)
+                                         .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
+                                         .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                         .build(m_context));
 
     auto shadow_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/shadow.vert"));
-    m_shadow_pipeline = vk::PipelineBuilder()
-                            .add_set_layout(m_main_set_layout)
-                            .add_shader(shadow_shader, specialization_info)
-                            .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
-                            .set_depth_bias(2.0f, 5.0f)
-                            .set_depth_format(vkb::Format::D32Sfloat)
-                            .set_depth_params(vkb::CompareOp::LessOrEqual, true, true)
-                            .set_push_constant_range({
-                                .stageFlags = vkb::ShaderStage::Vertex,
-                                .size = sizeof(ShadowPushConstantBlock),
-                            })
-                            .set_topology(vkb::PrimitiveTopology::TriangleList)
-                            .build(m_context);
+    m_shadow_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                        .add_set_layout(m_main_set_layout)
+                                        .add_shader(shadow_shader)
+                                        .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
+                                        .set_depth_bias(2.0f, 5.0f)
+                                        .set_depth_format(vkb::Format::D32Sfloat)
+                                        .set_depth_params(vkb::CompareOp::LessOrEqual, true, true)
+                                        .set_push_constant_range({
+                                            .stageFlags = vkb::ShaderStage::Vertex,
+                                            .size = sizeof(ShadowPushConstantBlock),
+                                        })
+                                        .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                        .build(m_context));
 
     auto depth_reduce_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/depth_reduce.comp"));
-    m_depth_reduce_pipeline = vk::PipelineBuilder()
-                                  .add_set_layout(m_reduce_set_layout)
-                                  .add_shader(depth_reduce_shader)
-                                  .set_push_constant_range({
-                                      .stageFlags = vkb::ShaderStage::Compute,
-                                      .size = sizeof(DepthReduceData),
-                                  })
-                                  .build(m_context);
+    m_depth_reduce_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                              .add_set_layout(m_reduce_set_layout)
+                                              .add_shader(depth_reduce_shader)
+                                              .set_push_constant_range({
+                                                  .stageFlags = vkb::ShaderStage::Compute,
+                                                  .size = sizeof(DepthReduceData),
+                                              })
+                                              .build(m_context));
 
     auto draw_cull_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/draw_cull.comp"));
-    m_early_cull_pipeline =
-        vk::PipelineBuilder().add_set_layout(m_main_set_layout).add_shader(draw_cull_shader).build(m_context);
+    m_early_cull_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                            .add_set_layout(m_main_set_layout)
+                                            .add_shader(draw_cull_shader)
+                                            .set_constant("k_late", false)
+                                            .build(m_context));
 
-    m_late_cull_pipeline = vk::PipelineBuilder()
-                               .add_set_layout(m_main_set_layout)
-                               .add_shader(draw_cull_shader, late_specialization_info)
-                               .build(m_context);
+    m_late_cull_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                           .add_set_layout(m_main_set_layout)
+                                           .add_shader(draw_cull_shader)
+                                           .set_constant("k_late", true)
+                                           .build(m_context));
 
     auto light_cull_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/light_cull.comp"));
-    m_light_cull_pipeline = vk::PipelineBuilder()
-                                .add_set_layout(m_main_set_layout)
-                                .add_shader(light_cull_shader, specialization_info)
-                                .build(m_context);
+    m_light_cull_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                            .add_set_layout(m_main_set_layout)
+                                            .add_shader(light_cull_shader)
+                                            .set_constant("k_viewport_width", m_viewport_extent.width)
+                                            .set_constant("k_viewport_height", m_viewport_extent.height)
+                                            .set_constant("k_tile_size", k_tile_size)
+                                            .set_constant("k_tile_max_light_count", k_tile_max_light_count)
+                                            .build(m_context));
 
     auto deferred_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/deferred.comp"));
-    m_deferred_pipeline = vk::PipelineBuilder()
-                              .add_set_layout(m_main_set_layout)
-                              .add_shader(deferred_shader, specialization_info)
-                              .build(m_context);
+    m_deferred_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                          .add_set_layout(m_main_set_layout)
+                                          .add_shader(deferred_shader)
+                                          .set_constant("k_viewport_width", m_viewport_extent.width)
+                                          .set_constant("k_viewport_height", m_viewport_extent.height)
+                                          .set_constant("k_tile_size", k_tile_size)
+                                          .set_constant("k_row_tile_count", m_tile_extent.width)
+                                          .build(m_context));
 
     auto triangle_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/fst.vert"));
     auto blit_tonemap_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/blit_tonemap.frag"));
-    m_blit_tonemap_pipeline = vk::PipelineBuilder()
-                                  // TODO(swapchain-format): Don't hardcode format.
-                                  .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
-                                  .add_set_layout(m_main_set_layout)
-                                  .add_shader(triangle_shader)
-                                  .add_shader(blit_tonemap_shader)
-                                  .set_topology(vkb::PrimitiveTopology::TriangleList)
-                                  .build(m_context);
+    m_blit_tonemap_pipeline = VULL_EXPECT(vk::PipelineBuilder()
+                                              // TODO(swapchain-format): Don't hardcode format.
+                                              .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
+                                              .add_set_layout(m_main_set_layout)
+                                              .add_shader(triangle_shader)
+                                              .add_shader(blit_tonemap_shader)
+                                              .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                              .build(m_context));
 }
 
 void DefaultRenderer::load_scene(Scene &scene) {

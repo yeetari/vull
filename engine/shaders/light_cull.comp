@@ -1,10 +1,14 @@
 #version 460
 #include "lib/common.glsl"
-#include "lib/constants.glsl"
 #include "lib/lighting.glsl"
 #include "lib/ubo.glsl"
 
 #extension GL_EXT_shader_atomic_float2 : enable
+
+layout (constant_id = 0) const uint k_viewport_width = 0;
+layout (constant_id = 1) const uint k_viewport_height = 0;
+layout (constant_id = 2) const uint k_tile_size = 0;
+layout (constant_id = 3) const uint k_tile_max_light_count = 0;
 
 layout (local_size_x_id = 2) in;
 

@@ -9,6 +9,8 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StreamError.hh>
+#include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
@@ -54,14 +56,16 @@ bool has_null_terminator(spv::Word word) {
 }
 
 struct IdInfo {
+    String name;
     spv::Op opcode;
     spv::StorageClass storage_class;
     spv::Decoration main_decoration;
     spv::Id type_id;
     union {
-        uint8_t bit_width;       // For OpTypeFloat
+        uint8_t bit_width;       // For OpTypeBool, OpTypeInt, OpTypeFloat
         uint8_t component_count; // For OpTypeVector
         uint8_t location;        // For Input/Output storage classes
+        uint8_t spec_id;         // For OpSpecConstant[True, False]
     };
 };
 
@@ -82,6 +86,17 @@ uint32_t format_size(vkb::Format format) {
 }
 
 } // namespace
+
+void Shader::add_constant(spv::Id id, String name, uint32_t size) {
+    m_constants.ensure_size(id + 1);
+    if (m_constants[id].name.empty()) {
+        m_constants[id] = {
+            .name = vull::move(name),
+            .id = id,
+            .size = size,
+        };
+    }
+}
 
 void Shader::add_vertex_attribute(uint32_t location, vkb::Format format) {
     m_vertex_attributes.push({
@@ -170,6 +185,28 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
 
         const auto inst_words = words.span().subspan(ip, word_count);
         switch (static_cast<spv::Op>(opcode)) {
+        case spv::Op::Name: {
+            if (word_count < 3) {
+                return ShaderError::Malformed;
+            }
+
+            StringBuilder name_builder;
+            for (uint32_t offset = 2; offset < word_count; offset++) {
+                spv::Word word = inst_words[offset];
+                for (uint32_t i = 0; i < 3; i++) {
+                    if (word != 0) {
+                        name_builder.append(static_cast<char>(word & 0xffu));
+                        word >>= 8u;
+                    }
+                }
+                if (word == 0) {
+                    break;
+                }
+                name_builder.append(static_cast<char>(word & 0xffu));
+            }
+            VULL_TRY(id_info(inst_words[1])).name = name_builder.build();
+            break;
+        }
         case spv::Op::EntryPoint: {
             if (word_count < 4) {
                 return ShaderError::Malformed;
@@ -190,6 +227,21 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
             interface_ids.extend(inst_words.subspan(offset));
             break;
         }
+        case spv::Op::SpecConstantTrue:
+        case spv::Op::SpecConstantFalse:
+        case spv::Op::SpecConstant: {
+            if (word_count < 3) {
+                return ShaderError::Malformed;
+            }
+            IdInfo &info = VULL_TRY(id_info(inst_words[2]));
+            info.type_id = inst_words[1];
+
+            IdInfo &type_info = VULL_TRY(id_info(info.type_id));
+            VULL_ENSURE(type_info.opcode == spv::Op::TypeBool || type_info.opcode == spv::Op::TypeInt ||
+                        type_info.opcode == spv::Op::TypeFloat);
+            shader.add_constant(info.spec_id, info.name, type_info.bit_width / 8);
+            break;
+        }
         case spv::Op::Decorate: {
             if (word_count < 3) {
                 return ShaderError::Malformed;
@@ -205,6 +257,9 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
             if (decoration == spv::Decoration::Location) {
                 info.location = static_cast<uint8_t>(inst_words[3]);
             }
+            if (decoration == spv::Decoration::SpecId) {
+                info.spec_id = static_cast<uint8_t>(inst_words[3]);
+            }
             break;
         }
         case spv::Op::Variable: {
@@ -214,6 +269,24 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
             IdInfo &info = VULL_TRY(id_info(inst_words[2]));
             info.storage_class = static_cast<spv::StorageClass>(inst_words[3]);
             info.type_id = inst_words[1];
+            break;
+        }
+        case spv::Op::TypeBool: {
+            if (word_count != 2) {
+                return ShaderError::Malformed;
+            }
+            IdInfo &info = VULL_TRY(id_info(inst_words[1]));
+            info.opcode = spv::Op::TypeBool;
+            info.bit_width = 32;
+            break;
+        }
+        case spv::Op::TypeInt: {
+            if (word_count != 4) {
+                return ShaderError::Malformed;
+            }
+            IdInfo &info = VULL_TRY(id_info(inst_words[1]));
+            info.opcode = spv::Op::TypeInt;
+            info.bit_width = static_cast<uint8_t>(inst_words[2]);
             break;
         }
         case spv::Op::TypeFloat: {
@@ -302,6 +375,7 @@ Shader::Shader(Shader &&other) {
     m_context = vull::exchange(other.m_context, nullptr);
     m_module = vull::exchange(other.m_module, nullptr);
     m_stage = vull::exchange(other.m_stage, {});
+    m_constants = vull::move(other.m_constants);
     m_vertex_attributes = vull::move(other.m_vertex_attributes);
     m_vertex_stride = vull::exchange(other.m_vertex_stride, 0u);
 }
@@ -317,6 +391,7 @@ Shader &Shader::operator=(Shader &&other) {
     vull::swap(m_context, moved.m_context);
     vull::swap(m_module, moved.m_module);
     vull::swap(m_stage, moved.m_stage);
+    vull::swap(m_constants, moved.m_constants);
     vull::swap(m_vertex_attributes, moved.m_vertex_attributes);
     vull::swap(m_vertex_stride, moved.m_vertex_stride);
     return *this;
