@@ -31,7 +31,7 @@
 
 namespace vull {
 
-template <typename T, Enum... Es>
+template <typename T, typename... Es>
 class [[nodiscard]] Result {
     static constexpr bool is_void = is_same<decay<T>, void>;
     using storage_t = conditional<is_void, char, conditional<is_ref<T>, RefWrapper<remove_ref<T>>, T>>;
