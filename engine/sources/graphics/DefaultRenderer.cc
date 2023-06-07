@@ -8,6 +8,7 @@
 #include <vull/core/Scene.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
+#include <vull/graphics/GBuffer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
 #include <vull/maths/Common.hh>
@@ -47,8 +48,6 @@ namespace {
 constexpr uint32_t k_cascade_count = 4;
 constexpr uint32_t k_shadow_resolution = 2048;
 constexpr uint32_t k_texture_limit = 32768;
-constexpr uint32_t k_tile_size = 32;
-constexpr uint32_t k_tile_max_light_count = 256;
 
 // Minimum required maximum work group count * minimum cull work group size that would be used.
 constexpr uint32_t k_object_limit = 65535 * 32;
@@ -76,13 +75,6 @@ struct ShadowPushConstantBlock {
     uint32_t cascade_index;
 };
 
-struct PointLight {
-    Vec3f position;
-    float radius{0.0f};
-    Vec3f colour;
-    float padding{0.0f};
-};
-
 struct Vertex {
     Vec3f position;
     Vec3f normal;
@@ -93,10 +85,6 @@ struct Vertex {
 
 DefaultRenderer::DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent)
     : m_context(context), m_viewport_extent(viewport_extent) {
-    m_tile_extent = {
-        .width = vull::ceil_div(m_viewport_extent.width, k_tile_size),
-        .height = vull::ceil_div(m_viewport_extent.height, k_tile_size),
-    };
     create_set_layouts();
     create_resources();
     create_pipelines();
@@ -117,82 +105,33 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::All,
         },
-        // Light buffer.
+        // Object buffer.
         vkb::DescriptorSetLayoutBinding{
             .binding = 1,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // Object buffer.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 2,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
         },
-        // Object visibility.
+        // Object visibility buffer.
         vkb::DescriptorSetLayoutBinding{
-            .binding = 3,
+            .binding = 2,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
         // Draw buffer.
         vkb::DescriptorSetLayoutBinding{
-            .binding = 4,
+            .binding = 3,
             .descriptorType = vkb::DescriptorType::StorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Vertex | vkb::ShaderStage::Compute,
         },
-        // Albedo image.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 5,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // Normal image.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 6,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // Depth image.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 7,
-            .descriptorType = vkb::DescriptorType::SampledImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
         // Depth pyramid.
         vkb::DescriptorSetLayoutBinding{
-            .binding = 8,
+            .binding = 4,
             .descriptorType = vkb::DescriptorType::CombinedImageSampler,
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // Light visibility.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 9,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // HDR image.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 10,
-            .descriptorType = vkb::DescriptorType::StorageImage,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Compute,
-        },
-        // HDR image (sampled).
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 11,
-            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Fragment,
         },
     };
     vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
@@ -319,37 +258,6 @@ void DefaultRenderer::create_pipelines() {
                                            .add_shader(draw_cull_shader)
                                            .set_constant("k_late", true)
                                            .build(m_context));
-
-    auto light_cull_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/light_cull.comp"));
-    m_light_cull_pipeline = VULL_EXPECT(vk::PipelineBuilder()
-                                            .add_set_layout(m_main_set_layout)
-                                            .add_shader(light_cull_shader)
-                                            .set_constant("k_viewport_width", m_viewport_extent.width)
-                                            .set_constant("k_viewport_height", m_viewport_extent.height)
-                                            .set_constant("k_tile_size", k_tile_size)
-                                            .set_constant("k_tile_max_light_count", k_tile_max_light_count)
-                                            .build(m_context));
-
-    auto deferred_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/deferred.comp"));
-    m_deferred_pipeline = VULL_EXPECT(vk::PipelineBuilder()
-                                          .add_set_layout(m_main_set_layout)
-                                          .add_shader(deferred_shader)
-                                          .set_constant("k_viewport_width", m_viewport_extent.width)
-                                          .set_constant("k_viewport_height", m_viewport_extent.height)
-                                          .set_constant("k_tile_size", k_tile_size)
-                                          .set_constant("k_row_tile_count", m_tile_extent.width)
-                                          .build(m_context));
-
-    auto triangle_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/fst.vert"));
-    auto blit_tonemap_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/blit_tonemap.frag"));
-    m_blit_tonemap_pipeline = VULL_EXPECT(vk::PipelineBuilder()
-                                              // TODO(swapchain-format): Don't hardcode format.
-                                              .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
-                                              .add_set_layout(m_main_set_layout)
-                                              .add_shader(triangle_shader)
-                                              .add_shader(blit_tonemap_shader)
-                                              .set_topology(vkb::PrimitiveTopology::TriangleList)
-                                              .build(m_context));
 }
 
 void DefaultRenderer::load_scene(Scene &scene) {
@@ -438,15 +346,7 @@ void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer 
     cmd_buf.draw_indexed_indirect_count(draw_buffer, sizeof(uint32_t), draw_buffer, 0, m_object_count, sizeof(DrawCmd));
 }
 
-Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pass(vk::RenderGraph &graph,
-                                                                                  vk::ResourceId target) {
-    Vector<PointLight> lights;
-    lights.push(PointLight{
-        .position = Vec3f(0.0f),
-        .radius = 1.0f,
-        .colour = Vec3f(1.0f),
-    });
-
+vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer) {
     Vector<Object> objects;
     for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
         const auto mesh_info = m_mesh_infos.get(mesh.vertex_data_name());
@@ -479,16 +379,9 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
     struct PassData {
         vk::ResourceId descriptor_buffer;
         vk::ResourceId frame_ubo;
-        vk::ResourceId light_buffer;
         vk::ResourceId object_buffer;
         vk::ResourceId draw_buffer;
-        vk::ResourceId albedo_image;
-        vk::ResourceId normal_image;
-        vk::ResourceId depth_image;
         vk::ResourceId depth_pyramid;
-        vk::ResourceId light_visibility;
-        vk::ResourceId hdr_image;
-        Vector<PointLight> lights;
         Vector<Object> objects;
         vk::DescriptorBuilder descriptor_builder;
     };
@@ -505,11 +398,6 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 .usage = vkb::BufferUsage::UniformBuffer,
                 .host_accessible = true,
             };
-            vk::BufferDescription light_buffer_description{
-                .size = lights.size_bytes() * 4 + sizeof(float),
-                .usage = vkb::BufferUsage::StorageBuffer,
-                .host_accessible = true,
-            };
             vk::BufferDescription object_buffer_description{
                 .size = objects.size_bytes(),
                 .usage = vkb::BufferUsage::StorageBuffer,
@@ -517,14 +405,11 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             };
             data.descriptor_buffer = builder.new_buffer("descriptor-buffer", descriptor_buffer_description);
             data.frame_ubo = builder.new_buffer("frame-ubo", frame_ubo_description);
-            data.light_buffer = builder.new_buffer("light-buffer", light_buffer_description);
             data.object_buffer = builder.new_buffer("object-buffer", object_buffer_description);
-            data.lights = vull::move(lights);
             data.objects = vull::move(objects);
         },
         [this](vk::RenderGraph &graph, vk::CommandBuffer &, PassData &data) {
             const auto &frame_ubo = graph.get_buffer(data.frame_ubo);
-            const auto &light_buffer = graph.get_buffer(data.light_buffer);
             const auto &object_buffer = graph.get_buffer(data.object_buffer);
 
             UniformBuffer frame_ubo_data{
@@ -541,19 +426,13 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             };
             memcpy(frame_ubo.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
 
-            const auto lights = vull::move(data.lights);
-            uint32_t light_count = lights.size();
-            memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
-            memcpy(light_buffer.mapped<float>() + 4, lights.data(), lights.size_bytes());
-
             const auto objects = vull::move(data.objects);
             memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
 
             data.descriptor_builder = {m_main_set_layout, graph.get_buffer(data.descriptor_buffer)};
             data.descriptor_builder.set(0, 0, frame_ubo);
-            data.descriptor_builder.set(1, 0, light_buffer);
-            data.descriptor_builder.set(2, 0, object_buffer);
-            data.descriptor_builder.set(3, 0, m_object_visibility_buffer);
+            data.descriptor_builder.set(1, 0, object_buffer);
+            data.descriptor_builder.set(2, 0, m_object_visibility_buffer);
         });
 
     graph.add_pass(
@@ -582,7 +461,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 .size = sizeof(uint32_t),
             });
 
-            data.descriptor_builder.set(4, 0, draw_buffer);
+            data.descriptor_builder.set(3, 0, draw_buffer);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
             cmd_buf.bind_pipeline(m_early_cull_pipeline);
             cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
@@ -591,35 +470,14 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
     graph.add_pass(
         "early-draw", vk::PassFlags::Graphics,
         [&](vk::PassBuilder &builder) {
-            vk::AttachmentDescription albedo_description{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                .format = vkb::Format::R8G8B8A8Unorm,
-                .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
-            };
-            vk::AttachmentDescription normal_description{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                .format = vkb::Format::R16G16Snorm,
-                .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
-            };
-            vk::AttachmentDescription depth_description{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                .format = vkb::Format::D32Sfloat,
-                .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
-            };
             data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
-            data.albedo_image = builder.new_attachment("albedo-image", albedo_description);
-            data.normal_image = builder.new_attachment("normal-image", normal_description);
-            data.depth_image = builder.new_attachment("depth-image", depth_description);
+            gbuffer.albedo = builder.write(gbuffer.albedo);
+            gbuffer.normal = builder.write(gbuffer.normal);
+            gbuffer.depth = builder.write(gbuffer.depth);
         },
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
             const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-            const auto &albedo_image = graph.get_image(data.albedo_image);
-            const auto &normal_image = graph.get_image(data.normal_image);
-            const auto &depth_image = graph.get_image(data.depth_image);
-            data.descriptor_builder.set(5, 0, albedo_image.full_view().sampled(vk::Sampler::None));
-            data.descriptor_builder.set(6, 0, normal_image.full_view().sampled(vk::Sampler::None));
-            data.descriptor_builder.set(7, 0, depth_image.full_view().sampled(vk::Sampler::None));
 
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
             cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
@@ -641,14 +499,14 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
                 .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
                 .mip_levels = depth_pyramid_mip_count,
             };
-            data.depth_image = builder.read(data.depth_image);
+            gbuffer.depth = builder.read(gbuffer.depth);
             data.depth_pyramid = builder.new_attachment("depth-pyramid", depth_pyramid_description);
         },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &depth_image = graph.get_image(data.depth_image);
+        [this, &data, &gbuffer](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
+            const auto &depth_image = graph.get_image(gbuffer.depth);
             const auto &depth_pyramid = graph.get_image(data.depth_pyramid);
             const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
-            data.descriptor_builder.set(8, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
+            data.descriptor_builder.set(4, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
 
             auto descriptor_buffer =
                 m_context.create_buffer(m_reduce_set_layout_size * level_count,
@@ -753,9 +611,9 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
         "late-draw", vk::PassFlags::Graphics,
         [&](vk::PassBuilder &builder) {
             data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
-            data.albedo_image = builder.write(data.albedo_image, vk::WriteFlags::Additive);
-            data.normal_image = builder.write(data.normal_image, vk::WriteFlags::Additive);
-            data.depth_image = builder.write(data.depth_image, vk::WriteFlags::Additive);
+            gbuffer.albedo = builder.write(gbuffer.albedo, vk::WriteFlags::Additive);
+            gbuffer.normal = builder.write(gbuffer.normal, vk::WriteFlags::Additive);
+            gbuffer.depth = builder.write(gbuffer.depth, vk::WriteFlags::Additive);
         },
         [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
             const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
@@ -765,65 +623,7 @@ Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> DefaultRenderer::build_pas
             cmd_buf.bind_pipeline(m_gbuffer_pipeline);
             record_draws(cmd_buf, draw_buffer);
         });
-
-    graph.add_pass(
-        "light-cull", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder) {
-            vk::BufferDescription visibility_description{
-                .size = (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width *
-                        m_tile_extent.height,
-                .usage = vkb::BufferUsage::StorageBuffer,
-            };
-            data.depth_image = builder.read(data.depth_image);
-            data.light_visibility = builder.new_buffer("light-visibility", visibility_description);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            data.descriptor_builder.set(9, 0, graph.get_buffer(data.light_visibility));
-
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
-            cmd_buf.bind_pipeline(m_light_cull_pipeline);
-            cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
-        });
-
-    graph.add_pass(
-        "deferred", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder) {
-            vk::AttachmentDescription hdr_image_description{
-                .extent = {m_viewport_extent.width, m_viewport_extent.height},
-                .format = vkb::Format::R16G16B16A16Sfloat,
-                .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::TransferSrc,
-            };
-            data.albedo_image = builder.read(data.albedo_image);
-            data.normal_image = builder.read(data.normal_image);
-            data.depth_image = builder.read(data.depth_image);
-            data.depth_pyramid = builder.read(data.depth_pyramid);
-            data.light_visibility = builder.read(data.light_visibility);
-            data.hdr_image = builder.new_attachment("hdr-image", hdr_image_description);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            data.descriptor_builder.set(10, 0, graph.get_image(data.hdr_image).full_view());
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
-            cmd_buf.bind_pipeline(m_deferred_pipeline);
-            cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
-        });
-
-    target = graph.add_pass<vk::ResourceId>(
-        "blit-tonemap", vk::PassFlags::Graphics,
-        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
-            data.hdr_image = builder.read(data.hdr_image, vk::ReadFlags::Sampled);
-            output = builder.write(target);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &) {
-            data.descriptor_builder.set(11, 0,
-                                        graph.get_image(data.hdr_image).full_view().sampled(vk::Sampler::Nearest));
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-            cmd_buf.bind_pipeline(m_blit_tonemap_pipeline);
-            cmd_buf.draw(3, 1);
-        });
-    return vull::make_tuple(target, data.depth_image, data.descriptor_buffer);
+    return data.frame_ubo;
 }
 
 void DefaultRenderer::update_cascades() {

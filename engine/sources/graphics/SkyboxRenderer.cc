@@ -1,7 +1,7 @@
 #include <vull/graphics/SkyboxRenderer.hh>
 
+#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
-#include <vull/graphics/DefaultRenderer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>
@@ -24,27 +24,37 @@
 
 namespace vull {
 
-SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_renderer) : m_context(context) {
-    vkb::DescriptorSetLayoutBinding binding{
-        .binding = 0,
-        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-        .descriptorCount = 1,
-        .stageFlags = vkb::ShaderStage::Fragment,
+SkyboxRenderer::SkyboxRenderer(vk::Context &context) : m_context(context) {
+    Array set_bindings{
+        // Frame UBO.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 0,
+            .descriptorType = vkb::DescriptorType::UniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Vertex,
+        },
+        // Skybox image.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = vkb::DescriptorType::CombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Fragment,
+        },
     };
     vkb::DescriptorSetLayoutCreateInfo set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
         .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
-        .bindingCount = 1,
-        .pBindings = &binding,
+        .bindingCount = set_bindings.size(),
+        .pBindings = set_bindings.data(),
     };
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&set_layout_ci, &m_set_layout) == vkb::Result::Success);
+    m_context.vkGetDescriptorSetLayoutSizeEXT(m_set_layout, &m_set_layout_size);
 
     auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.vert"));
     auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/skybox.frag"));
     m_pipeline = VULL_EXPECT(vk::PipelineBuilder()
                                  // TODO(swapchain-format): Don't hardcode format.
                                  .add_colour_attachment(vkb::Format::B8G8R8A8Srgb)
-                                 .add_set_layout(default_renderer.main_set_layout())
                                  .add_set_layout(m_set_layout)
                                  .add_shader(vertex_shader)
                                  .add_shader(fragment_shader)
@@ -68,15 +78,6 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context, DefaultRenderer &default_re
         .initialLayout = vkb::ImageLayout::Undefined,
     };
     m_image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
-
-    const auto size = m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
-    m_descriptor_buffer =
-        m_context.create_buffer(size, vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst,
-                                vk::MemoryUsage::DeviceOnly);
-    auto staging_buffer = m_descriptor_buffer.create_staging();
-    vk::DescriptorBuilder builder(m_set_layout, staging_buffer);
-    builder.set(0, 0, m_image.full_view().sampled(vk::Sampler::Linear));
-    m_descriptor_buffer.copy_from(staging_buffer, m_context.graphics_queue());
 }
 
 SkyboxRenderer::~SkyboxRenderer() {
@@ -86,6 +87,7 @@ SkyboxRenderer::~SkyboxRenderer() {
 vk::ResourceId SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, vk::ResourceId depth_image,
                                           vk::ResourceId frame_ubo) {
     struct PassData {
+        vk::ResourceId descriptor_buffer;
         vk::ResourceId output;
         vk::ResourceId frame_ubo;
         vk::ResourceId depth_image;
@@ -94,14 +96,24 @@ vk::ResourceId SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId
         .add_pass<PassData>(
             "skybox", vk::PassFlags::Graphics,
             [&](vk::PassBuilder &builder, PassData &data) {
+                vk::BufferDescription descriptor_buffer_description{
+                    .size = m_set_layout_size,
+                    .usage =
+                        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
+                    .host_accessible = true,
+                };
+                data.descriptor_buffer = builder.new_buffer("skybox-descriptor-buffer", descriptor_buffer_description);
                 data.output = builder.write(target, vk::WriteFlags::Additive);
                 data.frame_ubo = builder.read(frame_ubo);
                 data.depth_image = builder.read(depth_image);
             },
             [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const PassData &data) {
-                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, graph.get_buffer(data.frame_ubo), 0,
-                                               0);
-                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_descriptor_buffer, 1, 0);
+                const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
+                vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
+                descriptor_builder.set(0, 0, graph.get_buffer(data.frame_ubo));
+                descriptor_builder.set(1, 0, m_image.full_view().sampled(vk::Sampler::Linear));
+
+                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
                 cmd_buf.bind_pipeline(m_pipeline);
                 cmd_buf.draw(36, 1);
             })

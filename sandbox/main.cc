@@ -11,7 +11,9 @@
 #include <vull/core/Window.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/DefaultRenderer.hh>
+#include <vull/graphics/DeferredRenderer.hh>
 #include <vull/graphics/FramePacer.hh>
+#include <vull/graphics/GBuffer.hh>
 #include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
@@ -89,10 +91,11 @@ void vull_main(Vector<StringView> &&args) {
     Scene scene(context);
     scene.load(scene_name);
 
+    DeferredRenderer deferred_renderer(context, swapchain.extent_3D());
     DefaultRenderer default_renderer(context, swapchain.extent_3D());
     default_renderer.load_scene(scene);
 
-    SkyboxRenderer skybox_renderer(context, default_renderer);
+    SkyboxRenderer skybox_renderer(context);
     if (auto stream = vpak::open("/skybox")) {
         skybox_renderer.load(*stream);
     }
@@ -197,14 +200,14 @@ void vull_main(Vector<StringView> &&args) {
         default_renderer.update_globals(projection, free_camera.view_matrix(), free_camera.position());
 
         Timer build_rg_timer;
-        auto &graph = frame.new_graph(context);
-        const auto image_index = frame_pacer.image_index();
-        auto output_id = graph.import("output-image", swapchain.image(image_index));
-
         auto &cmd_buf = context.graphics_queue().request_cmd_buf();
-        auto [default_renderer_output, depth_image, descriptor_buffer] = default_renderer.build_pass(graph, output_id);
-        output_id = default_renderer_output;
-        output_id = skybox_renderer.build_pass(graph, output_id, depth_image, descriptor_buffer);
+        auto &graph = frame.new_graph(context);
+        auto output_id = graph.import("output-image", swapchain.image(frame_pacer.image_index()));
+
+        auto &gbuffer = deferred_renderer.create_gbuffer(graph);
+        auto frame_ubo = default_renderer.build_pass(graph, gbuffer);
+        output_id = deferred_renderer.build_pass(graph, frame_ubo, gbuffer, output_id);
+        output_id = skybox_renderer.build_pass(graph, output_id, gbuffer.depth, frame_ubo);
         output_id = ui_renderer.build_pass(graph, output_id, vull::move(ui_cmds));
 
         output_id = graph.add_pass<vk::ResourceId>(

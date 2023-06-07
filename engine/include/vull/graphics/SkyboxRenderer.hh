@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/RenderGraphDefs.hh>
@@ -15,18 +14,17 @@ class RenderGraph;
 
 namespace vull {
 
-class DefaultRenderer;
 struct Stream;
 
 class SkyboxRenderer {
     vk::Context &m_context;
     vkb::DescriptorSetLayout m_set_layout;
+    vkb::DeviceSize m_set_layout_size;
     vk::Pipeline m_pipeline;
     vk::Image m_image;
-    vk::Buffer m_descriptor_buffer;
 
 public:
-    SkyboxRenderer(vk::Context &context, DefaultRenderer &default_renderer);
+    explicit SkyboxRenderer(vk::Context &context);
     SkyboxRenderer(const SkyboxRenderer &) = delete;
     SkyboxRenderer(SkyboxRenderer &&) = delete;
     ~SkyboxRenderer();

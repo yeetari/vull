@@ -5,7 +5,6 @@
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/String.hh>
-#include <vull/support/Tuple.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/RenderGraphDefs.hh>
@@ -24,6 +23,7 @@ class Shader; // IWYU pragma: keep
 
 namespace vull {
 
+struct GBuffer;
 class Scene;
 
 class DefaultRenderer {
@@ -45,7 +45,6 @@ class DefaultRenderer {
     };
 
     vk::Context &m_context;
-    vkb::Extent2D m_tile_extent{};
     vkb::Extent3D m_viewport_extent{};
 
     vkb::DescriptorSetLayout m_main_set_layout;
@@ -67,9 +66,6 @@ class DefaultRenderer {
     vk::Pipeline m_depth_reduce_pipeline;
     vk::Pipeline m_early_cull_pipeline;
     vk::Pipeline m_late_cull_pipeline;
-    vk::Pipeline m_light_cull_pipeline;
-    vk::Pipeline m_deferred_pipeline;
-    vk::Pipeline m_blit_tonemap_pipeline;
 
     Mat4f m_proj;
     Mat4f m_view;
@@ -103,13 +99,10 @@ public:
     DefaultRenderer &operator=(const DefaultRenderer &) = delete;
     DefaultRenderer &operator=(DefaultRenderer &&) = delete;
 
-    Tuple<vk::ResourceId, vk::ResourceId, vk::ResourceId> build_pass(vk::RenderGraph &graph, vk::ResourceId target);
+    vk::ResourceId build_pass(vk::RenderGraph &graph, GBuffer &gbuffer);
     void load_scene(Scene &scene);
     void update_globals(const Mat4f &proj, const Mat4f &view, const Vec3f &view_position);
     void set_cull_view_locked(bool locked) { m_cull_view_locked = locked; }
-
-    // TODO: Remove.
-    vkb::DescriptorSetLayout main_set_layout() const { return m_main_set_layout; }
 };
 
 } // namespace vull

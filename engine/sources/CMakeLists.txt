@@ -21,6 +21,7 @@ target_sources(vull-core PRIVATE
 target_sources(vull-graphics PRIVATE
     core/Scene.cc
     graphics/DefaultRenderer.cc
+    graphics/DeferredRenderer.cc
     graphics/FramePacer.cc
     graphics/Material.cc
     graphics/Mesh.cc

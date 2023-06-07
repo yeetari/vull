@@ -2,7 +2,7 @@
 #include "lib/common.glsl"
 
 layout (location = 0) in vec2 g_uv;
-layout (binding = 11) uniform sampler2D g_hdr_image;
+layout (binding = 7) uniform sampler2D g_hdr_image;
 layout (location = 0) out vec4 g_output_image;
 
 void main() {
