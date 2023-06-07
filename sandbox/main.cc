@@ -29,7 +29,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/tasklet/Scheduler.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/CommandList.hh>
 #include <vull/ui/Font.hh>
@@ -241,6 +240,5 @@ void vull_main(Vector<StringView> &&args) {
         graph.execute(cmd_buf, true);
         cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }
-    Scheduler::current().stop();
     context.vkDeviceWaitIdle();
 }

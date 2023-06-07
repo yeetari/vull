@@ -49,5 +49,6 @@ int main(int argc, char **argv) {
     scheduler.start([=] {
         Vector<StringView> args(argv, argv + argc);
         vull_main(vull::move(args));
+        Scheduler::current().stop();
     });
 }
