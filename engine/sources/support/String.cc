@@ -9,6 +9,9 @@
 namespace vull {
 
 String String::copy_raw(const char *data, size_t length) {
+    if (data == nullptr || length == 0) {
+        return {};
+    }
     String string(length);
     memcpy(string.m_data, data, length);
     return string;
