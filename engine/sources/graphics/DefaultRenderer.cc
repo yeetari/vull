@@ -11,6 +11,7 @@
 #include <vull/graphics/GBuffer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
+#include <vull/graphics/Vertex.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Projection.hh>
@@ -73,12 +74,6 @@ struct Object {
 
 struct ShadowPushConstantBlock {
     uint32_t cascade_index;
-};
-
-struct Vertex {
-    Vec3f position;
-    Vec3f normal;
-    Vec2f uv;
 };
 
 } // namespace
