@@ -23,6 +23,7 @@ struct HitResult {
 enum class ElementFlags : uint8_t {
     None = 0,
     Hovered = 1u << 0u,
+    RightAlign = 1u << 1u,
 };
 
 class Element {
@@ -47,6 +48,7 @@ public:
 
     void set_offset_in_parent(Vec2f offset) { m_offset_in_parent = offset; }
     void set_preferred_size(Vec2f size) { m_preferred_size = size; }
+    void set_right_align(bool right_align);
 
     virtual bool handle_mouse_press(const MouseButtonEvent &) { return false; }
     virtual bool handle_mouse_release(const MouseButtonEvent &) { return false; }

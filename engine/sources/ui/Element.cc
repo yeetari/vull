@@ -29,6 +29,14 @@ Optional<HitResult> Element::hit_test(Vec2f point) {
     return {};
 }
 
+void Element::set_right_align(bool right_align) {
+    if (right_align) {
+        m_flags |= ElementFlags::RightAlign;
+    } else {
+        m_flags &= ~ElementFlags::RightAlign;
+    }
+}
+
 bool Element::handle_mouse_enter(const MouseEvent &) {
     m_flags |= ElementFlags::Hovered;
     return true;
