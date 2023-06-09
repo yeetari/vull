@@ -12,7 +12,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 class Font;
 class Label;
 class Pane;
@@ -25,7 +25,7 @@ class TimeGraphPanel : public Element {
 public:
     TimeGraphPanel(Tree &tree, Optional<Element &> parent, TimeGraph &graph) : Element(tree, parent), m_graph(graph) {}
 
-    void paint(CommandList &cmd_list, Vec2f position) const override;
+    void paint(Painter &painter, Vec2f position) const override;
 };
 
 class TimeGraph : public VBoxLayout {

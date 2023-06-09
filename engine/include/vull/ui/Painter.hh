@@ -23,7 +23,7 @@ class Font;
 class FontAtlas;
 class Renderer;
 
-class CommandList {
+class Painter {
     friend Renderer;
 
 private:
@@ -44,7 +44,7 @@ private:
     Vector<Command> m_commands;
     FontAtlas *m_atlas{nullptr};
 
-    explicit CommandList(Vec2f global_scale) : m_global_scale(global_scale) { m_bound_textures.push({}); }
+    explicit Painter(Vec2f global_scale) : m_global_scale(global_scale) { m_bound_textures.push({}); }
 
     void compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
                  const vk::SampledImage &null_image);

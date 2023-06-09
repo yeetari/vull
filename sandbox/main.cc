@@ -32,9 +32,9 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
-#include <vull/ui/CommandList.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/ui/Renderer.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/Window.hh>
@@ -190,9 +190,9 @@ void vull_main(Vector<StringView> &&args) {
         free_camera.update(window, dt);
 
         Timer ui_timer;
-        auto ui_cmds = ui_renderer.new_cmd_list();
-        ui_cmds.bind_atlas(atlas);
-        ui_tree.render(ui_cmds);
+        auto ui_painter = ui_renderer.new_painter();
+        ui_painter.bind_atlas(atlas);
+        ui_tree.render(ui_painter);
         cpu_time_graph.new_bar();
         cpu_time_graph.push_section("render-ui", ui_timer.elapsed());
 
@@ -208,7 +208,7 @@ void vull_main(Vector<StringView> &&args) {
         auto frame_ubo = default_renderer.build_pass(graph, gbuffer);
         output_id = deferred_renderer.build_pass(graph, frame_ubo, gbuffer, output_id);
         output_id = skybox_renderer.build_pass(graph, output_id, gbuffer.depth, frame_ubo);
-        output_id = ui_renderer.build_pass(graph, output_id, vull::move(ui_cmds));
+        output_id = ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
 
         output_id = graph.add_pass<vk::ResourceId>(
             "submit", vk::PassFlags::None,

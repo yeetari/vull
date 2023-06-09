@@ -6,9 +6,9 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
-#include <vull/ui/CommandList.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Event.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/widget/Label.hh>
 
@@ -20,7 +20,7 @@ Slider::Slider(Tree &tree, Optional<Element &> parent, Font &font, float min, fl
     set_value(min);
 }
 
-void Slider::paint(CommandList &cmd_list, Vec2f position) const {
+void Slider::paint(Painter &painter, Vec2f position) const {
     auto colour = Colour::from_srgb(0.25f, 0.25f, 0.25f);
     if (is_hovered()) {
         colour = Colour::from_srgb(0.38f, 0.38f, 0.38f);
@@ -30,17 +30,17 @@ void Slider::paint(CommandList &cmd_list, Vec2f position) const {
     }
 
     // Draw groove.
-    cmd_list.draw_rect(position, preferred_size(), colour);
+    painter.draw_rect(position, preferred_size(), colour);
 
     // Draw handle.
     const float value_ratio = (m_value - m_min) / (m_max - m_min);
     const float handle_x = (preferred_size().x() - m_handle_width - m_handle_padding * 2.0f) * value_ratio;
-    cmd_list.draw_rect(position + Vec2f(handle_x, 0.0f) + Vec2f(m_handle_padding),
-                       Vec2f(m_handle_width, preferred_size().y() - m_handle_padding * 2.0f),
-                       Colour::from_srgb(0.11f, 0.64f, 0.92f));
+    painter.draw_rect(position + Vec2f(handle_x, 0.0f) + Vec2f(m_handle_padding),
+                      Vec2f(m_handle_width, preferred_size().y() - m_handle_padding * 2.0f),
+                      Colour::from_srgb(0.11f, 0.64f, 0.92f));
 
     // Draw value label.
-    m_value_label.paint(cmd_list, position + (preferred_size() * 0.5f) - (m_value_label.preferred_size() * 0.5f));
+    m_value_label.paint(painter, position + (preferred_size() * 0.5f) - (m_value_label.preferred_size() * 0.5f));
 }
 
 void Slider::update(Vec2f mouse_position) {

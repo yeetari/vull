@@ -9,7 +9,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 class Font;
 class Tree;
 
@@ -26,7 +26,7 @@ public:
 
     void set_colour(const Colour &colour) { m_colour = colour; }
     void set_text(String text);
-    void paint(CommandList &cmd_list, Vec2f position) const override;
+    void paint(Painter &painter, Vec2f position) const override;
 };
 
 } // namespace vull::ui

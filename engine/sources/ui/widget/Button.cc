@@ -6,8 +6,8 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
-#include <vull/ui/CommandList.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/widget/Label.hh>
 
@@ -18,7 +18,7 @@ Button::Button(Tree &tree, Optional<Element &> parent, Font &font, String text)
     set_text(vull::move(text));
 }
 
-void Button::paint(CommandList &cmd_list, Vec2f position) const {
+void Button::paint(Painter &painter, Vec2f position) const {
     auto colour = Colour::from_srgb(0.25f, 0.25f, 0.25f);
     if (is_hovered()) {
         colour = Colour::from_srgb(0.38f, 0.38f, 0.38f);
@@ -27,8 +27,8 @@ void Button::paint(CommandList &cmd_list, Vec2f position) const {
         colour = Colour::from_srgb(0.67f, 0.67f, 0.67f, 0.39f);
     }
 
-    cmd_list.draw_rect(position, preferred_size(), colour);
-    m_label.paint(cmd_list, position + Vec2f(m_padding * 0.5f));
+    painter.draw_rect(position, preferred_size(), colour);
+    m_label.paint(painter, position + Vec2f(m_padding * 0.5f));
 }
 
 bool Button::handle_mouse_press(const MouseButtonEvent &) {

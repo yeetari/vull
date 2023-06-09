@@ -7,7 +7,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 class Element;
 class Font;
 class MouseButtonEvent;
@@ -22,7 +22,7 @@ public:
     Window(Tree &tree, Optional<Element &> parent, String title, Font &font);
 
     // ^Element
-    void paint(CommandList &cmd_list, Vec2f position) const override;
+    void paint(Painter &painter, Vec2f position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;
     bool handle_mouse_release(const MouseButtonEvent &event) override;
     bool handle_mouse_move(const MouseMoveEvent &event) override;

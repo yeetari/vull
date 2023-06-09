@@ -12,14 +12,14 @@
 
 namespace vull::ui {
 
-void Tree::render(CommandList &cmd_list) {
+void Tree::render(Painter &painter) {
     if (m_root_element->is_pane()) {
         static_cast<Pane &>(*m_root_element).layout();
     }
     if (vull::exchange(m_need_hover_update, false)) {
         update_hover();
     }
-    m_root_element->paint(cmd_list, m_root_element->offset_in_parent());
+    m_root_element->paint(painter, m_root_element->offset_in_parent());
 }
 
 void Tree::update_hover() {

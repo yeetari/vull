@@ -7,7 +7,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 class Font;
 class MouseButtonEvent;
 class MouseMoveEvent;
@@ -26,7 +26,7 @@ class Slider : public Element {
 public:
     Slider(Tree &tree, Optional<Element &> parent, Font &font, float min, float max);
 
-    void paint(CommandList &cmd_list, Vec2f position) const override;
+    void paint(Painter &painter, Vec2f position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;
     bool handle_mouse_release(const MouseButtonEvent &event) override;
     bool handle_mouse_move(const MouseMoveEvent &event) override;

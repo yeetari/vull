@@ -9,7 +9,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 
 class Tree {
     Vec2f m_global_scale;
@@ -28,7 +28,7 @@ public:
 
     template <typename T, typename... Args>
     T &set_root(Args &&...args);
-    void render(CommandList &cmd_list);
+    void render(Painter &painter);
 
     void handle_element_destruct(Element &element);
     void set_active_element(Element &element);

@@ -32,9 +32,9 @@ Optional<HitResult> Pane::hit_test(Vec2f point) {
     return HitResult{*this, point};
 }
 
-void Pane::paint(CommandList &cmd_list, Vec2f position) const {
+void Pane::paint(Painter &painter, Vec2f position) const {
     for (const auto &child : m_children) {
-        child->paint(cmd_list, position + child->offset_in_parent());
+        child->paint(painter, position + child->offset_in_parent());
     }
 }
 

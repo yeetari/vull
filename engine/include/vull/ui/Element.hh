@@ -8,7 +8,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 class Element;
 class MouseEvent;
 class MouseButtonEvent;
@@ -44,7 +44,7 @@ public:
 
     bool bounding_box_contains(Vec2f point) const;
     virtual Optional<HitResult> hit_test(Vec2f point);
-    virtual void paint(CommandList &cmd_list, Vec2f position) const = 0;
+    virtual void paint(Painter &painter, Vec2f position) const = 0;
 
     void set_offset_in_parent(Vec2f offset) { m_offset_in_parent = offset; }
     void set_preferred_size(Vec2f size) { m_preferred_size = size; }

@@ -59,10 +59,10 @@ target_sources(vull-ui PRIVATE
     ui/widget/Label.cc
     ui/widget/Slider.cc
     ui/widget/TimeGraph.cc
-    ui/CommandList.cc
     ui/Element.cc
     ui/Font.cc
     ui/FontAtlas.cc
+    ui/Painter.cc
     ui/Renderer.cc
     ui/Tree.cc
     ui/Window.cc)

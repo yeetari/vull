@@ -11,7 +11,7 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
-#include <vull/ui/CommandList.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/ui/layout/BoxLayout.hh>
 #include <vull/ui/layout/Pane.hh>
 #include <vull/ui/widget/Label.hh>
@@ -22,9 +22,9 @@ namespace vull::ui {
 
 class Element;
 
-void TimeGraphPanel::paint(CommandList &cmd_list, Vec2f position) const {
+void TimeGraphPanel::paint(Painter &painter, Vec2f position) const {
     // Draw bounding box.
-    cmd_list.draw_rect(position, preferred_size(), Colour::black());
+    painter.draw_rect(position, preferred_size(), Colour::black());
 
     // Draw bars.
     for (uint32_t bar_index = 0; bar_index < m_graph.m_bars.size(); bar_index++) {
@@ -33,7 +33,7 @@ void TimeGraphPanel::paint(CommandList &cmd_list, Vec2f position) const {
         for (float y_offset = 0.0f; const auto &section : m_graph.m_bars[bar_index].sections) {
             const auto &colour = m_graph.colour_for_section(section.name);
             float height = section.duration / m_graph.m_max_total_time * preferred_size().y();
-            cmd_list.draw_rect(bar_base + Vec2f(0.0f, y_offset), Vec2f(m_graph.m_bar_width, -height), colour);
+            painter.draw_rect(bar_base + Vec2f(0.0f, y_offset), Vec2f(m_graph.m_bar_width, -height), colour);
             y_offset -= height;
         }
     }

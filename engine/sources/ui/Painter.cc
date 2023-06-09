@@ -1,4 +1,4 @@
-#include <vull/ui/CommandList.hh>
+#include <vull/ui/Painter.hh>
 
 #include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
@@ -25,7 +25,7 @@ struct Vertex {
     Vec4f colour;
 };
 
-uint32_t CommandList::get_texture_index(const vk::SampledImage &image) {
+uint32_t Painter::get_texture_index(const vk::SampledImage &image) {
     for (uint32_t i = 0; i < m_bound_textures.size(); i++) {
         const auto &texture = m_bound_textures[i];
         if (texture.view == *image.view() && texture.sampler == image.sampler()) {
@@ -36,11 +36,11 @@ uint32_t CommandList::get_texture_index(const vk::SampledImage &image) {
     return m_bound_textures.size() - 1;
 }
 
-void CommandList::bind_atlas(FontAtlas &atlas) {
+void Painter::bind_atlas(FontAtlas &atlas) {
     m_atlas = &atlas;
 }
 
-void CommandList::draw_rect(const Vec2f &position, const Vec2f &size, const Colour &colour) {
+void Painter::draw_rect(const Vec2f &position, const Vec2f &size, const Colour &colour) {
     m_commands.push({
         .position = position * m_global_scale,
         .size = size * m_global_scale,
@@ -48,7 +48,7 @@ void CommandList::draw_rect(const Vec2f &position, const Vec2f &size, const Colo
     });
 }
 
-void CommandList::draw_image(const Vec2f &position, const Vec2f &size, const vk::SampledImage &image) {
+void Painter::draw_image(const Vec2f &position, const Vec2f &size, const vk::SampledImage &image) {
     m_commands.push({
         .position = position * m_global_scale,
         .size = size * m_global_scale,
@@ -58,7 +58,7 @@ void CommandList::draw_image(const Vec2f &position, const Vec2f &size, const vk:
     });
 }
 
-void CommandList::draw_text(Font &font, Vec2f position, const Colour &colour, StringView text) {
+void Painter::draw_text(Font &font, Vec2f position, const Colour &colour, StringView text) {
     position *= m_global_scale;
     for (const auto [glyph_index, advance, offset] : font.shape(text)) {
         const auto glyph_info = m_atlas->ensure_glyph(font, glyph_index);
@@ -74,8 +74,8 @@ void CommandList::draw_text(Font &font, Vec2f position, const Colour &colour, St
     }
 }
 
-void CommandList::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
-                          const vk::SampledImage &null_image) {
+void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
+                      const vk::SampledImage &null_image) {
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
         context.create_buffer(m_bound_textures.size() * descriptor_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,

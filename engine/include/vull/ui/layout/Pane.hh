@@ -9,7 +9,7 @@
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 
 class Margins {
     Vec4f m_value;
@@ -44,7 +44,7 @@ public:
     virtual void layout();
 
     Optional<HitResult> hit_test(Vec2f point) override;
-    void paint(CommandList &cmd_list, Vec2f position) const override;
+    void paint(Painter &painter, Vec2f position) const override;
 
     const Vector<UniquePtr<Element>> &children() const { return m_children; }
     const Margins &margins() const { return m_margins; }

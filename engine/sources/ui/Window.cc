@@ -8,8 +8,8 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
-#include <vull/ui/CommandList.hh>
 #include <vull/ui/Event.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/layout/BoxLayout.hh>
 #include <vull/ui/layout/Pane.hh>
@@ -26,18 +26,18 @@ Window::Window(Tree &tree, Optional<Element &> parent, String title, Font &font)
     m_content_pane->margins().set(0.3f, 0.3f, 0.5f, 0.5f);
 }
 
-void Window::paint(CommandList &cmd_list, Vec2f position) const {
+void Window::paint(Painter &painter, Vec2f position) const {
     // Title pane background.
-    cmd_list.draw_rect(position + m_title_pane->offset_in_parent(),
-                       {preferred_size().x(), m_title_pane->preferred_size().y()}, Colour::black());
+    painter.draw_rect(position + m_title_pane->offset_in_parent(),
+                      {preferred_size().x(), m_title_pane->preferred_size().y()}, Colour::black());
 
     // Content pane background.
-    cmd_list.draw_rect(position + m_content_pane->offset_in_parent(),
-                       {preferred_size().x(), m_content_pane->preferred_size().y()},
-                       Colour::from_srgb(0.13f, 0.14f, 0.15f));
+    painter.draw_rect(position + m_content_pane->offset_in_parent(),
+                      {preferred_size().x(), m_content_pane->preferred_size().y()},
+                      Colour::from_srgb(0.13f, 0.14f, 0.15f));
 
     // Paint children.
-    Pane::paint(cmd_list, position);
+    Pane::paint(painter, position);
 }
 
 bool Window::handle_mouse_press(const MouseButtonEvent &event) {

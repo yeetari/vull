@@ -6,7 +6,7 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Utility.hh>
-#include <vull/ui/CommandList.hh>
+#include <vull/ui/Painter.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
@@ -108,30 +108,30 @@ Renderer::~Renderer() {
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
 }
 
-vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, CommandList &&cmd_list) {
+vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, Painter &&painter) {
     return graph.add_pass<vk::ResourceId>(
         "ui-pass", vk::PassFlags::Graphics,
         [&](vk::PassBuilder &builder, vk::ResourceId &output) {
             output = builder.write(target, vk::WriteFlags::Additive);
         },
-        [this, cmd_list = vull::move(cmd_list)](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
-                                                const vk::ResourceId &output) mutable {
+        [this, painter = vull::move(painter)](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
+                                              const vk::ResourceId &output) mutable {
             const auto output_extent = graph.get_image(output).extent();
             cmd_buf.bind_pipeline(m_pipeline);
-            cmd_list.compile(m_context, cmd_buf, Vec2f(output_extent.width, output_extent.height),
-                             m_null_image
-                                 .swizzle_view({
-                                     .r = vkb::ComponentSwizzle::One,
-                                     .g = vkb::ComponentSwizzle::One,
-                                     .b = vkb::ComponentSwizzle::One,
-                                     .a = vkb::ComponentSwizzle::One,
-                                 })
-                                 .sampled(vk::Sampler::Nearest));
+            painter.compile(m_context, cmd_buf, Vec2f(output_extent.width, output_extent.height),
+                            m_null_image
+                                .swizzle_view({
+                                    .r = vkb::ComponentSwizzle::One,
+                                    .g = vkb::ComponentSwizzle::One,
+                                    .b = vkb::ComponentSwizzle::One,
+                                    .a = vkb::ComponentSwizzle::One,
+                                })
+                                .sampled(vk::Sampler::Nearest));
         });
 }
 
-CommandList Renderer::new_cmd_list() {
-    return CommandList(m_global_scale);
+Painter Renderer::new_painter() {
+    return Painter(m_global_scale);
 }
 
 } // namespace vull::ui

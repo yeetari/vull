@@ -15,7 +15,7 @@ class RenderGraph;
 
 namespace vull::ui {
 
-class CommandList;
+class Painter;
 
 class Renderer {
     vk::Context &m_context;
@@ -33,8 +33,8 @@ public:
     Renderer &operator=(const Renderer &) = delete;
     Renderer &operator=(Renderer &&) = delete;
 
-    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, CommandList &&cmd_list);
-    CommandList new_cmd_list();
+    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, Painter &&painter);
+    Painter new_painter();
 };
 
 } // namespace vull::ui
