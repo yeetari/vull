@@ -1,7 +1,6 @@
 #include <vull/ui/Renderer.hh>
 
 #include <vull/container/Array.hh>
-#include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
@@ -108,26 +107,21 @@ Renderer::~Renderer() {
     m_context.vkDestroyDescriptorSetLayout(m_descriptor_set_layout);
 }
 
-vk::ResourceId Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, Painter &&painter) {
-    return graph.add_pass<vk::ResourceId>(
-        "ui-pass", vk::PassFlags::Graphics,
-        [&](vk::PassBuilder &builder, vk::ResourceId &output) {
-            output = builder.write(target, vk::WriteFlags::Additive);
-        },
-        [this, painter = vull::move(painter)](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf,
-                                              const vk::ResourceId &output) mutable {
-            const auto output_extent = graph.get_image(output).extent();
-            cmd_buf.bind_pipeline(m_pipeline);
-            painter.compile(m_context, cmd_buf, Vec2f(output_extent.width, output_extent.height),
-                            m_null_image
-                                .swizzle_view({
-                                    .r = vkb::ComponentSwizzle::One,
-                                    .g = vkb::ComponentSwizzle::One,
-                                    .b = vkb::ComponentSwizzle::One,
-                                    .a = vkb::ComponentSwizzle::One,
-                                })
-                                .sampled(vk::Sampler::Nearest));
-        });
+void Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painter &&painter) {
+    auto &pass = graph.add_pass("ui-pass", vk::PassFlags::Graphics).write(target, vk::WriteFlags::Additive);
+    pass.set_on_execute([=, this, &graph, painter = vull::move(painter)](vk::CommandBuffer &cmd_buf) mutable {
+        const auto output_extent = graph.get_image(target).extent();
+        cmd_buf.bind_pipeline(m_pipeline);
+        painter.compile(m_context, cmd_buf, Vec2f(output_extent.width, output_extent.height),
+                        m_null_image
+                            .swizzle_view({
+                                .r = vkb::ComponentSwizzle::One,
+                                .g = vkb::ComponentSwizzle::One,
+                                .b = vkb::ComponentSwizzle::One,
+                                .a = vkb::ComponentSwizzle::One,
+                            })
+                            .sampled(vk::Sampler::Nearest));
+    });
 }
 
 Painter Renderer::new_painter() {

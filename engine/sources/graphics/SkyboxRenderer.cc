@@ -1,11 +1,9 @@
 #include <vull/graphics/SkyboxRenderer.hh>
 
 #include <vull/container/Array.hh>
-#include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/Utility.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
@@ -84,40 +82,30 @@ SkyboxRenderer::~SkyboxRenderer() {
     m_context.vkDestroyDescriptorSetLayout(m_set_layout);
 }
 
-vk::ResourceId SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId target, vk::ResourceId depth_image,
-                                          vk::ResourceId frame_ubo) {
-    struct PassData {
-        vk::ResourceId descriptor_buffer;
-        vk::ResourceId output;
-        vk::ResourceId frame_ubo;
-        vk::ResourceId depth_image;
+void SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_image, vk::ResourceId &frame_ubo,
+                                vk::ResourceId &target) {
+    vk::BufferDescription descriptor_buffer_description{
+        .size = m_set_layout_size,
+        .usage = vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
+        .host_accessible = true,
     };
-    return graph
-        .add_pass<PassData>(
-            "skybox", vk::PassFlags::Graphics,
-            [&](vk::PassBuilder &builder, PassData &data) {
-                vk::BufferDescription descriptor_buffer_description{
-                    .size = m_set_layout_size,
-                    .usage =
-                        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
-                    .host_accessible = true,
-                };
-                data.descriptor_buffer = builder.new_buffer("skybox-descriptor-buffer", descriptor_buffer_description);
-                data.output = builder.write(target, vk::WriteFlags::Additive);
-                data.frame_ubo = builder.read(frame_ubo);
-                data.depth_image = builder.read(depth_image);
-            },
-            [this](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const PassData &data) {
-                const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-                vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
-                descriptor_builder.set(0, 0, graph.get_buffer(data.frame_ubo));
-                descriptor_builder.set(1, 0, m_image.full_view().sampled(vk::Sampler::Linear));
+    auto descriptor_buffer_id = graph.new_buffer("skybox-descriptor-buffer", descriptor_buffer_description);
 
-                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-                cmd_buf.bind_pipeline(m_pipeline);
-                cmd_buf.draw(36, 1);
-            })
-        .output;
+    auto &pass = graph.add_pass("skybox", vk::PassFlags::Graphics)
+                     .write(target, vk::WriteFlags::Additive)
+                     .read(depth_image)
+                     .read(frame_ubo);
+
+    pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
+        descriptor_builder.set(0, 0, graph.get_buffer(frame_ubo));
+        descriptor_builder.set(1, 0, m_image.full_view().sampled(vk::Sampler::Linear));
+
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+        cmd_buf.bind_pipeline(m_pipeline);
+        cmd_buf.draw(36, 1);
+    });
 }
 
 void SkyboxRenderer::load(Stream &stream) {

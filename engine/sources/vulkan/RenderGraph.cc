@@ -66,70 +66,70 @@ vkb::DependencyInfo Pass::dependency_info(RenderGraph &graph, Vector<vkb::ImageM
     };
 }
 
-ResourceId PassBuilder::new_attachment(String name, const AttachmentDescription &description) {
-    const auto id = m_graph.create_resource(vull::move(name), ResourceFlags::Image, &m_pass,
-                                            [description, &context = m_graph.context(), image = vk::Image()]() mutable {
-                                                vkb::ImageCreateInfo image_ci{
-                                                    .sType = vkb::StructureType::ImageCreateInfo,
-                                                    .imageType = vkb::ImageType::_2D,
-                                                    .format = description.format,
-                                                    .extent = {description.extent.width, description.extent.height, 1},
-                                                    .mipLevels = description.mip_levels,
-                                                    .arrayLayers = 1,
-                                                    .samples = vkb::SampleCount::_1,
-                                                    .tiling = vkb::ImageTiling::Optimal,
-                                                    .usage = description.usage,
-                                                    .sharingMode = vkb::SharingMode::Exclusive,
-                                                    .initialLayout = vkb::ImageLayout::Undefined,
-                                                };
-                                                image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
-                                                return &image;
-                                            });
-    return m_pass.m_creates.emplace(id);
-}
-
-ResourceId PassBuilder::new_buffer(String name, const BufferDescription &description) {
-    const auto id =
-        m_graph.create_resource(vull::move(name), ResourceFlags::Buffer, &m_pass,
-                                [description, &context = m_graph.context(), buffer = vk::Buffer()]() mutable {
-                                    const auto memory_usage = description.host_accessible
-                                                                  ? vk::MemoryUsage::HostToDevice
-                                                                  : vk::MemoryUsage::DeviceOnly;
-                                    buffer = context.create_buffer(description.size, description.usage, memory_usage);
-                                    return &buffer;
-                                });
-    return m_pass.m_creates.emplace(id);
-}
-
-ResourceId PassBuilder::read(ResourceId id, ReadFlags flags) {
-    m_pass.m_reads.push(vull::make_tuple(id, flags));
+Pass &Pass::read(ResourceId &id, ReadFlags flags) {
+    m_reads.push(vull::make_tuple(id, flags));
     if ((flags & ReadFlags::Present) != ReadFlags::None) {
         // Create a new handle so that a present pass can be the target pass for compilation.
-        id = m_graph.clone_resource(id, m_pass);
+        id = m_graph.clone_resource(id, *this);
     }
-    return id;
+    return *this;
 }
 
-ResourceId PassBuilder::write(ResourceId id, WriteFlags flags) {
+Pass &Pass::write(ResourceId &id, WriteFlags flags) {
     if ((flags & WriteFlags::Additive) != WriteFlags::None) {
         // This pass doesn't fully overwrite the resource.
-        m_pass.m_reads.push(vull::make_tuple(id, ReadFlags::Additive));
+        m_reads.push(vull::make_tuple(id, ReadFlags::Additive));
     }
-    id = m_graph.clone_resource(id, m_pass);
-    m_pass.m_writes.push(vull::make_tuple(id, flags));
-    return id;
+    id = m_graph.clone_resource(id, *this);
+    m_writes.push(vull::make_tuple(id, flags));
+    return *this;
+}
+
+Pass &RenderGraph::add_pass(String name, PassFlags flags) {
+    return *m_passes.emplace(new Pass(*this, vull::move(name), flags));
 }
 
 ResourceId RenderGraph::import(String name, const Buffer &buffer) {
-    return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Imported, nullptr, [&buffer] {
+    return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Imported, [&buffer] {
         return &buffer;
     });
 }
 
 ResourceId RenderGraph::import(String name, const Image &image) {
-    return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Imported, nullptr, [&image] {
+    return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Imported, [&image] {
         return &image;
     });
+}
+
+ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription &description) {
+    return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Uninitialised,
+                           [description, &context = m_context, image = vk::Image()]() mutable {
+                               vkb::ImageCreateInfo image_ci{
+                                   .sType = vkb::StructureType::ImageCreateInfo,
+                                   .imageType = vkb::ImageType::_2D,
+                                   .format = description.format,
+                                   .extent = {description.extent.width, description.extent.height, 1},
+                                   .mipLevels = description.mip_levels,
+                                   .arrayLayers = 1,
+                                   .samples = vkb::SampleCount::_1,
+                                   .tiling = vkb::ImageTiling::Optimal,
+                                   .usage = description.usage,
+                                   .sharingMode = vkb::SharingMode::Exclusive,
+                                   .initialLayout = vkb::ImageLayout::Undefined,
+                               };
+                               image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+                               return &image;
+                           });
+}
+
+ResourceId RenderGraph::new_buffer(String name, const BufferDescription &description) {
+    return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Uninitialised,
+                           [description, &context = m_context, buffer = vk::Buffer()]() mutable {
+                               const auto memory_usage = description.host_accessible ? vk::MemoryUsage::HostToDevice
+                                                                                     : vk::MemoryUsage::DeviceOnly;
+                               buffer = context.create_buffer(description.size, description.usage, memory_usage);
+                               return &buffer;
+                           });
 }
 
 const Buffer &RenderGraph::get_buffer(ResourceId id) {
@@ -147,15 +147,14 @@ const Image &RenderGraph::get_image(ResourceId id) {
 RenderGraph::RenderGraph(Context &context) : m_context(context), m_timestamp_pool(context) {}
 RenderGraph::~RenderGraph() = default;
 
-ResourceId RenderGraph::create_resource(String &&name, ResourceFlags flags, Pass *producer,
-                                        Function<const void *()> &&materialise) {
+ResourceId RenderGraph::create_resource(String &&name, ResourceFlags flags, Function<const void *()> &&materialise) {
     m_physical_resources.emplace(vull::move(name), vull::move(materialise));
-    m_resources.emplace(producer, flags, m_physical_resources.size() - 1);
+    m_resources.emplace(nullptr, flags, m_physical_resources.size() - 1);
     return m_resources.size() - 1;
 }
 
 ResourceId RenderGraph::clone_resource(ResourceId id, Pass &producer) {
-    const auto new_flags = m_resources[id].flags() & ~ResourceFlags::Imported;
+    const auto new_flags = m_resources[id].flags() & ~(ResourceFlags::Imported | ResourceFlags::Uninitialised);
     m_resources.emplace(&producer, new_flags, m_resources[id].physical_index());
     return m_resources.size() - 1;
 }
@@ -170,6 +169,7 @@ void RenderGraph::build_order(ResourceId target) {
         // Traverse dependant passes (those that produce a resource we read from).
         for (auto [id, flags] : pass.reads()) {
             const auto &resource = m_resources[id];
+            VULL_ASSERT((resource.flags() & ResourceFlags::Uninitialised) == ResourceFlags::None);
             if ((resource.flags() & ResourceFlags::Imported) != ResourceFlags::None) {
                 // Imported resources have no producer.
                 continue;
@@ -184,7 +184,7 @@ void RenderGraph::build_order(ResourceId target) {
 void RenderGraph::build_sync() {
     // Build resource write info.
     for (auto &resource : m_resources) {
-        if ((resource.flags() & ResourceFlags::Imported) != ResourceFlags::None) {
+        if ((resource.flags() & (ResourceFlags::Imported | ResourceFlags::Uninitialised)) != ResourceFlags::None) {
             continue;
         }
 
@@ -210,19 +210,6 @@ void RenderGraph::build_sync() {
 
     HashMap<vk::ResourceId, vkb::ImageLayout> layout_map;
     for (Pass &pass : m_pass_order) {
-        for (auto id : pass.creates()) {
-            const auto &resource = m_resources[id];
-            if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
-                pass.add_transition(id, vkb::ImageLayout::Undefined, resource.write_layout());
-                layout_map.set(resource.physical_index(), resource.write_layout());
-#ifdef RG_DEBUG
-                vull::debug("'{}' create '{}': Undefined -> {}", pass.name(),
-                            m_physical_resources[resource.physical_index()].name(),
-                            vull::to_underlying(resource.write_layout()));
-#endif
-            }
-        }
-
         auto &barrier = pass.m_memory_barrier;
         if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
             barrier.dstStageMask |= vkb::PipelineStage2::AllTransfer;
@@ -344,10 +331,6 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
             }
         };
 
-        // TODO: How to choose Clear vs DontCare for load op?
-        for (auto id : pass.creates()) {
-            consider_resource(id, vkb::AttachmentLoadOp::Clear, vkb::AttachmentStoreOp::Store);
-        }
         for (auto [id, flags] : pass.reads()) {
             if ((flags & (ReadFlags::Additive | ReadFlags::Sampled)) != ReadFlags::None) {
                 // Ignore Additive reads as they are handled by vkb::AttachmentLoadOp::Load on the write side. Ignore
@@ -357,6 +340,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
             consider_resource(id, vkb::AttachmentLoadOp::Load, vkb::AttachmentStoreOp::None);
         }
         for (auto [id, flags] : pass.writes()) {
+            // TODO: How to choose Clear vs DontCare for load op?
             const bool additive = (flags & WriteFlags::Additive) != WriteFlags::None;
             consider_resource(id, additive ? vkb::AttachmentLoadOp::Load : vkb::AttachmentLoadOp::Clear,
                               vkb::AttachmentStoreOp::Store);
@@ -386,7 +370,10 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
         cmd_buf.set_scissor(scissor);
     }
 
-    pass.execute(*this, cmd_buf);
+    // Execute user-provided record function.
+    if (pass.m_on_execute) {
+        pass.m_on_execute(cmd_buf);
+    }
 
     if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
         cmd_buf.end_rendering();

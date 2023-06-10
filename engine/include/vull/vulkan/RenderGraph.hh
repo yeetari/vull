@@ -5,7 +5,7 @@
 #include <vull/support/Function.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Tuple.hh>
-#include <vull/support/UniquePtr.hh>
+#include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/support/Utility.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/RenderGraphDefs.hh> // IWYU pragma: export
@@ -41,6 +41,7 @@ enum class ResourceFlags {
     Buffer = 1u << 0u,
     Image = 1u << 1u,
     Imported = 1u << 2u,
+    Uninitialised = 1u << 3u,
     Kind = Buffer | Image,
 };
 
@@ -129,15 +130,21 @@ class Pass {
 private:
     const String m_name;
     const PassFlags m_flags;
-    Vector<ResourceId> m_creates;
+    RenderGraph &m_graph;
     Vector<Tuple<ResourceId, ReadFlags>> m_reads;
     Vector<Tuple<ResourceId, WriteFlags>> m_writes;
+    Function<void(CommandBuffer &)> m_on_execute;
+
     vkb::MemoryBarrier2 m_memory_barrier{.sType = vkb::StructureType::MemoryBarrier2};
     Vector<Transition> m_transitions;
     bool m_visited{false};
 
+    void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
+    vkb::DependencyInfo dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const;
+
 public:
-    Pass(String &&name, PassFlags flags) : m_name(vull::move(name)), m_flags(flags) {}
+    Pass(RenderGraph &graph, String &&name, PassFlags flags)
+        : m_name(vull::move(name)), m_flags(flags), m_graph(graph) {}
     Pass(const Pass &) = delete;
     Pass(Pass &&) = delete;
     virtual ~Pass() = default;
@@ -145,59 +152,18 @@ public:
     Pass &operator=(const Pass &) = delete;
     Pass &operator=(Pass &&) = delete;
 
-    void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
-    vkb::DependencyInfo dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const;
-    virtual void execute(RenderGraph &graph, CommandBuffer &cmd_buf) = 0;
+    Pass &read(ResourceId &id, ReadFlags flags = ReadFlags::None);
+    Pass &write(ResourceId &id, WriteFlags flags = WriteFlags::None);
+    void set_on_execute(Function<void(CommandBuffer &)> &&on_execute) { m_on_execute = vull::move(on_execute); }
 
     const String &name() const { return m_name; }
     PassFlags flags() const { return m_flags; }
-    const Vector<ResourceId> &creates() const { return m_creates; }
     const Vector<Tuple<ResourceId, ReadFlags>> &reads() const { return m_reads; }
     const Vector<Tuple<ResourceId, WriteFlags>> &writes() const { return m_writes; }
 };
 
-class PassBuilder {
-    friend RenderGraph;
-
-private:
-    RenderGraph &m_graph;
-    Pass &m_pass;
-
-    PassBuilder(RenderGraph &graph, Pass &pass) : m_graph(graph), m_pass(pass) {}
-
-public:
-    ResourceId new_attachment(String name, const AttachmentDescription &description);
-    ResourceId new_buffer(String name, const BufferDescription &description);
-    ResourceId read(ResourceId id, ReadFlags flags = ReadFlags::None);
-    ResourceId write(ResourceId id, WriteFlags flags = WriteFlags::None);
-};
-
 class RenderGraph {
-    friend PassBuilder;
-
-    struct NoData {};
-
-    template <typename T, typename ExecuteFn>
-    class TypedPass final : public Pass {
-        mutable T m_data{};
-        ExecuteFn m_execute_fn;
-
-    public:
-        TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
-            : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
-        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) override { m_execute_fn(graph, cmd_buf, m_data); }
-        T &data() { return m_data; }
-    };
-
-    template <typename ExecuteFn>
-    class TypedPass<NoData, ExecuteFn> final : public Pass {
-        ExecuteFn m_execute_fn;
-
-    public:
-        TypedPass(String &&name, PassFlags flags, ExecuteFn &&execute_fn)
-            : Pass(vull::move(name), flags), m_execute_fn(vull::move(execute_fn)) {}
-        void execute(RenderGraph &graph, CommandBuffer &cmd_buf) override { m_execute_fn(graph, cmd_buf); }
-    };
+    friend Pass;
 
 private:
     Context &m_context;
@@ -207,8 +173,7 @@ private:
     Vector<PhysicalResource, ResourceId> m_physical_resources;
     vk::QueryPool m_timestamp_pool;
 
-    ResourceId create_resource(String &&name, ResourceFlags flags, Pass *producer,
-                               Function<const void *()> &&materialise);
+    ResourceId create_resource(String &&name, ResourceFlags flags, Function<const void *()> &&materialise);
     ResourceId clone_resource(ResourceId id, Pass &producer);
     void build_order(ResourceId target);
     void build_sync();
@@ -223,12 +188,12 @@ public:
     RenderGraph &operator=(const RenderGraph &) = delete;
     RenderGraph &operator=(RenderGraph &&) = delete;
 
-    template <typename T, typename SetupFn, typename ExecuteFn>
-    T &add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn);
-    template <typename SetupFn, typename ExecuteFn>
-    void add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn);
+    Pass &add_pass(String name, PassFlags flags);
     ResourceId import(String name, const Buffer &buffer);
     ResourceId import(String name, const Image &image);
+    ResourceId new_attachment(String name, const AttachmentDescription &description);
+    ResourceId new_buffer(String name, const BufferDescription &description);
+
     const Buffer &get_buffer(ResourceId id);
     const Image &get_image(ResourceId id);
 
@@ -241,23 +206,6 @@ public:
     const Vector<Pass &> &pass_order() const { return m_pass_order; }
     vk::QueryPool &timestamp_pool() { return m_timestamp_pool; }
 };
-
-template <typename T, typename SetupFn, typename ExecuteFn>
-T &RenderGraph::add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn) {
-    auto *pass = new TypedPass<T, ExecuteFn>(vull::move(name), flags, vull::move(execute_fn));
-    m_passes.push(vull::adopt_unique(pass));
-    PassBuilder builder(*this, *pass);
-    setup_fn(builder, pass->data());
-    return pass->data();
-}
-
-template <typename SetupFn, typename ExecuteFn>
-void RenderGraph::add_pass(String name, PassFlags flags, SetupFn &&setup_fn, ExecuteFn &&execute_fn) {
-    auto *pass = new TypedPass<NoData, ExecuteFn>(vull::move(name), flags, vull::move(execute_fn));
-    m_passes.push(vull::adopt_unique(pass));
-    PassBuilder builder(*this, *pass);
-    setup_fn(builder);
-}
 
 VULL_DEFINE_FLAG_ENUM_OPS(ResourceFlags)
 VULL_DEFINE_FLAG_ENUM_OPS(PassFlags)

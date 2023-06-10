@@ -32,8 +32,8 @@ public:
     SkyboxRenderer &operator=(const SkyboxRenderer &) = delete;
     SkyboxRenderer &operator=(SkyboxRenderer &&) = delete;
 
-    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, vk::ResourceId depth_image,
-                              vk::ResourceId frame_ubo);
+    void build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_image, vk::ResourceId &frame_ubo,
+                    vk::ResourceId &target);
     void load(Stream &stream);
 };
 

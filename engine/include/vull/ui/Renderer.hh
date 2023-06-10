@@ -33,7 +33,7 @@ public:
     Renderer &operator=(const Renderer &) = delete;
     Renderer &operator=(Renderer &&) = delete;
 
-    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId target, Painter &&painter);
+    void build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painter &&painter);
     Painter new_painter();
 };
 

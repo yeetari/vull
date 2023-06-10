@@ -204,34 +204,30 @@ void vull_main(Vector<StringView> &&args) {
         auto &graph = frame.new_graph(context);
         auto output_id = graph.import("output-image", swapchain.image(frame_pacer.image_index()));
 
-        auto &gbuffer = deferred_renderer.create_gbuffer(graph);
+        auto gbuffer = deferred_renderer.create_gbuffer(graph);
         auto frame_ubo = default_renderer.build_pass(graph, gbuffer);
-        output_id = deferred_renderer.build_pass(graph, frame_ubo, gbuffer, output_id);
-        output_id = skybox_renderer.build_pass(graph, output_id, gbuffer.depth, frame_ubo);
-        output_id = ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
+        deferred_renderer.build_pass(graph, gbuffer, frame_ubo, output_id);
+        skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
+        ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
 
-        output_id = graph.add_pass<vk::ResourceId>(
-            "submit", vk::PassFlags::None,
-            [&](vk::PassBuilder &builder, vk::ResourceId &new_output) {
-                new_output = builder.read(output_id, vk::ReadFlags::Present);
-            },
-            [&](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf, const vk::ResourceId &) {
-                Array signal_semaphores{
-                    vkb::SemaphoreSubmitInfo{
-                        .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                        .semaphore = *frame.present_semaphore(),
-                    },
-                };
-                Array wait_semaphores{
-                    vkb::SemaphoreSubmitInfo{
-                        .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                        .semaphore = *frame.acquire_semaphore(),
-                        .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-                    },
-                };
-                auto &queue = graph.context().graphics_queue();
-                queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
-            });
+        auto &submit_pass = graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
+        submit_pass.set_on_execute([&](vk::CommandBuffer &cmd_buf) {
+            Array signal_semaphores{
+                vkb::SemaphoreSubmitInfo{
+                    .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                    .semaphore = *frame.present_semaphore(),
+                },
+            };
+            Array wait_semaphores{
+                vkb::SemaphoreSubmitInfo{
+                    .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                    .semaphore = *frame.acquire_semaphore(),
+                    .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+                },
+            };
+            auto &queue = graph.context().graphics_queue();
+            queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
+        });
 
         cpu_time_graph.push_section("build-rg", build_rg_timer.elapsed());
 

@@ -371,254 +371,227 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     // Cap object count just in case.
     m_object_count = vull::min(objects.size(), k_object_limit);
 
-    struct PassData {
-        vk::ResourceId descriptor_buffer;
-        vk::ResourceId frame_ubo;
-        vk::ResourceId object_buffer;
-        vk::ResourceId draw_buffer;
-        vk::ResourceId depth_pyramid;
-        Vector<Object> objects;
-        vk::DescriptorBuilder descriptor_builder;
+    vk::BufferDescription descriptor_buffer_description{
+        .size = m_main_set_layout_size,
+        .usage = vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
+        .host_accessible = true,
     };
-    auto &data = graph.add_pass<PassData>(
-        "setup-frame", vk::PassFlags::Transfer,
-        [&](vk::PassBuilder &builder, PassData &data) {
-            vk::BufferDescription descriptor_buffer_description{
-                .size = m_main_set_layout_size,
-                .usage = vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
-                .host_accessible = true,
-            };
-            vk::BufferDescription frame_ubo_description{
-                .size = sizeof(UniformBuffer),
-                .usage = vkb::BufferUsage::UniformBuffer,
-                .host_accessible = true,
-            };
-            vk::BufferDescription object_buffer_description{
-                .size = objects.size_bytes(),
-                .usage = vkb::BufferUsage::StorageBuffer,
-                .host_accessible = true,
-            };
-            data.descriptor_buffer = builder.new_buffer("descriptor-buffer", descriptor_buffer_description);
-            data.frame_ubo = builder.new_buffer("frame-ubo", frame_ubo_description);
-            data.object_buffer = builder.new_buffer("object-buffer", object_buffer_description);
-            data.objects = vull::move(objects);
-        },
-        [this](vk::RenderGraph &graph, vk::CommandBuffer &, PassData &data) {
-            const auto &frame_ubo = graph.get_buffer(data.frame_ubo);
-            const auto &object_buffer = graph.get_buffer(data.object_buffer);
+    vk::BufferDescription frame_ubo_description{
+        .size = sizeof(UniformBuffer),
+        .usage = vkb::BufferUsage::UniformBuffer,
+        .host_accessible = true,
+    };
+    vk::BufferDescription object_buffer_description{
+        .size = objects.size_bytes(),
+        .usage = vkb::BufferUsage::StorageBuffer,
+        .host_accessible = true,
+    };
+    auto descriptor_buffer_id = graph.new_buffer("default-descriptor-buffer", descriptor_buffer_description);
+    auto frame_ubo_id = graph.new_buffer("frame-ubo", frame_ubo_description);
+    auto object_buffer_id = graph.new_buffer("object-buffer", object_buffer_description);
 
-            UniformBuffer frame_ubo_data{
-                .proj = m_proj,
-                .inv_proj = vull::inverse(m_proj),
-                .view = m_view,
-                .proj_view = m_proj * m_view,
-                .inv_proj_view = vull::inverse(m_proj * m_view),
-                .cull_view = m_cull_view,
-                .view_position = m_view_position,
-                .object_count = m_object_count,
-                .frustum_planes = m_frustum_planes,
-                .shadow_info = m_shadow_info,
-            };
-            memcpy(frame_ubo.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
+    auto &setup_pass = graph.add_pass("setup-frame", vk::PassFlags::Transfer)
+                           .write(descriptor_buffer_id)
+                           .write(frame_ubo_id)
+                           .write(object_buffer_id);
+    setup_pass.set_on_execute([=, this, &graph, objects = vull::move(objects)](vk::CommandBuffer &) {
+        const auto &frame_ubo = graph.get_buffer(frame_ubo_id);
+        UniformBuffer frame_ubo_data{
+            .proj = m_proj,
+            .inv_proj = vull::inverse(m_proj),
+            .view = m_view,
+            .proj_view = m_proj * m_view,
+            .inv_proj_view = vull::inverse(m_proj * m_view),
+            .cull_view = m_cull_view,
+            .view_position = m_view_position,
+            .object_count = m_object_count,
+            .frustum_planes = m_frustum_planes,
+            .shadow_info = m_shadow_info,
+        };
+        memcpy(frame_ubo.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
 
-            const auto objects = vull::move(data.objects);
-            memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
+        const auto &object_buffer = graph.get_buffer(object_buffer_id);
+        memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
 
-            data.descriptor_builder = {m_main_set_layout, graph.get_buffer(data.descriptor_buffer)};
-            data.descriptor_builder.set(0, 0, frame_ubo);
-            data.descriptor_builder.set(1, 0, object_buffer);
-            data.descriptor_builder.set(2, 0, m_object_visibility_buffer);
+        vk::DescriptorBuilder descriptor_builder(m_main_set_layout, graph.get_buffer(descriptor_buffer_id));
+        descriptor_builder.set(0, 0, frame_ubo);
+        descriptor_builder.set(1, 0, object_buffer);
+        descriptor_builder.set(2, 0, m_object_visibility_buffer);
+    });
+
+    vk::BufferDescription draw_buffer_description{
+        .size = sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
+        .usage = vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::TransferDst,
+    };
+    auto draw_buffer_id = graph.new_buffer("draw-buffer", draw_buffer_description);
+    auto &early_cull_pass =
+        graph.add_pass("early-cull", vk::PassFlags::Compute).read(frame_ubo_id).write(draw_buffer_id);
+    early_cull_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
+        cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
+        // TODO: This should be a separate pass so RG can add the barrier itself.
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::ComputeShader,
+            .dstAccessMask = vkb::Access2::ShaderStorageRead,
+            .buffer = *draw_buffer,
+            .size = sizeof(uint32_t),
         });
 
-    graph.add_pass(
-        "early-cull", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder) {
-            vk::BufferDescription draw_buffer_description{
-                .size = sizeof(uint32_t) + m_object_count * sizeof(DrawCmd),
-                .usage =
-                    vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::IndirectBuffer | vkb::BufferUsage::TransferDst,
+        vk::DescriptorBuilder(m_main_set_layout, descriptor_buffer).set(3, 0, draw_buffer);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+        cmd_buf.bind_pipeline(m_early_cull_pipeline);
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+    });
+
+    // TODO: Make GBuffer writes additive.
+    auto &early_draw_pass = graph.add_pass("early-draw", vk::PassFlags::Graphics)
+                                .read(draw_buffer_id, vk::ReadFlags::Indirect)
+                                .write(gbuffer.albedo)
+                                .write(gbuffer.normal)
+                                .write(gbuffer.depth);
+    early_draw_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+        record_draws(cmd_buf, draw_buffer);
+    });
+
+    // TODO: Make depth pyramid an imported resource so reduce pass can be conditionally disabled via
+    //       m_cull_view_locked. This won't stall the pipeline since it's further into the frame, and will also
+    //       reduce VRAM usage.
+    const auto depth_pyramid_mip_count =
+        vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
+    vk::AttachmentDescription depth_pyramid_description{
+        .extent = m_depth_pyramid_extent,
+        .format = vkb::Format::R16Sfloat,
+        .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
+        .mip_levels = depth_pyramid_mip_count,
+    };
+    auto depth_pyramid_id = graph.new_attachment("depth-pyramid", depth_pyramid_description);
+    // TODO: This should be part of DeferredRenderer.
+    auto &depth_reduce_pass =
+        graph.add_pass("depth-reduce", vk::PassFlags::Compute).read(gbuffer.depth).write(depth_pyramid_id);
+    depth_reduce_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &depth_image = graph.get_image(gbuffer.depth);
+        const auto &depth_pyramid = graph.get_image(depth_pyramid_id);
+        const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
+        vk::DescriptorBuilder(m_main_set_layout, graph.get_buffer(descriptor_buffer_id))
+            .set(4, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
+
+        auto descriptor_buffer =
+            m_context.create_buffer(m_reduce_set_layout_size * level_count,
+                                    vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
+        for (uint32_t i = 0; i < level_count; i++) {
+            vk::DescriptorBuilder descriptor_builder(
+                m_context, m_reduce_set_layout, descriptor_buffer.mapped<uint8_t>() + i * m_reduce_set_layout_size);
+            const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
+            descriptor_builder.set(0, 0, input_view.sampled(vk::Sampler::DepthReduce));
+            descriptor_builder.set(1, 0, depth_pyramid.level_view(i));
+        }
+
+        vkb::DeviceSize descriptor_offset = 0;
+        cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
+        for (uint32_t i = 0; i < level_count; i++) {
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
+            descriptor_offset += m_reduce_set_layout_size;
+
+            DepthReduceData shader_data{
+                .mip_size{
+                    vull::max(m_depth_pyramid_extent.width >> i, 1u),
+                    vull::max(m_depth_pyramid_extent.height >> i, 1u),
+                },
             };
-            data.frame_ubo = builder.read(data.frame_ubo);
-            data.draw_buffer = builder.new_buffer("draw-buffer", draw_buffer_description);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-            cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
-            // TODO: This should be a separate pass so RG can add the barrier itself.
-            cmd_buf.buffer_barrier({
-                .sType = vkb::StructureType::BufferMemoryBarrier2,
-                .srcStageMask = vkb::PipelineStage2::Copy,
-                .srcAccessMask = vkb::Access2::TransferWrite,
-                .dstStageMask = vkb::PipelineStage2::ComputeShader,
-                .dstAccessMask = vkb::Access2::ShaderStorageRead,
-                .buffer = *draw_buffer,
-                .size = sizeof(uint32_t),
-            });
+            cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
 
-            data.descriptor_builder.set(3, 0, draw_buffer);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
-            cmd_buf.bind_pipeline(m_early_cull_pipeline);
-            cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
-        });
-
-    graph.add_pass(
-        "early-draw", vk::PassFlags::Graphics,
-        [&](vk::PassBuilder &builder) {
-            data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
-            gbuffer.albedo = builder.write(gbuffer.albedo);
-            gbuffer.normal = builder.write(gbuffer.normal);
-            gbuffer.depth = builder.write(gbuffer.depth);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-            cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-            record_draws(cmd_buf, draw_buffer);
-        });
-
-    graph.add_pass(
-        "depth-reduce", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder) {
-            // TODO: Make depth pyramid an imported resource so reduce pass can be conditionally disabled via
-            //       m_cull_view_locked. This won't stall the pipeline since it's further into the frame, and will also
-            //       reduce VRAM usage.
-            const auto depth_pyramid_mip_count =
-                vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
-            vk::AttachmentDescription depth_pyramid_description{
-                .extent = m_depth_pyramid_extent,
-                .format = vkb::Format::R16Sfloat,
-                .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
-                .mip_levels = depth_pyramid_mip_count,
-            };
-            gbuffer.depth = builder.read(gbuffer.depth);
-            data.depth_pyramid = builder.new_attachment("depth-pyramid", depth_pyramid_description);
-        },
-        [this, &data, &gbuffer](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &depth_image = graph.get_image(gbuffer.depth);
-            const auto &depth_pyramid = graph.get_image(data.depth_pyramid);
-            const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
-            data.descriptor_builder.set(4, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
-
-            auto descriptor_buffer =
-                m_context.create_buffer(m_reduce_set_layout_size * level_count,
-                                        vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
-            for (uint32_t i = 0; i < level_count; i++) {
-                vk::DescriptorBuilder descriptor_builder(
-                    m_context, m_reduce_set_layout, descriptor_buffer.mapped<uint8_t>() + i * m_reduce_set_layout_size);
-                const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
-                descriptor_builder.set(0, 0, input_view.sampled(vk::Sampler::DepthReduce));
-                descriptor_builder.set(1, 0, depth_pyramid.level_view(i));
-            }
-
-            vkb::DeviceSize descriptor_offset = 0;
-            cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
-            for (uint32_t i = 0; i < level_count; i++) {
-                cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0,
-                                               descriptor_offset);
-                descriptor_offset += m_reduce_set_layout_size;
-
-                DepthReduceData shader_data{
-                    .mip_size{
-                        vull::max(m_depth_pyramid_extent.width >> i, 1u),
-                        vull::max(m_depth_pyramid_extent.height >> i, 1u),
-                    },
-                };
-                cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
-
-                vkb::ImageMemoryBarrier2 sample_barrier{
-                    .sType = vkb::StructureType::ImageMemoryBarrier2,
-                    .srcStageMask = vkb::PipelineStage2::ComputeShader,
-                    .srcAccessMask = vkb::Access2::ShaderStorageWrite,
-                    .dstStageMask = vkb::PipelineStage2::ComputeShader,
-                    .dstAccessMask = vkb::Access2::ShaderSampledRead,
-                    .oldLayout = vkb::ImageLayout::General,
-                    .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-                    .image = *depth_pyramid,
-                    .subresourceRange{
-                        .aspectMask = vkb::ImageAspect::Color,
-                        .baseMipLevel = i,
-                        .levelCount = 1,
-                        .layerCount = 1,
-                    },
-                };
-                cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
-                                 vull::ceil_div(shader_data.mip_size.y(), 32u));
-                cmd_buf.image_barrier(sample_barrier);
-            }
-            cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
-
-            // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we
-            //       must transition it back to General.
-            vkb::ImageMemoryBarrier2 general_barrier{
+            vkb::ImageMemoryBarrier2 sample_barrier{
                 .sType = vkb::StructureType::ImageMemoryBarrier2,
                 .srcStageMask = vkb::PipelineStage2::ComputeShader,
                 .srcAccessMask = vkb::Access2::ShaderStorageWrite,
-                .dstStageMask = vkb::PipelineStage2::AllCommands,
-                .dstAccessMask = vkb::Access2::ShaderSampledRead,
-                .oldLayout = vkb::ImageLayout::ReadOnlyOptimal,
-                .newLayout = vkb::ImageLayout::General,
-                .image = *depth_pyramid,
-                .subresourceRange = depth_pyramid.full_view().range(),
-            };
-            cmd_buf.image_barrier(general_barrier);
-        });
-
-    graph.add_pass(
-        "late-cull", vk::PassFlags::Compute,
-        [&](vk::PassBuilder &builder) {
-            data.depth_pyramid = builder.read(data.depth_pyramid);
-            data.draw_buffer = builder.write(data.draw_buffer);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-            // Prevent write-after-read.
-            cmd_buf.buffer_barrier({
-                .sType = vkb::StructureType::BufferMemoryBarrier2,
-                .srcStageMask = vkb::PipelineStage2::DrawIndirect,
-                .srcAccessMask = vkb::Access2::IndirectCommandRead,
-                .dstStageMask = vkb::PipelineStage2::Copy,
-                .dstAccessMask = vkb::Access2::TransferWrite,
-                .buffer = *draw_buffer,
-                .size = vkb::k_whole_size,
-            });
-            cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
-            cmd_buf.buffer_barrier({
-                .sType = vkb::StructureType::BufferMemoryBarrier2,
-                .srcStageMask = vkb::PipelineStage2::Copy,
-                .srcAccessMask = vkb::Access2::TransferWrite,
                 .dstStageMask = vkb::PipelineStage2::ComputeShader,
-                .dstAccessMask = vkb::Access2::ShaderStorageRead,
-                .buffer = *draw_buffer,
-                .size = sizeof(uint32_t),
-            });
+                .dstAccessMask = vkb::Access2::ShaderSampledRead,
+                .oldLayout = vkb::ImageLayout::General,
+                .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+                .image = *depth_pyramid,
+                .subresourceRange{
+                    .aspectMask = vkb::ImageAspect::Color,
+                    .baseMipLevel = i,
+                    .levelCount = 1,
+                    .layerCount = 1,
+                },
+            };
+            cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
+                             vull::ceil_div(shader_data.mip_size.y(), 32u));
+            cmd_buf.image_barrier(sample_barrier);
+        }
+        cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
 
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
-            cmd_buf.bind_pipeline(m_late_cull_pipeline);
-            cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+        // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we
+        //       must transition it back to General.
+        vkb::ImageMemoryBarrier2 general_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::ComputeShader,
+            .srcAccessMask = vkb::Access2::ShaderStorageWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::ShaderSampledRead,
+            .oldLayout = vkb::ImageLayout::ReadOnlyOptimal,
+            .newLayout = vkb::ImageLayout::General,
+            .image = *depth_pyramid,
+            .subresourceRange = depth_pyramid.full_view().range(),
+        };
+        cmd_buf.image_barrier(general_barrier);
+    });
+
+    auto &late_cull_pass =
+        graph.add_pass("late-cull", vk::PassFlags::Compute).read(depth_pyramid_id).write(draw_buffer_id);
+    late_cull_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
+        // Prevent write-after-read.
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::DrawIndirect,
+            .srcAccessMask = vkb::Access2::IndirectCommandRead,
+            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstAccessMask = vkb::Access2::TransferWrite,
+            .buffer = *draw_buffer,
+            .size = vkb::k_whole_size,
+        });
+        cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
+        cmd_buf.buffer_barrier({
+            .sType = vkb::StructureType::BufferMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::ComputeShader,
+            .dstAccessMask = vkb::Access2::ShaderStorageRead,
+            .buffer = *draw_buffer,
+            .size = sizeof(uint32_t),
         });
 
-    graph.add_pass(
-        "late-draw", vk::PassFlags::Graphics,
-        [&](vk::PassBuilder &builder) {
-            data.draw_buffer = builder.read(data.draw_buffer, vk::ReadFlags::Indirect);
-            gbuffer.albedo = builder.write(gbuffer.albedo, vk::WriteFlags::Additive);
-            gbuffer.normal = builder.write(gbuffer.normal, vk::WriteFlags::Additive);
-            gbuffer.depth = builder.write(gbuffer.depth, vk::WriteFlags::Additive);
-        },
-        [this, &data](vk::RenderGraph &graph, vk::CommandBuffer &cmd_buf) {
-            const auto &descriptor_buffer = graph.get_buffer(data.descriptor_buffer);
-            const auto &draw_buffer = graph.get_buffer(data.draw_buffer);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
-            cmd_buf.bind_pipeline(m_gbuffer_pipeline);
-            record_draws(cmd_buf, draw_buffer);
-        });
-    return data.frame_ubo;
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
+        cmd_buf.bind_pipeline(m_late_cull_pipeline);
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+    });
+
+    auto &late_draw_pass = graph.add_pass("late-draw", vk::PassFlags::Graphics)
+                               .read(draw_buffer_id, vk::ReadFlags::Indirect)
+                               .write(gbuffer.albedo, vk::WriteFlags::Additive)
+                               .write(gbuffer.normal, vk::WriteFlags::Additive)
+                               .write(gbuffer.depth, vk::WriteFlags::Additive);
+    late_draw_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        cmd_buf.bind_pipeline(m_gbuffer_pipeline);
+        record_draws(cmd_buf, draw_buffer);
+    });
+    return frame_ubo_id;
 }
 
 void DefaultRenderer::update_cascades() {

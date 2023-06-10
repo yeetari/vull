@@ -39,9 +39,8 @@ public:
     DeferredRenderer &operator=(const DeferredRenderer &) = delete;
     DeferredRenderer &operator=(DeferredRenderer &&) = delete;
 
-    GBuffer &create_gbuffer(vk::RenderGraph &graph);
-    vk::ResourceId build_pass(vk::RenderGraph &graph, vk::ResourceId frame_ubo, GBuffer &gbuffer,
-                              vk::ResourceId target);
+    GBuffer create_gbuffer(vk::RenderGraph &graph);
+    void build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::ResourceId &frame_ubo, vk::ResourceId &target);
 };
 
 } // namespace vull
