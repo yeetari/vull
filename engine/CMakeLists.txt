@@ -29,6 +29,7 @@ add_shader(shaders/ui.vert)
 function(vull_depend_builtin target)
     target_add_vpak(${target} builtin.vpak
         ${CMAKE_SOURCE_DIR}/engine/fonts/Inter-Medium.otf /fonts/Inter-Medium
+        ${CMAKE_SOURCE_DIR}/engine/fonts/RobotoMono-Regular.ttf /fonts/RobotoMono-Regular
         ${CMAKE_BINARY_DIR}/engine/shaders/blit_tonemap.frag.spv /shaders/blit_tonemap.frag
         ${CMAKE_BINARY_DIR}/engine/shaders/default.frag.spv /shaders/default.frag
         ${CMAKE_BINARY_DIR}/engine/shaders/default.vert.spv /shaders/default.vert
