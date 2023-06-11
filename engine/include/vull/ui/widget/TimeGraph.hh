@@ -13,9 +13,7 @@
 namespace vull::ui {
 
 class Painter;
-class Font;
 class Label;
-class Pane;
 class TimeGraph;
 class Tree;
 
@@ -42,13 +40,12 @@ public:
 
 private:
     const Colour m_base_colour;
-    Font &m_font;
     const String m_title;
     const float m_bar_width;
 
     Label *m_title_label;
     TimeGraphPanel *m_graph_panel;
-    Pane *m_legend_vbox;
+    VBoxLayout *m_legend_vbox;
 
     RingBuffer<Bar> m_bars;
     Optional<Bar &> m_current_bar;
@@ -58,7 +55,7 @@ private:
     Colour colour_for_section(const String &name);
 
 public:
-    TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, Font &font, String title,
+    TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, String title,
               float bar_width = 0.06f);
 
     void layout() override;

@@ -36,6 +36,7 @@
 #include <vull/ui/FontAtlas.hh>
 #include <vull/ui/Painter.hh>
 #include <vull/ui/Renderer.hh>
+#include <vull/ui/Style.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/Window.hh>
 #include <vull/ui/layout/Pane.hh>
@@ -102,11 +103,12 @@ void vull_main(Vector<StringView> &&args) {
 
     const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
 
+    auto main_font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
+    auto monospace_font = VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18));
+    ui::Style ui_style(vull::move(main_font), vull::move(monospace_font));
+    ui::Tree ui_tree(ui_style, window.ppcm());
     ui::Renderer ui_renderer(context, window.ppcm());
-    ui::Tree ui_tree(window.ppcm());
-
-    auto font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
-    ui::FontAtlas atlas(context, Vec2u(1024, 1024));
+    ui::FontAtlas atlas(context, Vec2u(512, 512));
 
     auto &world = scene.world();
     world.register_component<RigidBody>();
@@ -146,15 +148,14 @@ void vull_main(Vector<StringView> &&args) {
     PhysicsEngine physics_engine;
     vull::seed_rand(5);
 
-    // TODO: Don't require font to be passed everywhere.
     auto &screen_pane = ui_tree.set_root<ui::ScreenPane>();
-    auto &main_window = screen_pane.add_child<ui::Window>("Main", font);
+    auto &main_window = screen_pane.add_child<ui::Window>("Main");
     main_window.set_offset_in_parent({2.0f, 2.0f});
     auto &cpu_time_graph = main_window.content_pane().add_child<ui::TimeGraph>(
-        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.4f, 0.6f, 0.5f), font, "CPU time");
+        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
     auto &gpu_time_graph = main_window.content_pane().add_child<ui::TimeGraph>(
-        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.8f, 0.5f, 0.7f), font, "GPU time");
-    auto &quit_button = main_window.content_pane().add_child<ui::Button>(font, "Quit");
+        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+    auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([&] {
         window.close();
     });

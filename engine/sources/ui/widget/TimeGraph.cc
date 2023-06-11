@@ -12,8 +12,8 @@
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Painter.hh>
+#include <vull/ui/Style.hh>
 #include <vull/ui/layout/BoxLayout.hh>
-#include <vull/ui/layout/Pane.hh>
 #include <vull/ui/widget/Label.hh>
 
 #include <stdint.h>
@@ -40,11 +40,11 @@ void TimeGraphPanel::paint(Painter &painter, Vec2f position) const {
 }
 
 // TODO: Don't take in size and bar_width
-TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, Font &font,
-                     String title, float bar_width)
-    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_font(font), m_title(vull::move(title)),
-      m_bar_width(bar_width), m_bars(static_cast<uint32_t>(size.x() / m_bar_width)) {
-    m_title_label = &add_child<Label>(font);
+TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, String title,
+                     float bar_width)
+    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_title(vull::move(title)), m_bar_width(bar_width),
+      m_bars(static_cast<uint32_t>(size.x() / m_bar_width)) {
+    m_title_label = &add_child<Label>();
     auto &hbox = add_child<HBoxLayout>();
     m_graph_panel = &hbox.add_child<TimeGraphPanel>(*this);
     m_legend_vbox = &hbox.add_child<VBoxLayout>();
@@ -76,8 +76,10 @@ void TimeGraph::layout() {
     const auto &latest_bar = m_bars[m_bars.size() - 1];
     for (const auto &section : vull::reverse_view(latest_bar.sections)) {
         const auto text = vull::format("{}: {} ms", section.name, section.duration * 1000.0f);
-        auto &label = m_legend_vbox->add_child<Label>(m_font, vull::move(text));
+        auto &label = m_legend_vbox->add_child<Label>(vull::move(text));
         label.set_colour(colour_for_section(section.name));
+        label.set_font(style().monospace_font());
+        label.set_right_align(true);
     }
     VBoxLayout::layout();
 }

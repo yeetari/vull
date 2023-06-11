@@ -11,7 +11,6 @@
 namespace vull::ui {
 
 class Painter;
-class Font;
 class MouseButtonEvent;
 class Tree;
 
@@ -21,7 +20,7 @@ class Button : public Element {
     float m_padding{0.2f};
 
 public:
-    Button(Tree &tree, Optional<Element &> parent, Font &font, String text);
+    Button(Tree &tree, Optional<Element &> parent, String text);
 
     void paint(Painter &painter, Vec2f position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;

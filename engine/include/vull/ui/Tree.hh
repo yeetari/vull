@@ -10,8 +10,10 @@
 namespace vull::ui {
 
 class Painter;
+class Style;
 
 class Tree {
+    Style &m_style;
     Vec2f m_global_scale;
     UniquePtr<Element> m_root_element;
     Optional<Element &> m_active_element;
@@ -24,7 +26,7 @@ class Tree {
     void update_hover();
 
 public:
-    explicit Tree(Vec2f global_scale) : m_global_scale(global_scale) {}
+    Tree(Style &style, Vec2f global_scale) : m_style(style), m_global_scale(global_scale) {}
 
     template <typename T, typename... Args>
     T &set_root(Args &&...args);
@@ -38,6 +40,7 @@ public:
     void handle_mouse_release(MouseButton button);
     void handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask buttons);
 
+    Style &style() const { return m_style; }
     Vec2f global_scale() const { return m_global_scale; }
     Optional<Element &> active_element() const { return m_active_element; }
 };

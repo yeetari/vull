@@ -13,8 +13,7 @@
 
 namespace vull::ui {
 
-Button::Button(Tree &tree, Optional<Element &> parent, Font &font, String text)
-    : Element(tree, parent), m_label(tree, *this, font) {
+Button::Button(Tree &tree, Optional<Element &> parent, String text) : Element(tree, parent), m_label(tree, *this) {
     set_text(vull::move(text));
 }
 

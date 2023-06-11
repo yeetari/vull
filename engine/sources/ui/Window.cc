@@ -17,10 +17,10 @@
 
 namespace vull::ui {
 
-Window::Window(Tree &tree, Optional<Element &> parent, String title, Font &font) : Pane(tree, parent) {
+Window::Window(Tree &tree, Optional<Element &> parent, String title) : Pane(tree, parent) {
     m_title_pane = &add_child<HBoxLayout>();
     m_title_pane->margins().set_all(0.1f);
-    m_title_pane->add_child<Label>(font, vull::move(title));
+    m_title_pane->add_child<Label>(vull::move(title));
 
     m_content_pane = &add_child<VBoxLayout>();
     m_content_pane->margins().set(0.3f, 0.3f, 0.5f, 0.5f);

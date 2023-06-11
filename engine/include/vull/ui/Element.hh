@@ -13,6 +13,7 @@ class Element;
 class MouseEvent;
 class MouseButtonEvent;
 class MouseMoveEvent;
+class Style;
 class Tree;
 
 struct HitResult {
@@ -60,6 +61,7 @@ public:
     bool is_active_element() const;
     bool is_hovered() const;
 
+    Style &style() const;
     Tree &tree() const { return m_tree; }
     Optional<Element &> parent() const { return m_parent; }
     Vec2f offset_in_parent() const { return m_offset_in_parent; }

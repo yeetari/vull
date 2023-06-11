@@ -14,8 +14,8 @@
 
 namespace vull::ui {
 
-Slider::Slider(Tree &tree, Optional<Element &> parent, Font &font, float min, float max)
-    : Element(tree, parent), m_min(min), m_max(max), m_value_label(tree, *this, font) {
+Slider::Slider(Tree &tree, Optional<Element &> parent, float min, float max)
+    : Element(tree, parent), m_min(min), m_max(max), m_value_label(tree, *this) {
     set_preferred_size({6.0f, 0.5f});
     set_value(min);
 }

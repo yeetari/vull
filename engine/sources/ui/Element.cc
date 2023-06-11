@@ -55,4 +55,8 @@ bool Element::is_hovered() const {
     return (m_flags & ElementFlags::Hovered) != ElementFlags::None;
 }
 
+Style &Element::style() const {
+    return tree().style();
+}
+
 } // namespace vull::ui

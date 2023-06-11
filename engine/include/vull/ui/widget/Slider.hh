@@ -8,7 +8,6 @@
 namespace vull::ui {
 
 class Painter;
-class Font;
 class MouseButtonEvent;
 class MouseMoveEvent;
 class Tree;
@@ -24,7 +23,7 @@ class Slider : public Element {
     void update(Vec2f mouse_position);
 
 public:
-    Slider(Tree &tree, Optional<Element &> parent, Font &font, float min, float max);
+    Slider(Tree &tree, Optional<Element &> parent, float min, float max);
 
     void paint(Painter &painter, Vec2f position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;

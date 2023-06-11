@@ -9,7 +9,6 @@ namespace vull::ui {
 
 class Painter;
 class Element;
-class Font;
 class MouseButtonEvent;
 class MouseMoveEvent;
 class Tree;
@@ -19,7 +18,7 @@ class Window final : public Pane {
     Pane *m_content_pane;
 
 public:
-    Window(Tree &tree, Optional<Element &> parent, String title, Font &font);
+    Window(Tree &tree, Optional<Element &> parent, String title);
 
     // ^Element
     void paint(Painter &painter, Vec2f position) const override;
