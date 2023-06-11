@@ -82,14 +82,14 @@ Optional<uint32_t> FontAtlas::pack_rect(Node *node, Vec2u extent) {
         return {};
     }
 
+    uint32_t max_x = node->offset.x() + extent.x();
     uint32_t min_y = 0;
-    for (uint32_t width_left = extent.x(); width_left > 0; node = node->next) {
-        VULL_ASSERT(node != nullptr);
+    while (node->offset.x() < max_x) {
         min_y = vull::max(min_y, node->offset.y());
-        if (min_y + extent.y() > m_extent.y()) {
-            return {};
+        node = node->next;
+        if (node == nullptr) {
+            break;
         }
-        width_left -= vull::min(width_left, node->width);
     }
     return min_y;
 }
@@ -98,17 +98,19 @@ Optional<Tuple<FontAtlas::Node **, Vec2u>> FontAtlas::find_rect(Vec2u extent) {
     Node **prev_link = &m_skyline;
     Node **best_link = nullptr;
     uint32_t best_y = UINT32_MAX;
-    uint32_t best_width = UINT32_MAX;
     for (auto *node = m_skyline; node != nullptr; node = node->next) {
+        if (node->offset.x() + extent.x() > m_extent.x()) {
+            break;
+        }
+
         auto min_y = pack_rect(node, extent);
         if (!min_y) {
             VULL_ASSERT(node->offset.x() + extent.x() > m_extent.x());
             break;
         }
 
-        if (*min_y < best_y || (*min_y == best_y && node->width < best_width)) {
+        if (*min_y < best_y) {
             best_y = *min_y;
-            best_width = node->width;
             best_link = prev_link;
         }
         prev_link = &node->next;
