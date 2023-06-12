@@ -76,6 +76,18 @@ void Tree::unset_active_element() {
     m_need_hover_update = true;
 }
 
+// Helper for calculating a position relative to an element given a global screen position. For example, there may be an
+// active element hijacking input events. This means that the mouse may be outside the active element but still
+// interacting with it (e.g. moving a slider). We still need to calculate a position for the mouse relative to the
+// active element to pass to the event handler.
+static Vec2f calculate_element_relative_position(Optional<Element &> element, Vec2f global_position) {
+    Vec2f relative_position = global_position;
+    for (; element; element = element->parent()) {
+        relative_position -= element->offset_in_parent();
+    }
+    return relative_position;
+}
+
 template <auto event_fn>
 static void dispatch_event(Optional<Element &> element, const auto &event) {
     for (; element; element = element->parent()) {
@@ -119,13 +131,8 @@ void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask button
         return;
     }
 
-    // Otherwise there is an active element hijacking input events. This means the mouse may be outside the active
-    // element but still interacting with it (e.g. moving a slider). We still need to calculate a position for the mouse
-    // relative to the active element.
-    Vec2f relative_position = m_mouse_position;
-    for (auto element = m_active_element; element; element = element->parent()) {
-        relative_position -= element->offset_in_parent();
-    }
+    // Otherwise there is an active element hijacking move events.
+    const auto relative_position = calculate_element_relative_position(m_active_element, m_mouse_position);
     MouseMoveEvent move_event(relative_position, buttons, delta);
     m_active_element->handle_mouse_move(move_event);
 }
