@@ -48,7 +48,7 @@ ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operan
     case Op::Assign:
         return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Assign, lhs, rhs);
     default:
-        VULL_ENSURE_NOT_REACHED();
+        vull::unreachable();
     }
 }
 
@@ -67,7 +67,7 @@ unsigned precedence(Op op) {
     case Op::Negate:
         return 3;
     default:
-        VULL_ENSURE_NOT_REACHED();
+        vull::unreachable();
     }
 }
 
@@ -84,17 +84,17 @@ bool higher_precedence(Op a, Op b) {
 
 vull::Optional<Op> to_binary_op(TokenKind kind) {
     switch (kind) {
-    case TokenKind::Plus:
+    case '+'_tk:
         return Op::Add;
-    case TokenKind::Minus:
+    case '_'_tk:
         return Op::Sub;
-    case TokenKind::Asterisk:
+    case '*'_tk:
         return Op::Mul;
-    case TokenKind::Slash:
+    case '/'_tk:
         return Op::Div;
-    case TokenKind::Percent:
+    case '%'_tk:
         return Op::Mod;
-    case TokenKind::Equals:
+    case '='_tk:
         return Op::Assign;
     default:
         return {};
@@ -145,14 +145,14 @@ ast::Node *Parser::parse_atom() {
         return m_root.allocate<ast::Constant>(literal->integer());
     }
     if (auto ident = consume(TokenKind::Ident)) {
-        if (!consume(TokenKind::LeftParen)) {
+        if (!consume('('_tk)) {
             return m_root.allocate<ast::Symbol>(ident->string());
         }
         auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
         construct_expr->set_type(parse_type(*ident));
-        while (!consume(TokenKind::RightParen)) {
+        while (!consume(')'_tk)) {
             construct_expr->append_node(parse_expr());
-            consume(TokenKind::Comma);
+            consume(','_tk);
         }
         return construct_expr;
     }
@@ -171,7 +171,7 @@ ast::Node *Parser::parse_expr() {
         }
 
         // Unary negate.
-        if (consume(TokenKind::Minus)) {
+        if (consume('-'_tk)) {
             operators.push(Op::Negate);
             continue;
         }
@@ -187,14 +187,14 @@ ast::Node *Parser::parse_expr() {
         }
 
         // Open parenthesis.
-        if (consume(TokenKind::LeftParen)) {
+        if (consume('('_tk)) {
             operators.push(Op::OpenParen);
             paren_depth++;
             continue;
         }
 
         // Close parenthesis.
-        if (paren_depth > 0 && consume(TokenKind::RightParen)) {
+        if (paren_depth > 0 && consume(')'_tk)) {
             while (!operators.empty() && operators.last() != Op::OpenParen) {
                 auto op = operators.take_last();
                 operands.push(create_expr(m_root, op, operands));
@@ -217,17 +217,17 @@ ast::Node *Parser::parse_expr() {
 }
 
 ast::Node *Parser::parse_stmt() {
-    if (consume(TokenKind::KeywordLet)) {
+    if (consume(TokenKind::KW_let)) {
         auto name = expect(TokenKind::Ident);
-        expect(TokenKind::Equals);
+        expect('='_tk);
         auto *value = parse_expr();
-        expect(TokenKind::Semi);
+        expect(';'_tk);
         return m_root.allocate<ast::DeclStmt>(name.string(), value);
     }
 
     // Freestanding expression.
     auto *expr = parse_expr();
-    if (consume(TokenKind::Semi)) {
+    if (consume(';'_tk)) {
         return expr;
     }
     // Otherwise, implicit return.
@@ -235,9 +235,9 @@ ast::Node *Parser::parse_stmt() {
 }
 
 ast::Aggregate *Parser::parse_block() {
-    expect(TokenKind::LeftBrace);
+    expect('{'_tk);
     auto *block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
-    while (!consume(TokenKind::RightBrace)) {
+    while (!consume('}'_tk)) {
         block->append_node(parse_stmt());
     }
     return block;
@@ -245,19 +245,19 @@ ast::Aggregate *Parser::parse_block() {
 
 ast::Function *Parser::parse_function() {
     auto name = expect(TokenKind::Ident);
-    expect(TokenKind::LeftParen);
+    expect('('_tk);
 
     vull::Vector<ast::Parameter> parameters;
-    while (!consume(TokenKind::RightParen)) {
-        expect(TokenKind::KeywordLet);
+    while (!consume(')'_tk)) {
+        expect(TokenKind::KW_let);
         auto param_name = expect(TokenKind::Ident);
-        expect(TokenKind::Colon);
+        expect(':'_tk);
         auto type = parse_type(expect(TokenKind::Ident));
         parameters.emplace(param_name.string(), type);
-        consume(TokenKind::Comma);
+        consume(','_tk);
     }
 
-    expect(TokenKind::Colon);
+    expect(':'_tk);
     auto return_type = parse_type(expect(TokenKind::Ident));
     auto *block = parse_block();
     return m_root.allocate<ast::Function>(name.string(), block, return_type, vull::move(parameters));
@@ -265,7 +265,7 @@ ast::Function *Parser::parse_function() {
 
 ast::Node *Parser::parse_top_level() {
     switch (m_lexer.next().kind()) {
-    case TokenKind::KeywordFn:
+    case TokenKind::KW_fn:
         return parse_function();
     default:
         VULL_ENSURE_NOT_REACHED();

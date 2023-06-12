@@ -6,25 +6,13 @@
 #include <stddef.h>
 
 enum class TokenKind {
-    Asterisk,
-    Colon,
-    Comma,
-    Eof,
-    Equals,
+    Eof = 256,
     FloatLit,
     Ident,
     IntLit,
-    KeywordFn,
-    KeywordLet,
-    LeftBrace,
-    LeftParen,
-    Minus,
-    Percent,
-    Plus,
-    RightBrace,
-    RightParen,
-    Semi,
-    Slash,
+
+    KW_fn,
+    KW_let,
 };
 
 class Token {
@@ -36,7 +24,7 @@ class Token {
     TokenKind m_kind;
 
 public:
-    static vull::StringView kind_string(TokenKind kind);
+    static vull::String kind_string(TokenKind kind);
 
     Token(TokenKind kind) : m_kind(kind) {}
     Token(float number) : m_number_data{.float_data = number}, m_kind(TokenKind::FloatLit) {}
@@ -50,3 +38,7 @@ public:
     vull::StringView string() const;
     vull::String to_string() const;
 };
+
+constexpr TokenKind operator""_tk(char ch) {
+    return static_cast<TokenKind>(ch);
+}

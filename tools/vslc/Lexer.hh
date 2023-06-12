@@ -1,15 +1,18 @@
 #pragma once
 
+#include <vull/support/LexerBase.hh>
 #include <vull/support/Utility.hh>
 
 #include "CharStream.hh"
 #include "Token.hh"
 
-class Lexer {
-    CharStream m_stream;
-    Token m_peek_token{TokenKind::Eof};
-    bool m_peek_ready{false};
+class Lexer : public vull::LexerBase<Lexer, Token> {
+    friend LexerBase<Lexer, Token>;
 
+private:
+    CharStream m_stream;
+
+    static bool is_eof(const Token &token) { return token.kind() == TokenKind::Eof; }
     Token next_token();
 
 public:
@@ -20,7 +23,4 @@ public:
 
     Lexer &operator=(const Lexer &) = delete;
     Lexer &operator=(Lexer &&) = delete;
-
-    const Token &peek();
-    Token next();
 };

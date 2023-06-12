@@ -2,25 +2,8 @@
 
 #include <vull/support/Assert.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Utility.hh>
 
 #include <stdio.h>
-
-namespace {
-
-bool is_digit(char ch) {
-    return ch >= '0' && ch <= '9';
-}
-
-bool is_ident(char ch) {
-    return ((static_cast<unsigned char>(ch) | 32u) - 'a' < 26) || ch == '_';
-}
-
-bool is_space(char ch) {
-    return ch == ' ' || ch - '\t' < 5;
-}
-
-} // namespace
 
 Token Lexer::next_token() {
     while (m_stream.has_next() && is_space(m_stream.peek())) {
@@ -31,44 +14,6 @@ Token Lexer::next_token() {
     }
 
     char ch = m_stream.next();
-    switch (ch) {
-    case '*':
-        return TokenKind::Asterisk;
-    case ':':
-        return TokenKind::Colon;
-    case ',':
-        return TokenKind::Comma;
-    case '=':
-        return TokenKind::Equals;
-    case '{':
-        return TokenKind::LeftBrace;
-    case '(':
-        return TokenKind::LeftParen;
-    case '-':
-        return TokenKind::Minus;
-    case '%':
-        return TokenKind::Percent;
-    case '+':
-        return TokenKind::Plus;
-    case '}':
-        return TokenKind::RightBrace;
-    case ')':
-        return TokenKind::RightParen;
-    case ';':
-        return TokenKind::Semi;
-    case '/':
-        // Handle comments.
-        if (m_stream.peek() == '/') {
-            while (m_stream.peek() != '\n') {
-                m_stream.next();
-            }
-            return next_token();
-        }
-        return TokenKind::Slash;
-    default:
-        break;
-    }
-
     if (is_digit(ch)) {
         size_t length = 1;
         bool is_decimal = false;
@@ -101,27 +46,29 @@ Token Lexer::next_token() {
         }
         vull::StringView ident(m_stream.pointer() - length, length);
         if (ident == "fn") {
-            return TokenKind::KeywordFn;
+            return TokenKind::KW_fn;
         }
         if (ident == "let") {
-            return TokenKind::KeywordLet;
+            return TokenKind::KW_let;
         }
         return {TokenKind::Ident, ident};
     }
+
+    if (ch == '/') {
+        // Handle comments.
+        if (m_stream.peek() == '/') {
+            while (m_stream.peek() != '\n') {
+                m_stream.next();
+            }
+            return next_token();
+        }
+        return '/'_tk;
+    }
+
+    if (ch > 31) {
+        return static_cast<TokenKind>(ch);
+    }
+
     printf("unexpected %c\n", ch);
     VULL_ENSURE_NOT_REACHED();
-}
-
-const Token &Lexer::peek() {
-    if (!vull::exchange(m_peek_ready, true)) {
-        m_peek_token = next_token();
-    }
-    return m_peek_token;
-}
-
-Token Lexer::next() {
-    if (vull::exchange(m_peek_ready, false)) {
-        return vull::move(m_peek_token);
-    }
-    return next_token();
 }

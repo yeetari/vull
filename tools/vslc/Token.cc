@@ -1,50 +1,26 @@
 #include "Token.hh"
 
 #include <vull/support/Assert.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 
-vull::StringView Token::kind_string(TokenKind kind) {
+vull::String Token::kind_string(TokenKind kind) {
+    if (auto value = vull::to_underlying(kind); value < 256) {
+        vull::String string("'x'");
+        string.data()[1] = static_cast<char>(value);
+        return string;
+    }
     switch (kind) {
-    case TokenKind::Asterisk:
-        return "'*'";
-    case TokenKind::Colon:
-        return "':'";
-    case TokenKind::Comma:
-        return "','";
     case TokenKind::Eof:
         return "eof";
-    case TokenKind::Equals:
-        return "'='";
     case TokenKind::FloatLit:
         return "float literal";
     case TokenKind::Ident:
         return "identifier";
     case TokenKind::IntLit:
         return "integer literal";
-    case TokenKind::KeywordFn:
-        return "'fn'";
-    case TokenKind::KeywordLet:
-        return "'let'";
-    case TokenKind::LeftBrace:
-        return "'{'";
-    case TokenKind::LeftParen:
-        return "'('";
-    case TokenKind::Minus:
-        return "'-'";
-    case TokenKind::Percent:
-        return "'%'";
-    case TokenKind::Plus:
-        return "'+'";
-    case TokenKind::RightBrace:
-        return "'}'";
-    case TokenKind::RightParen:
-        return "')'";
-    case TokenKind::Semi:
-        return "';'";
-    case TokenKind::Slash:
-        return "'/'";
     default:
         VULL_ENSURE_NOT_REACHED();
     }
