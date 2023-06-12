@@ -1,0 +1,8 @@
+// [[vk::push_constant]]
+uniform {
+    g_transform: mat4,
+};
+
+fn vertex_main(let position: vec3, let normal: vec3, let uv: vec2): vec4 {
+    g_transform * vec4(position, 1.0f)
+}

@@ -39,6 +39,7 @@ public:
 enum class AggregateKind {
     Block,
     ConstructExpr,
+    UniformBlock,
 };
 
 class Aggregate final : public TypedNode {

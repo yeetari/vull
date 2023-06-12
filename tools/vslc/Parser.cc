@@ -263,10 +263,28 @@ ast::Function *Parser::parse_function() {
     return m_root.allocate<ast::Function>(name.string(), block, return_type, vull::move(parameters));
 }
 
+ast::Aggregate *Parser::parse_uniform_block() {
+    expect('{'_tk);
+    auto *block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::UniformBlock);
+    while (!consume('}'_tk)) {
+        auto name = expect(TokenKind::Ident);
+        expect(':'_tk);
+        auto type = parse_type(expect(TokenKind::Ident));
+        auto *symbol = m_root.allocate<ast::Symbol>(name.string());
+        symbol->set_type(type);
+        block->append_node(symbol);
+        expect(','_tk);
+    }
+    expect(';'_tk);
+    return block;
+}
+
 ast::Node *Parser::parse_top_level() {
     switch (m_lexer.next().kind()) {
     case TokenKind::KW_fn:
         return parse_function();
+    case TokenKind::KW_uniform:
+        return parse_uniform_block();
     default:
         VULL_ENSURE_NOT_REACHED();
     }

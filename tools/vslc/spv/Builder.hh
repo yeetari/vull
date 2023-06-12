@@ -90,8 +90,10 @@ class Builder {
 public:
     Id float_type(Word width);
     Id function_type(Id return_type, const vull::Vector<Id> &parameter_types);
+    Id int_type(Word width, bool is_signed);
     Id matrix_type(Id column_type, Word column_count);
     Id pointer_type(StorageClass storage_class, Id pointee_type);
+    Id struct_type(const vull::Vector<Id> &member_types);
     Id vector_type(Id component_type, Word component_count);
     Id void_type();
 

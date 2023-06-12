@@ -148,6 +148,21 @@ Id Builder::function_type(Id return_type, const vull::Vector<Id> &parameter_type
     return type.id();
 }
 
+Id Builder::int_type(Word width, bool is_signed) {
+    for (const auto &type : m_types) {
+        if (type.op() != Op::TypeInt) {
+            continue;
+        }
+        if (type.operand(0) == width && type.operand(1) == (is_signed ? 1 : 0)) {
+            return type.id();
+        }
+    }
+    auto &type = m_types.emplace(Op::TypeInt, m_next_id++);
+    type.append_operand(width);
+    type.append_operand(is_signed ? 1 : 0);
+    return type.id();
+}
+
 Id Builder::matrix_type(Id column_type, Word column_count) {
     for (const auto &type : m_types) {
         if (type.op() != Op::TypeMatrix) {
@@ -175,6 +190,32 @@ Id Builder::pointer_type(StorageClass storage_class, Id pointee_type) {
     auto &type = m_types.emplace(Op::TypePointer, m_next_id++);
     type.append_operand(storage_class);
     type.append_operand(pointee_type);
+    return type.id();
+}
+
+Id Builder::struct_type(const vull::Vector<Id> &member_types) {
+    for (const auto &type : m_types) {
+        if (type.op() != Op::TypeStruct) {
+            continue;
+        }
+        if (type.operand_count() == member_types.size()) {
+            bool matching = true;
+            for (uint32_t i = 0; i < member_types.size(); i++) {
+                if (type.operand(i) != member_types[i]) {
+                    matching = false;
+                    break;
+                }
+            }
+            if (!matching) {
+                continue;
+            }
+            return type.id();
+        }
+    }
+    auto &type = m_types.emplace(Op::TypeStruct, m_next_id++);
+    for (Id member_type : member_types) {
+        type.append_operand(member_type);
+    }
     return type.id();
 }
 

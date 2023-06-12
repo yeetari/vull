@@ -19,6 +19,7 @@ class Parser {
     ast::Node *parse_stmt();
     ast::Aggregate *parse_block();
     ast::Function *parse_function();
+    ast::Aggregate *parse_uniform_block();
     ast::Node *parse_top_level();
 
 public:

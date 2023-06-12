@@ -1,9 +1,11 @@
 #include "Legaliser.hh"
 
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Utility.hh>
 
 using namespace ast;
 
@@ -16,19 +18,27 @@ Legaliser::Scope::~Scope() {
 }
 
 Type Legaliser::Scope::lookup_symbol(vull::StringView name) const {
-    for (const auto &symbol : m_symbol_map) {
-        if (symbol.name == name) {
-            return symbol.type;
-        }
+    if (auto type = m_symbol_map.get(name)) {
+        return *type;
     }
-    return ScalarType::Invalid;
+    if (m_parent == nullptr) {
+        return ScalarType::Invalid;
+    }
+    return m_parent->lookup_symbol(name);
 }
 
 void Legaliser::Scope::put_symbol(vull::StringView name, Type type) {
-    m_symbol_map.push(Symbol{name, type});
+    m_symbol_map.set(name, type);
 }
 
 void Legaliser::visit(Aggregate &aggregate) {
+    if (aggregate.kind() == AggregateKind::UniformBlock) {
+        for (auto *node : aggregate.nodes()) {
+            auto *symbol = static_cast<Symbol *>(node);
+            m_scope->put_symbol(symbol->name(), symbol->type());
+        }
+        return;
+    }
     for (auto *node : aggregate.nodes()) {
         node->traverse(*this);
     }

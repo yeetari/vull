@@ -3,7 +3,7 @@
 #include "Ast.hh"
 #include "Type.hh"
 
-#include <vull/container/Vector.hh>
+#include <vull/container/HashMap.hh>
 #include <vull/support/StringView.hh>
 
 class Legaliser : public ast::Traverser<ast::TraverseOrder::PostOrder> {
@@ -11,12 +11,7 @@ class Legaliser : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     class Scope {
         Scope *&m_current;
         Scope *m_parent;
-        struct Symbol {
-            vull::StringView name;
-            Type type;
-        };
-        // TODO(hash-map)
-        vull::Vector<Symbol> m_symbol_map;
+        vull::HashMap<vull::StringView, Type> m_symbol_map;
 
     public:
         explicit Scope(Scope *&current);
@@ -32,6 +27,7 @@ class Legaliser : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     };
 
     Scope *m_scope{nullptr};
+    Scope m_root_scope{m_scope};
 
 public:
     void visit(ast::Aggregate &) override;

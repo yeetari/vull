@@ -56,6 +56,7 @@ enum class Op {
     TypeFloat = 22,
     TypeVector = 23,
     TypeMatrix = 24,
+    TypeStruct = 30,
     TypePointer = 32,
     TypeFunction = 33,
     Constant = 43,
@@ -68,6 +69,7 @@ enum class Op {
     Variable = 59,
     Load = 61,
     Store = 62,
+    AccessChain = 65,
     Decorate = 71,
     CompositeConstruct = 80,
     CompositeExtract = 81,
@@ -90,6 +92,7 @@ enum class StorageClass {
     Input = 1,
     Output = 3,
     Function = 7,
+    PushConstant = 9,
 };
 
 } // namespace vull::vk::spv

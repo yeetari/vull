@@ -3,8 +3,11 @@
 #include "../Ast.hh"
 #include "../Type.hh"
 
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 
@@ -60,17 +63,17 @@ Backend::Scope::~Scope() {
     m_current = m_parent;
 }
 
-Id Backend::Scope::lookup_symbol(vull::StringView name) const {
-    for (const auto &symbol : m_symbol_map) {
-        if (symbol.name == name) {
-            return symbol.id;
-        }
+const Backend::Symbol &Backend::Scope::lookup_symbol(vull::StringView name) const {
+    if (auto symbol = m_symbol_map.get(name)) {
+        return *symbol;
     }
-    VULL_ENSURE_NOT_REACHED();
+    VULL_ENSURE(m_parent != nullptr);
+    return m_parent->lookup_symbol(name);
 }
 
-void Backend::Scope::put_symbol(vull::StringView name, Id id) {
-    m_symbol_map.push(Symbol{name, id});
+Backend::Symbol &Backend::Scope::put_symbol(vull::StringView name, Id id) {
+    m_symbol_map.set(name, Symbol{.id = id});
+    return *m_symbol_map.get(name);
 }
 
 Id Backend::convert_type(ScalarType scalar_type) {
@@ -158,7 +161,7 @@ void Backend::visit(ast::Aggregate &aggregate) {
             stmt->traverse(*this);
         }
         break;
-    case ast::AggregateKind::ConstructExpr:
+    case ast::AggregateKind::ConstructExpr: {
         auto saved_stack = vull::move(m_value_stack);
         for (auto *node : aggregate.nodes()) {
             node->traverse(*this);
@@ -167,6 +170,22 @@ void Backend::visit(ast::Aggregate &aggregate) {
         m_value_stack = vull::move(saved_stack);
         m_value_stack.emplace(inst, aggregate.type());
         break;
+    }
+    case ast::AggregateKind::UniformBlock: {
+        vull::Vector<Id> member_types;
+        member_types.ensure_capacity(aggregate.nodes().size());
+        for (auto *node : aggregate.nodes()) {
+            member_types.push(convert_type(node->type()));
+        }
+
+        const auto struct_type = m_builder.struct_type(member_types);
+        auto &variable = m_builder.append_variable(struct_type, StorageClass::PushConstant);
+        for (uint8_t i = 0; auto *node : aggregate.nodes()) {
+            auto &symbol = m_scope->put_symbol(static_cast<ast::Symbol *>(node)->name(), variable.id());
+            symbol.uniform_index = i;
+        }
+        break;
+    }
     }
 }
 
@@ -254,11 +273,21 @@ void Backend::visit(ast::ReturnStmt &) {
     return_inst.append_operand(expr_value.id());
 }
 
-void Backend::visit(ast::Symbol &symbol) {
-    const auto type = convert_type(symbol.type());
+void Backend::visit(ast::Symbol &ast_symbol) {
+    const auto type = convert_type(ast_symbol.type());
+    const auto &symbol = m_scope->lookup_symbol(ast_symbol.name());
+    Id var_id = symbol.id;
+    if (symbol.uniform_index) {
+        auto &index_constant = m_builder.scalar_constant(m_builder.int_type(32, false), *symbol.uniform_index);
+        auto &access_chain = m_block->append(Op::AccessChain, m_builder.pointer_type(StorageClass::PushConstant, type));
+        access_chain.append_operand(var_id);
+        access_chain.append_operand(index_constant.id());
+        var_id = access_chain.id();
+    }
+
     auto &load_inst = m_block->append(Op::Load, type);
-    load_inst.append_operand(m_scope->lookup_symbol(symbol.name()));
-    m_value_stack.emplace(load_inst, symbol.type());
+    load_inst.append_operand(var_id);
+    m_value_stack.emplace(load_inst, ast_symbol.type());
 }
 
 void Backend::visit(ast::UnaryExpr &unary_expr) {

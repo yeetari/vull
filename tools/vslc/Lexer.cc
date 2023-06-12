@@ -51,6 +51,9 @@ Token Lexer::next_token() {
         if (ident == "let") {
             return TokenKind::KW_let;
         }
+        if (ident == "uniform") {
+            return TokenKind::KW_uniform;
+        }
         return {TokenKind::Ident, ident};
     }
 

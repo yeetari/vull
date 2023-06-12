@@ -1,4 +1,0 @@
-fn vertex_main(let position: vec3, let view: mat4, let proj: mat4, let transform: mat4): vec4 {
-    let world_position = transform * vec4(position, 1.0f);
-    proj * view * world_position
-}

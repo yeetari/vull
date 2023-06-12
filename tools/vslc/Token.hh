@@ -13,6 +13,7 @@ enum class TokenKind {
 
     KW_fn,
     KW_let,
+    KW_uniform,
 };
 
 class Token {

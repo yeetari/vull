@@ -5,8 +5,12 @@
 #include "Builder.hh"
 #include "Spirv.hh"
 
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/StringView.hh>
+
+#include <stdint.h>
 
 namespace spv {
 
@@ -26,15 +30,15 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
         const vull::Vector<Word> &operands() const { return m_operands; }
     };
 
+    struct Symbol {
+        Id id;
+        vull::Optional<uint8_t> uniform_index;
+    };
+
     class Scope {
         Scope *&m_current;
         Scope *m_parent;
-        struct Symbol {
-            vull::StringView name;
-            Id id;
-        };
-        // TODO(hash-map)
-        vull::Vector<Symbol> m_symbol_map;
+        vull::HashMap<vull::StringView, Symbol> m_symbol_map;
 
     public:
         explicit Scope(Scope *&current);
@@ -45,14 +49,15 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
         Scope &operator=(const Scope &) = delete;
         Scope &operator=(Scope &&) = delete;
 
-        Id lookup_symbol(vull::StringView name) const;
-        void put_symbol(vull::StringView name, Id id);
+        const Symbol &lookup_symbol(vull::StringView name) const;
+        Symbol &put_symbol(vull::StringView name, Id id);
     };
 
     Builder m_builder;
     Function *m_function{nullptr};
     Block *m_block{nullptr};
     Scope *m_scope{nullptr};
+    Scope m_root_scope{m_scope};
     vull::Vector<Value> m_value_stack;
 
     // Vertex shader.
