@@ -76,16 +76,21 @@ void Tree::unset_active_element() {
     m_need_hover_update = true;
 }
 
+template <auto event_fn>
+static void dispatch_event(Optional<Element &> element, const auto &event) {
+    for (; element; element = element->parent()) {
+        if ((*element.*event_fn)(event)) {
+            return;
+        }
+    }
+}
+
 void Tree::handle_mouse_press(MouseButton button) {
     MouseButtonEvent event(m_hovered_relative_position, m_mouse_buttons, button);
     auto event_target = m_active_element    ? m_active_element
                         : m_hovered_element ? m_hovered_element
                                             : Optional<Element &>();
-    for (auto element = event_target; element; element = element->parent()) {
-        if (element->handle_mouse_press(event)) {
-            break;
-        }
-    }
+    dispatch_event<&Element::handle_mouse_press>(event_target, event);
 }
 
 void Tree::handle_mouse_release(MouseButton button) {
@@ -93,11 +98,7 @@ void Tree::handle_mouse_release(MouseButton button) {
     auto event_target = m_active_element    ? m_active_element
                         : m_hovered_element ? m_hovered_element
                                             : Optional<Element &>();
-    for (auto element = event_target; element; element = element->parent()) {
-        if (element->handle_mouse_release(event)) {
-            break;
-        }
-    }
+    dispatch_event<&Element::handle_mouse_release>(event_target, event);
 }
 
 void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask buttons) {
@@ -108,6 +109,7 @@ void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask button
     // Update the currently hovered element.
     update_hover();
 
+    // TODO: Should mouse move events propagate? (use dispatch_event)
     if (!m_active_element) {
         // No active element hijacking events, just send the move to the hovered element if present.
         if (m_hovered_element) {
