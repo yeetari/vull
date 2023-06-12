@@ -24,6 +24,8 @@ class Tree {
     bool m_need_hover_update{false};
 
     void update_hover();
+    template <auto>
+    void handle_mouse_press_release(MouseButton button);
 
 public:
     Tree(Style &style, Vec2f global_scale) : m_style(style), m_global_scale(global_scale) {}

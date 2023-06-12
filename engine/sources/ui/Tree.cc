@@ -97,20 +97,27 @@ static void dispatch_event(Optional<Element &> element, const auto &event) {
     }
 }
 
+template <auto event_fn>
+void Tree::handle_mouse_press_release(MouseButton button) {
+    if (!m_active_element) {
+        // No active element hijacking events, just send the event to the hovered element if present.
+        MouseButtonEvent event(m_hovered_relative_position, m_mouse_buttons, button);
+        dispatch_event<event_fn>(m_hovered_element, event);
+        return;
+    }
+
+    // Otherwise there is an active element hijacking input events.
+    const auto relative_position = calculate_element_relative_position(m_active_element, m_mouse_position);
+    MouseButtonEvent event(relative_position, m_mouse_buttons, button);
+    dispatch_event<event_fn>(m_active_element, event);
+}
+
 void Tree::handle_mouse_press(MouseButton button) {
-    MouseButtonEvent event(m_hovered_relative_position, m_mouse_buttons, button);
-    auto event_target = m_active_element    ? m_active_element
-                        : m_hovered_element ? m_hovered_element
-                                            : Optional<Element &>();
-    dispatch_event<&Element::handle_mouse_press>(event_target, event);
+    handle_mouse_press_release<&Element::handle_mouse_press>(button);
 }
 
 void Tree::handle_mouse_release(MouseButton button) {
-    MouseButtonEvent event(m_hovered_relative_position, m_mouse_buttons, button);
-    auto event_target = m_active_element    ? m_active_element
-                        : m_hovered_element ? m_hovered_element
-                                            : Optional<Element &>();
-    dispatch_event<&Element::handle_mouse_release>(event_target, event);
+    handle_mouse_press_release<&Element::handle_mouse_release>(button);
 }
 
 void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask buttons) {
