@@ -13,6 +13,14 @@ Token Lexer::next_token() {
         return TokenKind::Eof;
     }
 
+    auto consume = [this](char ch) {
+        if (m_stream.peek() == ch) {
+            m_stream.next();
+            return true;
+        }
+        return false;
+    };
+
     char ch = m_stream.next();
     if (is_digit(ch)) {
         size_t length = 1;
@@ -51,21 +59,36 @@ Token Lexer::next_token() {
         if (ident == "let") {
             return TokenKind::KW_let;
         }
+        if (ident == "pipeline") {
+            return TokenKind::KW_pipeline;
+        }
         if (ident == "uniform") {
             return TokenKind::KW_uniform;
+        }
+        if (ident == "var") {
+            return TokenKind::KW_var;
         }
         return {TokenKind::Ident, ident};
     }
 
-    if (ch == '/') {
-        // Handle comments.
-        if (m_stream.peek() == '/') {
-            while (m_stream.peek() != '\n') {
-                m_stream.next();
-            }
-            return next_token();
+    if (ch == '/' && consume('/')) {
+        while (m_stream.peek() != '\n') {
+            m_stream.next();
         }
-        return '/'_tk;
+        return next_token();
+    }
+
+    if (ch == '+' && consume('=')) {
+        return TokenKind::PlusEqual;
+    }
+    if (ch == '-' && consume('=')) {
+        return TokenKind::MinusEqual;
+    }
+    if (ch == '*' && consume('=')) {
+        return TokenKind::AsteriskEqual;
+    }
+    if (ch == '/' && consume('=')) {
+        return TokenKind::SlashEqual;
     }
 
     if (ch > 31) {

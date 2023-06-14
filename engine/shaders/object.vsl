@@ -3,6 +3,17 @@ uniform {
     g_transform: mat4,
 };
 
-fn vertex_main(let position: vec3, let normal: vec3, let uv: vec2): vec4 {
-    g_transform * vec4(position, 1.0f)
+pipeline vec4 gl_Position;
+pipeline vec3 g_normal;
+
+fn vertex_main(let position: vec3, let normal: vec3, let uv: vec2) {
+    gl_Position = g_transform * vec4(position, 1.0f);
+    g_normal = normal;
+}
+
+fn fragment_main(): vec4 {
+    let base_colour = vec3(1.0f);
+    var illuminance = base_colour * 0.05f;
+    illuminance += base_colour * max(dot(g_normal, vec3(0.75f, 0.75f, 0.5f)), 0.0f);
+    vec4(illuminance, 1.0f)
 }

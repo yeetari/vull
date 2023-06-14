@@ -30,6 +30,10 @@ enum class Decoration {
     Location = 30,
 };
 
+enum class ExecutionMode {
+    OriginUpperLeft = 7,
+};
+
 enum class ExecutionModel {
     Vertex = 0,
     Fragment = 4,
@@ -47,8 +51,11 @@ enum class MemoryModel {
 enum class Op {
     Nop = 0,
     Name = 5,
+    ExtInstImport = 11,
+    ExtInst = 12,
     MemoryModel = 14,
     EntryPoint = 15,
+    ExecutionMode = 16,
     Capability = 17,
     TypeVoid = 19,
     TypeBool = 20,
@@ -83,9 +90,15 @@ enum class Op {
     VectorTimesMatrix = 144,
     MatrixTimesVector = 145,
     MatrixTimesMatrix = 146,
+    Dot = 148,
     Label = 248,
+    Branch = 249,
+    BranchConditional = 250,
+    Switch = 251,
     Return = 253,
     ReturnValue = 254,
+    Unreachable = 255,
+    TerminateInvocation = 4416,
 };
 
 enum class StorageClass {
@@ -94,5 +107,20 @@ enum class StorageClass {
     Function = 7,
     PushConstant = 9,
 };
+
+constexpr bool is_terminator(Op op) {
+    switch (op) {
+    case Op::Return:
+    case Op::ReturnValue:
+    case Op::Unreachable:
+    case Op::TerminateInvocation:
+    case Op::Branch:
+    case Op::BranchConditional:
+    case Op::Switch:
+        return true;
+    default:
+        return false;
+    }
+}
 
 } // namespace vull::vk::spv

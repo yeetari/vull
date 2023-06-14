@@ -19,12 +19,16 @@ namespace {
 Op binary_op(ast::BinaryOp op) {
     switch (op) {
     case ast::BinaryOp::Add:
+    case ast::BinaryOp::AddAssign:
         return Op::FAdd;
     case ast::BinaryOp::Sub:
+    case ast::BinaryOp::SubAssign:
         return Op::FSub;
     case ast::BinaryOp::Mul:
+    case ast::BinaryOp::MulAssign:
         return Op::FMul;
     case ast::BinaryOp::Div:
+    case ast::BinaryOp::DivAssign:
         return Op::FDiv;
     case ast::BinaryOp::Mod:
         VULL_ENSURE_NOT_REACHED("% only defined for integer types");
@@ -78,6 +82,8 @@ Backend::Symbol &Backend::Scope::put_symbol(vull::StringView name, Id id) {
 
 Id Backend::convert_type(ScalarType scalar_type) {
     switch (scalar_type) {
+    case ScalarType::Void:
+        return m_builder.void_type();
     case ScalarType::Float:
         return m_builder.float_type(32);
     case ScalarType::Uint:
@@ -186,18 +192,76 @@ void Backend::visit(ast::Aggregate &aggregate) {
         }
         break;
     }
+    default:
+        VULL_ENSURE_NOT_REACHED();
     }
 }
 
 void Backend::visit(ast::BinaryExpr &binary_expr) {
+    const bool is_assign_op = ast::is_assign_op(binary_expr.op());
+    if (is_assign_op) {
+        m_load_symbol = false;
+    }
+    binary_expr.lhs().traverse(*this);
+    binary_expr.rhs().traverse(*this);
+
     const auto rhs = m_value_stack.take_last();
     const auto lhs = m_value_stack.take_last();
+    if (is_assign_op) {
+        auto rhs_id = rhs.id();
+        if (binary_expr.op() != ast::BinaryOp::Assign) {
+            const auto var_type = convert_type(lhs);
+            auto &load_inst = m_block->append(Op::Load, var_type);
+            load_inst.append_operand(lhs.id());
+
+            auto &arith_inst = m_block->append(binary_op(binary_expr.op()), var_type);
+            arith_inst.append_operand(load_inst.id());
+            arith_inst.append_operand(rhs.id());
+            rhs_id = arith_inst.id();
+        }
+
+        auto &inst = m_block->append(Op::Store);
+        inst.append_operand(lhs.id());
+        inst.append_operand(rhs_id);
+        return;
+    }
     const auto op = binary_op(binary_expr.op());
     const auto type = convert_type(binary_expr.type());
     auto &inst = m_block->append(op, type);
     inst.append_operand(lhs.id());
     inst.append_operand(rhs.id());
     m_value_stack.emplace(inst, binary_expr.type());
+}
+
+void Backend::visit(ast::CallExpr &call_expr) {
+    auto saved_stack = vull::move(m_value_stack);
+    for (auto *argument : call_expr.arguments()) {
+        argument->traverse(*this);
+    }
+
+    auto op = [](vull::StringView name) {
+        if (name == "dot") {
+            return Op::Dot;
+        }
+        if (name == "max") {
+            return Op::ExtInst;
+        }
+        VULL_ENSURE_NOT_REACHED();
+    }(call_expr.name());
+
+    auto &inst = m_block->append(op, convert_type(call_expr.type()));
+    if (op == Op::ExtInst) {
+        inst.append_operand(m_std_450);
+        inst.append_operand(40);
+    }
+    for (const auto &value : m_value_stack) {
+        inst.append_operand(value.id());
+    }
+
+    m_value_stack = vull::move(saved_stack);
+    if (call_expr.type().scalar_type() != ScalarType::Void) {
+        m_value_stack.emplace(inst, call_expr.type());
+    }
 }
 
 void Backend::visit(ast::Constant &constant) {
@@ -207,6 +271,8 @@ void Backend::visit(ast::Constant &constant) {
 }
 
 void Backend::visit(ast::DeclStmt &decl_stmt) {
+    decl_stmt.value().traverse(*this);
+
     const auto value = m_value_stack.take_last();
     auto &variable = m_function->append_variable(convert_type(value));
     if (value.creator_op() == Op::Constant || value.creator_op() == Op::ConstantComposite) {
@@ -228,19 +294,24 @@ void Backend::visit(ast::Function &vsl_function) {
         parameter_types.push(convert_type(parameter.type()));
     }
 
-    auto return_type = convert_type(vsl_function.return_type());
-    auto function_type = m_builder.function_type(return_type, parameter_types);
-    if ((m_is_vertex_entry = vsl_function.name() == "vertex_main")) {
+    bool is_vertex_entry = vsl_function.name() == "vertex_main";
+    m_is_fragment_entry = vsl_function.name() == "fragment_main";
+
+    spv::Id return_type;
+    spv::Id function_type;
+    if (is_vertex_entry || m_is_fragment_entry) {
         return_type = m_builder.void_type();
         function_type = m_builder.function_type(return_type, {});
+    } else {
+        return_type = convert_type(vsl_function.return_type());
+        function_type = m_builder.function_type(return_type, parameter_types);
     }
+
     m_function = &m_builder.append_function(vsl_function.name(), return_type, function_type);
-    if (m_is_vertex_entry) {
-        VULL_ENSURE(vsl_function.return_type().scalar_type() == ScalarType::Float);
-        VULL_ENSURE(vsl_function.return_type().vector_size() == 4);
+    if (is_vertex_entry) {
         m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
 
-        // Create inputs.
+        // Create vertex inputs.
         for (uint32_t i = 0; i < parameter_types.size(); i++) {
             const auto input_type = parameter_types[i];
             auto &variable = m_builder.append_variable(input_type, StorageClass::Input);
@@ -254,19 +325,35 @@ void Backend::visit(ast::Function &vsl_function) {
         const auto position_type = m_builder.vector_type(m_builder.float_type(32), 4);
         auto &variable = m_builder.append_variable(position_type, StorageClass::Output);
         m_builder.decorate(variable.id(), Decoration::BuiltIn, BuiltIn::Position);
-        m_position_output = variable.id();
+        m_scope->put_symbol("gl_Position", variable.id());
+    } else if (m_is_fragment_entry) {
+        m_builder.append_entry_point(*m_function, ExecutionModel::Fragment);
+        auto &out_variable = m_builder.append_variable(convert_type(vsl_function.return_type()), StorageClass::Output);
+        m_builder.decorate(out_variable.id(), Decoration::Location, 0);
+        m_fragment_output_id = out_variable.id();
     }
+
     vsl_function.block().traverse(*this);
+    if (!m_block->is_terminated()) {
+        m_block->append(Op::Return);
+    }
 }
 
-void Backend::visit(ast::ReturnStmt &) {
+void Backend::visit(ast::PipelineDecl &pipeline_decl) {
+    const auto type = convert_type(pipeline_decl.type());
+    auto &variable = m_builder.append_variable(type, StorageClass::Output);
+    m_builder.decorate(variable.id(), Decoration::Location, m_pipeline_variable_counter++);
+    m_scope->put_symbol(pipeline_decl.name(), variable.id());
+}
+
+void Backend::visit(ast::ReturnStmt &return_stmt) {
+    return_stmt.expr().traverse(*this);
+
     auto expr_value = m_value_stack.take_last();
-    if (m_is_vertex_entry) {
-        // Intercept returns from the vertex shader entry point as stores to gl_Position.
+    if (m_is_fragment_entry) {
         auto &store_inst = m_block->append(Op::Store);
-        store_inst.append_operand(m_position_output);
+        store_inst.append_operand(m_fragment_output_id);
         store_inst.append_operand(expr_value.id());
-        m_block->append(Op::Return);
         return;
     }
     auto &return_inst = m_block->append(Op::ReturnValue);
@@ -285,12 +372,27 @@ void Backend::visit(ast::Symbol &ast_symbol) {
         var_id = access_chain.id();
     }
 
+    if (!m_load_symbol) {
+        m_load_symbol = true;
+        m_value_stack.emplace(var_id, ast_symbol.type());
+        return;
+    }
+
     auto &load_inst = m_block->append(Op::Load, type);
     load_inst.append_operand(var_id);
     m_value_stack.emplace(load_inst, ast_symbol.type());
 }
 
+void Backend::visit(ast::Root &root) {
+    m_std_450 = m_builder.import_extension("GLSL.std.450");
+    for (auto *node : root.top_level_nodes()) {
+        node->traverse(*this);
+    }
+}
+
 void Backend::visit(ast::UnaryExpr &unary_expr) {
+    unary_expr.expr().traverse(*this);
+
     const auto expr = m_value_stack.take_last();
     const auto type = convert_type(unary_expr.type());
     auto &inst = m_block->append(unary_op(unary_expr.op()), type);

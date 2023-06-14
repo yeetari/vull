@@ -66,6 +66,10 @@ enum class BinaryOp {
     Mod,
 
     Assign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
 
     // Parsed-generated Muls can be turned into these by the legaliser.
     VectorTimesScalar,
@@ -91,6 +95,22 @@ public:
     BinaryOp op() const { return m_op; }
     Node &lhs() const { return *m_lhs; }
     Node &rhs() const { return *m_rhs; }
+};
+
+class CallExpr final : public TypedNode {
+    vull::StringView m_name;
+    vull::Vector<Node *> m_arguments;
+
+public:
+    explicit CallExpr(vull::StringView name) : m_name(name) {}
+
+    void append_argument(Node *argument) { m_arguments.push(argument); }
+    void traverse(Traverser<TraverseOrder::None> &) override;
+    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
+    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
+
+    vull::StringView name() const { return m_name; }
+    const vull::Vector<Node *> &arguments() const { return m_arguments; }
 };
 
 class Constant final : public Node {
@@ -158,6 +178,19 @@ public:
     Aggregate &block() const { return *m_block; }
     const Type &return_type() const { return m_return_type; }
     const vull::Vector<Parameter> &parameters() const { return m_parameters; }
+};
+
+class PipelineDecl final : public TypedNode {
+    vull::StringView m_name;
+
+public:
+    PipelineDecl(vull::StringView name, const Type &type) : m_name(name) { set_type(type); }
+
+    void traverse(Traverser<TraverseOrder::None> &) override;
+    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
+    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
+
+    vull::StringView name() const { return m_name; }
 };
 
 class ReturnStmt final : public Node {
@@ -234,28 +267,15 @@ template <TraverseOrder Order>
 struct Traverser {
     virtual void visit(Aggregate &) = 0;
     virtual void visit(BinaryExpr &) = 0;
+    virtual void visit(CallExpr &) = 0;
     virtual void visit(Constant &) = 0;
     virtual void visit(DeclStmt &) = 0;
     virtual void visit(Function &) = 0;
+    virtual void visit(PipelineDecl &) = 0;
     virtual void visit(ReturnStmt &) = 0;
     virtual void visit(Root &) = 0;
     virtual void visit(Symbol &) = 0;
     virtual void visit(UnaryExpr &) = 0;
-};
-
-class Formatter final : public Traverser<TraverseOrder::None> {
-    size_t m_depth{0};
-
-public:
-    void visit(Aggregate &) override;
-    void visit(BinaryExpr &) override;
-    void visit(Constant &) override;
-    void visit(DeclStmt &) override;
-    void visit(Function &) override;
-    void visit(ReturnStmt &) override;
-    void visit(Root &) override;
-    void visit(Symbol &) override;
-    void visit(UnaryExpr &) override;
 };
 
 #define DEFINE_SIMPLE_TRAVERSE(node)                                                                                   \
@@ -265,8 +285,10 @@ public:
 
 // Aggregates and functions usually require special handling.
 DEFINE_SIMPLE_TRAVERSE(Aggregate)
+DEFINE_SIMPLE_TRAVERSE(CallExpr)
 DEFINE_SIMPLE_TRAVERSE(Constant)
 DEFINE_SIMPLE_TRAVERSE(Function)
+DEFINE_SIMPLE_TRAVERSE(PipelineDecl)
 DEFINE_SIMPLE_TRAVERSE(Symbol)
 #undef DEFINE_SIMPLE_TRAVERSE
 
@@ -344,6 +366,19 @@ inline void UnaryExpr::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
 inline void UnaryExpr::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
     m_expr->traverse(traverser);
     traverser.visit(*this);
+}
+
+constexpr bool is_assign_op(BinaryOp op) {
+    switch (op) {
+    case BinaryOp::Assign:
+    case BinaryOp::AddAssign:
+    case BinaryOp::SubAssign:
+    case BinaryOp::MulAssign:
+    case BinaryOp::DivAssign:
+        return true;
+    default:
+        return false;
+    }
 }
 
 } // namespace ast

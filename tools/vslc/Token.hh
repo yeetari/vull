@@ -11,9 +11,16 @@ enum class TokenKind {
     Ident,
     IntLit,
 
+    PlusEqual,
+    MinusEqual,
+    AsteriskEqual,
+    SlashEqual,
+
     KW_fn,
     KW_let,
+    KW_pipeline,
     KW_uniform,
+    KW_var,
 };
 
 class Token {

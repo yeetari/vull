@@ -8,26 +8,29 @@
 #include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 
 #include <stdint.h>
 
 namespace spv {
 
-class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
+class Backend : public ast::Traverser<ast::TraverseOrder::None> {
     // Extend from Type to allow for nicer access to type-related functions.
     class Value : public Type {
         const Id m_id;
         const Op m_creator_op;
-        const vull::Vector<Word> &m_operands;
+        const vull::Span<const Word> m_operands;
 
     public:
+        Value(Id id, Type type) : Type(type), m_id(id), m_creator_op{} {}
+
         Value(Instruction &inst, Type type)
-            : Type(type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands()) {}
+            : Type(type), m_id(inst.id()), m_creator_op(inst.op()), m_operands(inst.operands().span()) {}
 
         Id id() const { return m_id; }
         Op creator_op() const { return m_creator_op; }
-        const vull::Vector<Word> &operands() const { return m_operands; }
+        vull::Span<const Word> operands() const { return m_operands; }
     };
 
     struct Symbol {
@@ -59,10 +62,13 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
     Scope *m_scope{nullptr};
     Scope m_root_scope{m_scope};
     vull::Vector<Value> m_value_stack;
+    Id m_std_450{};
 
-    // Vertex shader.
-    Id m_position_output{0};
-    bool m_is_vertex_entry{false};
+    Id m_fragment_output_id{};
+    bool m_is_fragment_entry{false};
+
+    uint8_t m_pipeline_variable_counter{0};
+    bool m_load_symbol{true};
 
     Id convert_type(ScalarType);
     Id convert_type(const Type &);
@@ -72,12 +78,14 @@ class Backend : public ast::Traverser<ast::TraverseOrder::PostOrder> {
 public:
     void visit(ast::Aggregate &) override;
     void visit(ast::BinaryExpr &) override;
+    void visit(ast::CallExpr &) override;
     void visit(ast::Constant &) override;
     void visit(ast::DeclStmt &) override;
     void visit(ast::Function &) override;
+    void visit(ast::PipelineDecl &) override;
     void visit(ast::ReturnStmt &) override;
     void visit(ast::Symbol &) override;
-    void visit(ast::Root &) override {}
+    void visit(ast::Root &) override;
     void visit(ast::UnaryExpr &) override;
 
     const Builder &builder() const { return m_builder; }

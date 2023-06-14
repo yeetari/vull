@@ -6,6 +6,7 @@ enum class ScalarType : uint8_t {
     Float,
     Invalid,
     Uint,
+    Void,
 };
 
 class Type {

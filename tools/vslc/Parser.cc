@@ -4,9 +4,11 @@
 #include "Token.hh"
 #include "Type.hh"
 
+#include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 
@@ -20,10 +22,15 @@ enum class Op {
     Div,
     Mod,
 
+    Assign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+
     // Unary operators.
     Negate,
 
-    Assign,
     OpenParen,
 };
 
@@ -47,6 +54,14 @@ ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operan
         return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Mod, lhs, rhs);
     case Op::Assign:
         return root.allocate<ast::BinaryExpr>(ast::BinaryOp::Assign, lhs, rhs);
+    case Op::AddAssign:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::AddAssign, lhs, rhs);
+    case Op::SubAssign:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::SubAssign, lhs, rhs);
+    case Op::MulAssign:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::MulAssign, lhs, rhs);
+    case Op::DivAssign:
+        return root.allocate<ast::BinaryExpr>(ast::BinaryOp::DivAssign, lhs, rhs);
     default:
         vull::unreachable();
     }
@@ -55,6 +70,10 @@ ast::Node *create_expr(ast::Root &root, Op op, vull::Vector<ast::Node *> &operan
 unsigned precedence(Op op) {
     switch (op) {
     case Op::Assign:
+    case Op::AddAssign:
+    case Op::SubAssign:
+    case Op::MulAssign:
+    case Op::DivAssign:
     case Op::OpenParen:
         return 0;
     case Op::Add:
@@ -72,7 +91,16 @@ unsigned precedence(Op op) {
 }
 
 bool is_right_asc(Op op) {
-    return op == Op::Assign;
+    switch (op) {
+    case Op::Assign:
+    case Op::AddAssign:
+    case Op::SubAssign:
+    case Op::MulAssign:
+    case Op::DivAssign:
+        return true;
+    default:
+        return false;
+    }
 }
 
 bool higher_precedence(Op a, Op b) {
@@ -96,35 +124,29 @@ vull::Optional<Op> to_binary_op(TokenKind kind) {
         return Op::Mod;
     case '='_tk:
         return Op::Assign;
+    case TokenKind::PlusEqual:
+        return Op::AddAssign;
+    case TokenKind::MinusEqual:
+        return Op::SubAssign;
+    case TokenKind::AsteriskEqual:
+        return Op::MulAssign;
+    case TokenKind::SlashEqual:
+        return Op::DivAssign;
     default:
         return {};
     }
 }
 
-Type parse_type(const Token &ident) {
-    // TODO(hash-map): Hash map for builtin types.
-    if (ident.string() == "float") {
-        return {ScalarType::Float};
-    }
-    if (ident.string() == "vec2") {
-        return {ScalarType::Float, 2};
-    }
-    if (ident.string() == "vec3") {
-        return {ScalarType::Float, 3};
-    }
-    if (ident.string() == "vec4") {
-        return {ScalarType::Float, 4};
-    }
-    if (ident.string() == "mat3") {
-        return {ScalarType::Float, 3, 3};
-    }
-    if (ident.string() == "mat4") {
-        return {ScalarType::Float, 4, 4};
-    }
-    VULL_ENSURE_NOT_REACHED();
-}
-
 } // namespace
+
+Parser::Parser(Lexer &lexer) : m_lexer(lexer) {
+    m_builtin_type_map.set("float", ScalarType::Float);
+    m_builtin_type_map.set("vec2", {ScalarType::Float, 2});
+    m_builtin_type_map.set("vec3", {ScalarType::Float, 3});
+    m_builtin_type_map.set("vec4", {ScalarType::Float, 4});
+    m_builtin_type_map.set("mat3", {ScalarType::Float, 3, 3});
+    m_builtin_type_map.set("mat4", {ScalarType::Float, 4, 4});
+}
 
 vull::Optional<Token> Parser::consume(TokenKind kind) {
     const auto &token = m_lexer.peek();
@@ -135,6 +157,11 @@ Token Parser::expect(TokenKind kind) {
     auto token = m_lexer.next();
     VULL_ENSURE(token.kind() == kind);
     return token;
+}
+
+Type Parser::parse_type(const Token &token) {
+    VULL_ASSERT(token.kind() == TokenKind::Ident);
+    return *m_builtin_type_map.get(token.string());
 }
 
 ast::Node *Parser::parse_atom() {
@@ -148,13 +175,23 @@ ast::Node *Parser::parse_atom() {
         if (!consume('('_tk)) {
             return m_root.allocate<ast::Symbol>(ident->string());
         }
-        auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
-        construct_expr->set_type(parse_type(*ident));
+
+        if (auto type = m_builtin_type_map.get(ident->string())) {
+            auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
+            construct_expr->set_type(*type);
+            while (!consume(')'_tk)) {
+                construct_expr->append_node(parse_expr());
+                consume(','_tk);
+            }
+            return construct_expr;
+        }
+
+        auto *call_expr = m_root.allocate<ast::CallExpr>(ident->string());
         while (!consume(')'_tk)) {
-            construct_expr->append_node(parse_expr());
+            call_expr->append_argument(parse_expr());
             consume(','_tk);
         }
-        return construct_expr;
+        return call_expr;
     }
     return nullptr;
 }
@@ -217,7 +254,7 @@ ast::Node *Parser::parse_expr() {
 }
 
 ast::Node *Parser::parse_stmt() {
-    if (consume(TokenKind::KW_let)) {
+    if (consume(TokenKind::KW_let) || consume(TokenKind::KW_var)) {
         auto name = expect(TokenKind::Ident);
         expect('='_tk);
         auto *value = parse_expr();
@@ -257,10 +294,19 @@ ast::Function *Parser::parse_function() {
         consume(','_tk);
     }
 
-    expect(':'_tk);
-    auto return_type = parse_type(expect(TokenKind::Ident));
+    Type return_type(ScalarType::Void);
+    if (consume(':'_tk)) {
+        return_type = parse_type(expect(TokenKind::Ident));
+    }
     auto *block = parse_block();
     return m_root.allocate<ast::Function>(name.string(), block, return_type, vull::move(parameters));
+}
+
+ast::PipelineDecl *Parser::parse_pipeline_decl() {
+    auto type = parse_type(expect(TokenKind::Ident));
+    auto name = expect(TokenKind::Ident);
+    expect(';'_tk);
+    return m_root.allocate<ast::PipelineDecl>(name.string(), type);
 }
 
 ast::Aggregate *Parser::parse_uniform_block() {
@@ -283,6 +329,8 @@ ast::Node *Parser::parse_top_level() {
     switch (m_lexer.next().kind()) {
     case TokenKind::KW_fn:
         return parse_function();
+    case TokenKind::KW_pipeline:
+        return parse_pipeline_decl();
     case TokenKind::KW_uniform:
         return parse_uniform_block();
     default:

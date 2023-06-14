@@ -32,9 +32,11 @@ class Legaliser : public ast::Traverser<ast::TraverseOrder::PostOrder> {
 public:
     void visit(ast::Aggregate &) override;
     void visit(ast::BinaryExpr &) override;
+    void visit(ast::CallExpr &) override;
     void visit(ast::Constant &) override {}
     void visit(ast::DeclStmt &) override;
     void visit(ast::Function &) override;
+    void visit(ast::PipelineDecl &) override;
     void visit(ast::ReturnStmt &) override {}
     void visit(ast::Symbol &) override;
     void visit(ast::Root &) override {}

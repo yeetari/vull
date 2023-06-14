@@ -6,6 +6,7 @@
 #include <vull/support/Function.hh> // IWYU pragma: keep
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/UniquePtr.hh>
 
 #include <stdint.h>
 
@@ -43,10 +44,12 @@ public:
 class Block {
     Builder &m_builder;
     Instruction m_label;
-    vull::Vector<Instruction> m_instructions;
+    vull::Vector<vull::UniquePtr<Instruction>> m_instructions;
 
 public:
     explicit Block(Builder &builder);
+
+    bool is_terminated() const;
 
     Instruction &append(Op op, Id type = 0);
     void write_label(const vull::Function<void(Word)> &write_word) const;
@@ -78,12 +81,13 @@ class Builder {
         ExecutionModel model;
     };
 
+    vull::Vector<Instruction> m_ext_inst_imports;
     vull::Vector<EntryPoint> m_entry_points;
     vull::Vector<Instruction> m_decorations;
     vull::Vector<Instruction> m_types;
     vull::Vector<Instruction> m_constants;
     vull::Vector<Instruction> m_global_variables;
-    vull::Vector<Function> m_functions;
+    vull::Vector<vull::UniquePtr<Function>> m_functions;
     Id m_next_id{1};
     Id m_void_type{0};
 
@@ -100,6 +104,7 @@ public:
     Instruction &scalar_constant(Id type, Word value);
     Instruction &composite_constant(Id type, vull::Vector<Id> &&elements);
 
+    Id import_extension(vull::StringView name);
     void append_entry_point(Function &function, ExecutionModel model);
     Function &append_function(vull::StringView name, Id return_type, Id function_type);
     Instruction &append_variable(Id type, StorageClass storage_class);

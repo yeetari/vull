@@ -48,7 +48,7 @@ void Legaliser::visit(BinaryExpr &binary_expr) {
     const auto lhs = binary_expr.lhs().type();
     const auto rhs = binary_expr.rhs().type();
 
-    if (binary_expr.op() == BinaryOp::Assign) {
+    if (ast::is_assign_op(binary_expr.op())) {
         binary_expr.set_type(lhs);
         return;
     }
@@ -71,7 +71,22 @@ void Legaliser::visit(BinaryExpr &binary_expr) {
         binary_expr.set_type(Type(scalar_type, rhs.matrix_cols(), lhs.matrix_rows()));
     } else {
         VULL_ASSERT((lhs.is_scalar() && rhs.is_scalar()) || (lhs.is_vector() && rhs.is_vector()));
-        binary_expr.set_type(scalar_type);
+        VULL_ASSERT(lhs.vector_size() == rhs.vector_size());
+        binary_expr.set_type(Type(scalar_type, lhs.vector_size()));
+    }
+}
+
+void Legaliser::visit(CallExpr &call_expr) {
+    for (auto *argument : call_expr.arguments()) {
+        argument->traverse(*this);
+    }
+    if (call_expr.name() == "dot") {
+        call_expr.set_type(ScalarType::Float);
+        return;
+    }
+    if (call_expr.name() == "max") {
+        call_expr.set_type(call_expr.arguments().first()->type());
+        return;
     }
 }
 
@@ -87,10 +102,14 @@ void Legaliser::visit(Function &function) {
     function.block().traverse(*this);
 }
 
-void Legaliser::visit(ast::Symbol &symbol) {
+void Legaliser::visit(PipelineDecl &pipeline_decl) {
+    m_scope->put_symbol(pipeline_decl.name(), pipeline_decl.type());
+}
+
+void Legaliser::visit(Symbol &symbol) {
     symbol.set_type(m_scope->lookup_symbol(symbol.name()));
 }
 
-void Legaliser::visit(ast::UnaryExpr &unary_expr) {
+void Legaliser::visit(UnaryExpr &unary_expr) {
     unary_expr.set_type(unary_expr.expr().type());
 }
