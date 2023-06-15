@@ -1,7 +1,9 @@
 #include "Builder.hh"
 
+#include <vull/container/HashSet.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Function.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
@@ -112,6 +114,13 @@ void Function::write(const vull::Function<void(Word)> &write_word) const {
     write_word(INST_WORD(Op::FunctionEnd, 1));
 }
 
+Instruction &EntryPoint::append_variable(Id type, StorageClass storage_class) {
+    const auto pointer_type = m_function.builder().pointer_type(storage_class, type);
+    auto &variable = m_global_variables.emplace(Op::Variable, m_function.builder().make_id(), pointer_type);
+    variable.append_operand(storage_class);
+    return variable;
+}
+
 Id Builder::float_type(Word width) {
     for (const auto &type : m_types) {
         if (type.op() != Op::TypeFloat) {
@@ -198,9 +207,12 @@ Id Builder::pointer_type(StorageClass storage_class, Id pointee_type) {
     return type.id();
 }
 
-Id Builder::struct_type(const vull::Vector<Id> &member_types) {
+Id Builder::struct_type(const vull::Vector<Id> &member_types, bool block) {
     for (const auto &type : m_types) {
         if (type.op() != Op::TypeStruct) {
+            continue;
+        }
+        if (type.is_block_decorated() != block) {
             continue;
         }
         if (type.operand_count() == member_types.size()) {
@@ -218,6 +230,14 @@ Id Builder::struct_type(const vull::Vector<Id> &member_types) {
         }
     }
     auto &type = m_types.emplace(Op::TypeStruct, m_next_id++);
+    if (block) {
+        decorate(type.id(), Decoration::Block);
+        for (uint32_t i = 0; i < member_types.size(); i++) {
+            decorate_member(type.id(), i, Decoration::Offset, 0);
+            decorate_member(type.id(), i, Decoration::ColMajor);
+            decorate_member(type.id(), i, Decoration::MatrixStride, 16);
+        }
+    }
     for (Id member_type : member_types) {
         type.append_operand(member_type);
     }
@@ -271,8 +291,8 @@ Id Builder::import_extension(vull::StringView name) {
     return instruction.id();
 }
 
-void Builder::append_entry_point(Function &function, ExecutionModel model) {
-    m_entry_points.push(EntryPoint{function, model});
+EntryPoint &Builder::append_entry_point(Function &function, ExecutionModel model) {
+    return *m_entry_points.emplace(new EntryPoint(function, model));
 }
 
 Function &Builder::append_function(vull::StringView name, Id return_type, Id function_type) {
@@ -308,17 +328,20 @@ void Builder::write(vull::Function<void(Word)> write_word) const {
     write_word(ENUM_WORD(MemoryModel::Glsl450));
 
     for (const auto &entry_point : m_entry_points) {
-        const auto function_id = entry_point.function.def_inst().id();
+        const auto function_id = entry_point->function().def_inst().id();
         Instruction inst(Op::EntryPoint);
-        inst.append_operand(entry_point.model);
+        inst.append_operand(entry_point->execution_model());
         inst.append_operand(function_id);
-        inst.append_string_operand(entry_point.function.name());
+        inst.append_string_operand(entry_point->function().name());
         for (const auto &variable : m_global_variables) {
+            inst.append_operand(variable.id());
+        }
+        for (const auto &variable : entry_point->global_variables()) {
             inst.append_operand(variable.id());
         }
         inst.write(write_word);
 
-        if (entry_point.model == ExecutionModel::Fragment) {
+        if (entry_point->execution_model() == ExecutionModel::Fragment) {
             Instruction origin_inst(Op::ExecutionMode);
             origin_inst.append_operand(function_id);
             origin_inst.append_operand(ExecutionMode::OriginUpperLeft);
@@ -336,6 +359,14 @@ void Builder::write(vull::Function<void(Word)> write_word) const {
     }
     for (const auto &variable : m_global_variables) {
         variable.write(write_word);
+    }
+    for (vull::HashSet<Id> seen_variables; const auto &entry_point : m_entry_points) {
+        for (const auto &variable : entry_point->global_variables()) {
+            if (seen_variables.add(variable.id())) {
+                continue;
+            }
+            variable.write(write_word);
+        }
     }
     for (const auto &function : m_functions) {
         function->write(write_word);

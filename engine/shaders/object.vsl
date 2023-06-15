@@ -3,7 +3,6 @@ uniform {
     g_transform: mat4,
 };
 
-pipeline vec4 gl_Position;
 pipeline vec3 g_normal;
 
 fn vertex_main(let position: vec3, let normal: vec3, let uv: vec2) {

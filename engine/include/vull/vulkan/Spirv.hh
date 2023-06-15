@@ -26,8 +26,12 @@ enum class Capability {
 
 enum class Decoration {
     SpecId = 1,
+    Block = 2,
+    ColMajor = 5,
+    MatrixStride = 7,
     BuiltIn = 11,
     Location = 30,
+    Offset = 35,
 };
 
 enum class ExecutionMode {
@@ -78,6 +82,7 @@ enum class Op {
     Store = 62,
     AccessChain = 65,
     Decorate = 71,
+    MemberDecorate = 72,
     CompositeConstruct = 80,
     CompositeExtract = 81,
     FNegate = 127,

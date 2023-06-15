@@ -184,7 +184,7 @@ void Backend::visit(ast::Aggregate &aggregate) {
             member_types.push(convert_type(node->type()));
         }
 
-        const auto struct_type = m_builder.struct_type(member_types);
+        const auto struct_type = m_builder.struct_type(member_types, true);
         auto &variable = m_builder.append_variable(struct_type, StorageClass::PushConstant);
         for (uint8_t i = 0; auto *node : aggregate.nodes()) {
             auto &symbol = m_scope->put_symbol(static_cast<ast::Symbol *>(node)->name(), variable.id());
@@ -309,12 +309,12 @@ void Backend::visit(ast::Function &vsl_function) {
 
     m_function = &m_builder.append_function(vsl_function.name(), return_type, function_type);
     if (is_vertex_entry) {
-        m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
+        auto &entry_point = m_builder.append_entry_point(*m_function, ExecutionModel::Vertex);
 
         // Create vertex inputs.
         for (uint32_t i = 0; i < parameter_types.size(); i++) {
             const auto input_type = parameter_types[i];
-            auto &variable = m_builder.append_variable(input_type, StorageClass::Input);
+            auto &variable = entry_point.append_variable(input_type, StorageClass::Input);
             m_builder.decorate(variable.id(), Decoration::Location, i);
 
             const auto &parameter = vsl_function.parameters()[i];
@@ -323,12 +323,33 @@ void Backend::visit(ast::Function &vsl_function) {
 
         // Create gl_Position builtin.
         const auto position_type = m_builder.vector_type(m_builder.float_type(32), 4);
-        auto &variable = m_builder.append_variable(position_type, StorageClass::Output);
-        m_builder.decorate(variable.id(), Decoration::BuiltIn, BuiltIn::Position);
-        m_scope->put_symbol("gl_Position", variable.id());
+        auto &position_variable = entry_point.append_variable(position_type, StorageClass::Output);
+        m_builder.decorate(position_variable.id(), Decoration::BuiltIn, BuiltIn::Position);
+        m_scope->put_symbol("gl_Position", position_variable.id());
+
+        // Create pipeline outputs.
+        for (uint32_t i = 0; i < m_pipeline_decls.size(); i++) {
+            const ast::PipelineDecl &pipeline_decl = m_pipeline_decls[i];
+            const auto type = convert_type(pipeline_decl.type());
+            auto &variable = entry_point.append_variable(type, StorageClass::Output);
+            m_builder.decorate(variable.id(), Decoration::Location, i);
+            m_scope->put_symbol(pipeline_decl.name(), variable.id());
+        }
     } else if (m_is_fragment_entry) {
-        m_builder.append_entry_point(*m_function, ExecutionModel::Fragment);
-        auto &out_variable = m_builder.append_variable(convert_type(vsl_function.return_type()), StorageClass::Output);
+        auto &entry_point = m_builder.append_entry_point(*m_function, ExecutionModel::Fragment);
+
+        // Create pipeline inputs.
+        for (uint32_t i = 0; i < m_pipeline_decls.size(); i++) {
+            const ast::PipelineDecl &pipeline_decl = m_pipeline_decls[i];
+            const auto type = convert_type(pipeline_decl.type());
+            auto &variable = entry_point.append_variable(type, StorageClass::Input);
+            m_builder.decorate(variable.id(), Decoration::Location, i);
+            m_scope->put_symbol(pipeline_decl.name(), variable.id());
+        }
+
+        // Create output.
+        auto &out_variable =
+            entry_point.append_variable(convert_type(vsl_function.return_type()), StorageClass::Output);
         m_builder.decorate(out_variable.id(), Decoration::Location, 0);
         m_fragment_output_id = out_variable.id();
     }
@@ -340,10 +361,7 @@ void Backend::visit(ast::Function &vsl_function) {
 }
 
 void Backend::visit(ast::PipelineDecl &pipeline_decl) {
-    const auto type = convert_type(pipeline_decl.type());
-    auto &variable = m_builder.append_variable(type, StorageClass::Output);
-    m_builder.decorate(variable.id(), Decoration::Location, m_pipeline_variable_counter++);
-    m_scope->put_symbol(pipeline_decl.name(), variable.id());
+    m_pipeline_decls.push(pipeline_decl);
 }
 
 void Backend::visit(ast::ReturnStmt &return_stmt) {

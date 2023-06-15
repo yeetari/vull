@@ -96,6 +96,9 @@ void Legaliser::visit(DeclStmt &decl_stmt) {
 
 void Legaliser::visit(Function &function) {
     Scope scope(m_scope);
+    if (function.name() == "vertex_main") {
+        m_scope->put_symbol("gl_Position", Type(ScalarType::Float, 4));
+    }
     for (const auto &parameter : function.parameters()) {
         m_scope->put_symbol(parameter.name(), parameter.type());
     }

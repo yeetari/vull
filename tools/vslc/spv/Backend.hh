@@ -62,12 +62,12 @@ class Backend : public ast::Traverser<ast::TraverseOrder::None> {
     Scope *m_scope{nullptr};
     Scope m_root_scope{m_scope};
     vull::Vector<Value> m_value_stack;
+    vull::Vector<ast::PipelineDecl &> m_pipeline_decls;
     Id m_std_450{};
 
     Id m_fragment_output_id{};
     bool m_is_fragment_entry{false};
 
-    uint8_t m_pipeline_variable_counter{0};
     bool m_load_symbol{true};
 
     Id convert_type(ScalarType);
