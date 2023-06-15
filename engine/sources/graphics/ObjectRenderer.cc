@@ -28,13 +28,11 @@
 namespace vull {
 
 ObjectRenderer::ObjectRenderer(vk::Context &context) : m_context(context) {
-    auto vertex_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/object.vert"));
-    auto fragment_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/object.frag"));
+    auto shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/object"));
     m_pipeline =
         VULL_EXPECT(vk::PipelineBuilder()
                         .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
-                        .add_shader(vertex_shader)
-                        .add_shader(fragment_shader)
+                        .add_shader(shader)
                         .set_topology(vkb::PrimitiveTopology::TriangleList)
                         .set_push_constant_range({.stageFlags = vkb::ShaderStage::Vertex, .size = sizeof(Mat4f)})
                         .set_depth_format(vkb::Format::D16Unorm)

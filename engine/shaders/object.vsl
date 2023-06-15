@@ -11,6 +11,7 @@ fn vertex_main(let position: vec3, let normal: vec3, let uv: vec2) {
 }
 
 fn fragment_main(): vec4 {
+    // TODO: Base colour from texture.
     let base_colour = vec3(1.0f);
     var illuminance = base_colour * 0.05f;
     illuminance += base_colour * max(dot(g_normal, vec3(0.75f, 0.75f, 0.5f)), 0.0f);
