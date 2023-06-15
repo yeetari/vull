@@ -27,16 +27,24 @@ function(add_shader name)
     set(source ${CMAKE_CURRENT_SOURCE_DIR}/${name})
     set(binary ${CMAKE_CURRENT_BINARY_DIR}/${name}.spv)
     cmake_path(GET source EXTENSION extension)
-    string(SUBSTRING ${extension} 1 -1 extension)
-    string(TOUPPER ${extension} extension)
     cmake_path(GET binary PARENT_PATH binary_dir)
     file(MAKE_DIRECTORY ${binary_dir})
-    add_custom_command(
-        OUTPUT ${binary}
-        COMMAND ${GLSLC} -MD -D${extension}_SHADER --target-env=vulkan1.3 ${source} -o ${binary}
-        DEPENDS ${source}
-        DEPFILE ${binary}.d
-        VERBATIM)
+    if(${extension} STREQUAL ".vsl")
+        # Vull shader.
+        add_custom_command(
+            OUTPUT ${binary}
+            COMMAND vslc ${source} ${binary}
+            DEPENDS ${source}
+            VERBATIM)
+    else()
+        # GLSL.
+        add_custom_command(
+            OUTPUT ${binary}
+            COMMAND ${GLSLC} -MD --target-env=vulkan1.3 ${source} -o ${binary}
+            DEPENDS ${source}
+            DEPFILE ${binary}.d
+            VERBATIM)
+    endif()
 
     # TODO: This shouldn't be needed.
     set_property(TARGET vull-vulkan APPEND PROPERTY SOURCES ${binary})
