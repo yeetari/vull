@@ -157,13 +157,15 @@ PipelineResult PipelineBuilder::build(const Context &context) {
             .dataSize = specialization_values.size_bytes(),
             .pData = specialization_values.take_all().data(),
         });
-        shader_cis.push({
-            .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
-            .stage = shader.stage(),
-            .module = shader.module(),
-            .pName = "main",
-            .pSpecializationInfo = &specialization_info,
-        });
+        for (const auto &[name, stage, interface_ids] : shader.entry_points()) {
+            shader_cis.push({
+                .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
+                .stage = stage,
+                .module = shader.module(),
+                .pName = name.data(),
+                .pSpecializationInfo = &specialization_info,
+            });
+        }
     }
 
     if (m_colour_formats.empty() && m_depth_format == vkb::Format::Undefined) {
@@ -190,10 +192,13 @@ PipelineResult PipelineBuilder::build(const Context &context) {
         .depthAttachmentFormat = m_depth_format,
     };
 
+    // TODO: Remove loop when there is only one Shader.
     const Shader *vertex_shader = nullptr;
     for (const Shader &shader : m_shaders) {
-        if (shader.stage() == vkb::ShaderStage::Vertex) {
-            vertex_shader = &shader;
+        for (const auto &entry_point : shader.entry_points()) {
+            if (entry_point.stage == vkb::ShaderStage::Vertex) {
+                vertex_shader = &shader;
+            }
         }
     }
     const auto &vertex_attributes = vertex_shader->vertex_attributes();

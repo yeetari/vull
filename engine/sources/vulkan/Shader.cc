@@ -51,10 +51,6 @@ vkb::ShaderStage to_shader_stage(spv::Word word) {
     }
 }
 
-bool has_null_terminator(spv::Word word) {
-    return (word & 0xffu) == 0u || (word & 0xff00u) == 0u || (word & 0xff0000u) == 0u || (word & 0xff000000u) == 0u;
-}
-
 struct IdInfo {
     String name;
     spv::Op opcode;
@@ -86,6 +82,10 @@ uint32_t format_size(vkb::Format format) {
 }
 
 } // namespace
+
+void Shader::add_entry_point(String name, vkb::ShaderStage stage, Vector<spv::Id> &&interface_ids) {
+    m_entry_points.push({vull::move(name), stage, vull::move(interface_ids)});
+}
 
 void Shader::add_constant(spv::Id id, String name, uint32_t size) {
     m_constants.ensure_size(id + 1);
@@ -174,8 +174,6 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
     };
 
     Shader shader(context);
-    bool seen_entry_point = false;
-    Vector<spv::Id> interface_ids;
     for (uint32_t ip = 5; ip < words.size();) {
         const uint16_t opcode = (words[ip] >> 0u) & 0xffffu;
         const uint16_t word_count = (words[ip] >> 16u) & 0xffffu;
@@ -211,20 +209,28 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
             if (word_count < 4) {
                 return ShaderError::Malformed;
             }
-            if (vull::exchange(seen_entry_point, true)) {
-                return ShaderError::MultipleEntryPoints;
-            }
-            shader.set_stage(to_shader_stage(inst_words[1]));
 
-            // Find word offset for interface variable IDs, but we need to skip past the name string literal first.
             uint32_t offset = 3;
-            while (offset < word_count && !has_null_terminator(inst_words[offset])) {
-                offset++;
+            StringBuilder name_builder;
+            for (; offset < word_count; offset++) {
+                spv::Word word = inst_words[offset];
+                for (uint32_t i = 0; i < 3; i++) {
+                    if (word != 0) {
+                        name_builder.append(static_cast<char>(word & 0xffu));
+                        word >>= 8u;
+                    }
+                }
+                if (word == 0) {
+                    break;
+                }
+                name_builder.append(static_cast<char>(word & 0xffu));
             }
             offset++;
 
             // Now we have the interface IDs.
+            Vector<spv::Id> interface_ids;
             interface_ids.extend(inst_words.subspan(offset));
+            shader.add_entry_point(name_builder.build(), to_shader_stage(inst_words[1]), vull::move(interface_ids));
             break;
         }
         case spv::Op::SpecConstantTrue:
@@ -321,21 +327,23 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
         ip += word_count;
     }
 
-    if (!seen_entry_point) {
+    if (shader.entry_points().empty()) {
         return ShaderError::NoEntryPoint;
     }
 
-    for (spv::Id id : interface_ids) {
-        const IdInfo &info = VULL_TRY(id_info(id));
-
-        // Vertex input.
-        if (shader.stage() == vkb::ShaderStage::Vertex && info.storage_class == spv::StorageClass::Input &&
-            info.main_decoration == spv::Decoration::Location) {
-            const IdInfo &pointer_type = VULL_TRY(id_info(info.type_id));
-            if (pointer_type.opcode != spv::Op::TypePointer) {
-                return ShaderError::Malformed;
+    for (const auto &[name, stage, interface_ids] : shader.entry_points()) {
+        if (stage != vkb::ShaderStage::Vertex) {
+            continue;
+        }
+        for (spv::Id id : interface_ids) {
+            const IdInfo &info = VULL_TRY(id_info(id));
+            if (info.storage_class == spv::StorageClass::Input && info.main_decoration == spv::Decoration::Location) {
+                const IdInfo &pointer_type = VULL_TRY(id_info(info.type_id));
+                if (pointer_type.opcode != spv::Op::TypePointer) {
+                    return ShaderError::Malformed;
+                }
+                shader.add_vertex_attribute(info.location, VULL_TRY(type_format(pointer_type.type_id)));
             }
-            shader.add_vertex_attribute(info.location, VULL_TRY(type_format(pointer_type.type_id)));
         }
     }
 
@@ -374,7 +382,7 @@ Result<Shader, ShaderError, StreamError> Shader::load(const Context &context, St
 Shader::Shader(Shader &&other) {
     m_context = vull::exchange(other.m_context, nullptr);
     m_module = vull::exchange(other.m_module, nullptr);
-    m_stage = vull::exchange(other.m_stage, {});
+    m_entry_points = vull::move(other.m_entry_points);
     m_constants = vull::move(other.m_constants);
     m_vertex_attributes = vull::move(other.m_vertex_attributes);
     m_vertex_stride = vull::exchange(other.m_vertex_stride, 0u);
@@ -390,7 +398,7 @@ Shader &Shader::operator=(Shader &&other) {
     Shader moved(vull::move(other));
     vull::swap(m_context, moved.m_context);
     vull::swap(m_module, moved.m_module);
-    vull::swap(m_stage, moved.m_stage);
+    vull::swap(m_entry_points, moved.m_entry_points);
     vull::swap(m_constants, moved.m_constants);
     vull::swap(m_vertex_attributes, moved.m_vertex_attributes);
     vull::swap(m_vertex_stride, moved.m_vertex_stride);
