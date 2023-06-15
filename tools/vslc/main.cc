@@ -7,19 +7,26 @@
 #include "spv/Builder.hh"
 #include "spv/Spirv.hh"
 
+#include <vull/container/Array.hh>
+#include <vull/platform/File.hh>
+#include <vull/platform/FileStream.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Utility.hh>
 
 #include <stdio.h>
 
 static void print_usage(const char *executable) {
-    fprintf(stderr, "usage: %s [--format] <input>\n", executable);
+    fprintf(stderr, "usage: %s <input> <output>\n", executable);
 }
 
 int main(int argc, char **argv) {
     const char *input_path = nullptr;
+    const char *output_path = nullptr;
     for (int i = 1; i < argc; i++) {
         if (input_path == nullptr) {
             input_path = argv[i];
+        } else if (output_path == nullptr) {
+            output_path = argv[i];
         } else {
             fprintf(stderr, "Invalid argument %s\n", argv[i]);
             print_usage(argv[0]);
@@ -27,7 +34,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (input_path == nullptr) {
+    if (input_path == nullptr || output_path == nullptr) {
         print_usage(argv[0]);
         return 1;
     }
@@ -42,7 +49,11 @@ int main(int argc, char **argv) {
 
     spv::Backend backend;
     ast.traverse(backend);
-    backend.builder().write([](spv::Word word) {
-        fwrite(&word, sizeof(spv::Word), 1, stdout);
+
+    auto output_file = VULL_EXPECT(
+        vull::open_file(output_path, vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write));
+    auto output_stream = output_file.create_stream();
+    backend.builder().write([&](spv::Word word) {
+        VULL_EXPECT(output_stream.write_le(word));
     });
 }
