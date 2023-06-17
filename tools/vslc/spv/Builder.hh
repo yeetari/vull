@@ -23,7 +23,7 @@ class Instruction {
     vull::Vector<Word> m_operands;
 
     // TODO: Hack for struct type.
-    bool m_is_block_decorated;
+    bool m_is_block_decorated{false};
 
 public:
     Instruction(Op op, Id id = 0, Id type = 0) : m_op(op), m_id(id), m_type(type) {}
