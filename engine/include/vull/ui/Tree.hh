@@ -6,6 +6,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh>
 
 namespace vull::ui {
 
@@ -14,12 +15,12 @@ class Style;
 
 class Tree {
     Style &m_style;
-    Vec2f m_global_scale;
+    Vec2f m_ppcm;
     UniquePtr<Element> m_root_element;
     Optional<Element &> m_active_element;
     Optional<Element &> m_hovered_element;
-    Vec2f m_hovered_relative_position;
-    Vec2f m_mouse_position;
+    LayoutPoint m_hovered_relative_position;
+    LayoutPoint m_mouse_position;
     MouseButtonMask m_mouse_buttons{};
     bool m_need_hover_update{false};
 
@@ -28,7 +29,7 @@ class Tree {
     void handle_mouse_press_release(MouseButton button);
 
 public:
-    Tree(Style &style, Vec2f global_scale) : m_style(style), m_global_scale(global_scale) {}
+    Tree(Style &style, Vec2f ppcm) : m_style(style), m_ppcm(ppcm) {}
 
     template <typename T, typename... Args>
     T &set_root(Args &&...args);
@@ -40,10 +41,10 @@ public:
 
     void handle_mouse_press(MouseButton button);
     void handle_mouse_release(MouseButton button);
-    void handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask buttons);
+    void handle_mouse_move(Vec2i delta, Vec2u position, MouseButtonMask buttons);
 
     Style &style() const { return m_style; }
-    Vec2f global_scale() const { return m_global_scale; }
+    Vec2f ppcm() const { return m_ppcm; }
     Optional<Element &> active_element() const { return m_active_element; }
 };
 

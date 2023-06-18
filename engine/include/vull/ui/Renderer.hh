@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/maths/Vec.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/Pipeline.hh>
 #include <vull/vulkan/RenderGraphDefs.hh>
@@ -22,10 +21,9 @@ class Renderer {
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vk::Pipeline m_pipeline;
     vk::Image m_null_image;
-    Vec2f m_global_scale;
 
 public:
-    Renderer(vk::Context &context, Vec2f global_scale);
+    explicit Renderer(vk::Context &context);
     Renderer(const Renderer &) = delete;
     Renderer(Renderer &&) = delete;
     ~Renderer();
@@ -34,7 +32,6 @@ public:
     Renderer &operator=(Renderer &&) = delete;
 
     void build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painter &&painter);
-    Painter new_painter();
 };
 
 } // namespace vull::ui

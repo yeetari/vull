@@ -1,10 +1,10 @@
 #pragma once
 
 #include <vull/maths/Colour.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh> // IWYU pragma: keep
 
 namespace vull::ui {
 
@@ -26,7 +26,7 @@ public:
     void set_colour(const Colour &colour) { m_colour = colour; }
     void set_font(Font &font);
     void set_text(String text);
-    void paint(Painter &painter, Vec2f position) const override;
+    void paint(Painter &painter, LayoutPoint position) const override;
 };
 
 } // namespace vull::ui

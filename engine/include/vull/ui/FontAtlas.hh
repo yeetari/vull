@@ -21,9 +21,9 @@ class Font;
 struct CachedGlyph {
     Font *font;
     uint32_t index;
-    Vec2u offset;
+    Vec2u atlas_offset;
     Vec2u size;
-    Vec2f bitmap_offset;
+    Vec2i bitmap_offset;
 };
 
 // Skyline Bottom-Left

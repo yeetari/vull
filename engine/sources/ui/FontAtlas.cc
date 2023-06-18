@@ -229,7 +229,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     CachedGlyph glyph{
         .font = &font,
         .index = glyph_index,
-        .offset = *offset,
+        .atlas_offset = *offset,
         .size = glyph_info.bitmap_extent,
         .bitmap_offset = glyph_info.bitmap_offset,
     };

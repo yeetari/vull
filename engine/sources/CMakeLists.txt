@@ -67,6 +67,7 @@ target_sources(vull-ui PRIVATE
     ui/Painter.cc
     ui/Renderer.cc
     ui/Tree.cc
+    ui/Units.cc
     ui/Window.cc)
 
 target_sources(vull-vulkan PRIVATE

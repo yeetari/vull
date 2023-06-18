@@ -1,11 +1,11 @@
 #pragma once
 
-#include <vull/maths/Vec.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/widget/Label.hh>
 
 namespace vull::ui {
@@ -17,12 +17,12 @@ class Tree;
 class Button : public Element {
     Label m_label;
     Function<void()> m_on_release;
-    float m_padding{0.2f};
+    Length m_padding{Length::make_cm(0.2f)};
 
 public:
     Button(Tree &tree, Optional<Element &> parent, String text);
 
-    void paint(Painter &painter, Vec2f position) const override;
+    void paint(Painter &painter, LayoutPoint position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;
     bool handle_mouse_release(const MouseButtonEvent &event) override;
 

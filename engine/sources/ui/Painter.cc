@@ -8,6 +8,7 @@
 #include <vull/support/Utility.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
+#include <vull/ui/Units.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
@@ -20,7 +21,7 @@
 namespace vull::ui {
 
 struct Vertex {
-    Vec2f position;
+    Vec2i position;
     Vec2f uv;
     Vec4f colour;
 };
@@ -40,41 +41,44 @@ void Painter::bind_atlas(FontAtlas &atlas) {
     m_atlas = &atlas;
 }
 
-void Painter::draw_rect(const Vec2f &position, const Vec2f &size, const Colour &colour) {
+void Painter::draw_rect(LayoutPoint position, LayoutSize size, const Colour &colour) {
     m_commands.push({
-        .position = position * m_global_scale,
-        .size = size * m_global_scale,
+        .position = position.floor(),
+        .size = size.ceil(),
         .colour = colour,
     });
 }
 
-void Painter::draw_image(const Vec2f &position, const Vec2f &size, const vk::SampledImage &image) {
+void Painter::draw_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image) {
     m_commands.push({
-        .position = position * m_global_scale,
-        .size = size * m_global_scale,
+        .position = position.floor(),
+        .size = size.ceil(),
         .uv_c = Vec2f(1.0f),
         .colour = Colour::white(),
         .texture_index = get_texture_index(image),
     });
 }
 
-void Painter::draw_text(Font &font, Vec2f position, const Colour &colour, StringView text) {
-    position *= m_global_scale;
+void Painter::draw_text(Font &font, LayoutPoint position, const Colour &colour, StringView text) {
     for (const auto [glyph_index, advance, offset] : font.shape(text)) {
         const auto glyph_info = m_atlas->ensure_glyph(font, glyph_index);
+        const auto glyph_position = position + offset + LayoutDelta::from_int_pixels(glyph_info.bitmap_offset);
+        const auto glyph_size = LayoutSize::from_int_pixels(glyph_info.size);
         m_commands.push({
-            .position = position + static_cast<Vec2f>(offset) / 64.0f + glyph_info.bitmap_offset,
-            .size = glyph_info.size,
-            .uv_a = static_cast<Vec2f>(glyph_info.offset) / m_atlas->extent(),
-            .uv_c = static_cast<Vec2f>(glyph_info.offset + glyph_info.size) / m_atlas->extent(),
+            .position = glyph_position.floor(),
+            .size = glyph_size.ceil(),
+            .uv_a = static_cast<Vec2f>(glyph_info.atlas_offset) / m_atlas->extent(),
+            .uv_c = static_cast<Vec2f>(glyph_info.atlas_offset + glyph_info.size) / m_atlas->extent(),
             .colour = colour,
             .texture_index = get_texture_index(m_atlas->sampled_image()),
         });
-        position += static_cast<Vec2f>(advance) / 64.0f;
+
+        // Round the advance to the nearest pixel to avoid jittering issues.
+        position += LayoutDelta::from_int_pixels(advance.round());
     }
 }
 
-void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f viewport_extent,
+void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
                       const vk::SampledImage &null_image) {
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
@@ -131,7 +135,7 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f vi
                 first_index = index_offset;
             }
             struct PushConstants {
-                Vec2f viewport;
+                Vec2u viewport;
                 uint32_t texture_index;
             } push_constants{
                 .viewport = viewport_extent,
@@ -142,8 +146,8 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2f vi
 
         const auto a = command.position;
         const auto c = command.position + command.size;
-        Vec2f b(c.x(), a.y());
-        Vec2f d(a.x(), c.y());
+        Vec2i b(c.x(), a.y());
+        Vec2i d(a.x(), c.y());
 
         const auto uv_a = command.uv_a;
         const auto uv_c = command.uv_c;

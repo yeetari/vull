@@ -9,6 +9,7 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Mutex.hh>
+#include <vull/ui/Units.hh>
 
 #include <stdint.h>
 
@@ -29,13 +30,13 @@ enum class FontLoadError {
 
 struct GlyphInfo {
     Vec2u bitmap_extent;
-    Vec2f bitmap_offset;
+    Vec2i bitmap_offset;
 };
 
 struct ShapingPair {
     uint32_t glyph_index;
-    Vec2i advance;
-    Vec2i offset;
+    LayoutDelta advance;
+    LayoutDelta offset;
 };
 
 class ShapingIterator {
@@ -101,7 +102,7 @@ public:
     GlyphInfo ensure_glyph(uint32_t glyph_index) const;
     void rasterise(uint32_t glyph_index, Span<uint8_t> buffer) const;
     ShapingView shape(StringView text) const;
-    Vec2u text_bounds(StringView text) const;
+    LayoutSize text_bounds(StringView text) const;
 
     uint32_t glyph_count() const { return m_glyph_cache.size(); }
 };

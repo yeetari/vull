@@ -1,10 +1,10 @@
 #include <vull/ui/layout/Pane.hh>
 
 #include <vull/container/Vector.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh>
 
 namespace vull::ui {
 
@@ -12,15 +12,7 @@ void Pane::clear_children() {
     m_children.clear();
 }
 
-void Pane::layout() {
-    for (const auto &child : m_children) {
-        if (child->is_pane()) {
-            static_cast<Pane &>(*child).layout();
-        }
-    }
-}
-
-Optional<HitResult> Pane::hit_test(Vec2f point) {
+Optional<HitResult> Pane::hit_test(LayoutPoint point) {
     if (!bounding_box_contains(point)) {
         return {};
     }
@@ -32,7 +24,7 @@ Optional<HitResult> Pane::hit_test(Vec2f point) {
     return HitResult{*this, point};
 }
 
-void Pane::paint(Painter &painter, Vec2f position) const {
+void Pane::paint(Painter &painter, LayoutPoint position) const {
     for (const auto &child : m_children) {
         child->paint(painter, position + child->offset_in_parent());
     }

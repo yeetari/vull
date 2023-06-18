@@ -5,14 +5,15 @@
 #include <vull/container/Vector.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
+#include <vull/ui/Element.hh>
 #include <vull/ui/Painter.hh>
 #include <vull/ui/Style.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/layout/BoxLayout.hh>
 #include <vull/ui/widget/Label.hh>
 
@@ -20,36 +21,38 @@
 
 namespace vull::ui {
 
-class Element;
-
-void TimeGraphPanel::paint(Painter &painter, Vec2f position) const {
+void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     // Draw bounding box.
-    painter.draw_rect(position, preferred_size(), Colour::black());
+    painter.draw_rect(position, computed_size(), Colour::black());
 
     // Draw bars.
-    for (uint32_t bar_index = 0; bar_index < m_graph.m_bars.size(); bar_index++) {
-        float x_offset = m_graph.m_bar_width * static_cast<float>(bar_index);
-        Vec2f bar_base = position + Vec2f(x_offset, preferred_size().y());
-        for (float y_offset = 0.0f; const auto &section : m_graph.m_bars[bar_index].sections) {
+    // TODO: ceil bar_count and use a scissor.
+    const LayoutUnit bar_width = m_graph.m_bar_width.resolve(tree());
+    const auto bar_count = (computed_width() / bar_width).raw_value();
+    for (int32_t bar_index = 0; bar_index < bar_count; bar_index++) {
+        const auto &bar = m_graph.m_bars[static_cast<uint32_t>(bar_index)];
+        const auto bar_base = position + LayoutDelta(bar_width * bar_index, computed_height());
+        for (LayoutUnit y_offset; const auto &section : bar.sections) {
             const auto &colour = m_graph.colour_for_section(section.name);
-            float height = section.duration / m_graph.m_max_total_time * preferred_size().y();
-            painter.draw_rect(bar_base + Vec2f(0.0f, y_offset), Vec2f(m_graph.m_bar_width, -height), colour);
-            y_offset -= height;
+            auto height = computed_height().scale_by(section.duration / m_graph.m_max_total_time);
+            height = LayoutUnit::from_int_pixels(-height.round());
+            painter.draw_rect(bar_base + LayoutDelta(0, y_offset), LayoutSize(bar_width, height), colour);
+            y_offset += height;
         }
     }
 }
 
-// TODO: Don't take in size and bar_width
-TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, String title,
-                     float bar_width)
-    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_title(vull::move(title)), m_bar_width(bar_width),
-      m_bars(static_cast<uint32_t>(size.x() / m_bar_width)) {
+TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_colour, String title)
+    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_title(vull::move(title)), m_bars(125) {
     m_title_label = &add_child<Label>();
     auto &hbox = add_child<HBoxLayout>();
     m_graph_panel = &hbox.add_child<TimeGraphPanel>(*this);
     m_legend_vbox = &hbox.add_child<VBoxLayout>();
 
-    m_graph_panel->set_preferred_size(size);
+    // TODO: Don't hardcode this.
+    m_graph_panel->set_minimum_height(Length::make_cm(4.5f));
+    m_graph_panel->set_maximum_height(Length::make_cm(4.5f));
+    set_bar_width(Length::make_cm(0.06f));
 }
 
 Colour TimeGraph::colour_for_section(const String &name) {
@@ -59,7 +62,16 @@ Colour TimeGraph::colour_for_section(const String &name) {
     return *m_section_colours.get(name);
 }
 
-void TimeGraph::layout() {
+void TimeGraph::set_bar_width(Length bar_width) {
+    m_bar_width = bar_width;
+
+    // TODO: Shouldn't need to resolve for this.
+    LayoutUnit resolved_bar_width = m_bar_width.resolve(tree());
+    m_graph_panel->set_minimum_width(Length::make_absolute(resolved_bar_width * static_cast<int32_t>(m_bars.size())));
+    m_graph_panel->set_maximum_width(Length::make_absolute(resolved_bar_width * static_cast<int32_t>(m_bars.size())));
+}
+
+void TimeGraph::pre_layout(LayoutSize available_space) {
     m_max_total_time = 0.0f;
     for (const auto &bar : m_bars) {
         float total_time = 0.0f;
@@ -77,11 +89,11 @@ void TimeGraph::layout() {
     for (const auto &section : vull::reverse_view(latest_bar.sections)) {
         const auto text = vull::format("{}: {} ms", section.name, section.duration * 1000.0f);
         auto &label = m_legend_vbox->add_child<Label>(vull::move(text));
+        label.set_align(Align::Right);
         label.set_colour(colour_for_section(section.name));
         label.set_font(style().monospace_font());
-        label.set_right_align(true);
     }
-    VBoxLayout::layout();
+    VBoxLayout::pre_layout(available_space);
 }
 
 void TimeGraph::new_bar() {

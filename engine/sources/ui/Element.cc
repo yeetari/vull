@@ -1,10 +1,9 @@
 #include <vull/ui/Element.hh>
 
-#include <vull/maths/Relational.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Tree.hh>
+#include <vull/ui/Units.hh>
 
 namespace vull::ui {
 
@@ -12,29 +11,21 @@ Element::~Element() {
     m_tree.handle_element_destruct(*this);
 }
 
-bool Element::bounding_box_contains(Vec2f point) const {
-    if (vull::any(vull::less_than(point, Vec2f(0.0f)))) {
+bool Element::bounding_box_contains(LayoutPoint point) const {
+    if (point.x() < 0 || point.y() < 0) {
         return false;
     }
-    if (vull::any(vull::greater_than(point, m_preferred_size))) {
+    if (point.x() > computed_width() || point.y() > computed_height()) {
         return false;
     }
     return true;
 }
 
-Optional<HitResult> Element::hit_test(Vec2f point) {
+Optional<HitResult> Element::hit_test(LayoutPoint point) {
     if (bounding_box_contains(point)) {
         return HitResult{*this, point};
     }
     return {};
-}
-
-void Element::set_right_align(bool right_align) {
-    if (right_align) {
-        m_flags |= ElementFlags::RightAlign;
-    } else {
-        m_flags &= ~ElementFlags::RightAlign;
-    }
 }
 
 bool Element::handle_mouse_enter(const MouseEvent &) {

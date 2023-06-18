@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh> // IWYU pragma: keep
 
 namespace vull::vk {
 
@@ -21,7 +21,7 @@ class ImageLabel : public Element {
 public:
     ImageLabel(Tree &tree, Optional<Element &> parent, vk::Image &image);
 
-    void paint(Painter &painter, Vec2f position) const override;
+    void paint(Painter &painter, LayoutPoint position) const override;
 };
 
 } // namespace vull::ui

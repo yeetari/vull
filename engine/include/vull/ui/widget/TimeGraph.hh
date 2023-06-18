@@ -4,10 +4,10 @@
 #include <vull/container/RingBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Colour.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/ui/Element.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/layout/BoxLayout.hh>
 
 namespace vull::ui {
@@ -23,7 +23,7 @@ class TimeGraphPanel : public Element {
 public:
     TimeGraphPanel(Tree &tree, Optional<Element &> parent, TimeGraph &graph) : Element(tree, parent), m_graph(graph) {}
 
-    void paint(Painter &painter, Vec2f position) const override;
+    void paint(Painter &painter, LayoutPoint position) const override;
 };
 
 class TimeGraph : public VBoxLayout {
@@ -41,7 +41,7 @@ public:
 private:
     const Colour m_base_colour;
     const String m_title;
-    const float m_bar_width;
+    Length m_bar_width{Length::zero()};
 
     Label *m_title_label;
     TimeGraphPanel *m_graph_panel;
@@ -55,10 +55,10 @@ private:
     Colour colour_for_section(const String &name);
 
 public:
-    TimeGraph(Tree &tree, Optional<Element &> parent, Vec2f size, const Colour &base_colour, String title,
-              float bar_width = 0.06f);
+    TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_colour, String title);
 
-    void layout() override;
+    void set_bar_width(Length bar_width);
+    void pre_layout(LayoutSize available_space) override;
     void new_bar();
     void push_section(String name, float duration);
 };

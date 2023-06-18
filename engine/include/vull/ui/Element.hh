@@ -1,8 +1,8 @@
 #pragma once
 
-#include <vull/maths/Vec.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Optional.hh>
+#include <vull/ui/Units.hh>
 
 #include <stdint.h>
 
@@ -18,20 +18,30 @@ class Tree;
 
 struct HitResult {
     Element &element;
-    Vec2f relative_position;
+    LayoutPoint relative_position;
+};
+
+enum class Align : uint8_t {
+    Left,
+    Center,
+    Right,
 };
 
 enum class ElementFlags : uint8_t {
     None = 0,
     Hovered = 1u << 0u,
-    RightAlign = 1u << 1u,
 };
 
 class Element {
     Tree &m_tree;
     Optional<Element &> m_parent;
-    Vec2f m_offset_in_parent{};
-    Vec2f m_preferred_size{};
+
+    Size m_minimum_size{Length::shrink(), Length::shrink()};
+    Size m_maximum_size{Length::grow(), Length::grow()};
+    Align m_align{Align::Left};
+
+    LayoutPoint m_offset_in_parent;
+    LayoutSize m_computed_size;
     ElementFlags m_flags{};
 
 public:
@@ -43,13 +53,24 @@ public:
     Element &operator=(const Element &) = delete;
     Element &operator=(Element &&) = delete;
 
-    bool bounding_box_contains(Vec2f point) const;
-    virtual Optional<HitResult> hit_test(Vec2f point);
-    virtual void paint(Painter &painter, Vec2f position) const = 0;
+    bool bounding_box_contains(LayoutPoint point) const;
+    virtual Optional<HitResult> hit_test(LayoutPoint point);
+    virtual void paint(Painter &painter, LayoutPoint position) const = 0;
 
-    void set_offset_in_parent(Vec2f offset) { m_offset_in_parent = offset; }
-    void set_preferred_size(Vec2f size) { m_preferred_size = size; }
-    void set_right_align(bool right_align);
+    void set_minimum_size(const Size &size) { m_minimum_size = size; }
+    void set_minimum_width(Length width) { m_minimum_size.set_width(width); }
+    void set_minimum_height(Length height) { m_minimum_size.set_height(height); }
+
+    void set_maximum_size(const Size &size) { m_maximum_size = size; }
+    void set_maximum_width(Length width) { m_maximum_size.set_width(width); }
+    void set_maximum_height(Length height) { m_maximum_size.set_height(height); }
+
+    void set_align(Align align) { m_align = align; }
+
+    void set_computed_size(LayoutSize size) { m_computed_size = size; }
+    void set_computed_width(LayoutUnit width) { m_computed_size.set_width(width); }
+    void set_computed_height(LayoutUnit height) { m_computed_size.set_height(height); }
+    void set_offset_in_parent(LayoutPoint point) { m_offset_in_parent = point; }
 
     virtual bool handle_mouse_press(const MouseButtonEvent &) { return false; }
     virtual bool handle_mouse_release(const MouseButtonEvent &) { return false; }
@@ -61,11 +82,17 @@ public:
     bool is_active_element() const;
     bool is_hovered() const;
 
+    LayoutSize computed_size() const { return m_computed_size; }
+    LayoutUnit computed_width() const { return m_computed_size.width(); }
+    LayoutUnit computed_height() const { return m_computed_size.height(); }
+
     Style &style() const;
     Tree &tree() const { return m_tree; }
     Optional<Element &> parent() const { return m_parent; }
-    Vec2f offset_in_parent() const { return m_offset_in_parent; }
-    Vec2f preferred_size() const { return m_preferred_size; }
+    const Size &minimum_size() const { return m_minimum_size; }
+    const Size &maximum_size() const { return m_maximum_size; }
+    Align align() const { return m_align; }
+    LayoutPoint offset_in_parent() const { return m_offset_in_parent; }
     ElementFlags flags() const { return m_flags; }
 };
 

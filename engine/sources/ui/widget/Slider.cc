@@ -3,24 +3,23 @@
 #include <vull/core/Input.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Event.hh>
 #include <vull/ui/Painter.hh>
 #include <vull/ui/Tree.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/widget/Label.hh>
 
 namespace vull::ui {
 
 Slider::Slider(Tree &tree, Optional<Element &> parent, float min, float max)
     : Element(tree, parent), m_min(min), m_max(max), m_value_label(tree, *this) {
-    set_preferred_size({6.0f, 0.5f});
     set_value(min);
 }
 
-void Slider::paint(Painter &painter, Vec2f position) const {
+void Slider::paint(Painter &painter, LayoutPoint position) const {
     auto colour = Colour::from_srgb(0.25f, 0.25f, 0.25f);
     if (is_hovered()) {
         colour = Colour::from_srgb(0.38f, 0.38f, 0.38f);
@@ -30,22 +29,25 @@ void Slider::paint(Painter &painter, Vec2f position) const {
     }
 
     // Draw groove.
-    painter.draw_rect(position, preferred_size(), colour);
+    painter.draw_rect(position, computed_size(), colour);
 
     // Draw handle.
     const float value_ratio = (m_value - m_min) / (m_max - m_min);
-    const float handle_x = (preferred_size().x() - m_handle_width - m_handle_padding * 2.0f) * value_ratio;
-    painter.draw_rect(position + Vec2f(handle_x, 0.0f) + Vec2f(m_handle_padding),
-                      Vec2f(m_handle_width, preferred_size().y() - m_handle_padding * 2.0f),
+    const LayoutUnit handle_width = m_handle_width.resolve(tree(), computed_width());
+    const LayoutUnit handle_padding = m_handle_padding.resolve(tree(), computed_width());
+    const LayoutUnit handle_x = (computed_width() - handle_width - handle_padding * 2).scale_by(value_ratio);
+    painter.draw_rect(position + LayoutPoint(handle_x + handle_padding, handle_padding),
+                      LayoutSize(handle_width, computed_height() - handle_padding * 2),
                       Colour::from_srgb(0.11f, 0.64f, 0.92f));
 
     // Draw value label.
-    m_value_label.paint(painter, position + (preferred_size() * 0.5f) - (m_value_label.preferred_size() * 0.5f));
+    m_value_label.paint(painter, position + computed_size() / 2 - m_value_label.computed_size() / 2);
 }
 
-void Slider::update(Vec2f mouse_position) {
-    const float new_x = mouse_position.x() - (m_handle_width * 0.5f);
-    const float new_ratio = new_x / (preferred_size().x() - m_handle_width);
+void Slider::update(LayoutPoint mouse_position) {
+    const LayoutUnit handle_width = m_handle_width.resolve(tree(), computed_width());
+    const LayoutUnit new_x = mouse_position.x() - (handle_width / 2);
+    const float new_ratio = new_x.to_float() / (computed_width() - handle_width).to_float();
     set_value(new_ratio * (m_max - m_min) + m_min);
 }
 
@@ -74,6 +76,10 @@ bool Slider::handle_mouse_move(const MouseMoveEvent &event) {
 void Slider::set_value(float value) {
     m_value = vull::clamp(value, m_min, m_max);
     m_value_label.set_text(vull::format("{}", m_value));
+
+    LayoutUnit handle_padding = m_handle_padding.resolve(tree());
+    set_minimum_width(Length::make_absolute(m_value_label.computed_width() + handle_padding * 2));
+    set_minimum_height(Length::make_cm(0.5f));
 }
 
 } // namespace vull::ui

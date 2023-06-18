@@ -1,30 +1,25 @@
 #pragma once
 
 #include <vull/support/Optional.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/layout/Pane.hh>
-
-#include <stdint.h>
 
 namespace vull::ui {
 
 class Element;
 class Tree;
 
-enum class Orientation : uint8_t {
-    Horizontal,
-    Vertical,
-};
-
 class BoxLayout : public Pane {
-    float m_spacing{0.2f};
+    Length m_spacing{Length::make_cm(0.2f)};
     const Orientation m_orientation;
 
 public:
     BoxLayout(Tree &tree, Optional<Element &> parent, Orientation orientation)
         : Pane(tree, parent), m_orientation(orientation) {}
 
-    void layout() override;
-    void set_spacing(float spacing) { m_spacing = spacing; }
+    void pre_layout(LayoutSize available_space) override;
+    void layout(LayoutSize available_space) override;
+    void set_spacing(const Length &spacing) { m_spacing = spacing; }
 };
 
 class HBoxLayout : public BoxLayout {

@@ -22,7 +22,7 @@
 
 namespace vull::ui {
 
-Renderer::Renderer(vk::Context &context, Vec2f global_scale) : m_context(context), m_global_scale(global_scale) {
+Renderer::Renderer(vk::Context &context) : m_context(context) {
     Array set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
@@ -122,10 +122,6 @@ void Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painte
                             })
                             .sampled(vk::Sampler::Nearest));
     });
-}
-
-Painter Renderer::new_painter() {
-    return Painter(m_global_scale);
 }
 
 } // namespace vull::ui

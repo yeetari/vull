@@ -8,13 +8,15 @@
 #include <vull/support/Utility.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Event.hh>
+#include <vull/ui/Units.hh>
 #include <vull/ui/layout/Pane.hh>
 
 namespace vull::ui {
 
 void Tree::render(Painter &painter) {
     if (m_root_element->is_pane()) {
-        static_cast<Pane &>(*m_root_element).layout();
+        static_cast<Pane &>(*m_root_element).pre_layout({});
+        static_cast<Pane &>(*m_root_element).layout({});
     }
     if (vull::exchange(m_need_hover_update, false)) {
         update_hover();
@@ -80,8 +82,8 @@ void Tree::unset_active_element() {
 // active element hijacking input events. This means that the mouse may be outside the active element but still
 // interacting with it (e.g. moving a slider). We still need to calculate a position for the mouse relative to the
 // active element to pass to the event handler.
-static Vec2f calculate_element_relative_position(Optional<Element &> element, Vec2f global_position) {
-    Vec2f relative_position = global_position;
+static LayoutPoint calculate_element_relative_position(Optional<Element &> element, LayoutPoint global_position) {
+    LayoutPoint relative_position = global_position;
     for (; element; element = element->parent()) {
         relative_position -= element->offset_in_parent();
     }
@@ -120,19 +122,19 @@ void Tree::handle_mouse_release(MouseButton button) {
     handle_mouse_press_release<&Element::handle_mouse_release>(button);
 }
 
-void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask buttons) {
-    delta /= m_global_scale;
-    m_mouse_position = position / m_global_scale;
+void Tree::handle_mouse_move(Vec2i delta, Vec2u position, MouseButtonMask buttons) {
+    m_mouse_position = {LayoutUnit::from_int_pixels(position.x()), LayoutUnit::from_int_pixels(position.y())};
     m_mouse_buttons = buttons;
 
     // Update the currently hovered element.
     update_hover();
 
     // TODO: Should mouse move events propagate? (use dispatch_event)
+    const auto layout_delta = LayoutDelta::from_int_pixels(delta);
     if (!m_active_element) {
         // No active element hijacking events, just send the move to the hovered element if present.
         if (m_hovered_element) {
-            MouseMoveEvent move_event(m_hovered_relative_position, m_mouse_buttons, delta);
+            MouseMoveEvent move_event(m_hovered_relative_position, m_mouse_buttons, layout_delta);
             m_hovered_element->handle_mouse_move(move_event);
         }
         return;
@@ -140,7 +142,7 @@ void Tree::handle_mouse_move(Vec2f delta, Vec2f position, MouseButtonMask button
 
     // Otherwise there is an active element hijacking move events.
     const auto relative_position = calculate_element_relative_position(m_active_element, m_mouse_position);
-    MouseMoveEvent move_event(relative_position, buttons, delta);
+    MouseMoveEvent move_event(relative_position, buttons, layout_delta);
     m_active_element->handle_mouse_move(move_event);
 }
 

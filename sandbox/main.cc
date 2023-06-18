@@ -35,6 +35,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
+#include <vull/ui/Element.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
 #include <vull/ui/Painter.hh>
@@ -114,7 +115,7 @@ void vull_main(Vector<StringView> &&args) {
     auto monospace_font = VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18));
     ui::Style ui_style(vull::move(main_font), vull::move(monospace_font));
     ui::Tree ui_tree(ui_style, window.ppcm());
-    ui::Renderer ui_renderer(context, window.ppcm());
+    ui::Renderer ui_renderer(context);
     ui::FontAtlas atlas(context, Vec2u(512, 512));
 
     auto &world = scene.world();
@@ -133,6 +134,7 @@ void vull_main(Vector<StringView> &&args) {
         mouse_visible ? window.show_cursor() : window.hide_cursor();
     });
 
+    // TODO: Delta and position shouldn't be floats.
     window.on_mouse_move([&](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
         if (!window.cursor_hidden()) {
             ui_tree.handle_mouse_move(delta, position, buttons);
@@ -157,11 +159,10 @@ void vull_main(Vector<StringView> &&args) {
 
     auto &screen_pane = ui_tree.set_root<ui::ScreenPane>();
     auto &main_window = screen_pane.add_child<ui::Window>("Main");
-    main_window.set_offset_in_parent({2.0f, 2.0f});
-    auto &cpu_time_graph = main_window.content_pane().add_child<ui::TimeGraph>(
-        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
-    auto &gpu_time_graph = main_window.content_pane().add_child<ui::TimeGraph>(
-        Vec2f(7.5f, 4.5f), Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+    auto &cpu_time_graph =
+        main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
+    auto &gpu_time_graph =
+        main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([&] {
         window.close();
@@ -188,7 +189,8 @@ void vull_main(Vector<StringView> &&args) {
         suzanne_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
         auto &suzanne_window = screen_pane.add_child<ui::Window>("Suzanne");
-        suzanne_window.content_pane().add_child<ui::ImageLabel>(*suzanne_image);
+        auto &suzanne_label = suzanne_window.content_pane().add_child<ui::ImageLabel>(*suzanne_image);
+        suzanne_label.set_align(ui::Align::Center);
         suzanne_slider = suzanne_window.content_pane().add_child<ui::Slider>(0.0f, 2.0f * vull::pi<float>);
         suzanne_slider->set_value(vull::pi<float>);
 
@@ -231,7 +233,7 @@ void vull_main(Vector<StringView> &&args) {
         }
 
         Timer ui_timer;
-        auto ui_painter = ui_renderer.new_painter();
+        ui::Painter ui_painter;
         ui_painter.bind_atlas(atlas);
         ui_tree.render(ui_painter);
         cpu_time_graph.new_bar();

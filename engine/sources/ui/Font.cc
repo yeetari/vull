@@ -14,6 +14,7 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Mutex.hh>
+#include <vull/ui/Units.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
@@ -31,11 +32,12 @@
 namespace vull::ui {
 
 ShapingPair ShapingIterator::operator*() const {
+    // Advances and offsets from harfbuzz already in 1/64 pixels.
     const auto &position = m_glyph_positions[m_index];
     return ShapingPair{
         .glyph_index = m_glyph_infos[m_index].codepoint,
-        .advance = {position.x_advance, position.y_advance},
-        .offset = {position.x_offset, position.y_offset},
+        .advance = LayoutDelta(position.x_advance, position.y_advance),
+        .offset = LayoutDelta(position.x_offset, position.y_offset),
     };
 }
 
@@ -95,7 +97,7 @@ GlyphInfo Font::ensure_glyph(uint32_t glyph_index) const {
     auto *glyph = face->glyph;
     return m_glyph_cache[glyph_index].emplace(GlyphInfo{
         .bitmap_extent = {glyph->bitmap.width, glyph->bitmap.rows},
-        .bitmap_offset = {static_cast<float>(glyph->bitmap_left), -static_cast<float>(glyph->bitmap_top)},
+        .bitmap_offset = {glyph->bitmap_left, -glyph->bitmap_top},
     });
 }
 
@@ -132,16 +134,14 @@ ShapingView Font::shape(StringView text) const {
     return {buffer, glyph_infos, glyph_positions, glyph_count};
 }
 
-Vec2u Font::text_bounds(StringView text) const {
-    Vec2i bounds;
+LayoutSize Font::text_bounds(StringView text) const {
+    LayoutSize bounds;
     for (const auto [glyph_index, advance, offset] : shape(text)) {
-        const auto glyph_height = static_cast<int32_t>(ensure_glyph(glyph_index).bitmap_extent.y());
-        bounds.set_x(bounds.x() + advance.x());
-        bounds.set_y(vull::max(bounds.y(), glyph_height));
+        const auto glyph_height = LayoutUnit::from_int_pixels(ensure_glyph(glyph_index).bitmap_extent.y());
+        bounds.set_width(bounds.width() + advance.dx());
+        bounds.set_height(vull::max(bounds.height(), glyph_height));
     }
-
-    const auto abs_bounds = static_cast<Vec2u>(vull::abs(bounds));
-    return {abs_bounds.x() >> 6u, abs_bounds.y()};
+    return bounds;
 }
 
 } // namespace vull::ui
