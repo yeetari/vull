@@ -63,17 +63,26 @@ struct IdInfo {
         uint8_t location;        // For Input/Output storage classes
         uint8_t spec_id;         // For OpSpecConstant[True, False]
     };
+    bool is_signed; // For OpTypeInt
 };
 
 // TODO: Can be generated.
 uint32_t format_size(vkb::Format format) {
     switch (format) {
+    case vkb::Format::R32Uint:
+    case vkb::Format::R32Sint:
     case vkb::Format::R32Sfloat:
         return 4;
+    case vkb::Format::R32G32Uint:
+    case vkb::Format::R32G32Sint:
     case vkb::Format::R32G32Sfloat:
         return 8;
+    case vkb::Format::R32G32B32Uint:
+    case vkb::Format::R32G32B32Sint:
     case vkb::Format::R32G32B32Sfloat:
         return 12;
+    case vkb::Format::R32G32B32A32Uint:
+    case vkb::Format::R32G32B32A32Sint:
     case vkb::Format::R32G32B32A32Sfloat:
         return 16;
     default:
@@ -155,20 +164,32 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
         if (info.opcode == spv::Op::TypeFloat && info.bit_width == 32) {
             return vkb::Format::R32Sfloat;
         }
+        if (info.opcode == spv::Op::TypeInt && info.bit_width == 32) {
+            return info.is_signed ? vkb::Format::R32Sint : vkb::Format::R32Uint;
+        }
         if (info.opcode != spv::Op::TypeVector) {
             return ShaderError::Unhandled;
         }
         const IdInfo &comp_info = VULL_TRY(id_info(info.type_id));
-        if (comp_info.opcode != spv::Op::TypeFloat || comp_info.bit_width != 32) {
-            return ShaderError::Unhandled;
+        if (comp_info.opcode == spv::Op::TypeFloat && comp_info.bit_width == 32) {
+            switch (info.component_count) {
+            case 2:
+                return vkb::Format::R32G32Sfloat;
+            case 3:
+                return vkb::Format::R32G32B32Sfloat;
+            case 4:
+                return vkb::Format::R32G32B32A32Sfloat;
+            }
         }
-        switch (info.component_count) {
-        case 2:
-            return vkb::Format::R32G32Sfloat;
-        case 3:
-            return vkb::Format::R32G32B32Sfloat;
-        case 4:
-            return vkb::Format::R32G32B32A32Sfloat;
+        if (comp_info.opcode == spv::Op::TypeInt && comp_info.bit_width == 32) {
+            switch (info.component_count) {
+            case 2:
+                return comp_info.is_signed ? vkb::Format::R32G32Sint : vkb::Format::R32G32Uint;
+            case 3:
+                return comp_info.is_signed ? vkb::Format::R32G32B32Sint : vkb::Format::R32G32B32Uint;
+            case 4:
+                return comp_info.is_signed ? vkb::Format::R32G32B32A32Sint : vkb::Format::R32G32B32A32Uint;
+            }
         }
         return ShaderError::Unhandled;
     };
@@ -293,6 +314,7 @@ Result<Shader, ShaderError> Shader::parse(const Context &context, Span<const uin
             IdInfo &info = VULL_TRY(id_info(inst_words[1]));
             info.opcode = spv::Op::TypeInt;
             info.bit_width = static_cast<uint8_t>(inst_words[2]);
+            info.is_signed = inst_words[3] == 1;
             break;
         }
         case spv::Op::TypeFloat: {
