@@ -36,6 +36,9 @@ void DestroyVisitor::visit(BinaryExpr &binary_expr) {
 }
 
 void DestroyVisitor::visit(CallExpr &call_expr) {
+    for (auto *argument : call_expr.arguments()) {
+        argument->traverse(*this);
+    }
     m_arena.destroy(&call_expr);
 }
 
