@@ -40,7 +40,7 @@ CommandBuffer &Queue::request_cmd_buf() {
             available_cmd_buf = &cmd_buf;
             continue;
         }
-        uint64_t value;
+        uint64_t value = 0;
         VULL_ENSURE(m_context.vkGetSemaphoreCounterValue(cmd_buf.completion_semaphore(), &value) ==
                     vkb::Result::Success);
         if (value == cmd_buf.completion_value()) {
