@@ -13,6 +13,11 @@ class BoxLayout : public Pane {
     Length m_spacing{Length::make_cm(0.2f)};
     const Orientation m_orientation;
 
+    void set_computed_main_axis(LayoutUnit length);
+    void set_computed_cross_axis(LayoutUnit length);
+    LayoutUnit computed_main_axis() const;
+    LayoutUnit computed_cross_axis() const;
+
 public:
     BoxLayout(Tree &tree, Optional<Element &> parent, Orientation orientation)
         : Pane(tree, parent), m_orientation(orientation) {}

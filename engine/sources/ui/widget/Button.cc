@@ -48,6 +48,7 @@ void Button::set_text(String text) {
 
     LayoutUnit padding = m_padding.resolve(tree());
     set_minimum_size(m_label.computed_size() + LayoutSize(padding, padding));
+    set_maximum_height(minimum_size().height());
 }
 
 } // namespace vull::ui

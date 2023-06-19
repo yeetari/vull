@@ -8,6 +8,36 @@
 
 namespace vull::ui {
 
+class Tree;
+
+LayoutUnit Margins::main_axis_start(Tree &tree, Orientation orientation) const {
+    if (orientation == Orientation::Horizontal) {
+        return m_left.resolve(tree);
+    }
+    return m_top.resolve(tree);
+}
+
+LayoutUnit Margins::cross_axis_start(Tree &tree, Orientation orientation) const {
+    if (orientation == Orientation::Vertical) {
+        return m_left.resolve(tree);
+    }
+    return m_top.resolve(tree);
+}
+
+LayoutUnit Margins::main_axis_total(Tree &tree, Orientation orientation) const {
+    if (orientation == Orientation::Horizontal) {
+        return m_left.resolve(tree) + m_right.resolve(tree);
+    }
+    return m_top.resolve(tree) + m_bottom.resolve(tree);
+}
+
+LayoutUnit Margins::cross_axis_total(Tree &tree, Orientation orientation) const {
+    if (orientation == Orientation::Vertical) {
+        return m_left.resolve(tree) + m_right.resolve(tree);
+    }
+    return m_top.resolve(tree) + m_bottom.resolve(tree);
+}
+
 void Pane::clear_children() {
     m_children.clear();
 }

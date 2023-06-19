@@ -25,16 +25,27 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     // Draw bounding box.
     painter.draw_rect(position, computed_size(), Colour::black());
 
-    // Draw bars.
-    // TODO: ceil bar_count and use a scissor.
+    // Calculate visible bar count.
+    // TODO: visible_bar_count + 1 and use a scissor.
     const LayoutUnit bar_width = m_graph.m_bar_width.resolve(tree());
-    const auto bar_count = (computed_width() / bar_width).raw_value();
-    for (int32_t bar_index = 0; bar_index < bar_count; bar_index++) {
-        const auto &bar = m_graph.m_bars[static_cast<uint32_t>(bar_index)];
-        const auto bar_base = position + LayoutDelta(bar_width * bar_index, computed_height());
-        for (LayoutUnit y_offset; const auto &section : bar.sections) {
+    const auto visible_bar_count = static_cast<uint32_t>((computed_width() / bar_width).raw_value());
+    const auto bar_offset = m_graph.m_bars.size() - visible_bar_count;
+
+    float max_total_time = 0.0f;
+    for (uint32_t bar_index = bar_offset; bar_index < m_graph.m_bars.size(); bar_index++) {
+        float total_time = 0.0f;
+        for (const auto &section : m_graph.m_bars[bar_index].sections) {
+            total_time += section.duration;
+        }
+        max_total_time = vull::max(max_total_time, total_time);
+    }
+
+    // Draw bars.
+    for (uint32_t bar_index = bar_offset; bar_index < m_graph.m_bars.size(); bar_index++) {
+        const auto bar_base = position + LayoutDelta(bar_width * int32_t(bar_index - bar_offset), computed_height());
+        for (LayoutUnit y_offset; const auto &section : m_graph.m_bars[bar_index].sections) {
             const auto &colour = m_graph.colour_for_section(section.name);
-            auto height = computed_height().scale_by(section.duration / m_graph.m_max_total_time);
+            auto height = computed_height().scale_by(section.duration / max_total_time);
             height = LayoutUnit::from_int_pixels(-height.round());
             painter.draw_rect(bar_base + LayoutDelta(0, y_offset), LayoutSize(bar_width, height), colour);
             y_offset += height;
@@ -43,15 +54,11 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
 }
 
 TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_colour, String title)
-    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_title(vull::move(title)), m_bars(125) {
+    : VBoxLayout(tree, parent), m_base_colour(base_colour), m_title(vull::move(title)), m_bars(1000) {
     m_title_label = &add_child<Label>();
     auto &hbox = add_child<HBoxLayout>();
     m_graph_panel = &hbox.add_child<TimeGraphPanel>(*this);
     m_legend_vbox = &hbox.add_child<VBoxLayout>();
-
-    // TODO: Don't hardcode this.
-    m_graph_panel->set_minimum_height(Length::make_cm(4.5f));
-    m_graph_panel->set_maximum_height(Length::make_cm(4.5f));
     set_bar_width(Length::make_cm(0.06f));
 }
 
@@ -66,12 +73,16 @@ void TimeGraph::set_bar_width(Length bar_width) {
     m_bar_width = bar_width;
 
     // TODO: Shouldn't need to resolve for this.
+    const auto max_bar_count = static_cast<int32_t>(m_bars.size());
     LayoutUnit resolved_bar_width = m_bar_width.resolve(tree());
-    m_graph_panel->set_minimum_width(Length::make_absolute(resolved_bar_width * static_cast<int32_t>(m_bars.size())));
-    m_graph_panel->set_maximum_width(Length::make_absolute(resolved_bar_width * static_cast<int32_t>(m_bars.size())));
+    m_graph_panel->set_minimum_width(Length::make_absolute(resolved_bar_width * 100));
+    m_graph_panel->set_maximum_width(Length::make_absolute(resolved_bar_width * max_bar_count));
 }
 
 void TimeGraph::pre_layout(LayoutSize available_space) {
+    // TODO: Need a FitContent length.
+    m_legend_vbox->set_maximum_width(Length::make_absolute(m_legend_vbox->computed_width()));
+
     m_max_total_time = 0.0f;
     for (const auto &bar : m_bars) {
         float total_time = 0.0f;

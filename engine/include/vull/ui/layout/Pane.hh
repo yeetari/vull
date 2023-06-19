@@ -10,6 +10,7 @@
 namespace vull::ui {
 
 class Painter;
+class Tree;
 
 class Margins {
     Length m_top{Length::zero()};
@@ -30,12 +31,10 @@ public:
     void set_left(Length left) { m_left = left; }
     void set_right(Length right) { m_right = right; }
 
-    Length main_axis_start(Orientation orientation) const {
-        return orientation == Orientation::Vertical ? m_top : m_left;
-    }
-    Length cross_axis_start(Orientation orientation) const {
-        return orientation == Orientation::Vertical ? m_left : m_top;
-    }
+    LayoutUnit main_axis_start(Tree &tree, Orientation orientation) const;
+    LayoutUnit cross_axis_start(Tree &tree, Orientation orientation) const;
+    LayoutUnit main_axis_total(Tree &tree, Orientation orientation) const;
+    LayoutUnit cross_axis_total(Tree &tree, Orientation orientation) const;
 
     Length top() const { return m_top; }
     Length bottom() const { return m_bottom; }

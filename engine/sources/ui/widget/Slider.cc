@@ -79,7 +79,10 @@ void Slider::set_value(float value) {
 
     LayoutUnit handle_padding = m_handle_padding.resolve(tree());
     set_minimum_width(Length::make_absolute(m_value_label.computed_width() + handle_padding * 2));
-    set_minimum_height(Length::make_cm(0.5f));
+
+    Length height = Length::make_absolute(m_value_label.computed_height() + handle_padding * 2);
+    set_minimum_height(height);
+    set_maximum_height(height);
 }
 
 } // namespace vull::ui

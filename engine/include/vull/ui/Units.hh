@@ -32,7 +32,9 @@ public:
     LayoutUnit operator/(LayoutUnit rhs) const { return m_value / rhs.m_value; }
 
     bool operator<(LayoutUnit rhs) const { return m_value < rhs.m_value; }
+    bool operator<=(LayoutUnit rhs) const { return m_value <= rhs.m_value; }
     bool operator>(LayoutUnit rhs) const { return m_value > rhs.m_value; }
+    bool operator>=(LayoutUnit rhs) const { return m_value >= rhs.m_value; }
     bool operator==(LayoutUnit rhs) const { return m_value == rhs.m_value; }
 
     LayoutUnit &operator+=(LayoutUnit rhs) {
