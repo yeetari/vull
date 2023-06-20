@@ -59,6 +59,7 @@ TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_
     auto &hbox = add_child<HBoxLayout>();
     m_graph_panel = &hbox.add_child<TimeGraphPanel>(*this);
     m_legend_vbox = &hbox.add_child<VBoxLayout>();
+    m_legend_vbox->set_maximum_width(Length::shrink());
     set_bar_width(Length::make_cm(0.06f));
 }
 
@@ -80,9 +81,6 @@ void TimeGraph::set_bar_width(Length bar_width) {
 }
 
 void TimeGraph::pre_layout(LayoutSize available_space) {
-    // TODO: Need a FitContent length.
-    m_legend_vbox->set_maximum_width(Length::make_absolute(m_legend_vbox->computed_width()));
-
     m_max_total_time = 0.0f;
     for (const auto &bar : m_bars) {
         float total_time = 0.0f;

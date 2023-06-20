@@ -133,12 +133,16 @@ void BoxLayout::layout(LayoutSize available_space) {
     uncommitted_length -= spacing * int32_t(items.size() - 1);
     uint32_t unfinalised_item_count = items.size();
     for (auto &item : items) {
+        // Begin item at minimum length.
         LayoutUnit minimum_length = item.element.minimum_size().main_axis_length(m_orientation).resolve(tree());
         item.main_axis_length = minimum_length;
         uncommitted_length -= minimum_length;
 
-        item.maximum_main_axis_length =
+        // Calculate resolved maximum length, making sure to clamp to the minimum length in case shrink is used.
+        LayoutUnit maximum_length =
             item.element.maximum_size().main_axis_length(m_orientation).resolve(tree(), available_main_axis_length);
+        item.maximum_main_axis_length = vull::max(maximum_length, minimum_length);
+
         if (minimum_length == item.maximum_main_axis_length) {
             // Item has a fixed length.
             item.finalised = true;
