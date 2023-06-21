@@ -46,13 +46,16 @@ void Window::paint(Painter &painter, LayoutPoint position) const {
     Pane::paint(painter, position);
 }
 
+bool Window::mouse_in_resize_grab(LayoutPoint position) const {
+    // TODO: Better resize grab detection.
+    const auto delta = LayoutDelta(computed_size() - position);
+    return delta.dx() < LayoutUnit::from_int_pixels(15) && delta.dy() < LayoutUnit::from_int_pixels(20);
+}
+
 bool Window::handle_mouse_press(const MouseButtonEvent &event) {
     if (event.button() == MouseButton::Left) {
         tree().set_active_element(*this);
-
-        // TODO: Better resize grab detection.
-        auto delta = LayoutDelta(computed_size() - event.position());
-        if (delta.dx() < LayoutUnit::from_int_pixels(15) && delta.dy() < LayoutUnit::from_int_pixels(40)) {
+        if (mouse_in_resize_grab(event.position())) {
             m_is_resizing = true;
         }
     }
@@ -68,13 +71,12 @@ bool Window::handle_mouse_release(const MouseButtonEvent &event) {
 }
 
 void Window::handle_mouse_move(const MouseMoveEvent &event) {
-    if (is_active_element()) {
-        if (!m_is_resizing) {
-            // TODO: Don't use mouse delta.
-            set_offset_in_parent(offset_in_parent() + event.delta());
-            return;
-        }
-        set_computed_size(computed_size() + event.delta());
+    if (m_is_resizing) {
+        // TODO: This jumps if mouse not pefectly at corner.
+        set_computed_size({event.position().x(), event.position().y()});
+    } else if (is_active_element()) {
+        // TODO: Would be better not to use mouse delta.
+        set_offset_in_parent(offset_in_parent() + event.delta());
     }
 }
 

@@ -18,6 +18,8 @@ class Window final : public Pane {
     Pane *m_content_pane;
     bool m_is_resizing{false};
 
+    bool mouse_in_resize_grab(LayoutPoint position) const;
+
 public:
     Window(Tree &tree, Optional<Element &> parent, String title);
 
