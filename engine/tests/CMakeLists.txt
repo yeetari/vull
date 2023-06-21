@@ -9,4 +9,5 @@ target_sources(vull-tests PRIVATE
     maths/Relational.cc
     support/Enum.cc
     support/Variant.cc
+    ui/Units.cc
     main.cc)
