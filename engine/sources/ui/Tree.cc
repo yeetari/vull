@@ -102,9 +102,17 @@ static void dispatch_event(Optional<Element &> element, const auto &event) {
 template <auto event_fn>
 void Tree::handle_mouse_press_release(MouseButton button) {
     if (!m_active_element) {
-        // No active element hijacking events, just send the event to the hovered element if present.
-        MouseButtonEvent event(m_hovered_relative_position, m_mouse_buttons, button);
-        dispatch_event<event_fn>(m_hovered_element, event);
+        // No active element hijacking events, just send the event to the hovered element if present. Note that we need
+        // to re-relativise the mouse position, so we can't use dispatch_event.
+        // TODO: Find a way to use dispatch_event?
+        auto relative_position = m_hovered_relative_position;
+        for (auto element = m_hovered_element; element; element = element->parent()) {
+            MouseButtonEvent event(relative_position, m_mouse_buttons, button);
+            if ((*element.*event_fn)(event)) {
+                return;
+            }
+            relative_position += element->offset_in_parent();
+        }
         return;
     }
 
