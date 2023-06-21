@@ -72,6 +72,13 @@ protected:
     LayoutUnit m_y;
 
 public:
+    static T from_int_pixels(Vec2i vec) {
+        return {LayoutUnit::from_int_pixels(vec.x()), LayoutUnit::from_int_pixels(vec.y())};
+    }
+    static T from_int_pixels(Vec2u vec) {
+        return {LayoutUnit::from_int_pixels(vec.x()), LayoutUnit::from_int_pixels(vec.y())};
+    }
+
     LayoutVec() = default;
     LayoutVec(LayoutUnit x, LayoutUnit y) : m_x(x), m_y(y) {}
     template <typename U>
@@ -115,10 +122,6 @@ public:
 };
 
 struct LayoutDelta : public LayoutVec<LayoutDelta> {
-    static LayoutDelta from_int_pixels(Vec2i vec) {
-        return {LayoutUnit::from_int_pixels(vec.x()), LayoutUnit::from_int_pixels(vec.y())};
-    }
-
     LayoutDelta() = default;
     LayoutDelta(LayoutUnit dx, LayoutUnit dy) : LayoutVec(dx, dy) {}
     template <typename U>
@@ -140,13 +143,6 @@ struct LayoutPoint : public LayoutVec<LayoutPoint> {
 };
 
 struct LayoutSize : public LayoutVec<LayoutSize> {
-    static LayoutSize from_int_pixels(Vec2i vec) {
-        return {LayoutUnit::from_int_pixels(vec.x()), LayoutUnit::from_int_pixels(vec.y())};
-    }
-    static LayoutSize from_int_pixels(Vec2u vec) {
-        return {LayoutUnit::from_int_pixels(vec.x()), LayoutUnit::from_int_pixels(vec.y())};
-    }
-
     LayoutSize() = default;
     LayoutSize(LayoutUnit width, LayoutUnit height) : LayoutVec(width, height) {}
 

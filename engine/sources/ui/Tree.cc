@@ -123,7 +123,7 @@ void Tree::handle_mouse_release(MouseButton button) {
 }
 
 void Tree::handle_mouse_move(Vec2i delta, Vec2u position, MouseButtonMask buttons) {
-    m_mouse_position = {LayoutUnit::from_int_pixels(position.x()), LayoutUnit::from_int_pixels(position.y())};
+    m_mouse_position = LayoutPoint::from_int_pixels(position);
     m_mouse_buttons = buttons;
 
     // Update the currently hovered element.
