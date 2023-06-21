@@ -66,11 +66,10 @@ bool Slider::handle_mouse_release(const MouseButtonEvent &event) {
     return true;
 }
 
-bool Slider::handle_mouse_move(const MouseMoveEvent &event) {
+void Slider::handle_mouse_move(const MouseMoveEvent &event) {
     if (is_active_element()) {
         update(event.position());
     }
-    return true;
 }
 
 void Slider::set_value(float value) {

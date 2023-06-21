@@ -28,14 +28,12 @@ Optional<HitResult> Element::hit_test(LayoutPoint point) {
     return {};
 }
 
-bool Element::handle_mouse_enter(const MouseEvent &) {
+void Element::handle_mouse_enter(const MouseEvent &) {
     m_flags |= ElementFlags::Hovered;
-    return true;
 }
 
-bool Element::handle_mouse_exit(const MouseEvent &) {
+void Element::handle_mouse_exit(const MouseEvent &) {
     m_flags &= ~ElementFlags::Hovered;
-    return true;
 }
 
 bool Element::is_active_element() const {

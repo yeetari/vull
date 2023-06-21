@@ -67,16 +67,15 @@ bool Window::handle_mouse_release(const MouseButtonEvent &event) {
     return true;
 }
 
-bool Window::handle_mouse_move(const MouseMoveEvent &event) {
+void Window::handle_mouse_move(const MouseMoveEvent &event) {
     if (is_active_element()) {
         if (!m_is_resizing) {
             // TODO: Don't use mouse delta.
             set_offset_in_parent(offset_in_parent() + event.delta());
-            return true;
+            return;
         }
         set_computed_size(computed_size() + event.delta());
     }
-    return true;
 }
 
 void Window::pre_layout(LayoutSize) {

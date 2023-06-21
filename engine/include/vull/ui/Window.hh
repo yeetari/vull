@@ -25,7 +25,7 @@ public:
     void paint(Painter &painter, LayoutPoint position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;
     bool handle_mouse_release(const MouseButtonEvent &event) override;
-    bool handle_mouse_move(const MouseMoveEvent &event) override;
+    void handle_mouse_move(const MouseMoveEvent &event) override;
 
     // ^Pane
     void pre_layout(LayoutSize available_space) override;

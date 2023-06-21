@@ -28,7 +28,7 @@ public:
     void paint(Painter &painter, LayoutPoint position) const override;
     bool handle_mouse_press(const MouseButtonEvent &event) override;
     bool handle_mouse_release(const MouseButtonEvent &event) override;
-    bool handle_mouse_move(const MouseMoveEvent &event) override;
+    void handle_mouse_move(const MouseMoveEvent &event) override;
 
     void set_handle_width(Length handle_width) { m_handle_width = handle_width; }
     void set_handle_padding(Length handle_padding) { m_handle_padding = handle_padding; }
