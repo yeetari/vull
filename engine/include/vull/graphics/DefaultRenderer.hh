@@ -23,27 +23,11 @@ class Shader; // IWYU pragma: keep
 
 namespace vull {
 
+class Camera;
 struct GBuffer;
 class Scene;
 
 class DefaultRenderer {
-    struct ShadowInfo {
-        Array<Mat4f, 8> cascade_matrices;
-        Array<float, 8> cascade_split_depths;
-    };
-    struct UniformBuffer {
-        Mat4f proj;
-        Mat4f inv_proj;
-        Mat4f view;
-        Mat4f proj_view;
-        Mat4f inv_proj_view;
-        Mat4f cull_view;
-        Vec3f view_position;
-        uint32_t object_count;
-        Array<Vec4f, 4> frustum_planes;
-        ShadowInfo shadow_info;
-    };
-
     vk::Context &m_context;
     vkb::Extent3D m_viewport_extent{};
 
@@ -67,11 +51,7 @@ class DefaultRenderer {
     vk::Pipeline m_early_cull_pipeline;
     vk::Pipeline m_late_cull_pipeline;
 
-    Mat4f m_proj;
-    Mat4f m_view;
-    Vec3f m_view_position;
-    ShadowInfo m_shadow_info;
-
+    const Camera *m_camera{nullptr};
     Mat4f m_cull_view;
     Array<Vec4f, 4> m_frustum_planes;
     bool m_cull_view_locked{false};
@@ -87,8 +67,8 @@ class DefaultRenderer {
     void create_set_layouts();
     void create_resources();
     void create_pipelines();
+    void update_ubo(const vk::Buffer &buffer);
     void record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer);
-    void update_cascades();
 
 public:
     DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent);
@@ -101,7 +81,7 @@ public:
 
     vk::ResourceId build_pass(vk::RenderGraph &graph, GBuffer &gbuffer);
     void load_scene(Scene &scene);
-    void update_globals(const Mat4f &proj, const Mat4f &view, const Vec3f &view_position);
+    void set_camera(const Camera &camera) { m_camera = &camera; }
     void set_cull_view_locked(bool locked) { m_cull_view_locked = locked; }
 };
 

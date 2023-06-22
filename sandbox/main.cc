@@ -19,7 +19,6 @@
 #include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
-#include <vull/maths/Projection.hh>
 #include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/physics/Collider.hh>
@@ -109,8 +108,6 @@ void vull_main(Vector<StringView> &&args) {
         skybox_renderer.load(*stream);
     }
 
-    const auto projection = vull::infinite_perspective(window.aspect_ratio(), vull::half_pi<float>, 0.1f);
-
     auto main_font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
     auto monospace_font = VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18));
     ui::Style ui_style(vull::move(main_font), vull::move(monospace_font));
@@ -122,7 +119,7 @@ void vull_main(Vector<StringView> &&args) {
     world.register_component<RigidBody>();
     world.register_component<Collider>();
 
-    FreeCamera free_camera;
+    FreeCamera free_camera(window.aspect_ratio());
     free_camera.set_position(50.0f);
     free_camera.set_pitch(-0.2f);
     free_camera.set_yaw(-2.0f);
@@ -240,7 +237,7 @@ void vull_main(Vector<StringView> &&args) {
         cpu_time_graph.push_section("render-ui", ui_timer.elapsed());
 
         default_renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
-        default_renderer.update_globals(projection, free_camera.view_matrix(), free_camera.position());
+        default_renderer.set_camera(free_camera);
 
         Timer build_rg_timer;
         auto &cmd_buf = context.graphics_queue().request_cmd_buf();

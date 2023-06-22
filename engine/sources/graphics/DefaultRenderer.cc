@@ -14,8 +14,8 @@
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
-#include <vull/maths/Projection.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/scene/Camera.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
@@ -46,8 +46,6 @@
 namespace vull {
 namespace {
 
-constexpr uint32_t k_cascade_count = 4;
-constexpr uint32_t k_shadow_resolution = 2048;
 constexpr uint32_t k_texture_limit = 32768;
 
 // Minimum required maximum work group count * minimum cull work group size that would be used.
@@ -74,6 +72,18 @@ struct Object {
 
 struct ShadowPushConstantBlock {
     uint32_t cascade_index;
+};
+
+struct UniformBuffer {
+    Mat4f proj;
+    Mat4f inv_proj;
+    Mat4f view;
+    Mat4f proj_view;
+    Mat4f inv_proj_view;
+    Mat4f cull_view;
+    Vec3f view_position;
+    uint32_t object_count;
+    Array<Vec4f, 4> frustum_planes;
 };
 
 } // namespace
@@ -335,6 +345,36 @@ void DefaultRenderer::load_scene(Scene &scene) {
     VULL_ENSURE(index_buffer_offset == index_buffer_size);
 }
 
+void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
+    const auto proj = m_camera->projection_matrix();
+    const auto view = m_camera->view_matrix();
+    const auto proj_view = proj * view;
+    if (!m_cull_view_locked) {
+        auto proj_view_t = vull::transpose(proj_view);
+        m_frustum_planes[0] = proj_view_t[3] + proj_view_t[0]; // left
+        m_frustum_planes[1] = proj_view_t[3] - proj_view_t[0]; // right
+        m_frustum_planes[2] = proj_view_t[3] + proj_view_t[1]; // bottom
+        m_frustum_planes[3] = proj_view_t[3] - proj_view_t[1]; // top
+        for (auto &plane : m_frustum_planes) {
+            plane /= vull::magnitude(Vec3f(plane));
+        }
+        m_cull_view = view;
+    }
+
+    UniformBuffer frame_ubo_data{
+        .proj = proj,
+        .inv_proj = vull::inverse(proj),
+        .view = view,
+        .proj_view = proj_view,
+        .inv_proj_view = vull::inverse(proj_view),
+        .cull_view = m_cull_view,
+        .view_position = m_camera->position(),
+        .object_count = m_object_count,
+        .frustum_planes = m_frustum_planes,
+    };
+    memcpy(buffer.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
+}
+
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer) {
     cmd_buf.bind_vertex_buffer(m_vertex_buffer);
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
@@ -396,19 +436,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
                            .write(object_buffer_id);
     setup_pass.set_on_execute([=, this, &graph, objects = vull::move(objects)](vk::CommandBuffer &) {
         const auto &frame_ubo = graph.get_buffer(frame_ubo_id);
-        UniformBuffer frame_ubo_data{
-            .proj = m_proj,
-            .inv_proj = vull::inverse(m_proj),
-            .view = m_view,
-            .proj_view = m_proj * m_view,
-            .inv_proj_view = vull::inverse(m_proj * m_view),
-            .cull_view = m_cull_view,
-            .view_position = m_view_position,
-            .object_count = m_object_count,
-            .frustum_planes = m_frustum_planes,
-            .shadow_info = m_shadow_info,
-        };
-        memcpy(frame_ubo.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
+        update_ubo(frame_ubo);
 
         const auto &object_buffer = graph.get_buffer(object_buffer_id);
         memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
@@ -592,95 +620,6 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         record_draws(cmd_buf, draw_buffer);
     });
     return frame_ubo_id;
-}
-
-void DefaultRenderer::update_cascades() {
-    // TODO: Don't hardcode.
-    const float near_plane = 0.1f;
-    const float shadow_distance = 2000.0f;
-    const float clip_range = shadow_distance - near_plane;
-    const float split_lambda = 0.85f;
-    Array<float, 4> split_distances;
-    for (uint32_t i = 0; i < k_cascade_count; i++) {
-        float p = static_cast<float>(i + 1) / static_cast<float>(k_cascade_count);
-        float log = near_plane * vull::pow((near_plane + clip_range) / near_plane, p);
-        float uniform = near_plane + clip_range * p;
-        float d = split_lambda * (log - uniform) + uniform;
-        split_distances[i] = (d - near_plane) / clip_range;
-    }
-
-    // Build cascade matrices.
-    const auto aspect_ratio =
-        static_cast<float>(m_viewport_extent.width) / static_cast<float>(m_viewport_extent.height);
-    const auto inv_camera =
-        vull::inverse(vull::perspective(aspect_ratio, vull::half_pi<float>, near_plane, shadow_distance) * m_view);
-    float last_split_distance = 0.0f;
-    for (uint32_t i = 0; i < k_cascade_count; i++) {
-        Array<Vec3f, 8> frustum_corners{
-            Vec3f(-1.0f, 1.0f, -1.0f), Vec3f(1.0f, 1.0f, -1.0f), Vec3f(1.0f, -1.0f, -1.0f), Vec3f(-1.0f, -1.0f, -1.0f),
-            Vec3f(-1.0f, 1.0f, 1.0f),  Vec3f(1.0f, 1.0f, 1.0f),  Vec3f(1.0f, -1.0f, 1.0f),  Vec3f(-1.0f, -1.0f, 1.0f),
-        };
-
-        // Project corners into world space.
-        for (auto &corner : frustum_corners) {
-            Vec4f inv_corner = inv_camera * Vec4f(corner, 1.0f);
-            corner = inv_corner / inv_corner.w();
-        }
-
-        for (uint32_t j = 0; j < 4; j++) {
-            Vec3f dist = frustum_corners[j + 4] - frustum_corners[j];
-            frustum_corners[j + 4] = frustum_corners[j] + (dist * split_distances[i]);
-            frustum_corners[j] = frustum_corners[j] + (dist * last_split_distance);
-        }
-
-        Vec3f frustum_center;
-        for (const auto &corner : frustum_corners) {
-            frustum_center += corner;
-        }
-        frustum_center /= 8.0f;
-
-        float radius = 0.0f;
-        for (const auto &corner : frustum_corners) {
-            float distance = vull::magnitude(corner - frustum_center);
-            radius = vull::max(radius, distance);
-        }
-        radius = vull::ceil(radius * 16.0f) / 16.0f;
-
-        // TODO: direction duplicated in shader.
-        constexpr Vec3f direction(0.6f, 0.6f, -0.6f);
-        constexpr Vec3f up(0.0f, 1.0f, 0.0f);
-        auto proj = vull::ortho(-radius, radius, -radius, radius, 0.0f, radius * 2.0f);
-        auto view = vull::look_at(frustum_center + direction * radius, frustum_center, up);
-
-        // Apply a small correction factor to the projection matrix to snap texels and avoid shimmering around the
-        // edges of shadows.
-        Vec4f origin = (proj * view * Vec4f(0.0f, 0.0f, 0.0f, 1.0f)) * (k_shadow_resolution / 2.0f);
-        Vec2f rounded_origin(vull::round(origin.x()), vull::round(origin.y()));
-        Vec2f round_offset = (rounded_origin - origin) * (2.0f / k_shadow_resolution);
-        proj[3] += Vec4f(round_offset, 0.0f, 0.0f);
-
-        m_shadow_info.cascade_matrices[i] = proj * view;
-        m_shadow_info.cascade_split_depths[i] = (near_plane + split_distances[i] * clip_range);
-        last_split_distance = split_distances[i];
-    }
-}
-
-void DefaultRenderer::update_globals(const Mat4f &proj, const Mat4f &view, const Vec3f &view_position) {
-    m_proj = proj;
-    m_view = view;
-    m_view_position = view_position;
-    if (!m_cull_view_locked) {
-        auto proj_view_t = vull::transpose(m_proj * m_view);
-        m_frustum_planes[0] = proj_view_t[3] + proj_view_t[0]; // left
-        m_frustum_planes[1] = proj_view_t[3] - proj_view_t[0]; // right
-        m_frustum_planes[2] = proj_view_t[3] + proj_view_t[1]; // bottom
-        m_frustum_planes[3] = proj_view_t[3] - proj_view_t[1]; // top
-        for (auto &plane : m_frustum_planes) {
-            plane /= vull::magnitude(Vec3f(plane));
-        }
-        m_cull_view = m_view;
-    }
-    update_cascades();
 }
 
 } // namespace vull

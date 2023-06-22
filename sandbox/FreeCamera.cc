@@ -4,6 +4,7 @@
 #include <vull/core/Window.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/maths/Projection.hh>
 #include <vull/maths/Vec.hh>
 
 namespace {
@@ -44,6 +45,14 @@ void FreeCamera::update(const vull::Window &window, float dt) {
     }
 }
 
-vull::Mat4f FreeCamera::view_matrix() {
+vull::Vec3f FreeCamera::up() const {
+    return k_world_up;
+}
+
+vull::Mat4f FreeCamera::projection_matrix() const {
+    return vull::infinite_perspective(m_aspect_ratio, m_fov, 0.1f);
+}
+
+vull::Mat4f FreeCamera::view_matrix() const {
     return vull::look_at(m_position, m_position + m_forward, k_world_up);
 }
