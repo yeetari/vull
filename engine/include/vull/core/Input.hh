@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/maths/Vec.hh>
-#include <vull/support/Hash.hh>
 
 #include <stdint.h>
 
@@ -59,16 +58,6 @@ enum class ModifierMask : uint8_t {
 using KeyCallback = void(ModifierMask mods);
 using MouseCallback = void(Vec2f position);
 using MouseMoveCallback = void(Vec2f delta, Vec2f position, MouseButtonMask buttons);
-
-template <>
-struct Hash<MouseButton> {
-    hash_t operator()(MouseButton button, hash_t seed) const { return hash_of(static_cast<uint8_t>(button), seed); }
-};
-
-template <>
-struct Hash<Key> {
-    hash_t operator()(Key key, hash_t seed) const { return hash_of(static_cast<uint8_t>(key), seed); }
-};
 
 inline constexpr MouseButtonMask operator-(MouseButtonMask mask) {
     return static_cast<MouseButtonMask>(-static_cast<uint32_t>(mask));
