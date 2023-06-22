@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/Enum.hh>
 #include <vull/support/Integral.hh>
 #include <vull/support/Span.hh>
 
@@ -12,9 +13,19 @@ using hash_t = uint32_t;
 template <typename>
 struct Hash;
 
+template <typename T>
+hash_t hash_of(const T &object, hash_t seed = 0) {
+    return Hash<T>{}(object, seed);
+}
+
 template <Integral T>
 struct Hash<T> {
     hash_t operator()(T t, hash_t seed) const { return seed + hash_t(t % UINT32_MAX); }
+};
+
+template <Enum T>
+struct Hash<T> {
+    hash_t operator()(T t, hash_t seed) const { return hash_of(vull::to_underlying(t), seed); }
 };
 
 template <typename T>
@@ -34,10 +45,5 @@ struct Hash<Span<T>> {
 
 template <>
 struct Hash<class StringView> : public Hash<Span<const char>> {};
-
-template <typename T>
-hash_t hash_of(const T &object, hash_t seed = 0) {
-    return Hash<T>{}(object, seed);
-}
 
 } // namespace vull
