@@ -2,7 +2,7 @@
 
 #include <vull/container/MapEntry.hh>
 #include <vull/container/Vector.hh>
-#include <vull/support/Integral.hh>
+#include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/PerfectHasher.hh>
 #include <vull/support/String.hh>

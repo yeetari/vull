@@ -3,6 +3,7 @@
 #include <vull/container/Array.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
@@ -10,8 +11,6 @@
 #include <stdint.h>
 
 namespace vull {
-
-class String;
 
 extern Timer g_log_timer;
 
@@ -27,7 +26,8 @@ constexpr Array k_level_strings{
     "TRACE ", "DEBUG ", "INFO  ", "WARN  ", "ERROR ",
 };
 
-void logln(String &&);
+void logln(StringView);
+void open_log();
 void close_log();
 
 void print(StringView);

@@ -360,6 +360,7 @@ int main(int argc, char **argv) {
         return EXIT_SUCCESS;
     }
 
+    vull::open_log();
     const auto command = args[1];
     if (command == "add") {
         return add(args);
