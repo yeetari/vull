@@ -44,9 +44,7 @@ template <typename T>
 using atomic_storage_t = typename AtomicStorageType<T>::type;
 
 template <typename T>
-concept SimpleAtomic = requires(atomic_storage_t<T> t) {
-    __atomic_load_n(&t, __ATOMIC_RELAXED);
-};
+concept SimpleAtomic = requires(atomic_storage_t<T> t) { __atomic_load_n(&t, __ATOMIC_RELAXED); };
 
 template <SimpleAtomic T, MemoryOrder Order = MemoryOrder::Relaxed>
 class Atomic {

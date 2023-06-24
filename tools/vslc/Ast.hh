@@ -279,9 +279,15 @@ struct Traverser {
 };
 
 #define DEFINE_SIMPLE_TRAVERSE(node)                                                                                   \
-    inline void node::traverse(Traverser<TraverseOrder::None> &traverser) { traverser.visit(*this); }                  \
-    inline void node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) { traverser.visit(*this); }              \
-    inline void node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) { traverser.visit(*this); }
+    inline void node::traverse(Traverser<TraverseOrder::None> &traverser) {                                            \
+        traverser.visit(*this);                                                                                        \
+    }                                                                                                                  \
+    inline void node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {                                        \
+        traverser.visit(*this);                                                                                        \
+    }                                                                                                                  \
+    inline void node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {                                       \
+        traverser.visit(*this);                                                                                        \
+    }
 
 // Aggregates and functions usually require special handling.
 DEFINE_SIMPLE_TRAVERSE(Aggregate)

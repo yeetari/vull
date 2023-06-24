@@ -72,5 +72,7 @@ constexpr auto enum_name(E value) {
     inline constexpr type operator|(type lhs, type rhs) {                                                              \
         return static_cast<type>(vull::to_underlying(lhs) | vull::to_underlying(rhs));                                 \
     }                                                                                                                  \
-    inline constexpr type operator~(type flags) { return static_cast<type>(~vull::to_underlying(flags)); }
+    inline constexpr type operator~(type flags) {                                                                      \
+        return static_cast<type>(~vull::to_underlying(flags));                                                         \
+    }
 // NOLINTEND(bugprone-macro-parentheses)

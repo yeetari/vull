@@ -127,18 +127,13 @@ template <typename T>
 inline constexpr bool is_trivially_destructible = __is_trivially_destructible(T);
 #elif __has_builtin(__has_trivial_destructor)
 template <typename T>
-inline constexpr bool is_trivially_destructible = requires(T t) {
-    t.~T();
-}
-&&__has_trivial_destructor(T);
+inline constexpr bool is_trivially_destructible = requires(T t) { t.~T(); } && __has_trivial_destructor(T);
 #else
 #error
 #endif
 
 template <typename T, typename U>
-inline constexpr bool is_convertible_to = is_same<T, U> || requires(T obj) {
-    static_cast<U>(obj);
-};
+inline constexpr bool is_convertible_to = is_same<T, U> || requires(T obj) { static_cast<U>(obj); };
 
 template <typename T, typename U>
 concept ConvertibleTo = is_convertible_to<T, U>;

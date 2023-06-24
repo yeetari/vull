@@ -6,3 +6,4 @@ AllowShortLambdasOnASingleLine: Empty
 AlwaysBreakTemplateDeclarations: Yes
 ColumnLimit: 120
 IndentWidth: 4
+RequiresClausePosition: SingleLine
