@@ -20,10 +20,9 @@ if(VULL_BUILD_GLTF)
     FetchContent_Declare(meshoptimizer
         GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
         GIT_TAG v0.17
-        GIT_SHALLOW TRUE)
+        GIT_SHALLOW TRUE
+        SYSTEM)
     FetchContent_MakeAvailable(meshoptimizer)
-    get_target_property(meshoptimizer_iid meshoptimizer INTERFACE_INCLUDE_DIRECTORIES)
-    set_target_properties(meshoptimizer PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${meshoptimizer_iid}")
 
     set(SIMDJSON_DISABLE_DEPRECATED_API TRUE CACHE BOOL "" FORCE)
     set(SIMDJSON_ENABLE_THREADS FALSE CACHE BOOL "" FORCE)
@@ -31,10 +30,9 @@ if(VULL_BUILD_GLTF)
     FetchContent_Declare(simdjson
         GIT_REPOSITORY https://github.com/simdjson/simdjson.git
         GIT_TAG tags/v1.0.2
-        GIT_SHALLOW TRUE)
+        GIT_SHALLOW TRUE
+        SYSTEM)
     FetchContent_MakeAvailable(simdjson)
-    get_target_property(simdjson_iid simdjson INTERFACE_INCLUDE_DIRECTORIES)
-    set_target_properties(simdjson PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${simdjson_iid}")
 
     target_compile_definitions(vpak PRIVATE BUILD_GLTF)
     target_link_libraries(vpak PRIVATE meshoptimizer simdjson)
