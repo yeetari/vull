@@ -29,7 +29,7 @@ UniquePtr<ReadStream> open(StringView name) {
     return {};
 }
 
-Optional<vpak::Entry> stat(StringView name) {
+Optional<Entry> stat(StringView name) {
     // TODO: This is hashing name for every vpak.
     for (const auto &reader : s_loaded_vpaks) {
         if (auto entry = reader->stat(name)) {

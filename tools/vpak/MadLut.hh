@@ -1,7 +1,5 @@
 #pragma once
 
-#include "MadInst.hh"
-
 #include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
@@ -11,6 +9,9 @@
 #include <stdint.h>
 
 namespace vull {
+
+enum class Filter;
+struct MadInst;
 
 class MadLut {
     FixedBuffer<uint8_t> m_buffer;

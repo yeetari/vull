@@ -6,10 +6,8 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
-#include <vull/vpak/PackFile.hh> // IWYU pragma: keep
 
 #include <stddef.h>
 #include <stdint.h>
@@ -19,10 +17,13 @@ using ZSTD_DCtx = struct ZSTD_DCtx_s;
 namespace vull {
 
 class File;
+enum class StreamError;
 
 } // namespace vull
 
 namespace vull::vpak {
+
+struct Entry;
 
 class ReadStream final : public Stream {
     const Span<uint8_t> m_data;

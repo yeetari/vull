@@ -3,6 +3,7 @@
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
 #include <vull/platform/Timer.hh>
+#include <vull/script/Bytecode.hh>
 #include <vull/script/ConstantPool.hh>
 #include <vull/script/Lexer.hh>
 #include <vull/script/Parser.hh>

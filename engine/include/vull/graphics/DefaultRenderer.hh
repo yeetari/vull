@@ -17,7 +17,6 @@ namespace vull::vk {
 class CommandBuffer;
 class Context;
 class RenderGraph;
-class Shader; // IWYU pragma: keep
 
 } // namespace vull::vk
 

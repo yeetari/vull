@@ -1,6 +1,5 @@
 #include <vull/ecs/World.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/ecs/EntityId.hh>
@@ -8,15 +7,15 @@
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Utility.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Writer.hh>
 
 #include <stdint.h>
 
 namespace vull {
+
+enum class StreamError;
 
 Result<void, StreamError, WorldError> World::deserialise(Stream &stream) {
     const auto entity_count = VULL_TRY(stream.read_varint<EntityId>());

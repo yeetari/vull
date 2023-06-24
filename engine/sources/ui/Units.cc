@@ -1,6 +1,5 @@
 #include <vull/ui/Units.hh>
 
-#include <vull/maths/Vec.hh>
 #include <vull/ui/Tree.hh>
 
 namespace vull::ui {

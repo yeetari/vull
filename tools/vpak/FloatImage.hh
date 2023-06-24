@@ -1,18 +1,17 @@
 #pragma once
 
-#include "MadInst.hh"
-
 #include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/StreamError.hh>
 
 #include <stdint.h>
 
 namespace vull {
 
+enum class Filter;
+enum class StreamError;
 struct Stream;
 
 class FloatImage {

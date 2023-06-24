@@ -1,6 +1,5 @@
 #include <vull/script/Parser.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
 #include <vull/script/Builder.hh>
 #include <vull/script/Bytecode.hh>
@@ -10,7 +9,6 @@
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>

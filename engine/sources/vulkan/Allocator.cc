@@ -11,6 +11,7 @@
 #include <vull/support/String.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
+#include <vull/tasklet/Mutex.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Vulkan.hh>

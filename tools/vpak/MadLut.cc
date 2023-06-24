@@ -1,4 +1,5 @@
 #include "MadLut.hh"
+#include "MadInst.hh"
 
 #include <vull/container/Array.hh>
 #include <vull/container/FixedBuffer.hh>

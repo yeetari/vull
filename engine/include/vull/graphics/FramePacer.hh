@@ -2,7 +2,6 @@
 
 #include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
-#include <vull/support/StringView.hh> // IWYU pragma: keep
 #include <vull/support/UniquePtr.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Semaphore.hh>
@@ -18,6 +17,8 @@ class Swapchain;
 } // namespace vull::vk
 
 namespace vull {
+
+class StringView;
 
 class Frame {
     vk::Fence m_fence;

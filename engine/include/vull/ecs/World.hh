@@ -2,7 +2,6 @@
 
 #include <vull/ecs/Entity.hh>
 #include <vull/support/Result.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/StringView.hh>
 
 namespace vull::vpak {
@@ -13,6 +12,7 @@ class Writer;
 
 namespace vull {
 
+enum class StreamError;
 struct Stream;
 
 enum class WorldError {

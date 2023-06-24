@@ -6,12 +6,13 @@
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Allocator.hh>
 #include <vull/vulkan/Context.hh>
-#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <string.h>
 
 namespace vull::vk {
+
+enum class Sampler;
 
 Image::Image(Allocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
     : m_context(&allocation.allocator()->context()), m_allocation(vull::move(allocation)), m_extent(extent),

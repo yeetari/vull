@@ -1,6 +1,5 @@
 #include <vull/ui/Window.hh>
 
-#include <vull/container/Vector.hh>
 #include <vull/core/Input.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>

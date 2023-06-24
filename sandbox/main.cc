@@ -2,7 +2,6 @@
 
 #include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
-#include <vull/container/HashSet.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
@@ -33,7 +32,6 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
-#include <vull/tasklet/Tasklet.hh> // IWYU pragma: keep
 #include <vull/ui/Element.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
@@ -49,6 +47,7 @@
 #include <vull/ui/widget/Slider.hh>
 #include <vull/ui/widget/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
+#include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
@@ -59,8 +58,6 @@
 #include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
-
-#include <stdint.h>
 
 using namespace vull;
 

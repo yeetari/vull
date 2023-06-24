@@ -8,7 +8,6 @@
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 

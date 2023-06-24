@@ -2,6 +2,7 @@
 
 #include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
+#include <vull/support/Integral.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>

@@ -19,7 +19,6 @@
 #include <stdlib.h>
 #include <sys/random.h>
 #include <unistd.h>
-// IWYU pragma: no_include <bits/types/siginfo_t.h>
 
 namespace vull {
 

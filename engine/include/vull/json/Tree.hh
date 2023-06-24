@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>

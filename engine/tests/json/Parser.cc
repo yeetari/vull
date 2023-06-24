@@ -1,6 +1,5 @@
 #include <vull/json/Parser.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/json/Tree.hh>
 #include <vull/maths/Epsilon.hh>
 #include <vull/support/Assert.hh>

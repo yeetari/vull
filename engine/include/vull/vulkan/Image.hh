@@ -2,7 +2,6 @@
 
 #include <vull/container/Vector.hh>
 #include <vull/vulkan/Allocation.hh>
-#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -13,6 +12,7 @@ class Context;
 class Image;
 class SampledImage;
 class Swapchain;
+enum class Sampler;
 
 class ImageView {
     friend Context;

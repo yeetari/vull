@@ -1,6 +1,5 @@
 #include <vull/support/Variant.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Test.hh>
 #include <vull/support/Utility.hh>

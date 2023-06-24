@@ -1,6 +1,5 @@
 #include <vull/vpak/Reader.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
 #include <vull/platform/File.hh>
@@ -11,7 +10,6 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
@@ -22,6 +20,12 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <zstd.h>
+
+namespace vull {
+
+enum class StreamError;
+
+} // namespace vull
 
 namespace vull::vpak {
 namespace {

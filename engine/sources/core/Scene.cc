@@ -1,6 +1,5 @@
 #include <vull/core/Scene.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/BoundingBox.hh>
@@ -31,8 +30,6 @@
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
-
-// IWYU pragma: no_forward_declare vull::vkb::Image_T
 
 namespace vull {
 namespace {

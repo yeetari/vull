@@ -14,7 +14,6 @@
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/Shape.hh>
 #include <vull/support/Optional.hh>
-#include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 

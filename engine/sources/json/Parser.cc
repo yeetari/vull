@@ -1,6 +1,5 @@
 #include <vull/json/Parser.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/json/Lexer.hh>
 #include <vull/json/Token.hh>
 #include <vull/json/Tree.hh>

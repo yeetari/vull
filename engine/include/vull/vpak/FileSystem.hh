@@ -17,6 +17,6 @@ class ReadStream;
 
 void load_vpak(File &&file);
 UniquePtr<ReadStream> open(StringView name);
-Optional<vpak::Entry> stat(StringView name);
+Optional<Entry> stat(StringView name);
 
 } // namespace vull::vpak

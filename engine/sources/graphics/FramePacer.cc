@@ -4,7 +4,6 @@
 #include <vull/container/HashMap.hh>
 #include <vull/container/Vector.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/support/Hash.hh>
-#include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 // IWYU pragma: no_forward_declare vull::Hash

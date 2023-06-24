@@ -7,7 +7,6 @@
 #include "spv/Builder.hh"
 #include "spv/Spirv.hh"
 
-#include <vull/container/Array.hh>
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
 #include <vull/support/Result.hh>

@@ -1,4 +1,5 @@
 #include "FloatImage.hh"
+#include "MadInst.hh"
 #include "MadLut.hh"
 
 #include <vull/container/Array.hh>
@@ -12,7 +13,6 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/Utility.hh>
 
 #include <bc7enc.hh>
@@ -46,6 +46,8 @@ void resample_1d(const FixedBuffer<float> &source, FixedBuffer<float> &target, V
 }
 
 } // namespace
+
+enum class StreamError;
 
 FloatImage FloatImage::from_unorm(Span<const uint8_t> bitmap, Vec2u size, uint32_t channel_count) {
     VULL_ASSERT(bitmap.size() % channel_count == 0);

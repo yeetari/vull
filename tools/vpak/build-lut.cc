@@ -1,6 +1,5 @@
 #include "MadInst.hh"
 
-#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>

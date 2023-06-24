@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -11,6 +10,7 @@ class Buffer;
 class Context;
 class ImageView;
 class SampledImage;
+enum class Sampler;
 
 class DescriptorBuilder {
     const Context *m_context{nullptr};

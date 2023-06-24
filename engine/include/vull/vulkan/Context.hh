@@ -2,23 +2,30 @@
 
 #include <vull/container/Vector.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/UniquePtr.hh> // IWYU pragma: keep
 #include <vull/tasklet/Mutex.hh>
 #include <vull/vulkan/Allocation.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/ContextTable.hh>
 #include <vull/vulkan/Image.hh>
-#include <vull/vulkan/MemoryUsage.hh>
-#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stddef.h>
 #include <stdint.h>
 
+namespace vull {
+
+template <typename>
+class UniquePtr;
+
+} // namespace vull
+
 namespace vull::vk {
 
 class Allocator;
 class Queue;
+
+enum class MemoryUsage;
+enum class Sampler;
 
 class Context : public vkb::ContextTable {
     vkb::DebugUtilsMessengerEXT m_debug_utils_messenger;

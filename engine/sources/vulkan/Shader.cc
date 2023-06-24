@@ -8,7 +8,6 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
@@ -20,6 +19,12 @@
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Spirv.hh>
 #include <vull/vulkan/Vulkan.hh>
+
+namespace vull {
+
+enum class StreamError;
+
+} // namespace vull
 
 namespace vull::vk {
 namespace {

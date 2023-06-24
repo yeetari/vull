@@ -1,6 +1,7 @@
 #include "GltfParser.hh"
 
 #include "FloatImage.hh"
+#include "MadInst.hh"
 #include "PngStream.hh"
 
 #include <vull/container/HashMap.hh>

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/container/Array.hh>
-#include <vull/support/Integral.hh> // IWYU pragma: keep
 #include <vull/support/Integral.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>

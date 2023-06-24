@@ -5,10 +5,11 @@
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
-#include <vull/vulkan/Sampler.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
+
+enum class Sampler;
 
 DescriptorBuilder::DescriptorBuilder(vkb::DescriptorSetLayout layout, const Buffer &buffer)
     : m_context(&buffer.context()), m_layout(layout), m_data(buffer.mapped<uint8_t>()) {}

@@ -3,13 +3,18 @@
 #include <vull/container/Vector.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/vulkan/Spirv.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
+
+namespace vull {
+
+enum class StreamError;
+
+} // namespace vull
 
 namespace vull::vk {
 

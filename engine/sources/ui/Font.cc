@@ -1,10 +1,8 @@
 #include <vull/ui/Font.hh>
 
-#include <vull/container/Array.hh>
 #include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
-#include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
@@ -20,11 +18,9 @@
 #include <vull/vpak/Reader.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
-// IWYU pragma: no_include "freetype/config/ftheader.h"
 
 #include <freetype/freetype.h>
 #include <freetype/fterrors.h>
-#include <freetype/ftimage.h>
 #include <freetype/fttypes.h>
 #include <hb-ft.h>
 #include <hb.h>

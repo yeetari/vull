@@ -20,7 +20,6 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
-#include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vpak/FileSystem.hh>
