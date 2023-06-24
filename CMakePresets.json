@@ -23,6 +23,7 @@
       "hidden": true,
       "inherits": "base",
       "cacheVariables": {
+        "CMAKE_ASM_COMPILER": "clang",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VULL_WARNING_FLAGS": "-Weverything -Wno-c++20-compat -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-covered-switch-default -Wno-disabled-macro-expansion -Wno-double-promotion -Wno-gnu-statement-expression -Wno-non-virtual-dtor -Wno-padded -Wno-shadow-uncaptured-local -Wno-switch -Wno-switch-enum -Wno-undefined-func-template -Wno-weak-vtables"
