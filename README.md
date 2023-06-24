@@ -9,7 +9,9 @@ A vulkan rendering engine written in C++ 20.
 * Render graph based vulkan abstraction
 * Work-stealing coroutine job system
 * Retained mode GUI
+* Two-pass occlusion culling with hierarchical depth buffer
 * Compressed pack file format
+* Very WIP scripting and shading languages
 
 ## Dependencies
 
@@ -33,7 +35,8 @@ A vulkan rendering engine written in C++ 20.
 ## Building and running
 
 Vull uses [cmake](https://cmake.org) as its build system. Either `make` or `ninja` will additionally be needed. Windows
-is not currently supported.
+is not currently supported. Alternatively, vull can be built in a reproducible docker environment
+([see below](#building-in-docker)).
 
 ### Installing dependencies and tools
 
@@ -90,3 +93,12 @@ If `VULL_BUILD_TESTS` is enabled, tests can be run with
 If doxygen is available, documentation can be built with
 
     cmake --build build --target vull-docs
+
+## Building in docker
+
+    docker run --rm -u $(id -u) -v $(pwd):/src ghcr.io/yeetari/vull:master cmake \
+     --preset release-gcc \
+     -B/src/build \
+     -GNinja \
+     /src
+    docker run --rm -u $(id -u) -v $(pwd):/src ghcr.io/yeetari/vull:master cmake --build /src/build
