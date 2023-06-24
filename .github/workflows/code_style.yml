@@ -4,58 +4,23 @@ jobs:
   clang-format:
     name: Clang Format
     runs-on: ubuntu-latest
-    container: ubuntu:22.04
-    env:
-      DEBIAN_FRONTEND: noninteractive
+    container: ghcr.io/yeetari/vull:master
     steps:
-      - name: Update package lists
-        run: apt update -qq
-      - name: Install tools
-        run: >-
-          apt install -y
-          clang-format-13
-          git
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run clang-format
         shell: bash
         run: |
           git config --global --add safe.directory $(pwd)
-          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-13 -i
+          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-16 -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 
   include-what-you-use:
     name: Include What You Use
     runs-on: ubuntu-latest
-    container: ubuntu:22.10
-    env:
-      DEBIAN_FRONTEND: noninteractive
+    container: ghcr.io/yeetari/vull:master
     steps:
-      - name: Update package lists
-        run: apt update -qq
-      - name: Add vulkan-sdk repository
-        run: |
-          apt install -y gnupg2 wget
-          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
-          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
-          apt update -qq
-      - name: Install tools and dependencies
-        run: >-
-          apt install -y
-          clang-13
-          cmake
-          git
-          iwyu
-          libfreetype-dev
-          libharfbuzz-dev
-          libx11-dev
-          libxcb-randr0-dev
-          libxcb-util-dev
-          libxcb-xkb-dev
-          libzstd-dev
-          parallel
-          shaderc
       - name: Checkout
         uses: actions/checkout@v3
       - name: Run include-what-you-use

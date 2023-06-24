@@ -4,34 +4,8 @@ jobs:
   clang-tidy:
     name: Clang Tidy
     runs-on: ubuntu-latest
-    container: ubuntu:22.10
-    env:
-      DEBIAN_FRONTEND: noninteractive
+    container: ghcr.io/yeetari/vull:master
     steps:
-      - name: Update package lists
-        run: apt update -qq
-      - name: Add vulkan-sdk repository
-        run: |
-          apt install -y gnupg2 wget
-          wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
-          wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
-          apt update -qq
-      - name: Install tools and dependencies
-        run: >-
-          apt install -y
-          clang
-          clang-tidy
-          cmake
-          git
-          libfreetype-dev
-          libharfbuzz-dev
-          libx11-dev
-          libxcb-randr0-dev
-          libxcb-util-dev
-          libxcb-xkb-dev
-          libzstd-dev
-          parallel
-          shaderc
       - name: Checkout
         uses: actions/checkout@v3
       - name: Configure CMake
