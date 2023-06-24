@@ -1,15 +1,16 @@
 #include <vull/script/Parser.hh>
 
+#include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
-#include <vull/core/Log.hh>
 #include <vull/script/Builder.hh>
+#include <vull/script/Bytecode.hh>
 #include <vull/script/Lexer.hh>
 #include <vull/script/Token.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
@@ -19,7 +20,12 @@
 namespace vull::script {
 namespace {
 
-unsigned precedence(Op op) {
+struct Local {
+    Token token;
+    uint8_t reg;
+};
+
+unsigned precedence_of(Op op) {
     switch (op) {
     case Op::Add:
     case Op::Sub:
@@ -54,7 +60,8 @@ Op to_binary_op(TokenKind kind) {
 class Scope {
     Scope *&m_current;
     Scope *m_parent;
-    HashMap<StringView, uint8_t> m_local_map;
+    // TODO(small-map)
+    HashMap<StringView, Local> m_local_map;
 
 public:
     explicit Scope(Scope *&current);
@@ -66,7 +73,7 @@ public:
     Scope &operator=(Scope &&) = delete;
 
     Optional<uint8_t> lookup_local(StringView name) const;
-    bool put_local(StringView name, uint8_t reg);
+    Optional<Token> put_local(const Token &token, uint8_t reg);
 };
 
 Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
@@ -78,13 +85,16 @@ Scope::~Scope() {
 }
 
 Optional<uint8_t> Scope::lookup_local(StringView name) const {
-    // TODO: Optional(Optional<U> &&) constructor
     auto opt = m_local_map.get(name);
-    return opt ? *opt : Optional<uint8_t>();
+    return opt ? opt->reg : Optional<uint8_t>();
 }
 
-bool Scope::put_local(StringView name, uint8_t reg) {
-    return m_local_map.set(name, reg);
+Optional<Token> Scope::put_local(const Token &token, uint8_t reg) {
+    if (auto previous = m_local_map.get(token.string())) {
+        return previous->token;
+    }
+    m_local_map.set(token.string(), Local{token, reg});
+    return {};
 }
 
 Optional<Token> Parser::consume(TokenKind kind) {
@@ -92,114 +102,97 @@ Optional<Token> Parser::consume(TokenKind kind) {
     return token.kind() == kind ? m_lexer.next() : Optional<Token>();
 }
 
-Token Parser::expect(TokenKind kind) {
+Result<Token, ParseError> Parser::expect(TokenKind kind) {
     auto token = m_lexer.next();
     if (token.kind() != kind) {
-        message(MessageKind::Error, token,
-                vull::format("expected {} but got {}", Token::kind_string(kind), token.to_string()));
+        ParseError error;
+        error.add_error(token, vull::format("expected {} but got {}", Token::kind_string(kind), token.to_string()));
+        return error;
     }
     return token;
 }
 
-void Parser::message(MessageKind kind, const Token &token, StringView message) {
-    if (kind == MessageKind::Error) {
-        m_error_count++;
-    }
-    StringView kind_string = kind == MessageKind::Error ? "\x1b[1;91merror" : "\x1b[1;35mnote";
-    const auto [file_name, line_source, line, column] = m_lexer.recover_position(token);
-    vull::println("\x1b[1;37m{}:{}:{}: {}: \x1b[1;37m{}\x1b[0m", file_name, line, column, kind_string, message);
-    vull::print(" { 4 } | {}\n      |", line, line_source);
-    for (uint32_t i = 0; i < column; i++) {
-        vull::print(" ");
-    }
-    vull::println("\x1b[1;92m^\x1b[0m");
-}
-
-Op Parser::parse_subexpr(Expr &expr, unsigned prec) {
+Result<Op, ParseError> Parser::parse_subexpr(Expr &expr, unsigned precedence) {
     if (consume('-'_tk)) {
         // Unary negate.
-        parse_subexpr(expr, precedence(Op::Negate));
+        VULL_TRY(parse_subexpr(expr, precedence_of(Op::Negate)));
         // TODO: Emit an OP_negate.
     } else if (auto name = consume(TokenKind::Identifier)) {
         // TODO: VLOCAL that gets materialised later?
         auto local = m_scope->lookup_local(name->string());
-        if (local) {
-            expr.kind = ExprKind::Allocated;
-            expr.index = *local;
-        } else {
-            expr.kind = ExprKind::Invalid;
-            message(MessageKind::Error, *name, vull::format("no symbol named '{}'", name->string()));
+        if (!local) {
+            ParseError error;
+            error.add_error(*name, vull::format("no symbol named '{}' in the current scope", name->string()));
+            return error;
         }
+        expr.kind = ExprKind::Allocated;
+        expr.index = *local;
     } else if (consume('('_tk)) {
-        parse_expr(expr);
-        expect(')'_tk);
+        VULL_TRY(parse_expr(expr));
+        VULL_TRY(expect(')'_tk));
     } else if (auto token = consume(TokenKind::Number)) {
         expr.kind = ExprKind::Number;
         expr.number_value = token->number();
     } else {
-        message(MessageKind::Error, m_lexer.peek(), "expected expression");
+        ParseError error;
+        error.add_error(m_lexer.peek(), "expected expression part");
+        return error;
     }
 
     auto binary_op = to_binary_op(m_lexer.peek().kind());
-    while (binary_op != Op::None && precedence(binary_op) > prec) {
-        const auto op_token = m_lexer.next();
-
-        if (expr.kind == ExprKind::Invalid) {
-            message(MessageKind::Error, op_token, "malformed expression");
-            message(MessageKind::Note, op_token, vull::format("unfinished expression before {}", op_token.to_string()));
-        }
-
-        const auto sub_token = m_lexer.peek();
+    while (binary_op != Op::None && precedence_of(binary_op) > precedence) {
+        m_lexer.next();
         Expr rhs;
-        Op next_op = parse_subexpr(rhs, precedence(binary_op));
-        if (rhs.kind == ExprKind::Invalid) {
-            const auto erroneous_token = m_lexer.peek();
-            message(MessageKind::Error, op_token, "malformed expression");
-            message(MessageKind::Note, erroneous_token,
-                    vull::format("expected expression before {}", erroneous_token.to_string()));
-            message(MessageKind::Note, sub_token, vull::format("assuming {} is erroneous", sub_token.to_string()));
-        }
+        Op next_op = VULL_TRY(parse_subexpr(rhs, precedence_of(binary_op)));
         m_builder.emit_binary(vull::exchange(binary_op, next_op), expr, rhs);
     }
     return binary_op;
 }
 
-void Parser::parse_expr(Expr &expr) {
-    [[maybe_unused]] Op op = parse_subexpr(expr, 0);
+Result<void, ParseError> Parser::parse_expr(Expr &expr) {
+    [[maybe_unused]] Op op = VULL_TRY(parse_subexpr(expr, 0));
     VULL_ASSERT(op == Op::None);
+    return {};
 }
 
-void Parser::parse_stmt() {
+Result<void, ParseError> Parser::parse_stmt() {
     if (consume(TokenKind::KW_let)) {
-        auto name = expect(TokenKind::Identifier);
-        expect('='_tk);
+        auto name = VULL_TRY(expect(TokenKind::Identifier));
+        VULL_TRY(expect('='_tk));
         Expr expr;
-        parse_expr(expr);
-        if (!m_scope->put_local(name.string(), m_builder.materialise(expr))) {
-            // TODO: Note previous definition.
-            message(MessageKind::Error, name, vull::format("redefinition of symbol '{}'", name.string()));
+        VULL_TRY(parse_expr(expr));
+        if (auto previous_name = m_scope->put_local(name, m_builder.materialise(expr))) {
+            ParseError error;
+            error.add_error(name, vull::format("redefinition of '{}'", name.string()));
+            error.add_note(*previous_name, "previously defined here");
+            return error;
         }
-        return;
+        return {};
     }
+
     if (consume(TokenKind::KW_return)) {
         Expr expr;
-        parse_expr(expr);
+        VULL_TRY(parse_expr(expr));
         m_builder.emit_return(expr);
-        return;
+        return {};
     }
-    message(MessageKind::Error, m_lexer.next(), "expected statement");
+
+    ParseError error;
+    error.add_error(m_lexer.next(), "expected statement");
+    return error;
 }
 
-void Parser::parse_block() {
+Result<void, ParseError> Parser::parse_block() {
     Scope scope(m_scope);
     while (!consume(TokenKind::Eof)) {
-        parse_stmt();
+        VULL_TRY(parse_stmt());
     }
+    return {};
 }
 
-UniquePtr<Frame> Parser::parse() {
-    parse_block();
-    expect(TokenKind::Eof);
+Result<UniquePtr<Frame>, ParseError> Parser::parse() {
+    VULL_TRY(parse_block());
+    VULL_TRY(expect(TokenKind::Eof));
     return m_builder.build_frame();
 }
 

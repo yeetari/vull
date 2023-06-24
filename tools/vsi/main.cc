@@ -18,9 +18,22 @@
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 
+#include <stdint.h>
 #include <stdlib.h>
 
 using namespace vull;
+
+static void print_message(script::Lexer &lexer, const script::ParseMessage &message) {
+    StringView kind_string = message.kind() == script::ParseMessage::Kind::Error ? "\x1b[1;91merror" : "\x1b[1;35mnote";
+    const auto [file_name, line_source, line, column] = lexer.recover_position(message.token());
+    vull::println("\x1b[1;37m{}:{}:{}: {}: \x1b[1;37m{}\x1b[0m", file_name, line, column, kind_string,
+                  message.message());
+    vull::print(" { 4 } | {}\n      |", line, line_source);
+    for (uint32_t i = 0; i < column; i++) {
+        vull::print(" ");
+    }
+    vull::println("\x1b[1;92m^\x1b[0m");
+}
 
 int main(int argc, char **argv) {
     Vector<StringView> args(argv, argv + argc);
@@ -50,12 +63,16 @@ int main(int argc, char **argv) {
     script::ConstantPool constant_pool;
     script::Lexer lexer(script_path, vull::adopt_unique(file.create_stream()));
     script::Parser parser(lexer, constant_pool);
-    auto frame = parser.parse();
-    if (auto count = parser.error_count()) {
-        vull::println("{} error{} generated", count, count != 1 ? "s" : "");
+    auto frame_or_error = parser.parse();
+    if (frame_or_error.is_error()) {
+        const auto &error = frame_or_error.error();
+        for (const auto &message : error.messages()) {
+            print_message(lexer, message);
+        }
         return EXIT_FAILURE;
     }
 
+    auto frame = frame_or_error.disown_value();
     script::Vm vm(vull::move(constant_pool));
     if (dump_bytecode) {
         vm.dump_frame(*frame);
