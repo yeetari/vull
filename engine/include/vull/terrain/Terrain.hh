@@ -12,18 +12,20 @@ namespace vull {
 class Chunk;
 
 class Terrain {
-    const float m_size;
     const uint32_t m_seed;
+    uint32_t m_size;
     UniquePtr<QuadTree> m_quad_tree;
 
 public:
-    Terrain(float size, uint32_t seed) : m_size(size), m_seed(seed) {}
+    static float height(uint32_t seed, float x, float z);
 
-    float height(float x, float z) const;
+    Terrain(uint32_t size, uint32_t seed) : m_seed(seed), m_size(size) {}
+
     void update(const Vec3f &camera_position, Vector<Chunk *> &chunks);
+    void set_size(uint32_t size) { m_size = size; }
 
-    float size() const { return m_size; }
     uint32_t seed() const { return m_seed; }
+    uint32_t size() const { return m_size; }
 };
 
 } // namespace vull

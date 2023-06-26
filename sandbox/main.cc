@@ -16,6 +16,7 @@
 #include <vull/graphics/Mesh.hh>
 #include <vull/graphics/ObjectRenderer.hh>
 #include <vull/graphics/SkyboxRenderer.hh>
+#include <vull/graphics/TerrainRenderer.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Random.hh>
@@ -32,6 +33,7 @@
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
+#include <vull/terrain/Terrain.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
@@ -105,6 +107,10 @@ void vull_main(Vector<StringView> &&args) {
         skybox_renderer.load(*stream);
     }
 
+    Terrain terrain(64.0f, 0);
+    TerrainRenderer terrain_renderer(context);
+    terrain_renderer.load_heights(0);
+
     auto main_font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
     auto monospace_font = VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18));
     ui::Style ui_style(vull::move(main_font), vull::move(monospace_font));
@@ -157,6 +163,9 @@ void vull_main(Vector<StringView> &&args) {
         main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
     auto &gpu_time_graph =
         main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+    auto &chunk_count_label = main_window.content_pane().add_child<ui::Label>();
+    auto &seed_slider = main_window.content_pane().add_child<ui::Slider>(0.0f, 1000.0f);
+    auto &size_slider = main_window.content_pane().add_child<ui::Slider>(128.0f, 1024.0f);
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([&] {
         window.close();
@@ -192,6 +201,9 @@ void vull_main(Vector<StringView> &&args) {
         object_renderer->load(Mesh("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index"));
     }
 
+    uint32_t chunk_count = 0;
+    uint32_t last_seed = 0;
+
     Timer frame_timer;
     cpu_time_graph.new_bar();
     while (!window.should_close()) {
@@ -226,6 +238,16 @@ void vull_main(Vector<StringView> &&args) {
             object_renderer->set_rotation(suzanne_slider->value());
         }
 
+        const auto next_seed = static_cast<uint32_t>(seed_slider.value());
+        if (last_seed != next_seed) {
+            terrain_renderer.load_heights(last_seed = next_seed);
+        }
+
+        terrain.set_size(size_slider.value());
+        chunk_count_label.set_text(vull::format("Chunks: {}", chunk_count));
+
+        terrain_renderer.set_wireframe(window.is_button_pressed(MouseButton::Right));
+
         Timer ui_timer;
         ui::Painter ui_painter;
         ui_painter.bind_atlas(atlas);
@@ -235,6 +257,7 @@ void vull_main(Vector<StringView> &&args) {
 
         default_renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
         default_renderer.set_camera(free_camera);
+        terrain_renderer.set_view_position(free_camera.position());
 
         Timer build_rg_timer;
         auto &cmd_buf = context.graphics_queue().request_cmd_buf();
@@ -243,6 +266,7 @@ void vull_main(Vector<StringView> &&args) {
 
         auto gbuffer = deferred_renderer.create_gbuffer(graph);
         auto frame_ubo = default_renderer.build_pass(graph, gbuffer);
+        chunk_count = terrain_renderer.build_pass(terrain, graph, gbuffer, frame_ubo);
         deferred_renderer.build_pass(graph, gbuffer, frame_ubo, output_id);
         skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
         ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));

@@ -230,6 +230,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .sType = vkb::StructureType::PhysicalDeviceFeatures2,
         .features{
             .multiDrawIndirect = true,
+            .fillModeNonSolid = true,
             .samplerAnisotropy = true,
         },
     };

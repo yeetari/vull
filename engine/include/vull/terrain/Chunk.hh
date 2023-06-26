@@ -9,26 +9,24 @@
 
 namespace vull {
 
-struct ChunkVertex {
-    Vec2f position;
-};
-
 class Chunk {
+    const Vec2u m_position;
+    const uint32_t m_size;
     Array<UniquePtr<Chunk>, 4> m_children;
-    const Vec2f m_center;
-    const float m_size;
+    float m_morph_start{0.0f};
+    float m_morph_end{0.0f};
 
 public:
-    static void build_flat_mesh(Vector<ChunkVertex> &vertices, Vector<uint32_t> &indices, uint32_t tessellation_level);
+    Chunk(Vec2u position, uint32_t size) : m_position(position), m_size(size) {}
 
-    Chunk(const Vec2f &center, float size) : m_center(center), m_size(size) {}
-
-    void subdivide(const Vec2f &point);
-    void traverse(Vector<Chunk *> &chunks);
+    bool in_sphere(const Vec3f &center, float radius);
+    bool subdivide(const Vec3f &point, Vector<Chunk *> &chunks, uint32_t depth);
 
     bool is_leaf() const { return !m_children[0]; }
-    const Vec2f &center() const { return m_center; }
-    float size() const { return m_size; }
+    Vec2u position() const { return m_position; }
+    uint32_t size() const { return m_size; }
+    float morph_start() const { return m_morph_start; }
+    float morph_end() const { return m_morph_end; }
 };
 
 } // namespace vull

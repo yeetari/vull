@@ -7,13 +7,12 @@
 namespace vull {
 
 class QuadTree {
-    Chunk m_root;
+    Vector<Vector<UniquePtr<Chunk>>> m_root_chunks;
 
 public:
-    explicit QuadTree(float size) : m_root(Vec2f(0.0f), size) {}
+    explicit QuadTree(uint32_t size);
 
-    void subdivide(const Vec3f &point);
-    void traverse(Vector<Chunk *> &chunks);
+    void subdivide(const Vec3f &point, Vector<Chunk *> &chunks);
 };
 
 } // namespace vull

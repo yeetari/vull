@@ -27,6 +27,7 @@ target_sources(vull-graphics PRIVATE
     graphics/Mesh.cc
     graphics/ObjectRenderer.cc
     graphics/SkyboxRenderer.cc
+    graphics/TerrainRenderer.cc
     terrain/Chunk.cc
     terrain/Noise.cc
     terrain/QuadTree.cc

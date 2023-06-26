@@ -192,7 +192,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         .host_accessible = true,
     };
     vk::BufferDescription light_buffer_description{
-        .size = lights.size_bytes() + sizeof(float),
+        .size = lights.size_bytes() + sizeof(uint32_t) * 4,
         .usage = vkb::BufferUsage::StorageBuffer,
         .host_accessible = true,
     };

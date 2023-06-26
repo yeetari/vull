@@ -17,7 +17,7 @@ vec3 compute_light(vec3 albedo, vec3 colour, vec3 direction, vec3 normal, vec3 v
     vec3 reflection = reflect(-direction, normal);
     vec3 halfway = normalize(direction + view);
     vec3 specular = pow(max(dot(normal, halfway), 0.0f), 64.0f) * colour;
-    return diffuse + specular;
+    return diffuse;
 }
 
 #endif

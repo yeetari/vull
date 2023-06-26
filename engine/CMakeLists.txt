@@ -24,6 +24,8 @@ add_shader(shaders/object.vsl)
 add_shader(shaders/shadow.vert)
 add_shader(shaders/skybox.frag)
 add_shader(shaders/skybox.vert)
+add_shader(shaders/terrain.frag)
+add_shader(shaders/terrain.vert)
 add_shader(shaders/ui.frag)
 add_shader(shaders/ui.vert)
 
@@ -43,6 +45,8 @@ function(vull_depend_builtin target)
         ${CMAKE_BINARY_DIR}/engine/shaders/shadow.vert.spv /shaders/shadow.vert
         ${CMAKE_BINARY_DIR}/engine/shaders/skybox.frag.spv /shaders/skybox.frag
         ${CMAKE_BINARY_DIR}/engine/shaders/skybox.vert.spv /shaders/skybox.vert
+        ${CMAKE_BINARY_DIR}/engine/shaders/terrain.frag.spv /shaders/terrain.frag
+        ${CMAKE_BINARY_DIR}/engine/shaders/terrain.vert.spv /shaders/terrain.vert
         ${CMAKE_BINARY_DIR}/engine/shaders/ui.frag.spv /shaders/ui.frag
         ${CMAKE_BINARY_DIR}/engine/shaders/ui.vert.spv /shaders/ui.vert)
 endfunction()
