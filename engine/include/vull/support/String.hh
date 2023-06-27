@@ -34,6 +34,9 @@ public:
     char *data() { return m_data; }
     const char *data() const { return m_data; }
 
+    char &operator[](size_t index) { return m_data[index]; }
+    const char &operator[](size_t index) const { return m_data[index]; }
+
     bool ends_with(StringView end);
 
     operator StringView() const { return view(); }
