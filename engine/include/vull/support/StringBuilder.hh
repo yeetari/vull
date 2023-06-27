@@ -34,6 +34,8 @@ public:
     template <typename... Args>
     void append(StringView fmt, const Args &...args);
     void append(char ch);
+    template <typename Container>
+    void extend(const Container &container);
     void truncate(size_t by);
 
     String build();
@@ -67,6 +69,11 @@ void StringBuilder::append(StringView fmt, const Args &...args) {
     size_t index = 0;
     (append_part(fmt, index, args), ...);
     m_buffer.extend(Span<const char>{fmt.begin() + index, fmt.length() - index});
+}
+
+template <typename Container>
+void StringBuilder::extend(const Container &container) {
+    m_buffer.extend(container);
 }
 
 } // namespace vull
