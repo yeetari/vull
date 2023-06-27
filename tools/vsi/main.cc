@@ -1,3 +1,4 @@
+#include <vull/container/Array.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/platform/File.hh>
@@ -13,8 +14,8 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/Stream.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
@@ -61,8 +62,19 @@ int main(int argc, char **argv) {
 
     Timer timer;
     auto file = VULL_EXPECT(vull::open_file(script_path, OpenMode::Read));
+    auto stream = file.create_stream();
+    StringBuilder sb;
+    while (true) {
+        Array<char, 16384> data;
+        auto bytes_read = static_cast<uint32_t>(VULL_EXPECT(stream.read(data.span())));
+        if (bytes_read == 0) {
+            break;
+        }
+        sb.extend(data.span().subspan(0, bytes_read));
+    }
+
     script::ConstantPool constant_pool;
-    script::Lexer lexer(script_path, vull::adopt_unique(file.create_stream()));
+    script::Lexer lexer(script_path, sb.build());
     script::Parser parser(lexer, constant_pool);
     auto frame_or_error = parser.parse();
     if (frame_or_error.is_error()) {
