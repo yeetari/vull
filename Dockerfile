@@ -39,6 +39,7 @@ RUN apt-get update \
       libxcb-randr0-dev \
       libxcb-util-dev \
       libxcb-xkb-dev \
+      libxxhash-dev \
       libzstd-dev \
       llvm-16-dev \
       ninja-build \
