@@ -51,6 +51,7 @@ public:
 
 template <>
 struct Hash<String> {
+    hash_t operator()(const String &string) const { return hash_of(string.view()); }
     hash_t operator()(const String &string, hash_t seed) const { return hash_of(string.view(), seed); }
 };
 

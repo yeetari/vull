@@ -14,6 +14,7 @@ struct MapEntry {
 
 template <typename K, typename V>
 struct Hash<MapEntry<K, V>> {
+    hash_t operator()(const MapEntry<K, V> &entry) const { return hash_of(entry.key); }
     hash_t operator()(const MapEntry<K, V> &entry, hash_t seed) const { return hash_of(entry.key, seed); }
 };
 

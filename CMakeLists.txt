@@ -24,6 +24,7 @@ endif()
 find_package(Freetype)
 find_package(harfbuzz)
 find_package(X11)
+find_package(xxHash REQUIRED)
 find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 

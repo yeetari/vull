@@ -23,6 +23,7 @@ A vulkan rendering engine written in C++ 20.
 * [shaderc](https://github.com/google/shaderc) (for offline shader compilation step)
 * [simdjson](https://github.com/simdjson/simdjson) (for vpak tool)
 * [xcb](https://xcb.freedesktop.org)
+* [xxHash](https://github.com/Cyan4973/xxHash)
 * [zstd](https://github.com/facebook/zstd)
 
 ## Requirements
@@ -44,6 +45,7 @@ is not currently supported. Alternatively, vull can be built in a reproducible d
 
     emerge -n \
      app-arch/zstd \
+     dev-libs/xxhash \
      dev-util/cmake \
      dev-util/ninja \
      media-libs/freetype \
