@@ -7,7 +7,7 @@
 
 namespace vull::script {
 
-enum class TokenKind {
+enum class TokenKind : uint16_t {
     Invalid = 256,
     Eof,
     Identifier,
@@ -24,25 +24,28 @@ class Token {
         double decimal_data;
         size_t integer_data;
     } m_number_data{};
-    TokenKind m_kind;
     uint32_t m_position;
+    uint16_t m_line;
+    TokenKind m_kind;
 
 public:
     static String kind_string(TokenKind kind);
 
     Token() = default;
-    Token(TokenKind kind, uint32_t position) : m_kind(kind), m_position(position) {}
-    Token(double decimal, uint32_t position)
-        : m_number_data{.decimal_data = decimal}, m_kind(TokenKind::Number), m_position(position) {}
-    Token(TokenKind kind, StringView string, uint32_t position)
-        : m_ptr_data(string.data()), m_number_data{.integer_data = string.length()}, m_kind(kind),
-          m_position(position) {}
+    Token(TokenKind kind, uint32_t position, uint16_t line) : m_position(position), m_line(line), m_kind(kind) {}
+    Token(double decimal, uint32_t position, uint16_t line)
+        : m_number_data{.decimal_data = decimal}, m_position(position), m_line(line), m_kind(TokenKind::Number) {}
+    Token(TokenKind kind, StringView string, uint32_t position, uint16_t line)
+        : m_ptr_data(string.data()), m_number_data{.integer_data = string.length()}, m_position(position), m_line(line),
+          m_kind(kind) {}
 
-    TokenKind kind() const { return m_kind; }
-    uint32_t position() const { return m_position; }
     double number() const;
     StringView string() const;
     String to_string() const;
+
+    TokenKind kind() const { return m_kind; }
+    uint32_t position() const { return m_position; }
+    uint16_t line() const { return m_line; }
 };
 
 constexpr TokenKind operator""_tk(char ch) {

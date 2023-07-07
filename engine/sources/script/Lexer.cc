@@ -12,14 +12,16 @@
 namespace vull::script {
 
 Token Lexer::next_token() {
-    while (is_space(m_source[m_head])) {
-        m_head++;
+    char ch;
+    while (is_space(ch = m_source[m_head++])) {
+        if (ch == '\n') {
+            m_line++;
+        }
     }
 
-    const auto position = m_head;
-    char ch = m_source[m_head++];
+    const auto position = m_head - 1;
     if (is_digit(ch)) {
-        return {parse_double(ch), position};
+        return {parse_double(ch), position, m_line};
     }
     if (is_ident(ch)) {
         while (is_ident(m_source[m_head]) || is_digit(m_source[m_head])) {
@@ -27,20 +29,20 @@ Token Lexer::next_token() {
         }
         auto string = m_source.view().substr(position, m_head);
         if (string == "function") {
-            return {TokenKind::KW_function, position};
+            return {TokenKind::KW_function, position, m_line};
         }
         if (string == "let") {
-            return {TokenKind::KW_let, position};
+            return {TokenKind::KW_let, position, m_line};
         }
         if (string == "return") {
-            return {TokenKind::KW_return, position};
+            return {TokenKind::KW_return, position, m_line};
         }
-        return {TokenKind::Identifier, string, position};
+        return {TokenKind::Identifier, string, position, m_line};
     }
 
     switch (ch) {
     case 0:
-        return {TokenKind::Eof, position};
+        return {TokenKind::Eof, position, m_line};
     case '/':
         // Handle comments.
         if (m_source[m_head] == '/') {
@@ -52,30 +54,27 @@ Token Lexer::next_token() {
         [[fallthrough]];
     default:
         if (ch <= 31) {
-            return {TokenKind::Invalid, position};
+            return {TokenKind::Invalid, position, m_line};
         }
-        return {static_cast<TokenKind>(ch), position};
+        return {static_cast<TokenKind>(ch), position, m_line};
     }
 }
 
 SourcePosition Lexer::recover_position(const Token &token) const {
-    uint32_t line = 1;
-    uint32_t column = 1;
-    uint32_t line_head = 0;
-    for (uint32_t head = 0; head < token.position(); head++) {
-        const char ch = m_source[head];
-        column++;
-        if (ch == '\n') {
-            line++;
-            column = 1;
-            line_head = head + 1;
-        }
+    // Backtrack to find line start.
+    uint32_t line_head = token.position();
+    while (line_head > 1 && m_source[line_head - 1] != '\n') {
+        line_head--;
     }
-    uint32_t line_end = line_head;
-    for (; m_source[line_end] != '\0' && m_source[line_end] != '\n'; line_end++) {
+
+    // Advance to find line end.
+    uint32_t line_end = token.position();
+    while (line_end < m_source.length() && m_source[line_end] != '\n') {
+        line_end++;
     }
-    StringView line_view(reinterpret_cast<const char *>(&m_source[line_head]), line_end - line_head);
-    return {m_file_name, line_view, line, column};
+
+    const auto line_view = m_source.view().substr(line_head, line_end);
+    return {m_file_name, line_view, token.line(), token.position() - line_head + 1};
 }
 
 double Token::number() const {

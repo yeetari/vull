@@ -24,6 +24,7 @@ private:
     String m_file_name;
     String m_source;
     uint32_t m_head{0};
+    uint16_t m_line{1};
 
     static bool is_eof(const Token &token) { return token.kind() == TokenKind::Eof; }
     void skip_char() { m_head++; }
