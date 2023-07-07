@@ -104,3 +104,23 @@ If doxygen is available, documentation can be built with
      -GNinja \
      /src
     docker run --rm -u $(id -u) -v $(pwd):/src ghcr.io/yeetari/vull:master cmake --build /src/build
+
+## Fuzzing
+
+Vull has support for fuzzing with [AFLplusplus](https://github.com/AFLplusplus/AFLplusplus). Fuzz harnesses are located
+in [tools/fuzz](tools/fuzz). To start fuzzing, use the `fuzz` cmake preset.
+
+Input corpuses can be reduced with [tools/reduce_corpus.bash](tools/reduce_corpus.bash), as well as any found crashes.
+A full workflow (using the script lexer fuzzer as an example) might look like:
+
+    cmake --preset fuzz
+    cd build-fuzz
+    cmake --build .
+    mkdir test-cases
+    # Add some test cases
+    ../tools/reduce_corpus.bash test-cases fuzz-corpus ./tools/fuzz/lexer-fuzz
+    afl-fuzz -i fuzz-corpus -o fuzz-output -- ./tools/fuzz/lexer-fuzz
+
+If any crashes are found, the crash directory can be reduced and inspected:
+
+    ../tools/reduce_corpus.bash fuzz-output/default/crashes reduced-crashes ./tools/fuzz/lexer-fuzz
