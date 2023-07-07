@@ -1,3 +1,7 @@
+if(CMAKE_CXX_COMPILER MATCHES "(afl-clang-lto)+")
+    add_subdirectory(fuzz)
+endif()
+
 vull_executable(vpak vull::core vull::graphics)
 target_sources(vpak PRIVATE
     vpak/enc/bc7enc.cc

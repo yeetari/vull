@@ -93,6 +93,22 @@
       "name": "release-gcc",
       "inherits": ["base-gcc", "release"],
       "displayName": "Release (gcc)"
+    },
+    {
+      "name": "fuzz",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_AR": "llvm-ar",
+        "CMAKE_ASM_COMPILER": "afl-clang-lto",
+        "CMAKE_C_COMPILER": "afl-clang-lto",
+        "CMAKE_CXX_COMPILER": "afl-clang-lto++",
+        "CMAKE_RANLIB": "llvm-ranlib",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined",
+        "VULL_BUILD_SANDBOX": "Off",
+        "VULL_BUILD_TESTS": "Off",
+        "VULL_WARNING_FLAGS": "-w"
+      }
     }
   ],
   "buildPresets": [
@@ -125,6 +141,11 @@
       "name": "release-gcc",
       "displayName": "Release (gcc)",
       "configurePreset": "release-gcc"
+    },
+    {
+      "name": "fuzz",
+      "displayName": "Fuzz with AFLplusplus",
+      "configurePreset": "fuzz"
     }
   ]
 }
