@@ -44,7 +44,7 @@ Token Lexer::next_token() {
     case '/':
         // Handle comments.
         if (m_source[m_head] == '/') {
-            while (m_source[m_head] != '\n') {
+            while (m_source[m_head] != '\n' && m_source[m_head] != '\0') {
                 m_head++;
             }
             return next_token();
