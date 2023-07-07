@@ -24,6 +24,8 @@
 #define VULL_GLOBAL(...) __VA_ARGS__
 #endif
 
+#define VULL_DO_NOT_OPTIMIZE(expr) asm volatile("" ::"r,m"(expr) : "memory")
+
 #if defined(__SANITIZE_ADDRESS__) || __has_feature(address_sanitizer)
 #define VULL_ASAN_ENABLED 1
 #else
