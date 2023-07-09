@@ -7,6 +7,7 @@ target_sources(vull-tests PRIVATE
     maths/Colour.cc
     maths/Epsilon.cc
     maths/Relational.cc
+    script/Lexer.cc
     support/Enum.cc
     support/Variant.cc
     ui/Units.cc

@@ -69,7 +69,7 @@ if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
-    target_link_libraries(vull-tests PRIVATE vull::core vull::json)
+    target_link_libraries(vull-tests PRIVATE vull::core vull::json vull::script)
 
     add_custom_command(TARGET vull-tests
         POST_BUILD
