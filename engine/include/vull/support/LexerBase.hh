@@ -6,11 +6,11 @@ namespace vull {
 
 template <typename Derived, typename TokenType>
 class LexerBase {
-    Optional<TokenType> m_peek_token;
-
     Derived &derived() { return *static_cast<Derived *>(this); }
 
 protected:
+    Optional<TokenType> m_peek_token;
+
     bool is_digit(auto);
     bool is_ident(auto);
     bool is_space(auto);

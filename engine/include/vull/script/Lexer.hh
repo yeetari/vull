@@ -4,7 +4,6 @@
 #include <vull/support/LexerBase.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
-#include <vull/support/Utility.hh>
 
 #include <stdint.h>
 
@@ -34,7 +33,7 @@ private:
     Token next_token();
 
 public:
-    Lexer(String file_name, String source) : m_file_name(vull::move(file_name)), m_source(vull::move(source)) {}
+    Lexer(String file_name, String source);
 
     SourcePosition recover_position(const Token &token) const;
 };

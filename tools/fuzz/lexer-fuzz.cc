@@ -11,9 +11,6 @@ using namespace vull;
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     auto string = String::copy_raw(reinterpret_cast<const char *>(data), size);
-    if (string.empty()) {
-        return -1;
-    }
     script::Lexer lexer("", string);
     while (lexer.peek().kind() != script::TokenKind::Eof) {
         auto token = lexer.next();

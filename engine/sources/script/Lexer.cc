@@ -4,12 +4,20 @@
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Format.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
 
 #include <stdint.h>
 
 namespace vull::script {
+
+Lexer::Lexer(String file_name, String source) : m_file_name(vull::move(file_name)), m_source(vull::move(source)) {
+    if (m_source.empty()) {
+        m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
+    }
+}
 
 Token Lexer::next_token() {
     char ch;
@@ -42,6 +50,7 @@ Token Lexer::next_token() {
 
     switch (ch) {
     case 0:
+        m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
         return {TokenKind::Eof, position, m_line};
     case '/':
         // Handle comments.
