@@ -27,7 +27,20 @@ Number fold_arith(Op op, Number lhs, Number rhs) {
     }
 }
 
-bool fold(Op op, Expr &lhs, Expr &rhs) {
+bool fold_unary(Op op, Expr &expr) {
+    if (expr.kind != ExprKind::Number) {
+        return false;
+    }
+    switch (op) {
+    case Op::Negate:
+        expr.number_value = -expr.number_value;
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool fold_binary(Op op, Expr &lhs, Expr &rhs) {
     if (lhs.kind != ExprKind::Number || rhs.kind != ExprKind::Number) {
         return false;
     }
@@ -95,8 +108,18 @@ UniquePtr<Frame> Builder::build_frame() {
     return vull::adopt_unique(new (memory) Frame(m_insts.take_all()));
 }
 
+void Builder::emit_unary(Op op, Expr &expr) {
+    if (fold_unary(op, expr)) {
+        return;
+    }
+
+    VULL_ASSERT(op == Op::Negate);
+    expr.inst = build(Opcode::OP_neg, 0, materialise(expr), 0);
+    expr.kind = ExprKind::Unallocated;
+}
+
 void Builder::emit_binary(Op op, Expr &lhs, Expr &rhs) {
-    if (fold(op, lhs, rhs)) {
+    if (fold_binary(op, lhs, rhs)) {
         return;
     }
 

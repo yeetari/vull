@@ -55,6 +55,7 @@ public:
 
     uint8_t materialise(Expr &expr);
     UniquePtr<Frame> build_frame();
+    void emit_unary(Op op, Expr &expr);
     void emit_binary(Op op, Expr &lhs, Expr &rhs);
     void emit_return(Optional<Expr &> expr);
 };

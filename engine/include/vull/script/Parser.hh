@@ -17,7 +17,6 @@ namespace vull::script {
 class ConstantPool;
 class Frame;
 class Lexer;
-class Scope;
 
 class ParseMessage {
 public:
@@ -57,6 +56,9 @@ public:
 };
 
 class Parser {
+    class Scope;
+
+private:
     Lexer &m_lexer;
     Builder m_builder;
     Scope *m_scope{nullptr};

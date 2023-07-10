@@ -55,17 +55,17 @@ Op to_binary_op(TokenKind kind) {
 
 } // namespace
 
-class Scope {
+class Parser::Scope {
     Scope *&m_current;
     Scope *m_parent;
     // TODO(small-map)
     HashMap<StringView, Local> m_local_map;
 
 public:
-    explicit Scope(Scope *&current);
+    explicit Scope(Scope *&current) : m_current(current), m_parent(current) { current = this; }
     Scope(const Scope &) = delete;
     Scope(Scope &&) = delete;
-    ~Scope();
+    ~Scope() { m_current = m_parent; }
 
     Scope &operator=(const Scope &) = delete;
     Scope &operator=(Scope &&) = delete;
@@ -74,20 +74,17 @@ public:
     Optional<Token> put_local(const Token &token, uint8_t reg);
 };
 
-Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
-    current = this;
+Optional<uint8_t> Parser::Scope::lookup_local(StringView name) const {
+    if (auto local = m_local_map.get(name)) {
+        return local->reg;
+    }
+    if (m_parent == nullptr) {
+        return {};
+    }
+    return m_parent->lookup_local(name);
 }
 
-Scope::~Scope() {
-    m_current = m_parent;
-}
-
-Optional<uint8_t> Scope::lookup_local(StringView name) const {
-    auto opt = m_local_map.get(name);
-    return opt ? opt->reg : Optional<uint8_t>();
-}
-
-Optional<Token> Scope::put_local(const Token &token, uint8_t reg) {
+Optional<Token> Parser::Scope::put_local(const Token &token, uint8_t reg) {
     if (auto previous = m_local_map.get(token.string())) {
         return previous->token;
     }
@@ -114,7 +111,7 @@ Result<Op, ParseError> Parser::parse_subexpr(Expr &expr, unsigned precedence) {
     if (consume('-'_tk)) {
         // Unary negate.
         VULL_TRY(parse_subexpr(expr, precedence_of(Op::Negate)));
-        // TODO: Emit an OP_negate.
+        m_builder.emit_unary(Op::Negate, expr);
     } else if (auto name = consume(TokenKind::Identifier)) {
         // TODO: VLOCAL that gets materialised later?
         auto local = m_scope->lookup_local(name->string());
@@ -139,7 +136,10 @@ Result<Op, ParseError> Parser::parse_subexpr(Expr &expr, unsigned precedence) {
 
     auto binary_op = to_binary_op(m_lexer.peek().kind());
     while (binary_op != Op::None && precedence_of(binary_op) > precedence) {
+        // Skip operator token.
         m_lexer.next();
+
+        // Parse right hand side recursively.
         Expr rhs;
         Op next_op = VULL_TRY(parse_subexpr(rhs, precedence_of(binary_op)));
         m_builder.emit_binary(vull::exchange(binary_op, next_op), expr, rhs);

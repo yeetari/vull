@@ -22,6 +22,12 @@ VM_CASE(OP_div) {
     break;
 }
 
+// R[a] = -R[b]
+VM_CASE(OP_neg) {
+    frame.reg(inst.a()) = {.number = -frame.reg(inst.b()).number};
+    break;
+}
+
 // R[a] = K[(b << 8) | c]
 VM_CASE(OP_loadk) {
     frame.reg(inst.a()) = m_constant_pool[static_cast<uint16_t>((inst.b() << 8u) | inst.c())];

@@ -13,6 +13,7 @@ enum class Opcode : uint8_t {
     OP_sub,
     OP_mul,
     OP_div,
+    OP_neg,
     OP_loadk,
     OP_move,
     OP_return0,
