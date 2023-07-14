@@ -1,5 +1,6 @@
 target_sources(vull-tests PRIVATE
     container/PerfectMap.cc
+    container/Vector.cc
     container/WorkStealingQueue.cc
     ecs/Entity.cc
     json/Lexer.cc
