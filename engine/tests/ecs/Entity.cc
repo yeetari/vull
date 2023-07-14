@@ -61,128 +61,125 @@ Vector<Tuple<Entity, Comps &...>> sum_view(EntityManager &manager) {
 
 } // namespace
 
-TEST_SUITE(Entity, {
-    ;
-    TEST_CASE(CreateDestroy) {
-        EntityManager manager;
-        Vector<Entity> entities;
-        for (int i = 0; i < 20; i++) {
-            auto entity = manager.create_entity();
-            // IDs should be sequential.
-            EXPECT(entity == EntityId(i));
-            entities.push(entity);
-        }
-        for (auto entity : entities) {
-            EXPECT(manager.valid(entity));
-            entity.destroy();
-            EXPECT(!manager.valid(entity));
-        }
-    }
-
-    TEST_CASE(AddRemoveComponent) {
-        EntityManager manager;
-        manager.register_component<Foo>();
-        manager.register_component<Bar>();
-
-        int foo_destruct_count = 0;
-        int bar_destruct_count = 0;
-
+TEST_CASE(Entity, CreateDestroy) {
+    EntityManager manager;
+    Vector<Entity> entities;
+    for (int i = 0; i < 20; i++) {
         auto entity = manager.create_entity();
-        EXPECT(!entity.has<Foo>());
-        EXPECT(!entity.has<Bar>());
-
-        entity.add<Foo>(foo_destruct_count);
-        EXPECT(entity.has<Foo>());
-        EXPECT(!entity.has<Bar>());
-
-        entity.add<Bar>(bar_destruct_count);
-        EXPECT(entity.has<Foo>());
-        EXPECT(entity.has<Bar>());
-        EXPECT(entity.has<Foo, Bar>());
-
-        entity.remove<Bar>();
-        EXPECT(entity.has<Foo>());
-        EXPECT(!entity.has<Bar>());
-
-        entity.remove<Foo>();
-        entity.add<Bar>(bar_destruct_count);
-        EXPECT(!entity.has<Foo>());
-        EXPECT(entity.has<Bar>());
-
+        // IDs should be sequential.
+        EXPECT(entity == EntityId(i));
+        entities.push(entity);
+    }
+    for (auto entity : entities) {
+        EXPECT(manager.valid(entity));
         entity.destroy();
-        EXPECT(!entity.has<Foo>());
-        EXPECT(!entity.has<Bar>());
-        EXPECT(!entity.has<Foo, Bar>());
-        EXPECT(foo_destruct_count == 1);
-        EXPECT(bar_destruct_count == 2);
+        EXPECT(!manager.valid(entity));
     }
+}
 
-    TEST_CASE(View) {
-        EntityManager manager;
-        manager.register_component<Foo>();
-        manager.register_component<Bar>();
+TEST_CASE(Entity, AddRemoveComponent) {
+    EntityManager manager;
+    manager.register_component<Foo>();
+    manager.register_component<Bar>();
 
-        Vector<EntityId> foo_entities;
-        Vector<EntityId> bar_entities;
-        for (int i = 0; i < 500; i++) {
-            auto entity = manager.create_entity();
-            if (i % 2 == 0) {
-                entity.add<Foo>();
-                foo_entities.push(entity);
-            }
-            if (i % 3 == 0) {
-                entity.add<Bar>();
-                bar_entities.push(entity);
-            }
-        }
+    int foo_destruct_count = 0;
+    int bar_destruct_count = 0;
 
-        auto foo_view = sum_view<Foo>(manager);
-        auto bar_view = sum_view<Bar>(manager);
-        auto foo_bar_view = sum_view<Foo, Bar>(manager);
-        EXPECT(foo_view.size() == 250);
-        EXPECT(bar_view.size() == 167);
-        EXPECT(foo_bar_view.size() == 84);
+    auto entity = manager.create_entity();
+    EXPECT(!entity.has<Foo>());
+    EXPECT(!entity.has<Bar>());
 
-        auto contains = [](const auto &view, EntityId entity) {
-            for (auto tuple : view) {
-                if (vull::get<0>(tuple) == entity) {
-                    return true;
-                }
-            }
-            return false;
-        };
+    entity.add<Foo>(foo_destruct_count);
+    EXPECT(entity.has<Foo>());
+    EXPECT(!entity.has<Bar>());
 
-        for (EntityId entity : foo_entities) {
-            EXPECT(contains(foo_view, entity));
-            if (entity % 3 == 0) {
-                EXPECT(contains(bar_view, entity));
-                EXPECT(contains(foo_bar_view, entity));
-            } else {
-                EXPECT(!contains(bar_view, entity));
-                EXPECT(!contains(foo_bar_view, entity));
-            }
-        }
-        for (EntityId entity : bar_entities) {
-            EXPECT(contains(bar_view, entity));
-            if (entity % 2 == 0) {
-                EXPECT(contains(foo_view, entity));
-                EXPECT(contains(foo_bar_view, entity));
-            } else {
-                EXPECT(!contains(foo_view, entity));
-                EXPECT(!contains(foo_bar_view, entity));
-            }
-        }
-    }
+    entity.add<Bar>(bar_destruct_count);
+    EXPECT(entity.has<Foo>());
+    EXPECT(entity.has<Bar>());
+    EXPECT(entity.has<Foo, Bar>());
 
-    TEST_CASE(ViewNoFirstMatch) {
-        EntityManager manager;
-        manager.register_component<Foo>();
-        manager.register_component<Bar>();
+    entity.remove<Bar>();
+    EXPECT(entity.has<Foo>());
+    EXPECT(!entity.has<Bar>());
 
+    entity.remove<Foo>();
+    entity.add<Bar>(bar_destruct_count);
+    EXPECT(!entity.has<Foo>());
+    EXPECT(entity.has<Bar>());
+
+    entity.destroy();
+    EXPECT(!entity.has<Foo>());
+    EXPECT(!entity.has<Bar>());
+    EXPECT(!entity.has<Foo, Bar>());
+    EXPECT(foo_destruct_count == 1);
+    EXPECT(bar_destruct_count == 2);
+}
+
+TEST_CASE(Entity, View) {
+    EntityManager manager;
+    manager.register_component<Foo>();
+    manager.register_component<Bar>();
+
+    Vector<EntityId> foo_entities;
+    Vector<EntityId> bar_entities;
+    for (int i = 0; i < 500; i++) {
         auto entity = manager.create_entity();
-        entity.add<Foo>();
-
-        auto view = manager.view<Foo, Bar>();
-        EXPECT(view.begin() == view.end());
+        if (i % 2 == 0) {
+            entity.add<Foo>();
+            foo_entities.push(entity);
+        }
+        if (i % 3 == 0) {
+            entity.add<Bar>();
+            bar_entities.push(entity);
+        }
     }
-})
+
+    auto foo_view = sum_view<Foo>(manager);
+    auto bar_view = sum_view<Bar>(manager);
+    auto foo_bar_view = sum_view<Foo, Bar>(manager);
+    EXPECT(foo_view.size() == 250);
+    EXPECT(bar_view.size() == 167);
+    EXPECT(foo_bar_view.size() == 84);
+
+    auto contains = [](const auto &view, EntityId entity) {
+        for (auto tuple : view) {
+            if (vull::get<0>(tuple) == entity) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    for (EntityId entity : foo_entities) {
+        EXPECT(contains(foo_view, entity));
+        if (entity % 3 == 0) {
+            EXPECT(contains(bar_view, entity));
+            EXPECT(contains(foo_bar_view, entity));
+        } else {
+            EXPECT(!contains(bar_view, entity));
+            EXPECT(!contains(foo_bar_view, entity));
+        }
+    }
+    for (EntityId entity : bar_entities) {
+        EXPECT(contains(bar_view, entity));
+        if (entity % 2 == 0) {
+            EXPECT(contains(foo_view, entity));
+            EXPECT(contains(foo_bar_view, entity));
+        } else {
+            EXPECT(!contains(foo_view, entity));
+            EXPECT(!contains(foo_bar_view, entity));
+        }
+    }
+}
+
+TEST_CASE(Entity, ViewNoFirstMatch) {
+    EntityManager manager;
+    manager.register_component<Foo>();
+    manager.register_component<Bar>();
+
+    auto entity = manager.create_entity();
+    entity.add<Foo>();
+
+    auto view = manager.view<Foo, Bar>();
+    EXPECT(view.begin() == view.end());
+}

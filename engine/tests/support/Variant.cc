@@ -28,60 +28,57 @@ public:
 
 } // namespace
 
-TEST_SUITE(Variant, {
-    ;
-    TEST_CASE(Trivial) {
-        Variant<int, float> variant(5);
-        EXPECT(!variant.has<float>());
+TEST_CASE(Variant, Trivial) {
+    Variant<int, float> variant(5);
+    EXPECT(!variant.has<float>());
+    EXPECT(variant.has<int>());
+    EXPECT(variant.get<int>() == 5);
+
+    variant.set(10);
+    EXPECT(!variant.has<float>());
+    EXPECT(variant.has<int>());
+    EXPECT(variant.get<int>() == 10);
+
+    variant.set(1.0f);
+    EXPECT(!variant.has<int>());
+    EXPECT(variant.has<float>());
+    EXPECT(variant.get<float>() == 1.0f);
+}
+
+TEST_CASE(Variant, TrivialDowncast) {
+    Variant<int, float, double> variant(5.0f);
+    EXPECT(variant.has<float>());
+
+    auto downcasted = variant.downcast<float, double>();
+    EXPECT(downcasted.has<float>());
+    EXPECT(downcasted.get<float>() == 5.0f);
+
+    variant.set(8.0);
+    downcasted.set(10.0);
+    EXPECT(variant.has<double>());
+    EXPECT(downcasted.has<double>());
+    EXPECT(variant.get<double>() == 8.0);
+    EXPECT(downcasted.get<double>() == 10.0);
+}
+
+TEST_CASE(Variant, DestructMove) {
+    int destruct_count = 0;
+    {
+        Variant<int, Foo> variant(Foo{destruct_count});
+        EXPECT(variant.has<Foo>());
+        EXPECT(destruct_count == 0);
+
+        variant = Variant<int, Foo>(Foo{destruct_count});
+        EXPECT(variant.has<Foo>());
+        EXPECT(destruct_count == 1);
+
+        variant.set(5);
         EXPECT(variant.has<int>());
-        EXPECT(variant.get<int>() == 5);
+        EXPECT(destruct_count == 2);
 
-        variant.set(10);
-        EXPECT(!variant.has<float>());
-        EXPECT(variant.has<int>());
-        EXPECT(variant.get<int>() == 10);
-
-        variant.set(1.0f);
-        EXPECT(!variant.has<int>());
-        EXPECT(variant.has<float>());
-        EXPECT(variant.get<float>() == 1.0f);
+        variant.set(Foo{destruct_count});
+        EXPECT(variant.has<Foo>());
+        EXPECT(destruct_count == 2);
     }
-
-    TEST_CASE(TrivialDowncast) {
-        Variant<int, float, double> variant(5.0f);
-        EXPECT(variant.has<float>());
-
-        auto downcasted = variant.downcast<float, double>();
-        EXPECT(downcasted.has<float>());
-        EXPECT(downcasted.get<float>() == 5.0f);
-
-        variant.set(8.0);
-        downcasted.set(10.0);
-        EXPECT(variant.has<double>());
-        EXPECT(downcasted.has<double>());
-        EXPECT(variant.get<double>() == 8.0);
-        EXPECT(downcasted.get<double>() == 10.0);
-    }
-
-    TEST_CASE(DestructMove) {
-        int destruct_count = 0;
-        {
-            Variant<int, Foo> variant(Foo{destruct_count});
-            EXPECT(variant.has<Foo>());
-            EXPECT(destruct_count == 0);
-
-            variant = Variant<int, Foo>(Foo{destruct_count});
-            EXPECT(variant.has<Foo>());
-            EXPECT(destruct_count == 1);
-
-            variant.set(5);
-            EXPECT(variant.has<int>());
-            EXPECT(destruct_count == 2);
-
-            variant.set(Foo{destruct_count});
-            EXPECT(variant.has<Foo>());
-            EXPECT(destruct_count == 2);
-        }
-        EXPECT(destruct_count == 3);
-    }
-})
+    EXPECT(destruct_count == 3);
+}

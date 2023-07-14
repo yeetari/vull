@@ -9,16 +9,6 @@ class Test;
 // NOLINTNEXTLINE
 extern vull::Vector<Test *> g_tests;
 
-#define TEST_SUITE(name, ...)                                                                                          \
-    _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wexit-time-destructors\"")                   \
-        _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"")                                                  \
-            _Pragma("clang diagnostic ignored \"-Wmissing-noreturn\"") namespace name##_Tests {                        \
-                                                                                                                       \
-        [[maybe_unused]] constexpr const char *k_test_suite_name = (#name);                                            \
-namespace __VA_ARGS__                                                                                                \
-}                                                                                                                      \
-    _Pragma("clang diagnostic pop")
-
 class Test {
     vull::String m_name;
     void (*m_fn)();
@@ -32,11 +22,6 @@ public:
     const vull::String &name() const { return m_name; }
     auto fn() const { return m_fn; }
 };
-
-#define TEST_CASE(name)                                                                                                \
-    void name();                                                                                                       \
-    Test s_##name##_registrant(k_test_suite_name, #name, &(name));                                                     \
-    void name()
 
 class TestFailure {
     const char *m_expr;
@@ -54,3 +39,13 @@ public:
 #define EXPECT(...)                                                                                                    \
     static_cast<bool>(__VA_ARGS__) ? static_cast<void>(0)                                                              \
                                    : throw TestFailure("EXPECT(" #__VA_ARGS__ ")", __FILE__, __LINE__)
+
+#define TEST_CASE(suite, name)                                                                                         \
+    _Pragma("clang diagnostic push");                                                                                  \
+    _Pragma("clang diagnostic ignored \"-Wexit-time-destructors\"");                                                   \
+    _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"");                                                     \
+    _Pragma("clang diagnostic ignored \"-Wmissing-noreturn\"");                                                        \
+    static void suite##_##name();                                                                                      \
+    static Test s_##name##_registrant(#suite, #name, &(suite##_##name));                                               \
+    _Pragma("clang diagnostic pop");                                                                                   \
+    static void suite##_##name()
