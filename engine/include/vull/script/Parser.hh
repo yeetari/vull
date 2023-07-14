@@ -68,8 +68,15 @@ private:
 
     Result<Op, ParseError> parse_subexpr(Expr &expr, unsigned precedence);
     Result<void, ParseError> parse_expr(Expr &expr);
+
+    Result<void, ParseError> parse_if_stmt();
+    Result<void, ParseError> parse_let_stmt();
+    Result<void, ParseError> parse_return_stmt();
     Result<void, ParseError> parse_stmt();
     Result<void, ParseError> parse_block();
+
+    Result<void, ParseError> parse_function();
+    Result<void, ParseError> parse_top_level();
 
 public:
     Parser(Lexer &lexer, ConstantPool &constant_pool) : m_lexer(lexer), m_builder(constant_pool) {}

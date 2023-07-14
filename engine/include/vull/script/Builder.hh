@@ -12,8 +12,8 @@ namespace vull::script {
 
 class ConstantPool;
 
-enum class Op {
-    None,
+enum class Op : uint32_t {
+    None = 0,
 
     // Binary arithmetic operators.
     Add,
@@ -21,8 +21,18 @@ enum class Op {
     Mul,
     Div,
 
+    // Binary comparison operators.
+    Equal,
+    NotEqual,
+    LessThan,
+    LessEqual,
+    GreaterThan,
+    GreaterEqual,
+
     // Unary operators.
     Negate,
+
+    _count,
 };
 
 enum class ExprKind {
@@ -58,6 +68,9 @@ public:
     void emit_unary(Op op, Expr &expr);
     void emit_binary(Op op, Expr &lhs, Expr &rhs);
     void emit_return(Optional<Expr &> expr);
+
+    uint32_t emit_jump();
+    void patch_jump_to_here(uint32_t pc);
 };
 
 } // namespace vull::script

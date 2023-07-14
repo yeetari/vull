@@ -14,16 +14,25 @@ enum class Opcode : uint8_t {
     OP_mul,
     OP_div,
     OP_neg,
+
+    OP_jmp,
+    OP_iseq,
+    OP_isne,
+    OP_islt,
+    OP_isle,
+
     OP_loadk,
     OP_move,
     OP_return0,
     OP_return1,
 };
 
-// a, b, c = operand {a, b, c}
+// a, b, c = 8-bit operands
+// j = signed 24-bit operand
 // o = opcode
 // o = unused
-// cccccccc bbbbbbbb aaaaaaaa uuoooooo
+// 1. cccccccc bbbbbbbb aaaaaaaa uuoooooo
+// 2. jjjjjjjj jjjjjjjj jjjjjjjj uuoooooo
 class Instruction {
     uint32_t m_word;
 
@@ -33,13 +42,19 @@ public:
 
     void set_a(uint8_t a) {
         m_word &= 0xffff00ffu;
-        m_word |= static_cast<uint32_t>(a << 8u);
+        m_word |= static_cast<uint32_t>(a) << 8u;
+    }
+
+    void set_sj(int32_t offset) {
+        m_word &= 0xffu;
+        m_word |= static_cast<uint32_t>(offset) << 8u;
     }
 
     Opcode opcode() const { return static_cast<Opcode>(m_word & 0x3fu); }
     uint8_t a() const { return (m_word >> 8u) & 0xffu; }
     uint8_t b() const { return (m_word >> 16u) & 0xffu; }
     uint8_t c() const { return (m_word >> 24u) & 0xffu; }
+    int32_t sj() const { return static_cast<int32_t>(m_word >> 8u); }
 };
 
 class Frame {

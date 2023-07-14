@@ -137,10 +137,34 @@ void Builder::emit_binary(Op op, Expr &lhs, Expr &rhs) {
     case Op::Div:
         opcode = Opcode::OP_div;
         break;
+    case Op::Equal:
+        opcode = Opcode::OP_iseq;
+        break;
+    case Op::NotEqual:
+        opcode = Opcode::OP_isne;
+        break;
+    case Op::GreaterThan:
+        vull::swap(lhs, rhs);
+        [[fallthrough]];
+    case Op::LessThan:
+        opcode = Opcode::OP_islt;
+        break;
+    case Op::GreaterEqual:
+        vull::swap(lhs, rhs);
+        [[fallthrough]];
+    case Op::LessEqual:
+        opcode = Opcode::OP_isle;
+        break;
     default:
         VULL_ASSERT_NOT_REACHED();
     }
-    lhs.inst = build(opcode, 0, materialise(lhs), materialise(rhs));
+
+    if (opcode == Opcode::OP_iseq || opcode == Opcode::OP_islt || opcode == Opcode::OP_isle) {
+        lhs.inst = build(opcode, materialise(lhs), materialise(rhs), 0);
+        emit(lhs.inst);
+    } else {
+        lhs.inst = build(opcode, 0, materialise(lhs), materialise(rhs));
+    }
     lhs.kind = ExprKind::Unallocated;
 }
 
@@ -150,6 +174,15 @@ void Builder::emit_return(Optional<Expr &> expr) {
         return;
     }
     emit(Opcode::OP_return1, materialise(*expr), 0, 0);
+}
+
+uint32_t Builder::emit_jump() {
+    emit(Opcode::OP_jmp, 0, 0, 0);
+    return m_insts.size() - 1;
+}
+
+void Builder::patch_jump_to_here(uint32_t pc) {
+    m_insts[pc].set_sj(static_cast<int32_t>(m_insts.size() - pc));
 }
 
 } // namespace vull::script

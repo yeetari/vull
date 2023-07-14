@@ -36,8 +36,21 @@ Token Lexer::next_token() {
             m_head++;
         }
         auto string = m_source.view().substr(position, m_head);
+        // TODO: Perfect hashing (http://0x80.pl/notesen/2023-04-30-lookup-in-strings.html) or trie switch.
+        if (string == "elif") {
+            return {TokenKind::KW_elif, position, m_line};
+        }
+        if (string == "else") {
+            return {TokenKind::KW_else, position, m_line};
+        }
+        if (string == "end") {
+            return {TokenKind::KW_end, position, m_line};
+        }
         if (string == "function") {
             return {TokenKind::KW_function, position, m_line};
+        }
+        if (string == "if") {
+            return {TokenKind::KW_if, position, m_line};
         }
         if (string == "let") {
             return {TokenKind::KW_let, position, m_line};
@@ -52,6 +65,30 @@ Token Lexer::next_token() {
     case 0:
         m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
         return {TokenKind::Eof, position, m_line};
+    case '=':
+        if (m_source[m_head] == '=') {
+            m_head++;
+            return {TokenKind::EqualEqual, position, m_line};
+        }
+        return {'='_tk, position, m_line};
+    case '!':
+        if (m_source[m_head] == '=') {
+            m_head++;
+            return {TokenKind::NotEqual, position, m_line};
+        }
+        return {'!'_tk, position, m_line};
+    case '<':
+        if (m_source[m_head] == '=') {
+            m_head++;
+            return {TokenKind::LessEqual, position, m_line};
+        }
+        return {'<'_tk, position, m_line};
+    case '>':
+        if (m_source[m_head] == '=') {
+            m_head++;
+            return {TokenKind::GreaterEqual, position, m_line};
+        }
+        return {'>'_tk, position, m_line};
     case '/':
         // Handle comments.
         if (m_source[m_head] == '/') {
@@ -111,8 +148,24 @@ String Token::kind_string(TokenKind kind) {
         return "identifier";
     case TokenKind::Number:
         return "number literal";
+    case TokenKind::EqualEqual:
+        return "'=='";
+    case TokenKind::NotEqual:
+        return "'!='";
+    case TokenKind::LessEqual:
+        return "'<='";
+    case TokenKind::GreaterEqual:
+        return "'>='";
+    case TokenKind::KW_elif:
+        return "'elif'";
+    case TokenKind::KW_else:
+        return "'else'";
+    case TokenKind::KW_end:
+        return "'end'";
     case TokenKind::KW_function:
         return "'function'";
+    case TokenKind::KW_if:
+        return "'if'";
     case TokenKind::KW_let:
         return "'let'";
     case TokenKind::KW_return:

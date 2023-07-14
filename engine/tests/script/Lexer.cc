@@ -37,10 +37,14 @@ TEST_SUITE(ScriptLexer, {
     }
 
     TEST_CASE(Punctuation) {
-        script::Lexer lexer("", "();");
+        script::Lexer lexer("", "(); == != <= >=");
         EXPECT(lexer.next().kind() == '('_tk);
         EXPECT(lexer.next().kind() == ')'_tk);
         EXPECT(lexer.next().kind() == ';'_tk);
+        EXPECT(lexer.next().kind() == script::TokenKind::EqualEqual);
+        EXPECT(lexer.next().kind() == script::TokenKind::NotEqual);
+        EXPECT(lexer.next().kind() == script::TokenKind::LessEqual);
+        EXPECT(lexer.next().kind() == script::TokenKind::GreaterEqual);
         EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     }
 
@@ -100,8 +104,12 @@ TEST_SUITE(ScriptLexer, {
     }
 
     TEST_CASE(Keywords) {
-        script::Lexer lexer("", "function let return");
+        script::Lexer lexer("", "elif else end function if let return");
+        EXPECT(lexer.next().kind() == script::TokenKind::KW_elif);
+        EXPECT(lexer.next().kind() == script::TokenKind::KW_else);
+        EXPECT(lexer.next().kind() == script::TokenKind::KW_end);
         EXPECT(lexer.next().kind() == script::TokenKind::KW_function);
+        EXPECT(lexer.next().kind() == script::TokenKind::KW_if);
         EXPECT(lexer.next().kind() == script::TokenKind::KW_let);
         EXPECT(lexer.next().kind() == script::TokenKind::KW_return);
         EXPECT(lexer.next().kind() == script::TokenKind::Eof);

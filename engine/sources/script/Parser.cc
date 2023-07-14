@@ -1,11 +1,14 @@
 #include <vull/script/Parser.hh>
 
+#include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
+#include <vull/container/Vector.hh>
 #include <vull/script/Builder.hh>
 #include <vull/script/Bytecode.hh>
 #include <vull/script/Lexer.hh>
 #include <vull/script/Token.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Enum.hh>
 #include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
@@ -23,19 +26,17 @@ struct Local {
     uint8_t reg;
 };
 
+Array<unsigned, vull::to_underlying(Op::_count)> s_precedence_table{
+    0,          // None
+    3, 3,       // Add, Sub
+    4, 4,       // Mul, Div
+    1, 1,       // Equal, NotEqual
+    2, 2, 2, 2, // LessThan, LessEqual, GreaterThan, GreaterEqual
+    5,          // Negate
+};
+
 unsigned precedence_of(Op op) {
-    switch (op) {
-    case Op::Add:
-    case Op::Sub:
-        return 1;
-    case Op::Mul:
-    case Op::Div:
-        return 2;
-    case Op::Negate:
-        return 3;
-    default:
-        vull::unreachable();
-    }
+    return s_precedence_table[vull::to_underlying(op)];
 }
 
 Op to_binary_op(TokenKind kind) {
@@ -48,6 +49,18 @@ Op to_binary_op(TokenKind kind) {
         return Op::Mul;
     case '/'_tk:
         return Op::Div;
+    case TokenKind::EqualEqual:
+        return Op::Equal;
+    case TokenKind::NotEqual:
+        return Op::NotEqual;
+    case '<'_tk:
+        return Op::LessThan;
+    case TokenKind::LessEqual:
+        return Op::LessEqual;
+    case '>'_tk:
+        return Op::GreaterThan;
+    case TokenKind::GreaterEqual:
+        return Op::GreaterEqual;
     default:
         return Op::None;
     }
@@ -153,26 +166,68 @@ Result<void, ParseError> Parser::parse_expr(Expr &expr) {
     return {};
 }
 
-Result<void, ParseError> Parser::parse_stmt() {
-    if (consume(TokenKind::KW_let)) {
-        auto name = VULL_TRY(expect(TokenKind::Identifier));
-        VULL_TRY(expect('='_tk));
-        Expr expr;
-        VULL_TRY(parse_expr(expr));
-        if (auto previous_name = m_scope->put_local(name, m_builder.materialise(expr))) {
-            ParseError error;
-            error.add_error(name, vull::format("redefinition of '{}'", name.string()));
-            error.add_note(*previous_name, "previously defined here");
-            return error;
-        }
-        return {};
-    }
+Result<void, ParseError> Parser::parse_if_stmt() {
+    // TODO(small-vector)
+    Vector<uint32_t> exit_jump_pcs;
+    uint32_t else_jump_pc;
+    do {
+        Expr condition_expr;
+        VULL_TRY(parse_expr(condition_expr));
 
+        // Emit a jump to the next elif/else branch if the condition is false.
+        else_jump_pc = m_builder.emit_jump();
+
+        // Parse the then block and emit a jump to the end of the if for when the branch is done.
+        VULL_TRY(parse_block());
+        exit_jump_pcs.push(m_builder.emit_jump());
+
+        // Next branch starts here.
+        m_builder.patch_jump_to_here(else_jump_pc);
+    } while (consume(TokenKind::KW_elif));
+
+    // Parse any else branch.
+    if (consume(TokenKind::KW_else)) {
+        VULL_TRY(parse_block());
+    }
+    VULL_TRY(expect(TokenKind::KW_end));
+
+    // Patch up exit jumps.
+    for (uint32_t jump_pc : exit_jump_pcs) {
+        m_builder.patch_jump_to_here(jump_pc);
+    }
+    return {};
+}
+
+Result<void, ParseError> Parser::parse_let_stmt() {
+    auto name = VULL_TRY(expect(TokenKind::Identifier));
+    VULL_TRY(expect('='_tk));
+    Expr expr;
+    VULL_TRY(parse_expr(expr));
+    if (auto previous_name = m_scope->put_local(name, m_builder.materialise(expr))) {
+        ParseError error;
+        error.add_error(name, vull::format("redefinition of '{}'", name.string()));
+        error.add_note(*previous_name, "previously defined here");
+        return error;
+    }
+    return {};
+}
+
+Result<void, ParseError> Parser::parse_return_stmt() {
+    Expr expr;
+    VULL_TRY(parse_expr(expr));
+    m_builder.emit_return(expr);
+    return {};
+}
+
+Result<void, ParseError> Parser::parse_stmt() {
+    if (consume(TokenKind::KW_if)) {
+        return parse_if_stmt();
+    }
+    if (consume(TokenKind::KW_let)) {
+        return parse_let_stmt();
+    }
     if (consume(TokenKind::KW_return)) {
-        Expr expr;
-        VULL_TRY(parse_expr(expr));
-        m_builder.emit_return(expr);
-        return {};
+        return parse_return_stmt();
     }
 
     ParseError error;
@@ -182,15 +237,36 @@ Result<void, ParseError> Parser::parse_stmt() {
 
 Result<void, ParseError> Parser::parse_block() {
     Scope scope(m_scope);
-    while (!consume(TokenKind::Eof)) {
+    while (!m_lexer.peek().is_one_of(TokenKind::KW_end, TokenKind::KW_else, TokenKind::KW_elif)) {
         VULL_TRY(parse_stmt());
     }
     return {};
 }
 
-Result<UniquePtr<Frame>, ParseError> Parser::parse() {
+Result<void, ParseError> Parser::parse_function() {
+    VULL_TRY(expect(TokenKind::Identifier));
+    VULL_TRY(expect('('_tk));
+    VULL_TRY(expect(')'_tk));
     VULL_TRY(parse_block());
-    VULL_TRY(expect(TokenKind::Eof));
+    VULL_TRY(expect(TokenKind::KW_end));
+    m_builder.emit_return({});
+    return {};
+}
+
+Result<void, ParseError> Parser::parse_top_level() {
+    if (consume(TokenKind::KW_function)) {
+        return parse_function();
+    }
+
+    ParseError error;
+    error.add_error(m_lexer.next(), "expected top level declaration");
+    return error;
+}
+
+Result<UniquePtr<Frame>, ParseError> Parser::parse() {
+    while (!consume(TokenKind::Eof)) {
+        VULL_TRY(parse_top_level());
+    }
     return m_builder.build_frame();
 }
 

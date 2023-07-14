@@ -13,7 +13,16 @@ enum class TokenKind : uint16_t {
     Identifier,
     Number,
 
+    EqualEqual,
+    NotEqual,
+    LessEqual,
+    GreaterEqual,
+
+    KW_elif,
+    KW_else,
+    KW_end,
     KW_function,
+    KW_if,
     KW_let,
     KW_return,
 };
@@ -39,6 +48,7 @@ public:
         : m_ptr_data(string.data()), m_number_data{.integer_data = string.length()}, m_position(position), m_line(line),
           m_kind(kind) {}
 
+    bool is_one_of(auto... kinds) const;
     double number() const;
     StringView string() const;
     String to_string() const;
@@ -47,6 +57,10 @@ public:
     uint32_t position() const { return m_position; }
     uint16_t line() const { return m_line; }
 };
+
+bool Token::is_one_of(auto... kinds) const {
+    return ((m_kind == kinds) || ...);
+}
 
 constexpr TokenKind operator""_tk(char ch) {
     return static_cast<TokenKind>(ch);
