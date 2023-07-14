@@ -46,6 +46,6 @@ public:
     _Pragma("clang diagnostic ignored \"-Wglobal-constructors\"");                                                     \
     _Pragma("clang diagnostic ignored \"-Wmissing-noreturn\"");                                                        \
     static void suite##_##name();                                                                                      \
-    static Test s_##name##_registrant(#suite, #name, &(suite##_##name));                                               \
+    static Test s_##suite##_##name##_registrant(#suite, #name, &(suite##_##name));                                     \
     _Pragma("clang diagnostic pop");                                                                                   \
     static void suite##_##name()
