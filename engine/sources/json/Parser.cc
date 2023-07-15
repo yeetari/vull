@@ -66,10 +66,12 @@ Value parse_object(Lexer &lexer) {
 Value parse_value(Lexer &lexer) {
     Token token = lexer.next();
     switch (token.kind()) {
+    case TokenKind::Decimal:
+        return token.decimal();
+    case TokenKind::Integer:
+        return token.integer();
     case TokenKind::String:
         return String(token.string());
-    case TokenKind::Number:
-        return token.number();
     case TokenKind::Null:
         return Null{};
     case TokenKind::True:

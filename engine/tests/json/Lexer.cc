@@ -52,54 +52,54 @@ TEST_CASE(JsonLexer, Punctuation) {
 TEST_CASE(JsonLexer, Integer) {
     json::Lexer lexer("1234");
     auto token = lexer.next();
-    EXPECT(token.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(token.number(), 1234.0));
+    EXPECT(token.kind() == json::TokenKind::Integer);
+    EXPECT(token.integer() == 1234);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
 TEST_CASE(JsonLexer, NegativeInteger) {
     json::Lexer lexer("-1234");
     auto token = lexer.next();
-    EXPECT(token.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(token.number(), -1234.0));
+    EXPECT(token.kind() == json::TokenKind::Integer);
+    EXPECT(token.integer() == -1234);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
 TEST_CASE(JsonLexer, Decimal) {
     json::Lexer lexer("1234.56");
     auto token = lexer.next();
-    EXPECT(token.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(token.number(), 1234.56));
+    EXPECT(token.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(token.decimal(), 1234.56));
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
 TEST_CASE(JsonLexer, NegativeDecimal) {
     json::Lexer lexer("-1234.56");
     auto token = lexer.next();
-    EXPECT(token.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(token.number(), -1234.56));
+    EXPECT(token.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(token.decimal(), -1234.56));
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
 TEST_CASE(JsonLexer, Exponent) {
     json::Lexer lexer("1234e5 -1234.56E5");
     auto first = lexer.next();
-    EXPECT(first.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(first.number(), 1234e5));
+    EXPECT(first.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(first.decimal(), 1234e5));
     auto second = lexer.next();
-    EXPECT(second.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(second.number(), -1234.56e5));
+    EXPECT(second.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(second.decimal(), -1234.56e5));
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
 TEST_CASE(JsonLexer, NegativeExponent) {
     json::Lexer lexer("1234e-5 -1234.56E-5");
     auto first = lexer.next();
-    EXPECT(first.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(first.number(), 1234e-5));
+    EXPECT(first.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(first.decimal(), 1234e-5));
     auto second = lexer.next();
-    EXPECT(second.kind() == json::TokenKind::Number);
-    EXPECT(vull::fuzzy_equal(second.number(), -1234.56e-5));
+    EXPECT(second.kind() == json::TokenKind::Decimal);
+    EXPECT(vull::fuzzy_equal(second.decimal(), -1234.56e-5));
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 

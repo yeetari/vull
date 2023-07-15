@@ -11,8 +11,9 @@ enum class TokenKind {
     Invalid,
     Eof,
 
+    Decimal,
+    Integer,
     String,
-    Number,
 
     ArrayBegin,
     ArrayEnd,
@@ -30,29 +31,37 @@ class Token {
     const void *m_data_ptr{nullptr};
     union {
         double d;
-        size_t i;
+        int64_t si;
+        uint64_t ui;
     } m_data_numeric{};
     TokenKind m_kind;
 
 public:
     explicit Token(TokenKind kind) : m_kind(kind) {}
-    explicit Token(double d) : m_data_numeric{.d = d}, m_kind(TokenKind::Number) {}
+    explicit Token(double d) : m_data_numeric{.d = d}, m_kind(TokenKind::Decimal) {}
+    explicit Token(int64_t si) : m_data_numeric{.si = si}, m_kind(TokenKind::Integer) {}
     explicit Token(StringView sv)
-        : m_data_ptr(sv.data()), m_data_numeric{.i = sv.length()}, m_kind(TokenKind::String) {}
+        : m_data_ptr(sv.data()), m_data_numeric{.ui = sv.length()}, m_kind(TokenKind::String) {}
 
     TokenKind kind() const { return m_kind; }
-    double number() const;
+    double decimal() const;
+    int64_t integer() const;
     StringView string() const;
 };
 
-inline double Token::number() const {
-    VULL_ASSERT(m_kind == TokenKind::Number, "token not a number");
+inline double Token::decimal() const {
+    VULL_ASSERT(m_kind == TokenKind::Decimal, "token not a decimal");
     return m_data_numeric.d;
+}
+
+inline int64_t Token::integer() const {
+    VULL_ASSERT(m_kind == TokenKind::Integer, "token not an integer");
+    return m_data_numeric.si;
 }
 
 inline StringView Token::string() const {
     VULL_ASSERT(m_kind == TokenKind::String, "token not a string");
-    return {static_cast<const char *>(m_data_ptr), m_data_numeric.i};
+    return {static_cast<const char *>(m_data_ptr), m_data_numeric.ui};
 }
 
 } // namespace vull::json

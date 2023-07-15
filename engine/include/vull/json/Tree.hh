@@ -14,7 +14,6 @@ namespace vull::json {
 
 class Null {};
 
-using Number = double;
 using String = vull::String;
 
 struct JsonResult;
@@ -24,6 +23,7 @@ enum class JsonError {
     KeyNotFound,
     NotAnArray,
     NotABool,
+    NotAnInteger,
     NotANumber,
     NotAnObject,
     NotAString,
@@ -52,7 +52,7 @@ public:
     size_t size() const { return m_data.size(); }
 };
 
-struct Value : private Variant<Null, Object, Array, Number, String, bool> {
+struct Value : private Variant<Null, Object, Array, String, bool, int64_t, double> {
     using Variant::has;
     using Variant::Variant;
 
@@ -80,12 +80,14 @@ Result<const T &, JsonError> Value::get() const {
             return JsonError::NotAnObject;
         } else if constexpr (is_same<T, Array>) {
             return JsonError::NotAnArray;
-        } else if constexpr (is_same<T, Number>) {
-            return JsonError::NotANumber;
         } else if constexpr (is_same<T, String>) {
             return JsonError::NotAString;
         } else if constexpr (is_same<T, bool>) {
             return JsonError::NotABool;
+        } else if constexpr (is_same<T, int64_t>) {
+            return JsonError::NotAnInteger;
+        } else if constexpr (is_same<T, double>) {
+            return JsonError::NotANumber;
         } else {
             static_assert(!is_same<T, T>);
         }

@@ -6,12 +6,13 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Test.hh>
 
+#include <stdint.h>
+
 using namespace vull;
 
-TEST_CASE(JsonParser, String) {
-    auto value = VULL_EXPECT(json::parse("\"hello\""));
-    EXPECT(value.has<json::String>());
-    EXPECT(VULL_ASSUME(value.get<json::String>()) == "hello");
+TEST_CASE(JsonParser, Null) {
+    auto value = VULL_EXPECT(json::parse("null"));
+    EXPECT(value.has<json::Null>());
 }
 
 TEST_CASE(JsonParser, True) {
@@ -24,6 +25,18 @@ TEST_CASE(JsonParser, False) {
     auto value = VULL_EXPECT(json::parse("false"));
     EXPECT(value.has<bool>());
     EXPECT(!VULL_ASSUME(value.get<bool>()));
+}
+
+TEST_CASE(JsonParser, Integer) {
+    auto value = VULL_EXPECT(json::parse("300"));
+    EXPECT(value.has<int64_t>());
+    EXPECT(VULL_ASSUME(value.get<int64_t>()) == 300);
+}
+
+TEST_CASE(JsonParser, String) {
+    auto value = VULL_EXPECT(json::parse("\"hello\""));
+    EXPECT(value.has<json::String>());
+    EXPECT(VULL_ASSUME(value.get<json::String>()) == "hello");
 }
 
 TEST_CASE(JsonParser, Array1) {
@@ -48,13 +61,13 @@ TEST_CASE(JsonParser, Array4) {
     auto value = VULL_EXPECT(json::parse("[123,456]"));
     EXPECT(value.has<json::Array>());
     EXPECT(VULL_ASSUME(value.get<json::Array>()).size() == 2);
-    EXPECT(vull::fuzzy_equal(VULL_EXPECT(value[0].get<json::Number>()), 123.0));
-    EXPECT(vull::fuzzy_equal(VULL_EXPECT(value[1].get<json::Number>()), 456.0));
+    EXPECT(VULL_EXPECT(value[0].get<int64_t>()) == 123);
+    EXPECT(VULL_EXPECT(value[1].get<int64_t>()) == 456);
 }
 TEST_CASE(JsonParser, Array5) {
     auto value = VULL_EXPECT(json::parse("[{\"foo\": 5e6,\"bar\": null}, \"hello\"]"));
     EXPECT(value.has<json::Array>());
-    EXPECT(vull::fuzzy_equal(VULL_EXPECT(value[0]["foo"].get<json::Number>()), 5e6));
+    EXPECT(vull::fuzzy_equal(VULL_EXPECT(value[0]["foo"].get<double>()), 5e6));
     EXPECT(value[0]["bar"].has<json::Null>());
     EXPECT(VULL_EXPECT(value[1].get<json::String>()) == "hello");
 }

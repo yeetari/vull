@@ -39,14 +39,14 @@ Token Lexer::next_token() {
         if (const auto decimal = number.try_get<double>()) {
             return Token(-*decimal);
         }
-        return Token(-static_cast<double>(number.get<uint64_t>()));
+        return Token(-static_cast<int64_t>(number.get<uint64_t>()));
     }
     if (is_digit(ch)) {
         auto number = parse_number(ch);
         if (const auto decimal = number.try_get<double>()) {
             return Token(*decimal);
         }
-        return Token(static_cast<double>(number.get<uint64_t>()));
+        return Token(static_cast<int64_t>(number.get<uint64_t>()));
     }
 
     if (ch == 'n' && m_head + 3 <= m_source.length() && m_source.substr(m_head, m_head + 3) == "ull") {
