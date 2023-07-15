@@ -10,6 +10,8 @@
 namespace vull::json {
 namespace {
 
+constexpr int k_max_level = 64;
+
 Result<Token, ParseError> expect(Lexer &lexer, TokenKind tk) {
     auto token = lexer.next();
     if (token.kind() != tk) [[unlikely]] {
@@ -18,9 +20,13 @@ Result<Token, ParseError> expect(Lexer &lexer, TokenKind tk) {
     return token;
 }
 
-Result<Value, ParseError> parse_value(Lexer &lexer);
+Result<Value, ParseError> parse_value(Lexer &lexer, int level);
 
-Result<Value, ParseError> parse_array(Lexer &lexer) {
+Result<Value, ParseError> parse_array(Lexer &lexer, int level) {
+    if (level > k_max_level) {
+        return ParseError{};
+    }
+
     json::Array array;
     while (true) {
         if (lexer.peek().kind() == TokenKind::ArrayEnd) {
@@ -28,7 +34,7 @@ Result<Value, ParseError> parse_array(Lexer &lexer) {
             break;
         }
 
-        Value value = VULL_TRY(parse_value(lexer));
+        Value value = VULL_TRY(parse_value(lexer, level + 1));
         array.push(vull::move(value));
 
         if (lexer.peek().kind() == TokenKind::ArrayEnd) {
@@ -41,7 +47,11 @@ Result<Value, ParseError> parse_array(Lexer &lexer) {
     return Value(vull::move(array));
 }
 
-Result<Value, ParseError> parse_object(Lexer &lexer) {
+Result<Value, ParseError> parse_object(Lexer &lexer, int level) {
+    if (level > k_max_level) {
+        return ParseError{};
+    }
+
     json::Object object;
     while (true) {
         if (lexer.peek().kind() == TokenKind::ObjectEnd) {
@@ -51,7 +61,7 @@ Result<Value, ParseError> parse_object(Lexer &lexer) {
 
         auto key_token = VULL_TRY(expect(lexer, TokenKind::String));
         VULL_TRY(expect(lexer, TokenKind::Colon));
-        Value value = VULL_TRY(parse_value(lexer));
+        Value value = VULL_TRY(parse_value(lexer, level + 1));
 
         object.add(key_token.string(), vull::move(value));
 
@@ -65,7 +75,11 @@ Result<Value, ParseError> parse_object(Lexer &lexer) {
     return Value(vull::move(object));
 }
 
-Result<Value, ParseError> parse_value(Lexer &lexer) {
+Result<Value, ParseError> parse_value(Lexer &lexer, int level) {
+    if (level > k_max_level) {
+        return ParseError{};
+    }
+
     Token token = lexer.next();
     switch (token.kind()) {
     case TokenKind::Decimal:
@@ -81,9 +95,9 @@ Result<Value, ParseError> parse_value(Lexer &lexer) {
     case TokenKind::False:
         return Value(false);
     case TokenKind::ArrayBegin:
-        return parse_array(lexer);
+        return parse_array(lexer, level + 1);
     case TokenKind::ObjectBegin:
-        return parse_object(lexer);
+        return parse_object(lexer, level + 1);
     default:
         return ParseError{};
     }
@@ -93,7 +107,7 @@ Result<Value, ParseError> parse_value(Lexer &lexer) {
 
 Result<Value, ParseError> parse(StringView source) {
     Lexer lexer(source);
-    return parse_value(lexer);
+    return parse_value(lexer, 0);
 }
 
 } // namespace vull::json
