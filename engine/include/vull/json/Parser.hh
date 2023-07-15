@@ -6,6 +6,9 @@
 
 namespace vull::json {
 
-Result<Value, JsonError> parse(StringView source);
+// TODO: Details of parse error.
+struct ParseError {};
+
+Result<Value, ParseError> parse(StringView source);
 
 } // namespace vull::json

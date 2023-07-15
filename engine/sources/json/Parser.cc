@@ -3,19 +3,24 @@
 #include <vull/json/Lexer.hh>
 #include <vull/json/Token.hh>
 #include <vull/json/Tree.hh>
-#include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 
-// TODO: Error handling.
-
 namespace vull::json {
 namespace {
 
-Value parse_value(Lexer &lexer);
+Result<Token, ParseError> expect(Lexer &lexer, TokenKind tk) {
+    auto token = lexer.next();
+    if (token.kind() != tk) [[unlikely]] {
+        return ParseError{};
+    }
+    return token;
+}
 
-Value parse_array(Lexer &lexer) {
+Result<Value, ParseError> parse_value(Lexer &lexer);
+
+Result<Value, ParseError> parse_array(Lexer &lexer) {
     json::Array array;
     while (true) {
         if (lexer.peek().kind() == TokenKind::ArrayEnd) {
@@ -23,7 +28,7 @@ Value parse_array(Lexer &lexer) {
             break;
         }
 
-        Value value = parse_value(lexer);
+        Value value = VULL_TRY(parse_value(lexer));
         array.push(vull::move(value));
 
         if (lexer.peek().kind() == TokenKind::ArrayEnd) {
@@ -31,14 +36,12 @@ Value parse_array(Lexer &lexer) {
             break;
         }
 
-        if (lexer.next().kind() != TokenKind::Comma) {
-            VULL_ENSURE_NOT_REACHED();
-        }
+        VULL_TRY(expect(lexer, TokenKind::Comma));
     }
-    return array;
+    return Value(vull::move(array));
 }
 
-Value parse_object(Lexer &lexer) {
+Result<Value, ParseError> parse_object(Lexer &lexer) {
     json::Object object;
     while (true) {
         if (lexer.peek().kind() == TokenKind::ObjectEnd) {
@@ -46,10 +49,9 @@ Value parse_object(Lexer &lexer) {
             break;
         }
 
-        auto key_token = lexer.next();
-        VULL_ENSURE(key_token.kind() == TokenKind::String);
-        VULL_ENSURE(lexer.next().kind() == TokenKind::Colon);
-        Value value = parse_value(lexer);
+        auto key_token = VULL_TRY(expect(lexer, TokenKind::String));
+        VULL_TRY(expect(lexer, TokenKind::Colon));
+        Value value = VULL_TRY(parse_value(lexer));
 
         object.add(key_token.string(), vull::move(value));
 
@@ -58,38 +60,38 @@ Value parse_object(Lexer &lexer) {
             break;
         }
 
-        VULL_ENSURE(lexer.next().kind() == TokenKind::Comma);
+        VULL_TRY(expect(lexer, TokenKind::Comma));
     }
-    return object;
+    return Value(vull::move(object));
 }
 
-Value parse_value(Lexer &lexer) {
+Result<Value, ParseError> parse_value(Lexer &lexer) {
     Token token = lexer.next();
     switch (token.kind()) {
     case TokenKind::Decimal:
-        return token.decimal();
+        return Value(token.decimal());
     case TokenKind::Integer:
-        return token.integer();
+        return Value(token.integer());
     case TokenKind::String:
-        return String(token.string());
+        return Value(String(token.string()));
     case TokenKind::Null:
-        return Null{};
+        return Value(Null{});
     case TokenKind::True:
-        return true;
+        return Value(true);
     case TokenKind::False:
-        return false;
+        return Value(false);
     case TokenKind::ArrayBegin:
         return parse_array(lexer);
     case TokenKind::ObjectBegin:
         return parse_object(lexer);
     default:
-        VULL_ENSURE_NOT_REACHED();
+        return ParseError{};
     }
 }
 
 } // namespace
 
-Result<Value, JsonError> parse(StringView source) {
+Result<Value, ParseError> parse(StringView source) {
     Lexer lexer(source);
     return parse_value(lexer);
 }

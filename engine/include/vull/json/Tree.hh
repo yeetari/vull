@@ -19,7 +19,7 @@ using String = vull::String;
 struct JsonResult;
 struct Value;
 
-enum class JsonError {
+enum class TreeError {
     KeyNotFound,
     NotAnArray,
     NotABool,
@@ -57,16 +57,16 @@ struct Value : private Variant<Null, Object, Array, String, bool, int64_t, doubl
     using Variant::Variant;
 
     template <typename T>
-    Result<const T &, JsonError> get() const;
+    Result<const T &, TreeError> get() const;
     JsonResult operator[](uint32_t index) const;
     JsonResult operator[](StringView key) const;
 };
 
-struct JsonResult : public Result<const Value &, JsonError> {
-    using Result<const Value &, JsonError>::Result;
+struct JsonResult : public Result<const Value &, TreeError> {
+    using Result<const Value &, TreeError>::Result;
 
     template <typename T>
-    Result<const T &, JsonError> get() const;
+    Result<const T &, TreeError> get() const;
     template <typename T>
     bool has() const;
     JsonResult operator[](uint32_t index) const;
@@ -74,20 +74,20 @@ struct JsonResult : public Result<const Value &, JsonError> {
 };
 
 template <typename T>
-Result<const T &, JsonError> Value::get() const {
+Result<const T &, TreeError> Value::get() const {
     if (!has<T>()) {
         if constexpr (is_same<T, Object>) {
-            return JsonError::NotAnObject;
+            return TreeError::NotAnObject;
         } else if constexpr (is_same<T, Array>) {
-            return JsonError::NotAnArray;
+            return TreeError::NotAnArray;
         } else if constexpr (is_same<T, String>) {
-            return JsonError::NotAString;
+            return TreeError::NotAString;
         } else if constexpr (is_same<T, bool>) {
-            return JsonError::NotABool;
+            return TreeError::NotABool;
         } else if constexpr (is_same<T, int64_t>) {
-            return JsonError::NotAnInteger;
+            return TreeError::NotAnInteger;
         } else if constexpr (is_same<T, double>) {
-            return JsonError::NotANumber;
+            return TreeError::NotANumber;
         } else {
             static_assert(!is_same<T, T>);
         }
@@ -96,7 +96,7 @@ Result<const T &, JsonError> Value::get() const {
 }
 
 template <typename T>
-Result<const T &, JsonError> JsonResult::get() const {
+Result<const T &, TreeError> JsonResult::get() const {
     if (Result::is_error()) {
         return Result::error();
     }

@@ -29,26 +29,26 @@ JsonResult Object::operator[](StringView key) const {
             return m_values[i];
         }
     }
-    return JsonError::KeyNotFound;
+    return TreeError::KeyNotFound;
 }
 
 JsonResult Array::operator[](uint32_t index) const {
     if (index >= m_data.size()) {
-        return JsonError::OutOfBounds;
+        return TreeError::OutOfBounds;
     }
     return m_data[index];
 }
 
 JsonResult Value::operator[](uint32_t index) const {
     if (!has<Array>()) {
-        return JsonError::NotAnArray;
+        return TreeError::NotAnArray;
     }
     return VULL_TRY(Variant::get<Array>()[index]);
 }
 
 JsonResult Value::operator[](StringView key) const {
     if (!has<Object>()) {
-        return JsonError::NotAnObject;
+        return TreeError::NotAnObject;
     }
     return VULL_TRY(Variant::get<Object>()[key]);
 }
