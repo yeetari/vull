@@ -8,6 +8,7 @@
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
+#include <vull/support/Variant.hh>
 
 #include <stdint.h>
 
@@ -29,7 +30,11 @@ Token Lexer::next_token() {
 
     const auto position = m_head - 1;
     if (is_digit(ch)) {
-        return {parse_double(ch), position, m_line};
+        auto number = parse_number(ch);
+        if (const auto decimal = number.try_get<double>()) {
+            return {*decimal, position, m_line};
+        }
+        return {static_cast<double>(number.get<uint64_t>()), position, m_line};
     }
     if (is_ident(ch)) {
         while (is_ident(m_source[m_head]) || is_digit(m_source[m_head])) {

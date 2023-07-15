@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/Optional.hh>
+#include <vull/support/Variant.hh>
 
 namespace vull {
 
@@ -14,7 +15,7 @@ protected:
     bool is_digit(auto);
     bool is_ident(auto);
     bool is_space(auto);
-    double parse_double(auto);
+    Variant<double, uint64_t> parse_number(auto);
 
 public:
     const TokenType &peek();
@@ -37,12 +38,18 @@ bool LexerBase<Derived, TokenType>::is_space(auto ch) {
 }
 
 template <typename Derived, typename TokenType>
-double LexerBase<Derived, TokenType>::parse_double(auto ch) {
-    double value = ch - '0';
+Variant<double, uint64_t> LexerBase<Derived, TokenType>::parse_number(auto ch) {
+    auto whole_part = static_cast<uint64_t>(ch - '0');
     while (is_digit(ch = derived().next_char())) {
-        value = value * 10 + (ch - '0');
+        whole_part = whole_part * 10 + static_cast<uint64_t>(ch - '0');
     }
 
+    if (ch != '.' && ch != 'e' && ch != 'E') {
+        derived().unskip_char();
+        return whole_part;
+    }
+
+    auto value = static_cast<double>(whole_part);
     if (ch == '.') {
         double addend = 0;
         double power = 1;

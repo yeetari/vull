@@ -1,8 +1,10 @@
 #include <vull/json/Lexer.hh>
 
 #include <vull/json/Token.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Variant.hh>
 
 namespace vull::json {
 
@@ -33,10 +35,18 @@ Token Lexer::next_token() {
         if (!is_digit(ch = m_source[m_head++])) {
             return Token(TokenKind::Invalid);
         }
-        return Token(-parse_double(ch));
+        auto number = parse_number(ch);
+        if (const auto decimal = number.try_get<double>()) {
+            return Token(-*decimal);
+        }
+        return Token(-static_cast<double>(number.get<uint64_t>()));
     }
     if (is_digit(ch)) {
-        return Token(parse_double(ch));
+        auto number = parse_number(ch);
+        if (const auto decimal = number.try_get<double>()) {
+            return Token(*decimal);
+        }
+        return Token(static_cast<double>(number.get<uint64_t>()));
     }
 
     if (ch == 'n' && m_head + 3 <= m_source.length() && m_source.substr(m_head, m_head + 3) == "ull") {
