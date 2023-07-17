@@ -16,7 +16,7 @@
 #include <vull/graphics/Mesh.hh>
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Vec.hh>
-#include <vull/platform/Latch.hh>
+#include <vull/platform/SystemLatch.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
@@ -80,14 +80,14 @@ public:
         : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document),
           m_max_resolution(max_resolution) {}
 
-    bool convert(Latch &latch);
+    bool convert(SystemLatch &latch);
     void process_texture(uint64_t index, String &path, String desired_path, TextureType type);
     bool process_material(const simdjson::dom::element &material, uint64_t index);
     bool process_primitive(const simdjson::dom::object &primitive, String &&name);
     bool visit_node(World &world, uint64_t index, EntityId parent_id);
 };
 
-bool Converter::convert(Latch &latch) {
+bool Converter::convert(SystemLatch &latch) {
     // Emit default albedo texture.
     auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vpak::EntryType::Image);
     VULL_EXPECT(albedo_entry.write_byte(uint8_t(vpak::ImageFormat::RgbaUnorm)));
@@ -713,7 +713,7 @@ bool GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool re
 
     Converter converter(m_binary_blob, pack_writer, document, max_resolution);
     Scheduler scheduler(reproducible ? 1 : 0);
-    Latch latch;
+    SystemLatch latch;
     Atomic<bool> success = true;
 
     auto *tasklet = Tasklet::create();

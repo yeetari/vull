@@ -1,6 +1,6 @@
 #include <vull/platform/File.hh>
 #include <vull/platform/FileStream.hh>
-#include <vull/platform/Latch.hh>
+#include <vull/platform/SystemLatch.hh>
 #include <vull/platform/SystemMutex.hh>
 #include <vull/platform/Timer.hh>
 
@@ -129,13 +129,13 @@ Result<void, StreamError> FileStream::write(Span<const void> data) {
     return {};
 }
 
-void Latch::count_down() {
+void SystemLatch::count_down() {
     if (m_value.fetch_sub(1) == 1) {
         syscall(SYS_futex, m_value.raw_ptr(), FUTEX_WAKE_PRIVATE, UINT32_MAX, nullptr, nullptr, 0);
     }
 }
 
-void Latch::wait() {
+void SystemLatch::wait() {
     uint32_t value;
     while ((value = m_value.load()) != 0) {
         syscall(SYS_futex, m_value.raw_ptr(), FUTEX_WAIT_PRIVATE, value, nullptr, nullptr, 0);

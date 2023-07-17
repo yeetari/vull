@@ -6,17 +6,17 @@
 
 namespace vull {
 
-class Latch {
+class SystemLatch {
     Atomic<uint32_t> m_value{1};
 
 public:
-    Latch() = default;
-    Latch(const Latch &) = delete;
-    Latch(Latch &&) = delete;
-    ~Latch() = default;
+    SystemLatch() = default;
+    SystemLatch(const SystemLatch &) = delete;
+    SystemLatch(SystemLatch &&) = delete;
+    ~SystemLatch() = default;
 
-    Latch &operator=(const Latch &) = delete;
-    Latch &operator=(Latch &&) = delete;
+    SystemLatch &operator=(const SystemLatch &) = delete;
+    SystemLatch &operator=(SystemLatch &&) = delete;
 
     void count_down();
     void increment(uint32_t amt = 1) { m_value.fetch_add(amt, MemoryOrder::AcqRel); }
