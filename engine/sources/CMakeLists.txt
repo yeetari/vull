@@ -10,6 +10,7 @@ target_sources(vull-core PRIVATE
     support/Stream.cc
     support/String.cc
     support/StringBuilder.cc
+    tasklet/Latch.cc
     tasklet/Scheduler.cc
     tasklet/Tasklet.cc
     tasklet/Mutex.cc

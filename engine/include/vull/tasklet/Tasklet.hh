@@ -7,6 +7,8 @@
 
 namespace vull {
 
+class Latch;
+
 enum class TaskletState {
     Uninitialised,
     Running,
@@ -21,6 +23,7 @@ class Tasklet {
     size_t m_stack_size;
     void *m_fake_stack{nullptr};
 #endif
+    Latch *m_latch{nullptr};
     Tasklet *m_linked_tasklet{nullptr};
     TaskletState m_state{TaskletState::Uninitialised};
 

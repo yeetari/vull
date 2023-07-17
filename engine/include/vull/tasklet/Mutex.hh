@@ -7,7 +7,7 @@ namespace vull {
 class Tasklet;
 
 class Mutex {
-    Atomic<Tasklet *> m_waiter;
+    Atomic<Tasklet *> m_wait_list;
     Atomic<bool> m_locked;
 
 public:

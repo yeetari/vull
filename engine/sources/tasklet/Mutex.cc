@@ -14,10 +14,10 @@ void Mutex::lock() {
     do {
         // Otherwise add ourselves to the linked list of waiters.
         auto *current = Tasklet::current();
-        auto *waiter = m_waiter.load();
+        auto *waiter = m_wait_list.load();
         do {
             current->set_linked_tasklet(waiter);
-        } while (!m_waiter.compare_exchange_weak(waiter, current));
+        } while (!m_wait_list.compare_exchange_weak(waiter, current));
 
         // And yield to the scheduler.
         vull::yield();
@@ -26,11 +26,11 @@ void Mutex::lock() {
 
 void Mutex::unlock() {
     // Dequeue one waiter from the linked list.
-    auto *to_wake = m_waiter.load();
+    auto *to_wake = m_wait_list.load();
     Tasklet *desired;
     do {
         desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
-    } while (!m_waiter.compare_exchange_weak(to_wake, desired));
+    } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
 
     // Clear locked flag.
     m_locked.store(false);
