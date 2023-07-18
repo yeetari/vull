@@ -182,9 +182,7 @@ Optional<AllocationInfo> Heap::allocate(uint32_t size) {
     // Round up to minimum allocation size (minimum alignment).
     size = vull::max(size, k_minimum_allocation_size);
 
-    // Round up to next block size and ensure aligned to a second level boundary.
-    // TODO: No-one else aligns to a SL boundary?
-    size += 1u << (vull::log2(size) - k_sl_count_log2);
+    // Round up to next block size.
     size = vull::align_up(size, 1u << (vull::log2(size) - k_sl_count_log2));
 
     // Search for a suitable block by firstly finding the most optimal bucket for our size with the mapping function. We
@@ -339,18 +337,20 @@ Allocation Allocator::allocate_dedicated(uint32_t size) {
 
 // TODO: Avoid having individual heaps of N bytes? A new TLSF block can be created, but how would the backing
 //       VkDeviceMemory be managed?
+// TODO: Better alignment handling (incl. bufferImageGranularity).
 Allocation Allocator::allocate(const vkb::MemoryRequirements &requirements) {
     VULL_ASSERT((requirements.memoryTypeBits & (1u << m_memory_type_index)) != 0u);
 
-    // TODO: Handle bufferImageGranularity.
-    const auto alignment = vull::max(static_cast<uint32_t>(requirements.alignment), 1u);
+    const auto buffer_image_granularity = m_context.properties().limits.bufferImageGranularity;
+    const auto alignment = static_cast<uint32_t>(vull::max(requirements.alignment, buffer_image_granularity));
     auto size = static_cast<uint32_t>(requirements.size);
     if (size >= m_heap_size >> 3) {
         // TODO: Check against maxMemoryAllocationCount.
         return allocate_dedicated(size);
     }
 
-    size = vull::align_up(size, alignment);
+    // Add whole alignments worth of size to ensure aligned up offset always fits.
+    size += alignment;
 
     // TODO: More granular locking, don't include vulkan calls.
     ScopedLock lock(m_mutex);

@@ -66,6 +66,7 @@ public:
     vkb::Sampler get_sampler(Sampler sampler) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     Queue &graphics_queue();
+    const vkb::PhysicalDeviceProperties &properties() const { return m_properties; }
     const Vector<UniquePtr<Allocator>> &allocators() const { return m_allocators; }
 };
 
