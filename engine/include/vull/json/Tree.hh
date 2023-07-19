@@ -52,12 +52,28 @@ public:
     size_t size() const { return m_data.size(); }
 };
 
+template <typename>
+struct ValueHandleType;
+
+template <ContainsType<Null, bool, int64_t, double> T>
+struct ValueHandleType<T> {
+    using type = T;
+};
+
+template <ContainsType<Object, Array, String> T>
+struct ValueHandleType<T> {
+    using type = const T &;
+};
+
+template <typename T>
+using value_handle_t = ValueHandleType<T>::type;
+
 struct Value : private Variant<Null, Object, Array, String, bool, int64_t, double> {
     using Variant::has;
     using Variant::Variant;
 
     template <typename T>
-    Result<const T &, TreeError> get() const;
+    Result<value_handle_t<T>, TreeError> get() const;
     JsonResult operator[](uint32_t index) const;
     JsonResult operator[](StringView key) const;
 };
@@ -66,7 +82,7 @@ struct JsonResult : public Result<const Value &, TreeError> {
     using Result<const Value &, TreeError>::Result;
 
     template <typename T>
-    Result<const T &, TreeError> get() const;
+    Result<value_handle_t<T>, TreeError> get() const;
     template <typename T>
     bool has() const;
     JsonResult operator[](uint32_t index) const;
@@ -74,7 +90,7 @@ struct JsonResult : public Result<const Value &, TreeError> {
 };
 
 template <typename T>
-Result<const T &, TreeError> Value::get() const {
+Result<value_handle_t<T>, TreeError> Value::get() const {
     if (!has<T>()) {
         if constexpr (is_same<T, Object>) {
             return TreeError::NotAnObject;
@@ -96,7 +112,7 @@ Result<const T &, TreeError> Value::get() const {
 }
 
 template <typename T>
-Result<const T &, TreeError> JsonResult::get() const {
+Result<value_handle_t<T>, TreeError> JsonResult::get() const {
     if (Result::is_error()) {
         return Result::error();
     }
