@@ -31,6 +31,7 @@ TEST_CASE(JsonParser, Integer) {
     auto value = VULL_EXPECT(json::parse("300"));
     EXPECT(value.has<int64_t>());
     EXPECT(VULL_ASSUME(value.get<int64_t>()) == 300);
+    EXPECT(vull::fuzzy_equal(VULL_EXPECT(value.get<double>()), 300.0));
 }
 
 TEST_CASE(JsonParser, String) {

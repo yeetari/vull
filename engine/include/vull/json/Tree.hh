@@ -91,6 +91,11 @@ struct JsonResult : public Result<const Value &, TreeError> {
 
 template <typename T>
 Result<value_handle_t<T>, TreeError> Value::get() const {
+    if constexpr (is_same<T, double>) {
+        if (has<int64_t>()) {
+            return static_cast<double>(Variant::get<int64_t>());
+        }
+    }
     if (!has<T>()) {
         if constexpr (is_same<T, Object>) {
             return TreeError::NotAnObject;
