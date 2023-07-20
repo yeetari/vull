@@ -50,7 +50,7 @@ public:
 
 template <typename T, typename... Args>
 T &Tree::set_root(Args &&...args) {
-    auto *root = new T(*this, Optional<Element &>(), vull::forward<Args>(args)...);
+    auto *root = new T(*this, vull::nullopt, vull::forward<Args>(args)...);
     m_root_element = vull::adopt_unique(root);
     return *root;
 }

@@ -6,6 +6,13 @@
 
 namespace vull {
 
+struct nullopt_t {
+    struct Tag {};
+    constexpr explicit nullopt_t(Tag) {}
+};
+
+inline constexpr nullopt_t nullopt{nullopt_t::Tag{}};
+
 template <typename T>
 class Optional {
     AlignedStorage<T> m_storage{};
@@ -13,6 +20,7 @@ class Optional {
 
 public:
     constexpr Optional() = default;
+    constexpr Optional(nullopt_t) {}
     Optional(const T &value) : m_present(true) { m_storage.set(value); }
     Optional(T &&value) : m_present(true) { m_storage.set(move(value)); }
     // clang-format off
@@ -47,6 +55,7 @@ class Optional<T &> {
 
 public:
     constexpr Optional() = default;
+    constexpr Optional(nullopt_t) {}
     Optional(T &ref) : m_ptr(&ref) {}
     Optional(const Optional &) = default;
     Optional(Optional &&other) : m_ptr(exchange(other.m_ptr, nullptr)) {}

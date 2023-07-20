@@ -47,13 +47,13 @@ bool PerfectMap<K, V>::contains(const K &key) const {
 template <typename K, typename V>
 Optional<V &> PerfectMap<K, V>::get(const K &key) {
     auto &entry = m_entries[m_phf.hash(key)];
-    return entry.key == key ? entry.value : Optional<V &>();
+    return entry.key == key ? Optional<V &>(entry.value) : vull::nullopt;
 }
 
 template <typename K, typename V>
 Optional<const V &> PerfectMap<K, V>::get(const K &key) const {
     const auto &entry = m_entries[m_phf.hash(key)];
-    return entry.key == key ? entry.value : Optional<const V &>();
+    return entry.key == key ? Optional<const V &>(entry.value) : vull::nullopt;
 }
 
 } // namespace vull

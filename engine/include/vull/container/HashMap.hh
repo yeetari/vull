@@ -59,7 +59,7 @@ Optional<V &> HashMap<K, V>::get(const K &key) {
     auto entry = m_set.find_hash(hash_of(key), [&](Entry &other) {
         return key == other.key;
     });
-    return entry ? Optional<V &>(entry->value) : Optional<V &>();
+    return entry ? Optional<V &>(entry->value) : vull::nullopt;
 }
 
 template <typename K, typename V>
@@ -67,7 +67,7 @@ Optional<const V &> HashMap<K, V>::get(const K &key) const {
     auto entry = m_set.find_hash(hash_of(key), [&](const Entry &other) {
         return key == other.key;
     });
-    return entry ? Optional<const V &>(entry->value) : Optional<const V &>();
+    return entry ? Optional<const V &>(entry->value) : vull::nullopt;
 }
 
 template <typename K, typename V>
