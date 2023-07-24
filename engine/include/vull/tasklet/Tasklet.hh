@@ -76,12 +76,17 @@ void Tasklet::set_callable(F &&callable) {
 #endif
 }
 
+void pump_work();
 void schedule(Tasklet *tasklet);
 void yield();
 
 template <typename F>
 void schedule(F &&callable) {
     auto *tasklet = Tasklet::create();
+    while (tasklet == nullptr) {
+        pump_work();
+        tasklet = Tasklet::create();
+    }
     tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);
 }

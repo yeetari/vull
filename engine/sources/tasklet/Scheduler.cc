@@ -202,20 +202,24 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     vull_load_context(s_current_tasklet = next, nullptr);
 }
 
+void pump_work() {
+    auto *dequeued = s_queue->dequeue();
+    if (dequeued == nullptr) {
+        return;
+    }
+    [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
+    VULL_ASSERT(success);
+
+    VULL_ASSERT(s_to_schedule == nullptr);
+    s_to_schedule = dequeued;
+    yield();
+}
+
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
     sem_post(&s_work_available);
     while (!s_queue->enqueue(tasklet)) {
-        auto *dequeued = s_queue->dequeue();
-        if (dequeued == nullptr) {
-            continue;
-        }
-        [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
-        VULL_ASSERT(success);
-
-        VULL_ASSERT(s_to_schedule == nullptr);
-        s_to_schedule = dequeued;
-        yield();
+        pump_work();
     }
 }
 
