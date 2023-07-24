@@ -20,6 +20,9 @@
 #include <sys/random.h>
 #include <unistd.h>
 
+// TODO(tasklet-perf): Investigate different scheduling, e.g. steal many instead of just one when empty (could help with
+//                     gltf convert), or a global MPMC queue.
+
 namespace vull {
 
 extern "C" void vull_make_context(void *stack_top, void (*entry_point)(Tasklet *));
@@ -162,7 +165,7 @@ static Tasklet *pick_next() {
 [[noreturn]] static void segfault_handler(int, siginfo_t *info, void *) {
     const auto address = reinterpret_cast<uintptr_t>(info->si_addr);
     const auto *tasklet = static_cast<void *>(Tasklet::current());
-    if (Tasklet::is_guard_page(address)) {
+    if (Tasklet::current()->is_guard_page(address)) {
         fprintf(stderr, "Stack overflow in tasklet %p\n", tasklet);
     } else {
         fprintf(stderr, "Segfault at address 0x%lx in tasklet %p\n", address, tasklet);
@@ -195,7 +198,7 @@ void *Scheduler::worker_entry(void *worker_ptr) {
 
     // Use thread stack for scheduler tasklet.
     Array<uint8_t, 131072> tasklet_data{};
-    s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size());
+    s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
     vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
     auto *next = pick_next();

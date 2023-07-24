@@ -9,82 +9,113 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+// TODO(tasklet-perf): Benchmark per-thread memory pools vs a global pool (old global pool in git history).
+// TODO: Stack guard pages wasting a lot of memory currently. Tasklet object (~40 bytes) rounded up to 4 KiB, then
+//       another 4 KiB used for the guard page. Maybe tasklet object could go after the stack?
+// TODO: Investigate on-demand growable stacks? (with MAP_GROWSDOWN | MAP_STACK)
+
 namespace vull {
 namespace {
 
-constexpr size_t k_pool_size = 256 * 1024 * 1024;
-constexpr size_t k_size = 262144; // TODO: Decrease.
-
-class Pool {
-    uint8_t *m_base;
-    Atomic<size_t> m_head;
+class PoolBase {
+protected:
+    const size_t m_stack_size{0};
+    uint8_t *m_base{nullptr};
+    size_t m_head{0};
     Atomic<void *> m_next_free{nullptr};
 
+    explicit PoolBase(size_t stack_size) : m_stack_size(stack_size) {}
+
+public:
+    void free(Tasklet *tasklet);
+    bool is_guard_page(uintptr_t page) const;
+};
+
+template <unsigned TaskletCount, size_t StackSize>
+class Pool : public PoolBase {
 public:
     Pool();
 
     Tasklet *allocate();
-    void free(Tasklet *tasklet);
-    bool is_guard_page(uintptr_t page);
 };
 
-Pool::Pool() {
-    m_base =
-        static_cast<uint8_t *>(mmap(nullptr, k_pool_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
+template <unsigned TaskletCount, size_t StackSize>
+Pool<TaskletCount, StackSize>::Pool() : PoolBase(StackSize) {
+    constexpr auto mmap_prot = PROT_READ | PROT_WRITE;
+    constexpr auto mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE;
+    const size_t total_size = StackSize * TaskletCount;
+    void *mmap_result = mmap(nullptr, total_size, mmap_prot, mmap_flags, -1, 0);
+    VULL_ENSURE(mmap_result != MAP_FAILED);
+    m_base = static_cast<uint8_t *>(mmap_result);
 
+    // Mark guard pages.
     const auto page_size = static_cast<size_t>(getpagesize());
-    for (uint8_t *page = m_base; page < m_base + k_pool_size; page += k_size) {
+    for (uint8_t *page = m_base; page < m_base + total_size; page += StackSize) {
         mprotect(page + page_size, page_size, PROT_NONE);
     }
 }
 
-Tasklet *Pool::allocate() {
+template <unsigned TaskletCount, size_t StackSize>
+Tasklet *Pool<TaskletCount, StackSize>::allocate() {
     auto *next_free = m_next_free.load();
-    while (next_free != nullptr &&
-           !m_next_free.compare_exchange_weak(next_free, *reinterpret_cast<void **>(next_free))) {
-    }
     if (next_free != nullptr) {
-        return new (next_free) Tasklet(k_size);
+        // Since we are the only thread allocating, m_next_free can never become null after this check.
+        void *desired;
+        do {
+            memcpy(&desired, next_free, sizeof(void *));
+        } while (!m_next_free.compare_exchange_weak(next_free, desired));
+        return new (next_free) Tasklet(StackSize, this);
     }
-    size_t head = m_head.fetch_add(k_size);
-    VULL_ASSERT(head + k_size < k_pool_size);
-    return new (m_base + head) Tasklet(k_size);
+
+    if (m_head >= StackSize * TaskletCount) {
+        // Pool full.
+        return nullptr;
+    }
+
+    // TODO: Remove this and just use next_free.
+    size_t head = vull::exchange(m_head, m_head + StackSize);
+    return new (m_base + head) Tasklet(StackSize, this);
 }
 
-void Pool::free(Tasklet *tasklet) {
+void PoolBase::free(Tasklet *tasklet) {
     void *next_free = m_next_free.load();
     do {
         memcpy(tasklet, &next_free, sizeof(void *));
     } while (!m_next_free.compare_exchange_weak(next_free, tasklet));
 }
 
-bool Pool::is_guard_page(uintptr_t page) {
+bool PoolBase::is_guard_page(uintptr_t page) const {
     const auto page_size = static_cast<uintptr_t>(getpagesize());
     page = vull::align_down(page, page_size);
     const auto base = reinterpret_cast<uintptr_t>(m_base);
     if (page < base + page_size) {
         return false;
     }
-    return (page - base - page_size) % k_size == 0;
+    return (page - base - page_size) % m_stack_size == 0;
 }
 
-VULL_GLOBAL(Pool s_pool);
+VULL_GLOBAL(thread_local Pool<64, 65536> s_normal_pool);
+VULL_GLOBAL(thread_local Pool<4, 262144> s_large_pool);
 
 } // namespace
 
 extern "C" void vull_free_tasklet(Tasklet *);
 extern "C" void vull_free_tasklet(Tasklet *tasklet) {
     if (tasklet != nullptr) {
-        s_pool.free(tasklet);
+        static_cast<PoolBase *>(tasklet->pool())->free(tasklet);
     }
 }
 
 Tasklet *Tasklet::create() {
-    return s_pool.allocate();
+    return s_normal_pool.allocate();
 }
 
-bool Tasklet::is_guard_page(uintptr_t page) {
-    return s_pool.is_guard_page(page);
+Tasklet *Tasklet::create_large() {
+    return s_large_pool.allocate();
+}
+
+bool Tasklet::is_guard_page(uintptr_t page) const {
+    return static_cast<PoolBase *>(m_pool)->is_guard_page(page);
 }
 
 } // namespace vull

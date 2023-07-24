@@ -23,6 +23,7 @@ class Tasklet {
     size_t m_stack_size;
     void *m_fake_stack{nullptr};
 #endif
+    void *m_pool{nullptr};
     Latch *m_latch{nullptr};
     Tasklet *m_linked_tasklet{nullptr};
     TaskletState m_state{TaskletState::Uninitialised};
@@ -35,10 +36,11 @@ class Tasklet {
 
 public:
     static Tasklet *create();
+    static Tasklet *create_large();
     static Tasklet *current();
-    static bool is_guard_page(uintptr_t page);
+    bool is_guard_page(uintptr_t page) const;
 
-    Tasklet(size_t size);
+    Tasklet(size_t size, void *pool);
     Tasklet(const Tasklet &) = delete;
     Tasklet(Tasklet &&) = delete;
     ~Tasklet() = delete;
@@ -53,11 +55,12 @@ public:
     void set_state(TaskletState state) { m_state = state; }
 
     void *stack_top() const { return m_stack_top; }
+    void *pool() const { return m_pool; }
     Tasklet *linked_tasklet() const { return m_linked_tasklet; }
     TaskletState state() const { return m_state; }
 };
 
-inline Tasklet::Tasklet(size_t size) {
+inline Tasklet::Tasklet(size_t size, void *pool) : m_pool(pool) {
     m_stack_top = reinterpret_cast<uint8_t *>(this) + size;
 }
 
@@ -86,6 +89,17 @@ void schedule(F &&callable) {
     while (tasklet == nullptr) {
         pump_work();
         tasklet = Tasklet::create();
+    }
+    tasklet->set_callable(vull::forward<F>(callable));
+    schedule(tasklet);
+}
+
+template <typename F>
+void schedule_large(F &&callable) {
+    auto *tasklet = Tasklet::create_large();
+    while (tasklet == nullptr) {
+        pump_work();
+        tasklet = Tasklet::create_large();
     }
     tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);
