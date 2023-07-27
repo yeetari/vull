@@ -32,32 +32,11 @@ JsonResult Object::operator[](StringView key) const {
     return TreeError::KeyNotFound;
 }
 
-JsonResult Array::operator[](uint32_t index) const {
-    if (index >= m_data.size()) {
-        return TreeError::OutOfBounds;
-    }
-    return m_data[index];
-}
-
-JsonResult Value::operator[](uint32_t index) const {
-    if (!has<Array>()) {
-        return TreeError::NotAnArray;
-    }
-    return VULL_TRY(Variant::get<Array>()[index]);
-}
-
 JsonResult Value::operator[](StringView key) const {
     if (!has<Object>()) {
         return TreeError::NotAnObject;
     }
     return VULL_TRY(Variant::get<Object>()[key]);
-}
-
-JsonResult JsonResult::operator[](uint32_t index) const {
-    if (Result::is_error()) {
-        return Result::error();
-    }
-    return VULL_TRY(Result::value()[index]);
 }
 
 JsonResult JsonResult::operator[](StringView key) const {

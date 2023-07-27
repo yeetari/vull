@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/container/Vector.hh>
+#include <vull/support/Integral.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
@@ -47,9 +48,10 @@ class Array {
 
 public:
     void push(Value &&value) { m_data.push(vull::move(value)); }
-    JsonResult operator[](uint32_t index) const;
+    template <Integral I>
+    JsonResult operator[](I index) const;
     bool empty() const { return m_data.empty(); }
-    size_t size() const { return m_data.size(); }
+    uint32_t size() const { return m_data.size(); }
 };
 
 template <typename>
@@ -74,7 +76,8 @@ struct Value : private Variant<Null, Object, Array, String, bool, int64_t, doubl
 
     template <typename T>
     Result<value_handle_t<T>, TreeError> get() const;
-    JsonResult operator[](uint32_t index) const;
+    template <Integral I>
+    JsonResult operator[](I index) const;
     JsonResult operator[](StringView key) const;
 };
 
@@ -85,9 +88,29 @@ struct JsonResult : public Result<const Value &, TreeError> {
     Result<value_handle_t<T>, TreeError> get() const;
     template <typename T>
     bool has() const;
-    JsonResult operator[](uint32_t index) const;
+    template <Integral I>
+    JsonResult operator[](I index) const;
     JsonResult operator[](StringView key) const;
 };
+
+template <Integral I>
+JsonResult Array::operator[](I index) const {
+    if constexpr (is_signed<I>) {
+        if (index < I(0)) {
+            return TreeError::OutOfBounds;
+        }
+    }
+    if constexpr (sizeof(I) > sizeof(uint32_t)) {
+        if (index > UINT32_MAX) {
+            return TreeError::OutOfBounds;
+        }
+    }
+    const auto array_index = static_cast<uint32_t>(index);
+    if (array_index >= m_data.size()) {
+        return TreeError::OutOfBounds;
+    }
+    return m_data[array_index];
+}
 
 template <typename T>
 Result<value_handle_t<T>, TreeError> Value::get() const {
@@ -116,6 +139,14 @@ Result<value_handle_t<T>, TreeError> Value::get() const {
     return Variant::get<T>();
 }
 
+template <Integral I>
+JsonResult Value::operator[](I index) const {
+    if (!has<Array>()) {
+        return TreeError::NotAnArray;
+    }
+    return VULL_TRY(Variant::get<Array>()[index]);
+}
+
 template <typename T>
 Result<value_handle_t<T>, TreeError> JsonResult::get() const {
     if (Result::is_error()) {
@@ -127,6 +158,14 @@ Result<value_handle_t<T>, TreeError> JsonResult::get() const {
 template <typename T>
 bool JsonResult::has() const {
     return !Result::is_error() && Result::value().has<T>();
+}
+
+template <Integral I>
+JsonResult JsonResult::operator[](I index) const {
+    if (Result::is_error()) {
+        return Result::error();
+    }
+    return VULL_TRY(Result::value()[index]);
 }
 
 } // namespace vull::json
