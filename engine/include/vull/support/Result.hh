@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vull/support/Assert.hh>
-#include <vull/support/Enum.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
 #include <vull/support/Variant.hh>
 
@@ -46,7 +46,11 @@ public:
     template <ContainsType<T, Es...> U>
     Result(const U &value) : m_value(value) {}
     template <ContainsType<T, Es...> U>
-    Result(U &&value) : m_value(move(value)) {}
+    Result(U &&value) : m_value(vull::move(value)) {}
+
+    // Error variant upcast.
+    template <ContainsType<Es...>... Fs>
+    Result(Variant<Fs...> &&error) : m_value(vull::move(error)) {}
 
     template <typename U>
     Result(U &ref) requires(is_ref<T> && !is_void) : m_value(vull::ref(ref)) {}
@@ -60,23 +64,43 @@ public:
     Result &operator=(const Result &) = delete;
     Result &operator=(Result &&) = delete;
 
+    explicit operator bool() const { return !is_error(); }
     bool is_error() const { return m_value.index() > 0; }
-    auto disown_value() {
-        VULL_ASSERT(!is_error());
-        return move(m_value.template get<storage_t>());
-    }
-    auto error() const {
-        VULL_ASSERT(is_error());
-        return m_value.template downcast<Es...>();
-    }
-    auto &value() {
-        VULL_ASSERT(!is_error());
-        return vull::maybe_unwrap(m_value.template get<storage_t>());
-    }
-    const auto &value() const {
-        VULL_ASSERT(!is_error());
-        return vull::maybe_unwrap(m_value.template get<storage_t>());
-    }
+
+    auto disown_value();
+    auto error() const;
+    auto &value();
+    const auto &value() const;
+    Optional<T> to_optional() const;
 };
+
+template <typename T, typename... Es>
+auto Result<T, Es...>::disown_value() {
+    VULL_ASSERT(!is_error());
+    return vull::move(m_value.template get<storage_t>());
+}
+
+template <typename T, typename... Es>
+auto Result<T, Es...>::error() const {
+    VULL_ASSERT(is_error());
+    return m_value.template downcast<Es...>();
+}
+
+template <typename T, typename... Es>
+auto &Result<T, Es...>::value() {
+    VULL_ASSERT(!is_error());
+    return vull::maybe_unwrap(m_value.template get<storage_t>());
+}
+
+template <typename T, typename... Es>
+const auto &Result<T, Es...>::value() const {
+    VULL_ASSERT(!is_error());
+    return vull::maybe_unwrap(m_value.template get<storage_t>());
+}
+
+template <typename T, typename... Es>
+Optional<T> Result<T, Es...>::to_optional() const {
+    return is_error() ? vull::nullopt : Optional<T>(value());
+}
 
 } // namespace vull
