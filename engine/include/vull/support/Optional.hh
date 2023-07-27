@@ -23,9 +23,7 @@ public:
     constexpr Optional(nullopt_t) {}
     Optional(const T &value) : m_present(true) { m_storage.set(value); }
     Optional(T &&value) : m_present(true) { m_storage.set(move(value)); }
-    // clang-format off
     Optional(const Optional &) requires is_trivially_copyable<T> = default;
-    // clang-format on
     Optional(const Optional &);
     Optional(Optional &&);
     ~Optional() { clear(); }

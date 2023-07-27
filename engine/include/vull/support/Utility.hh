@@ -219,10 +219,8 @@ struct TypeList {
     }
 };
 
-// clang-format off
 template <typename T, typename... Ts>
 concept ContainsType = TypeList<Ts...>::template contains<T>();
-// clang-format on
 
 template <typename T>
 class RefWrapper {

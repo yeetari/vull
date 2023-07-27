@@ -38,10 +38,8 @@ class [[nodiscard]] Result {
     Variant<storage_t, Es...> m_value;
 
 public:
-    // clang-format off
     // NOLINTNEXTLINE
-    Result() requires (is_void) : m_value(storage_t{}) {}
-    // clang-format on
+    Result() requires(is_void) : m_value(storage_t{}) {}
 
     template <ContainsType<T, Es...> U>
     Result(const U &value) : m_value(value) {}
