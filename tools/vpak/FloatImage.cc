@@ -6,6 +6,7 @@
 #include <vull/container/FixedBuffer.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
+#include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
@@ -48,6 +49,17 @@ void resample_1d(const FixedBuffer<float> &source, FixedBuffer<float> &target, V
 } // namespace
 
 enum class StreamError;
+
+FloatImage FloatImage::from_colour(Colour colour) {
+    FloatImage image(Vec2u(1, 1), 4);
+    auto buffer = FixedBuffer<float>::create_uninitialised(4);
+    buffer[0] = colour.rgba().x();
+    buffer[1] = colour.rgba().y();
+    buffer[2] = colour.rgba().z();
+    buffer[3] = colour.rgba().w();
+    image.m_mip_buffers.push(vull::move(buffer));
+    return image;
+}
 
 FloatImage FloatImage::from_unorm(Span<const uint8_t> bitmap, Vec2u size, uint32_t channel_count) {
     VULL_ASSERT(bitmap.size() % channel_count == 0);

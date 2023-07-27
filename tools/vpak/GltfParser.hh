@@ -1,40 +1,43 @@
 #pragma once
 
-#include <vull/support/StringView.hh>
+#include <vull/container/FixedBuffer.hh>
+#include <vull/json/Parser.hh> // TODO: Only need ParseError.
+#include <vull/json/Tree.hh>   // TODO: Only need JsonError.
+#include <vull/platform/FileStream.hh>
+#include <vull/support/String.hh>
 #include <vull/vpak/Writer.hh>
-
-#include <stdint.h>
 
 namespace vull {
 
-class FileMmap {
-    uint8_t *m_data{nullptr};
-    size_t m_size{0};
-
-public:
-    FileMmap() = default;
-    FileMmap(int fd, size_t size);
-    FileMmap(const FileMmap &) = delete;
-    FileMmap(FileMmap &&) = delete;
-    ~FileMmap();
-
-    FileMmap &operator=(const FileMmap &) = delete;
-    FileMmap &operator=(FileMmap &&);
-
-    explicit operator bool() const { return m_data != nullptr; }
-    const uint8_t &operator[](size_t offset) const { return m_data[offset]; }
-};
-
 class GltfParser {
-    FileMmap m_data;
-    StringView m_json;
-    const uint8_t *m_binary_blob;
+    FileStream m_stream;
+    String m_json;
+    ByteBuffer m_binary_blob;
 
 public:
-    bool parse_glb(StringView input_path);
-    bool convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible);
+    explicit GltfParser(FileStream &&stream) : m_stream(vull::move(stream)) {}
 
-    StringView json() const { return m_json; }
+    // TODO: Split errors.
+    enum class Error {
+        BadBinaryChunk,
+        BadJsonChunk,
+        InvalidMagic,
+        SizeMismatch,
+        UnsupportedVersion,
+
+        BadVectorArrayLength,
+        OffsetOutOfBounds,
+        UnsupportedImageMimeType,
+        UnsupportedNodeMatrix,
+        UnsupportedNormalisedAccessor,
+        UnsupportedPrimitiveMode,
+        UnsupportedSparseAccessor,
+    };
+    Result<void, Error, StreamError> parse_glb();
+    Result<void, Error, StreamError, json::ParseError, json::TreeError> convert(vpak::Writer &pack_writer,
+                                                                                bool max_resolution, bool reproducible);
+
+    const String &json() const { return m_json; }
 };
 
 } // namespace vull

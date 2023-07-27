@@ -32,7 +32,10 @@
  *
  * struct Image(type: 1) {
  *     ImageFormat(u8) format;
- *     SamplerKind(u8) sampler_kind;
+ *     ImageFilter(u8) mag_filter;
+ *     ImageFilter(u8) min_filter;
+ *     ImageWrapMode(u8) wrap_u;
+ *     ImageWrapMode(u8) wrap_v;
  *     v32 width;
  *     v32 height;
  *     v32 mip_count;
@@ -69,9 +72,19 @@ enum class ImageFormat : uint8_t {
     Bc7Srgb = 5,
 };
 
-enum class SamplerKind : uint8_t {
-    LinearRepeat,
-    NearestRepeat,
+enum class ImageFilter : uint8_t {
+    Nearest,
+    Linear,
+    NearestMipmapNearest,
+    LinearMipmapNearest,
+    NearestMipmapLinear,
+    LinearMipmapLinear,
+};
+
+enum class ImageWrapMode : uint8_t {
+    ClampToEdge,
+    MirroredRepeat,
+    Repeat,
 };
 
 // Struct to represent an entry in memory, note not the same representation on disk.

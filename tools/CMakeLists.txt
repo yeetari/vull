@@ -2,7 +2,7 @@ if(CMAKE_CXX_COMPILER MATCHES "(afl-clang-lto)+")
     add_subdirectory(fuzz)
 endif()
 
-vull_executable(vpak vull::core vull::graphics)
+vull_executable(vpak vull::core vull::graphics vull::json)
 target_sources(vpak PRIVATE
     vpak/enc/bc7enc.cc
     vpak/enc/rgbcx.cc
@@ -28,18 +28,8 @@ if(VULL_BUILD_GLTF)
         SYSTEM)
     FetchContent_MakeAvailable(meshoptimizer)
 
-    set(SIMDJSON_DISABLE_DEPRECATED_API TRUE CACHE BOOL "" FORCE)
-    set(SIMDJSON_ENABLE_THREADS FALSE CACHE BOOL "" FORCE)
-    set(SIMDJSON_EXCEPTIONS OFF CACHE BOOL "" FORCE)
-    FetchContent_Declare(simdjson
-        GIT_REPOSITORY https://github.com/simdjson/simdjson.git
-        GIT_TAG tags/v1.0.2
-        GIT_SHALLOW TRUE
-        SYSTEM)
-    FetchContent_MakeAvailable(simdjson)
-
     target_compile_definitions(vpak PRIVATE BUILD_GLTF)
-    target_link_libraries(vpak PRIVATE meshoptimizer simdjson)
+    target_link_libraries(vpak PRIVATE meshoptimizer)
     target_sources(vpak PRIVATE vpak/GltfParser.cc)
 endif()
 

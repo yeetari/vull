@@ -193,8 +193,9 @@ int add_gltf(const Vector<StringView> &args) {
         compression_level = vpak::CompressionLevel::Ultra;
     }
 
-    GltfParser gltf_parser;
-    if (!gltf_parser.parse_glb(gltf_path)) {
+    auto glb_file = VULL_EXPECT(vull::open_file(gltf_path, OpenMode::Read));
+    GltfParser gltf_parser(glb_file.create_stream());
+    if (gltf_parser.parse_glb().is_error()) {
         return EXIT_FAILURE;
     }
 
@@ -205,7 +206,7 @@ int add_gltf(const Vector<StringView> &args) {
 
     auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
     vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
-    if (!gltf_parser.convert(pack_writer, max_resolution, reproducible)) {
+    if (gltf_parser.convert(pack_writer, max_resolution, reproducible).is_error()) {
         return EXIT_FAILURE;
     }
 

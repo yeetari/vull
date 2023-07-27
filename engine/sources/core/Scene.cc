@@ -59,16 +59,12 @@ FormatInfo parse_format(uint8_t pack_format) {
     }
 }
 
-vk::Sampler to_sampler(vpak::SamplerKind kind) {
-    switch (kind) {
-    case vpak::SamplerKind::LinearRepeat:
+// TODO: Respect options properly (sampler cache).
+vk::Sampler to_sampler(vpak::ImageFilter mag_filter, vpak::ImageFilter, vpak::ImageWrapMode, vpak::ImageWrapMode) {
+    if (mag_filter == vpak::ImageFilter::Linear) {
         return vk::Sampler::Linear;
-    default:
-        vull::warn("[scene] Invalid sampler kind");
-        [[fallthrough]];
-    case vpak::SamplerKind::NearestRepeat:
-        return vk::Sampler::Nearest;
     }
+    return vk::Sampler::Nearest;
 }
 
 } // namespace
@@ -85,7 +81,10 @@ Mat4f Scene::get_transform_matrix(EntityId entity) {
 
 vk::SampledImage Scene::load_texture(Stream &stream) {
     const auto [format, unit_size, block_compressed] = parse_format(VULL_EXPECT(stream.read_byte()));
-    const auto sampler_kind = static_cast<vpak::SamplerKind>(VULL_EXPECT(stream.read_byte()));
+    const auto mag_filter = static_cast<vpak::ImageFilter>(VULL_EXPECT(stream.read_byte()));
+    const auto min_filter = static_cast<vpak::ImageFilter>(VULL_EXPECT(stream.read_byte()));
+    const auto wrap_u = static_cast<vpak::ImageWrapMode>(VULL_EXPECT(stream.read_byte()));
+    const auto wrap_v = static_cast<vpak::ImageWrapMode>(VULL_EXPECT(stream.read_byte()));
     const auto width = VULL_EXPECT(stream.read_varint<uint32_t>());
     const auto height = VULL_EXPECT(stream.read_varint<uint32_t>());
     const auto mip_count = VULL_EXPECT(stream.read_varint<uint32_t>());
@@ -173,7 +172,7 @@ vk::SampledImage Scene::load_texture(Stream &stream) {
         };
         cmd_buf.image_barrier(image_read_barrier);
     });
-    return image.full_view().sampled(to_sampler(sampler_kind));
+    return image.full_view().sampled(to_sampler(mag_filter, min_filter, wrap_u, wrap_v));
 }
 
 void Scene::load(StringView scene_name) {
