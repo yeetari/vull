@@ -127,10 +127,8 @@ static Tasklet *pick_next() {
         }
         if (next == nullptr) {
             sem_post(&s_work_available);
-        } else if (next->state() == TaskletState::Running) {
-            [[maybe_unused]] bool success = s_queue->enqueue(next);
-            VULL_ASSERT(success);
-            next = nullptr;
+        } else {
+            VULL_ASSERT(next->state() != TaskletState::Running);
         }
     }
 

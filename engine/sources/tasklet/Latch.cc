@@ -19,6 +19,9 @@ void Latch::count_down(uint32_t by) {
         do {
             desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
         } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
+
+        while (to_wake->state() == TaskletState::Running) {
+        }
         to_wake->set_linked_tasklet(nullptr);
         vull::schedule(to_wake);
     }

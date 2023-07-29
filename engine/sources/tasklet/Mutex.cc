@@ -37,6 +37,8 @@ void Mutex::unlock() {
 
     // Wake one waiter.
     if (to_wake != nullptr) {
+        while (to_wake->state() == TaskletState::Running) {
+        }
         to_wake->set_linked_tasklet(nullptr);
         vull::schedule(to_wake);
     }
