@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/Atomic.hh>
 #include <vull/support/Utility.hh>
 
 #include <stddef.h>
@@ -25,8 +26,8 @@ class Tasklet {
 #endif
     void *m_pool{nullptr};
     Latch *m_latch{nullptr};
-    Tasklet *m_linked_tasklet{nullptr};
-    TaskletState m_state{TaskletState::Uninitialised};
+    Atomic<Tasklet *> m_linked_tasklet{nullptr};
+    Atomic<TaskletState> m_state{TaskletState::Uninitialised};
 
     template <typename F>
     static void invoke_helper(const uint8_t *inline_storage) {
@@ -51,13 +52,13 @@ public:
     void invoke();
     template <typename F>
     void set_callable(F &&callable);
-    void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet = tasklet; }
-    void set_state(TaskletState state) { m_state = state; }
+    void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet.store(tasklet); }
+    void set_state(TaskletState state) { m_state.store(state); }
 
     void *stack_top() const { return m_stack_top; }
     void *pool() const { return m_pool; }
-    Tasklet *linked_tasklet() const { return m_linked_tasklet; }
-    TaskletState state() const { return m_state; }
+    Tasklet *linked_tasklet() const { return m_linked_tasklet.load(); }
+    TaskletState state() const { return m_state.load(); }
 };
 
 inline Tasklet::Tasklet(size_t size, void *pool) : m_pool(pool) {
