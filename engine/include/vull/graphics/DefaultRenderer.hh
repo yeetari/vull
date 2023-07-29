@@ -2,6 +2,7 @@
 
 #include <vull/container/Array.hh>
 #include <vull/container/HashMap.hh>
+#include <vull/graphics/TextureStreamer.hh>
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/support/String.hh>
@@ -29,17 +30,15 @@ class Scene;
 class DefaultRenderer {
     vk::Context &m_context;
     vkb::Extent3D m_viewport_extent{};
+    TextureStreamer m_texture_streamer;
 
     vkb::DescriptorSetLayout m_main_set_layout;
-    vkb::DescriptorSetLayout m_texture_set_layout;
     vkb::DescriptorSetLayout m_reduce_set_layout;
     vkb::DeviceSize m_main_set_layout_size{0};
-    vkb::DeviceSize m_texture_set_layout_size{0};
     vkb::DeviceSize m_reduce_set_layout_size{0};
 
     vkb::Extent2D m_depth_pyramid_extent;
     vk::Buffer m_object_visibility_buffer;
-    vk::Buffer m_texture_descriptor_buffer;
     vk::Buffer m_vertex_buffer;
     vk::Buffer m_index_buffer;
     uint32_t m_object_count{0};

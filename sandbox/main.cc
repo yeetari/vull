@@ -93,7 +93,7 @@ void vull_main(Vector<StringView> &&args) {
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
 
-    Scene scene(context);
+    Scene scene;
     scene.load(scene_name);
 
     DeferredRenderer deferred_renderer(context, swapchain.extent_3D());
@@ -237,7 +237,6 @@ void vull_main(Vector<StringView> &&args) {
         default_renderer.set_camera(free_camera);
 
         Timer build_rg_timer;
-        auto &cmd_buf = context.graphics_queue().request_cmd_buf();
         auto &graph = frame.new_graph(context);
         auto output_id = graph.import("output-image", swapchain.image(frame_pacer.image_index()));
 
@@ -278,6 +277,7 @@ void vull_main(Vector<StringView> &&args) {
         cpu_time_graph.push_section("compile-rg", compile_rg_timer.elapsed());
 
         Timer execute_rg_timer;
+        auto &cmd_buf = context.graphics_queue().request_cmd_buf();
         graph.execute(cmd_buf, true);
         cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }

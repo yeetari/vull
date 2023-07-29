@@ -11,6 +11,7 @@
 #include <vull/graphics/GBuffer.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
+#include <vull/graphics/TextureStreamer.hh>
 #include <vull/graphics/Vertex.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Mat.hh>
@@ -44,8 +45,6 @@
 
 namespace vull {
 namespace {
-
-constexpr uint32_t k_texture_limit = 32768;
 
 // Minimum required maximum work group count * minimum cull work group size that would be used.
 constexpr uint32_t k_object_limit = 65535 * 32;
@@ -88,7 +87,7 @@ struct UniformBuffer {
 } // namespace
 
 DefaultRenderer::DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent)
-    : m_context(context), m_viewport_extent(viewport_extent) {
+    : m_context(context), m_viewport_extent(viewport_extent), m_texture_streamer(context) {
     create_set_layouts();
     create_resources();
     create_pipelines();
@@ -96,7 +95,6 @@ DefaultRenderer::DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_ex
 
 DefaultRenderer::~DefaultRenderer() {
     m_context.vkDestroyDescriptorSetLayout(m_reduce_set_layout);
-    m_context.vkDestroyDescriptorSetLayout(m_texture_set_layout);
     m_context.vkDestroyDescriptorSetLayout(m_main_set_layout);
 }
 
@@ -146,28 +144,6 @@ void DefaultRenderer::create_set_layouts() {
     };
     VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&main_set_layout_ci, &m_main_set_layout) == vkb::Result::Success);
 
-    vkb::DescriptorSetLayoutBinding texture_set_binding{
-        .binding = 0,
-        .descriptorType = vkb::DescriptorType::CombinedImageSampler,
-        .descriptorCount = k_texture_limit,
-        .stageFlags = vkb::ShaderStage::Fragment,
-    };
-    auto texture_set_binding_flags = vkb::DescriptorBindingFlags::VariableDescriptorCount;
-    vkb::DescriptorSetLayoutBindingFlagsCreateInfo texture_set_binding_flags_ci{
-        .sType = vkb::StructureType::DescriptorSetLayoutBindingFlagsCreateInfo,
-        .bindingCount = 1,
-        .pBindingFlags = &texture_set_binding_flags,
-    };
-    vkb::DescriptorSetLayoutCreateInfo texture_set_layout_ci{
-        .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
-        .pNext = &texture_set_binding_flags_ci,
-        .flags = vkb::DescriptorSetLayoutCreateFlags::DescriptorBufferEXT,
-        .bindingCount = 1,
-        .pBindings = &texture_set_binding,
-    };
-    VULL_ENSURE(m_context.vkCreateDescriptorSetLayout(&texture_set_layout_ci, &m_texture_set_layout) ==
-                vkb::Result::Success);
-
     Array reduce_set_bindings{
         vkb::DescriptorSetLayoutBinding{
             .binding = 0,
@@ -193,7 +169,6 @@ void DefaultRenderer::create_set_layouts() {
 
     // TODO: Align up sizes to descriptorBufferOffsetAlignment.
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_main_set_layout, &m_main_set_layout_size);
-    m_context.vkGetDescriptorSetLayoutSizeEXT(m_texture_set_layout, &m_texture_set_layout_size);
     m_context.vkGetDescriptorSetLayoutSizeEXT(m_reduce_set_layout, &m_reduce_set_layout_size);
 }
 
@@ -216,7 +191,7 @@ void DefaultRenderer::create_pipelines() {
                                          .add_colour_attachment(vkb::Format::R8G8B8A8Unorm)
                                          .add_colour_attachment(vkb::Format::R16G16Snorm)
                                          .add_set_layout(m_main_set_layout)
-                                         .add_set_layout(m_texture_set_layout)
+                                         .add_set_layout(m_texture_streamer.set_layout())
                                          .add_shader(gbuffer_vert)
                                          .add_shader(gbuffer_frag)
                                          .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
@@ -266,16 +241,6 @@ void DefaultRenderer::create_pipelines() {
 
 void DefaultRenderer::load_scene(Scene &scene) {
     m_scene = &scene;
-    m_texture_descriptor_buffer = m_context.create_buffer(
-        scene.texture_count() * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler),
-        vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-
-    auto texture_descriptor_staging_buffer = m_texture_descriptor_buffer.create_staging();
-    vk::DescriptorBuilder descriptor_builder(m_texture_set_layout, texture_descriptor_staging_buffer);
-    for (uint32_t i = 0; i < scene.texture_count(); i++) {
-        descriptor_builder.set(0, i, scene.textures()[i]);
-    }
-    m_texture_descriptor_buffer.copy_from(texture_descriptor_staging_buffer, m_context.graphics_queue());
 
     vkb::DeviceSize vertex_buffer_size = 0;
     vkb::DeviceSize index_buffer_size = 0;
@@ -388,19 +353,13 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             continue;
         }
 
-        auto albedo_index = m_scene->texture_index(material.albedo_name());
-        auto normal_index = m_scene->texture_index(material.normal_name());
-        if (!albedo_index || !normal_index) {
-            continue;
-        }
-
         auto bounding_sphere = entity.try_get<BoundingSphere>();
         objects.push({
             .transform = m_scene->get_transform_matrix(entity),
             .center = bounding_sphere ? bounding_sphere->center() : Vec3f(0.0f),
             .radius = bounding_sphere ? bounding_sphere->radius() : FLT_MAX,
-            .albedo_index = *albedo_index,
-            .normal_index = *normal_index,
+            .albedo_index = m_texture_streamer.ensure_texture(material.albedo_name(), TextureKind::Albedo),
+            .normal_index = m_texture_streamer.ensure_texture(material.normal_name(), TextureKind::Normal),
             .index_count = mesh_info->index_count,
             .first_index = mesh_info->index_offset,
             .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),
@@ -484,7 +443,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_streamer.descriptor_buffer(), 1, 0);
         cmd_buf.bind_pipeline(m_gbuffer_pipeline);
         record_draws(cmd_buf, draw_buffer);
     });
@@ -614,7 +573,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
-        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_descriptor_buffer, 1, 0);
+        cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, m_texture_streamer.descriptor_buffer(), 1, 0);
         cmd_buf.bind_pipeline(m_gbuffer_pipeline);
         record_draws(cmd_buf, draw_buffer);
     });
