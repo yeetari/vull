@@ -102,6 +102,8 @@ VULL_GLOBAL(thread_local Pool<4, 262144> s_large_pool);
 extern "C" void vull_free_tasklet(Tasklet *);
 extern "C" void vull_free_tasklet(Tasklet *tasklet) {
     if (tasklet != nullptr) {
+        VULL_ASSERT(tasklet->state() == TaskletState::Done);
+        VULL_ASSERT(tasklet->linked_tasklet() == nullptr);
         static_cast<PoolBase *>(tasklet->pool())->free(tasklet);
     }
 }

@@ -216,6 +216,12 @@ void pump_work() {
     yield();
 }
 
+bool try_schedule(Tasklet *tasklet) {
+    VULL_ASSERT_PEDANTIC(s_queue != nullptr);
+    sem_post(&s_work_available);
+    return s_queue->enqueue(tasklet);
+}
+
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
     sem_post(&s_work_available);
