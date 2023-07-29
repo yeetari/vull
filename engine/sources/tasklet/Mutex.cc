@@ -12,7 +12,10 @@ void Mutex::lock() {
     }
 
     do {
-        // Otherwise add ourselves to the linked list of waiters.
+        // Otherwies, increment the number of waiters.
+        m_wait_count.fetch_add(1);
+
+        // Add ourselves to the linked list of waiters.
         auto *current = Tasklet::current();
         auto *waiter = m_wait_list.load();
         do {
@@ -25,22 +28,25 @@ void Mutex::lock() {
 }
 
 void Mutex::unlock() {
-    // Dequeue one waiter from the linked list.
-    auto *to_wake = m_wait_list.load();
-    Tasklet *desired;
-    do {
-        desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
-    } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
-
     // Clear locked flag.
     m_locked.store(false);
 
-    // Wake one waiter.
-    if (to_wake != nullptr) {
-        while (to_wake->state() == TaskletState::Running) {
+    // Try to wake one waiter.
+    while (m_wait_count.load() != 0) {
+        Tasklet *to_wake = m_wait_list.load();
+        Tasklet *desired;
+        do {
+            desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
+        } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
+
+        if (to_wake != nullptr) {
+            m_wait_count.fetch_sub(1);
+            while (to_wake->state() == TaskletState::Running) {
+            }
+            to_wake->set_linked_tasklet(nullptr);
+            vull::schedule(to_wake);
+            break;
         }
-        to_wake->set_linked_tasklet(nullptr);
-        vull::schedule(to_wake);
     }
 }
 

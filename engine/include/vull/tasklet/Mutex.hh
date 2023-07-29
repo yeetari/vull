@@ -2,12 +2,15 @@
 
 #include <vull/support/Atomic.hh>
 
+#include <stdint.h>
+
 namespace vull {
 
 class Tasklet;
 
 class Mutex {
     Atomic<Tasklet *> m_wait_list;
+    Atomic<uint16_t> m_wait_count;
     Atomic<bool> m_locked;
 
 public:
