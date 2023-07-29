@@ -22,9 +22,8 @@ private:
     vkb::Queue m_queue;
     Vector<CommandBuffer> m_cmd_bufs;
 
-    Queue(const Context &context, uint32_t family_index);
-
 public:
+    Queue(const Context &context, uint32_t family_index);
     Queue(const Queue &) = delete;
     Queue(Queue &&);
     ~Queue();
