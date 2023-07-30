@@ -72,15 +72,14 @@ public:
     Result<uint64_t, GltfParser::Error, json::TreeError> get_blob_offset(const json::Object &accessor);
 
     Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-    process_texture(TextureType type, String &path, String desired_path, Optional<uint64_t> index,
-                    Optional<Vec4f> colour_factor);
+    process_texture(TextureType type, const String &path, Optional<uint64_t> index, Optional<Vec4f> colour_factor);
     Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
     process_material(const json::Object &material, uint64_t index);
 
     Result<void, GltfParser::Error, StreamError, json::TreeError> process_primitive(const json::Object &primitive,
                                                                                     String &&name);
 
-    Result<Material, json::TreeError> make_material(const json::Object &primitive);
+    Result<Optional<Material>, json::TreeError> make_material(const json::Object &primitive);
     Result<void, GltfParser::Error, StreamError, json::TreeError> visit_node(World &world, EntityId parent_id,
                                                                              uint64_t index);
     Result<void, GltfParser::Error, StreamError, json::TreeError> process_scene(const json::Object &scene,
@@ -157,7 +156,7 @@ vpak::ImageWrapMode convert_wrap_mode(int64_t type) {
 }
 
 Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-Converter::process_texture(TextureType type, String &path, String desired_path, Optional<uint64_t> index,
+Converter::process_texture(TextureType type, const String &path, Optional<uint64_t> index,
                            Optional<Vec4f> colour_factor) {
     Filter mipmap_filter;
     vpak::ImageFormat vpak_format;
@@ -248,7 +247,7 @@ Converter::process_texture(TextureType type, String &path, String desired_path, 
         float_image.drop_mips(1);
     }
 
-    auto stream = m_pack_writer.start_entry(path = vull::move(desired_path), vpak::EntryType::Image);
+    auto stream = m_pack_writer.start_entry(path, vpak::EntryType::Image);
     VULL_TRY(stream.write_byte(vull::to_underlying(vpak_format)));
     VULL_TRY(stream.write_byte(vull::to_underlying(mag_filter)));
     VULL_TRY(stream.write_byte(vull::to_underlying(min_filter)));
@@ -304,7 +303,6 @@ Converter::process_material(const json::Object &material, uint64_t index) {
 
     // TODO: In addition to the material properties, if a primitive specifies a vertex color using the attribute
     //       semantic property COLOR_0, then this value acts as an additional linear multiplier to base color.
-    String albedo_path = "/default_albedo";
     auto pbr_info = material["pbrMetallicRoughness"];
     if (pbr_info) {
         Optional<uint64_t> texture_index;
@@ -317,11 +315,14 @@ Converter::process_material(const json::Object &material, uint64_t index) {
             colour_factor = Vec4f(VULL_TRY(factor[0].get<double>()), VULL_TRY(factor[1].get<double>()),
                                   VULL_TRY(factor[2].get<double>()), VULL_TRY(factor[3].get<double>()));
         }
-        VULL_TRY(process_texture(TextureType::Albedo, albedo_path, vull::format("/materials/{}/albedo", name),
-                                 texture_index, colour_factor));
+
+        const auto path = vull::format("/materials/{}/albedo", name);
+        VULL_TRY(process_texture(TextureType::Albedo, path, texture_index, colour_factor));
+
+        ScopedLock lock(m_material_map_mutex);
+        m_albedo_paths.set(index, path);
     }
 
-    String normal_path = "/default_normal";
     const auto normal_info = material["normalTexture"];
     if (normal_info) {
         int64_t tex_coord = 0;
@@ -340,14 +341,13 @@ Converter::process_material(const json::Object &material, uint64_t index) {
             vull::warn("[gltf] Ignoring non-one normal map scale of {} on material '{}'", scale, name);
         }
 
+        const auto path = vull::format("/materials/{}/normal", name);
         const auto texture_index = static_cast<uint64_t>(VULL_TRY(normal_info["index"].get<int64_t>()));
-        VULL_TRY(process_texture(TextureType::Normal, normal_path, vull::format("/materials/{}/normal", name),
-                                 texture_index, {}));
-    }
+        VULL_TRY(process_texture(TextureType::Normal, path, texture_index, {}));
 
-    ScopedLock lock(m_material_map_mutex);
-    m_albedo_paths.set(index, albedo_path);
-    m_normal_paths.set(index, normal_path);
+        ScopedLock lock(m_material_map_mutex);
+        m_normal_paths.set(index, path);
+    }
     return {};
 }
 
@@ -469,22 +469,15 @@ Result<void, GltfParser::Error, json::TreeError> array_to_vec(const json::Array 
     return {};
 }
 
-Result<Material, json::TreeError> Converter::make_material(const json::Object &primitive) {
+Result<Optional<Material>, json::TreeError> Converter::make_material(const json::Object &primitive) {
     if (!primitive["material"]) {
-        return Material("/default_albedo", "/default_normal");
+        return Optional<Material>();
     }
+
     auto index = static_cast<uint64_t>(VULL_TRY(primitive["material"].get<int64_t>()));
-
-    String albedo_path = "/default_albedo";
-    if (auto path = m_albedo_paths.get(index)) {
-        albedo_path = String(*path);
-    }
-
-    String normal_path = "/default_normal";
-    if (auto path = m_normal_paths.get(index)) {
-        normal_path = String(*path);
-    }
-    return Material(vull::move(albedo_path), vull::move(normal_path));
+    auto albedo_path = m_albedo_paths.get(index).value_or({});
+    auto normal_path = m_normal_paths.get(index).value_or({});
+    return Optional<Material>(Material(vull::move(albedo_path), vull::move(normal_path)));
 }
 
 Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::visit_node(World &world, EntityId parent_id,
@@ -520,7 +513,9 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::visit_n
 
         auto build_entity = [&](Entity &sub_entity, uint64_t primitive_index) -> Result<void, json::TreeError> {
             const auto &primitive = VULL_TRY(primitive_array[primitive_index].get<json::Object>());
-            sub_entity.add<Material>(VULL_TRY(make_material(primitive)));
+            if (auto material = VULL_TRY(make_material(primitive))) {
+                sub_entity.add<Material>(*material);
+            }
             sub_entity.add<Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, primitive_index),
                                  vull::format("/meshes/{}.{}/index", mesh_name, primitive_index));
             if (auto bounds = m_mesh_bounds.get(vull::format("{}.{}", mesh_name, primitive_index))) {
@@ -572,40 +567,6 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::process
 }
 
 Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::convert() {
-    // TODO: These defaults textures should be created once in the engine.
-
-    // Emit default albedo texture.
-    auto albedo_entry = m_pack_writer.start_entry("/default_albedo", vpak::EntryType::Image);
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageFormat::RgbaUnorm)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageFilter::Nearest)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageFilter::Nearest)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageWrapMode::Repeat)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageWrapMode::Repeat)));
-    VULL_TRY(albedo_entry.write_varint(16u));
-    VULL_TRY(albedo_entry.write_varint(16u));
-    VULL_TRY(albedo_entry.write_varint(1u));
-    constexpr Array colours{
-        Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
-        Vec<uint8_t, 4>(0x94, 0x00, 0xd3, 0xff),
-    };
-    for (uint32_t y = 0; y < 16; y++) {
-        for (uint32_t x = 0; x < 16; x++) {
-            uint32_t colour_index = (x + y) % colours.size();
-            VULL_TRY(albedo_entry.write({&colours[colour_index], 4}));
-        }
-    }
-    albedo_entry.finish();
-
-    // Emit default normal map texture.
-    auto normal_entry = m_pack_writer.start_entry("/default_normal", vpak::EntryType::Image);
-    VULL_TRY(normal_entry.write_byte(uint8_t(vpak::ImageFormat::RgUnorm)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageFilter::Linear)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageFilter::Linear)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageWrapMode::Repeat)));
-    VULL_TRY(albedo_entry.write_byte(uint8_t(vpak::ImageWrapMode::Repeat)));
-    VULL_TRY(normal_entry.write(Array<uint8_t, 5>{1u, 1u, 1u, 127u, 127u}.span()));
-    normal_entry.finish();
-
     const auto &material_array = VULL_TRY(m_document["materials"].get<json::Array>());
     Latch material_latch(material_array.size());
     for (uint32_t i = 0; i < material_array.size(); i++) {

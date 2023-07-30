@@ -20,6 +20,7 @@ public:
     static Material deserialise(Stream &stream);
     static void serialise(Material &material, Stream &stream);
 
+    Material() = default;
     Material(const String &albedo_name, const String &normal_name)
         : m_albedo_name(albedo_name), m_normal_name(normal_name) {}
     Material(String &&albedo_name, String &&normal_name)
