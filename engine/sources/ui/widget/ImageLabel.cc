@@ -19,7 +19,7 @@ ImageLabel::ImageLabel(Tree &tree, Optional<Element &> parent, vk::Image &image)
 }
 
 void ImageLabel::paint(Painter &painter, LayoutPoint position) const {
-    painter.draw_image(position, computed_size(), m_image.full_view().sampled(vk::Sampler::Nearest));
+    painter.paint_image(position, computed_size(), m_image.full_view().sampled(vk::Sampler::Nearest));
 }
 
 } // namespace vull::ui

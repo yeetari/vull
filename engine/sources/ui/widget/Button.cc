@@ -26,7 +26,7 @@ void Button::paint(Painter &painter, LayoutPoint position) const {
         colour = Colour::from_srgb(0.67f, 0.67f, 0.67f, 0.39f);
     }
 
-    painter.draw_rect(position, computed_size(), colour);
+    painter.paint_rect(position, computed_size(), colour);
     m_label.paint(painter, position + computed_size() / 2 - m_label.computed_size() / 2);
 }
 

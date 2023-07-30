@@ -5,6 +5,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
+#include <vull/support/Variant.hh>
 #include <vull/ui/Units.hh> // IWYU pragma: keep
 #include <vull/vulkan/Vulkan.hh>
 
@@ -24,6 +25,27 @@ class Font;
 class FontAtlas;
 class Renderer;
 
+struct RectCommand {
+    Colour colour;
+};
+
+struct ImageCommand {
+    uint32_t texture_index;
+};
+
+struct TextCommand {
+    Colour colour;
+    Vec2f uv_a;
+    Vec2f uv_c;
+    uint32_t texture_index;
+};
+
+struct PaintCommand {
+    Vec2i position;
+    Vec2i size;
+    Variant<RectCommand, ImageCommand, TextCommand> variant;
+};
+
 class Painter {
     friend Renderer;
 
@@ -32,16 +54,8 @@ private:
         vkb::ImageView view;
         vkb::Sampler sampler;
     };
-    struct Command {
-        Vec2i position;
-        Vec2i size;
-        Vec2f uv_a;
-        Vec2f uv_c;
-        Colour colour;
-        uint32_t texture_index;
-    };
     Vector<BoundTexture> m_bound_textures;
-    Vector<Command> m_commands;
+    Vector<PaintCommand> m_commands;
     FontAtlas *m_atlas{nullptr};
 
     void compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
@@ -52,9 +66,9 @@ public:
     Painter() { m_bound_textures.push({}); }
 
     void bind_atlas(FontAtlas &atlas);
-    void draw_rect(LayoutPoint position, LayoutSize size, const Colour &colour);
-    void draw_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image);
-    void draw_text(Font &font, LayoutPoint position, const Colour &colour, StringView text);
+    void paint_rect(LayoutPoint position, LayoutSize size, const Colour &colour);
+    void paint_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image);
+    void paint_text(Font &font, LayoutPoint position, const Colour &colour, StringView text);
 };
 
 } // namespace vull::ui

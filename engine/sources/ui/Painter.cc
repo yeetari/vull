@@ -4,8 +4,10 @@
 #include <vull/container/Vector.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/support/Optional.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
+#include <vull/support/Variant.hh>
 #include <vull/ui/Font.hh>
 #include <vull/ui/FontAtlas.hh>
 #include <vull/ui/Units.hh>
@@ -41,36 +43,40 @@ void Painter::bind_atlas(FontAtlas &atlas) {
     m_atlas = &atlas;
 }
 
-void Painter::draw_rect(LayoutPoint position, LayoutSize size, const Colour &colour) {
-    m_commands.push({
+void Painter::paint_rect(LayoutPoint position, LayoutSize size, const Colour &colour) {
+    m_commands.push(PaintCommand{
         .position = position.floor(),
         .size = size.ceil(),
-        .colour = colour,
+        .variant{RectCommand{
+            .colour = colour,
+        }},
     });
 }
 
-void Painter::draw_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image) {
-    m_commands.push({
+void Painter::paint_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image) {
+    m_commands.push(PaintCommand{
         .position = position.floor(),
         .size = size.ceil(),
-        .uv_c = Vec2f(1.0f),
-        .colour = Colour::white(),
-        .texture_index = get_texture_index(image),
+        .variant{ImageCommand{
+            .texture_index = get_texture_index(image),
+        }},
     });
 }
 
-void Painter::draw_text(Font &font, LayoutPoint position, const Colour &colour, StringView text) {
+void Painter::paint_text(Font &font, LayoutPoint position, const Colour &colour, StringView text) {
     for (const auto [glyph_index, advance, offset] : font.shape(text)) {
         const auto glyph_info = m_atlas->ensure_glyph(font, glyph_index);
         const auto glyph_position = position + offset + LayoutDelta::from_int_pixels(glyph_info.bitmap_offset);
         const auto glyph_size = LayoutSize::from_int_pixels(glyph_info.size);
-        m_commands.push({
+        m_commands.push(PaintCommand{
             .position = glyph_position.floor(),
             .size = glyph_size.ceil(),
-            .uv_a = static_cast<Vec2f>(glyph_info.atlas_offset) / m_atlas->extent(),
-            .uv_c = static_cast<Vec2f>(glyph_info.atlas_offset + glyph_info.size) / m_atlas->extent(),
-            .colour = colour,
-            .texture_index = get_texture_index(m_atlas->sampled_image()),
+            .variant{TextCommand{
+                .colour = colour,
+                .uv_a = static_cast<Vec2f>(glyph_info.atlas_offset) / m_atlas->extent(),
+                .uv_c = static_cast<Vec2f>(glyph_info.atlas_offset + glyph_info.size) / m_atlas->extent(),
+                .texture_index = get_texture_index(m_atlas->sampled_image()),
+            }},
         });
 
         // Round the advance to the nearest pixel to avoid jittering issues.
@@ -122,13 +128,21 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
     cmd_buf.bind_associated_buffer(vull::move(vertex_buffer));
     cmd_buf.bind_associated_buffer(vull::move(index_buffer));
 
+    // TODO: Variant visit.
     uint32_t first_index = 0;
     uint32_t index_offset = 0;
     uint32_t vertex_index = 0;
     uint32_t texture_index = UINT32_MAX;
     for (const auto &command : m_commands) {
-        if (texture_index != command.texture_index) {
-            texture_index = command.texture_index;
+        uint32_t next_texture_index = 0;
+        if (auto image_command = command.variant.try_get<ImageCommand>()) {
+            next_texture_index = image_command->texture_index;
+        } else if (auto text_command = command.variant.try_get<TextCommand>()) {
+            next_texture_index = text_command->texture_index;
+        }
+
+        if (texture_index != next_texture_index) {
+            texture_index = next_texture_index;
             if (const auto count = index_offset - first_index; count != 0) {
                 // NOLINTNEXTLINE
                 cmd_buf.draw_indexed(count, 1, first_index);
@@ -149,31 +163,42 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
         Vec2i b(c.x(), a.y());
         Vec2i d(a.x(), c.y());
 
-        const auto uv_a = command.uv_a;
-        const auto uv_c = command.uv_c;
+        Vec2f uv_a(0.0f);
+        Vec2f uv_c(1.0f);
+        if (auto text_command = command.variant.try_get<TextCommand>()) {
+            uv_a = text_command->uv_a;
+            uv_c = text_command->uv_c;
+        }
         Vec2f uv_b(uv_c.x(), uv_a.y());
         Vec2f uv_d(uv_a.x(), uv_c.y());
+
+        auto colour = Colour::white();
+        if (auto rect_command = command.variant.try_get<RectCommand>()) {
+            colour = rect_command->colour;
+        } else if (auto text_command = command.variant.try_get<TextCommand>()) {
+            colour = text_command->colour;
+        }
 
         Array vertices{
             Vertex{
                 .position = a,
                 .uv = uv_a,
-                .colour = command.colour.rgba(),
+                .colour = colour.rgba(),
             },
             Vertex{
                 .position = b,
                 .uv = uv_b,
-                .colour = command.colour.rgba(),
+                .colour = colour.rgba(),
             },
             Vertex{
                 .position = c,
                 .uv = uv_c,
-                .colour = command.colour.rgba(),
+                .colour = colour.rgba(),
             },
             Vertex{
                 .position = d,
                 .uv = uv_d,
-                .colour = command.colour.rgba(),
+                .colour = colour.rgba(),
             },
         };
         memcpy(&vertex_data[vertex_index], vertices.data(), vertices.size_bytes());

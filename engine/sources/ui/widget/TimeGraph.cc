@@ -23,7 +23,7 @@ namespace vull::ui {
 
 void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     // Draw bounding box.
-    painter.draw_rect(position, computed_size(), Colour::black());
+    painter.paint_rect(position, computed_size(), Colour::black());
 
     // Calculate visible bar count.
     // TODO: visible_bar_count + 1 and use a scissor.
@@ -47,7 +47,7 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
             const auto &colour = m_graph.colour_for_section(section.name);
             auto height = computed_height().scale_by(section.duration / max_total_time);
             height = LayoutUnit::from_int_pixels(-height.round());
-            painter.draw_rect(bar_base + LayoutDelta(0, y_offset), LayoutSize(bar_width, height), colour);
+            painter.paint_rect(bar_base + LayoutDelta(0, y_offset), LayoutSize(bar_width, height), colour);
             y_offset += height;
         }
     }

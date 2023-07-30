@@ -35,11 +35,11 @@ void Window::paint(Painter &painter, LayoutPoint position) const {
     }
 
     // Title pane background.
-    painter.draw_rect(position, {computed_width(), m_title_pane->computed_height()}, Colour::black());
+    painter.paint_rect(position, {computed_width(), m_title_pane->computed_height()}, Colour::black());
 
     // Content pane background.
-    painter.draw_rect(position + m_content_pane->offset_in_parent(),
-                      {computed_width(), computed_height() - m_title_pane->computed_height()}, colour);
+    painter.paint_rect(position + m_content_pane->offset_in_parent(),
+                       {computed_width(), computed_height() - m_title_pane->computed_height()}, colour);
 
     // Paint children.
     Pane::paint(painter, position);

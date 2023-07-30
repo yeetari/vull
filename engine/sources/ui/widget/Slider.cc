@@ -29,16 +29,16 @@ void Slider::paint(Painter &painter, LayoutPoint position) const {
     }
 
     // Draw groove.
-    painter.draw_rect(position, computed_size(), colour);
+    painter.paint_rect(position, computed_size(), colour);
 
     // Draw handle.
     const float value_ratio = (m_value - m_min) / (m_max - m_min);
     const LayoutUnit handle_width = m_handle_width.resolve(tree(), computed_width());
     const LayoutUnit handle_padding = m_handle_padding.resolve(tree(), computed_width());
     const LayoutUnit handle_x = (computed_width() - handle_width - handle_padding * 2).scale_by(value_ratio);
-    painter.draw_rect(position + LayoutPoint(handle_x + handle_padding, handle_padding),
-                      LayoutSize(handle_width, computed_height() - handle_padding * 2),
-                      Colour::from_srgb(0.11f, 0.64f, 0.92f));
+    painter.paint_rect(position + LayoutPoint(handle_x + handle_padding, handle_padding),
+                       LayoutSize(handle_width, computed_height() - handle_padding * 2),
+                       Colour::from_srgb(0.11f, 0.64f, 0.92f));
 
     // Draw value label.
     m_value_label.paint(painter, position + computed_size() / 2 - m_value_label.computed_size() / 2);

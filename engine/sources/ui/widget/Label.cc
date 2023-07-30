@@ -40,7 +40,7 @@ void Label::paint(Painter &painter, LayoutPoint position) const {
     if (m_text.empty()) {
         return;
     }
-    painter.draw_text(*m_font, position + LayoutPoint(0, computed_height()), m_colour, m_text);
+    painter.paint_text(*m_font, position + LayoutPoint(0, computed_height()), m_colour, m_text);
 }
 
 } // namespace vull::ui
