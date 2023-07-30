@@ -19,11 +19,13 @@ class Tree;
 
 class TimeGraphPanel : public Element {
     TimeGraph &m_graph;
+    mutable float m_max_total_time{0.0f};
 
 public:
     TimeGraphPanel(Tree &tree, Optional<Element &> parent, TimeGraph &graph) : Element(tree, parent), m_graph(graph) {}
 
     void paint(Painter &painter, LayoutPoint position) const override;
+    float max_total_time() const { return m_max_total_time; }
 };
 
 class TimeGraph : public VBoxLayout {
@@ -49,7 +51,6 @@ private:
 
     RingBuffer<Bar> m_bars;
     Optional<Bar &> m_current_bar;
-    float m_max_total_time{0.0f};
 
     HashMap<String, Colour> m_section_colours;
     Colour colour_for_section(const String &name);

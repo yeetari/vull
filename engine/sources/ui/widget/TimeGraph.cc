@@ -31,13 +31,13 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
         vull::min(static_cast<uint32_t>((computed_width() / bar_width).raw_value()) + 2, m_graph.m_bars.size());
     const auto bar_offset = m_graph.m_bars.size() - visible_bar_count;
 
-    float max_total_time = 0.0f;
+    m_max_total_time = 0.0f;
     for (uint32_t bar_index = bar_offset; bar_index < m_graph.m_bars.size(); bar_index++) {
         float total_time = 0.0f;
         for (const auto &section : m_graph.m_bars[bar_index].sections) {
             total_time += section.duration;
         }
-        max_total_time = vull::max(max_total_time, total_time);
+        m_max_total_time = vull::max(m_max_total_time, total_time);
     }
 
     // Draw bars.
@@ -46,7 +46,7 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
         const auto bar_base = position + LayoutDelta(bar_width * int32_t(bar_index - bar_offset), computed_height());
         for (LayoutUnit y_offset; const auto &section : m_graph.m_bars[bar_index].sections) {
             const auto &colour = m_graph.colour_for_section(section.name);
-            auto height = computed_height().scale_by(section.duration / max_total_time);
+            auto height = computed_height().scale_by(section.duration / m_max_total_time);
             height = LayoutUnit::from_int_pixels(-height.round());
             painter.paint_rect(bar_base + LayoutDelta(0, y_offset), LayoutSize(bar_width, height), colour);
             y_offset += height;
@@ -83,16 +83,7 @@ void TimeGraph::set_bar_width(Length bar_width) {
 }
 
 void TimeGraph::pre_layout(LayoutSize available_space) {
-    m_max_total_time = 0.0f;
-    for (const auto &bar : m_bars) {
-        float total_time = 0.0f;
-        for (const auto &section : bar.sections) {
-            total_time += section.duration;
-        }
-        m_max_total_time = vull::max(m_max_total_time, total_time);
-    }
-
-    auto title_string = vull::format("{}: {} ms", m_title, m_max_total_time * 1000.0f);
+    auto title_string = vull::format("{}: {} ms", m_title, m_graph_panel->max_total_time() * 1000.0f);
     m_title_label->set_text(vull::move(title_string));
 
     m_legend_vbox->clear_children();
