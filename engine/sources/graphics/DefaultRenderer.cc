@@ -21,6 +21,7 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/vpak/FileSystem.hh>
@@ -347,10 +348,17 @@ void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer 
 
 vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer) {
     Vector<Object> objects;
-    for (auto [entity, mesh, material] : m_scene->world().view<Mesh, Material>()) {
+    for (auto [entity, mesh] : m_scene->world().view<Mesh>()) {
         const auto mesh_info = m_mesh_infos.get(mesh.vertex_data_name());
         if (!mesh_info) {
             continue;
+        }
+
+        StringView albedo_name;
+        StringView normal_name;
+        if (auto material = entity.try_get<Material>()) {
+            albedo_name = material->albedo_name();
+            normal_name = material->normal_name();
         }
 
         auto bounding_sphere = entity.try_get<BoundingSphere>();
@@ -358,8 +366,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             .transform = m_scene->get_transform_matrix(entity),
             .center = bounding_sphere ? bounding_sphere->center() : Vec3f(0.0f),
             .radius = bounding_sphere ? bounding_sphere->radius() : FLT_MAX,
-            .albedo_index = m_texture_streamer.ensure_texture(material.albedo_name(), TextureKind::Albedo),
-            .normal_index = m_texture_streamer.ensure_texture(material.normal_name(), TextureKind::Normal),
+            .albedo_index = m_texture_streamer.ensure_texture(albedo_name, TextureKind::Albedo),
+            .normal_index = m_texture_streamer.ensure_texture(normal_name, TextureKind::Normal),
             .index_count = mesh_info->index_count,
             .first_index = mesh_info->index_offset,
             .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),

@@ -46,7 +46,7 @@ class TextureStreamer {
 
     vk::Image create_default_image(Vec2u extent, vkb::Format format, Span<const uint8_t> pixel_data);
     Result<uint32_t, StreamError> load_texture(Stream &stream);
-    void load_texture(String &&name);
+    void load_texture(String &&name, uint32_t fallback_index);
 
 public:
     explicit TextureStreamer(vk::Context &context);

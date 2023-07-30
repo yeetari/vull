@@ -131,6 +131,9 @@ TextureStreamer::TextureStreamer(vk::Context &context) : m_context(context) {
     // Transfer ownership of images.
     m_images.push(vull::move(albedo_error_image));
     m_images.push(vull::move(normal_error_image));
+
+    // Mark empty string as error texture.
+    m_texture_indices.set({}, UINT32_MAX);
 }
 
 TextureStreamer::~TextureStreamer() {
@@ -300,12 +303,12 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     return next_index;
 }
 
-void TextureStreamer::load_texture(String &&name) {
+void TextureStreamer::load_texture(String &&name, uint32_t fallback_index) {
     auto stream = vpak::open(name);
     if (!stream) {
         vull::error("[graphics] Failed to find texture {}", name);
         ScopedLock lock(m_mutex);
-        m_texture_indices.set(vull::move(name), 0);
+        m_texture_indices.set(vull::move(name), fallback_index);
         return;
     }
 
@@ -315,7 +318,7 @@ void TextureStreamer::load_texture(String &&name) {
     } else {
         vull::error("[graphics] Failed to load texture {}", name);
         ScopedLock lock(m_mutex);
-        m_texture_indices.set(vull::move(name), 0);
+        m_texture_indices.set(vull::move(name), fallback_index);
     }
 }
 
@@ -327,8 +330,8 @@ uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
         return *index != UINT32_MAX ? *index : fallback_index;
     }
 
-    bool scheduled = vull::try_schedule([this, name = String(name)]() mutable {
-        load_texture(vull::move(name));
+    bool scheduled = vull::try_schedule([this, name = String(name), fallback_index]() mutable {
+        load_texture(vull::move(name), fallback_index);
         m_in_progress.fetch_sub(1);
     });
     if (scheduled) {
