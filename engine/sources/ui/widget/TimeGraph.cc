@@ -26,9 +26,9 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     painter.paint_rect(position, computed_size(), Colour::black());
 
     // Calculate visible bar count.
-    // TODO: visible_bar_count + 1 and use a scissor.
     const LayoutUnit bar_width = m_graph.m_bar_width.resolve(tree());
-    const auto visible_bar_count = static_cast<uint32_t>((computed_width() / bar_width).raw_value());
+    const auto visible_bar_count =
+        vull::min(static_cast<uint32_t>((computed_width() / bar_width).raw_value()) + 2, m_graph.m_bars.size());
     const auto bar_offset = m_graph.m_bars.size() - visible_bar_count;
 
     float max_total_time = 0.0f;
@@ -41,6 +41,7 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     }
 
     // Draw bars.
+    painter.set_scissor(position, computed_size());
     for (uint32_t bar_index = bar_offset; bar_index < m_graph.m_bars.size(); bar_index++) {
         const auto bar_base = position + LayoutDelta(bar_width * int32_t(bar_index - bar_offset), computed_height());
         for (LayoutUnit y_offset; const auto &section : m_graph.m_bars[bar_index].sections) {
@@ -51,6 +52,7 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
             y_offset += height;
         }
     }
+    painter.unset_scissor();
 }
 
 TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_colour, String title)
