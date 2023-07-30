@@ -84,6 +84,22 @@ void Painter::paint_text(Font &font, LayoutPoint position, const Colour &colour,
     }
 }
 
+void Painter::set_scissor(LayoutPoint position, LayoutSize size) {
+    m_commands.push(PaintCommand{
+        .position = position.floor(),
+        .size = size.ceil(),
+        .variant{ScissorCommand{}},
+    });
+}
+
+void Painter::unset_scissor() {
+    m_commands.push(PaintCommand{
+        .position{},
+        .size{UINT32_MAX, UINT32_MAX},
+        .variant{ScissorCommand{}},
+    });
+}
+
 void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
                       const vk::SampledImage &null_image) {
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
@@ -128,12 +144,37 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
     cmd_buf.bind_associated_buffer(vull::move(vertex_buffer));
     cmd_buf.bind_associated_buffer(vull::move(index_buffer));
 
-    // TODO: Variant visit.
     uint32_t first_index = 0;
     uint32_t index_offset = 0;
     uint32_t vertex_index = 0;
+    auto flush_draws = [&] {
+        if (const auto count = index_offset - first_index; count != 0) {
+            cmd_buf.draw_indexed(count, 1, first_index);
+            first_index = index_offset;
+        }
+    };
+
+    // TODO: Variant visit.
     uint32_t texture_index = UINT32_MAX;
     for (const auto &command : m_commands) {
+        if (command.variant.has<ScissorCommand>()) {
+            // Flush any draws before setting the new scissor.
+            flush_draws();
+
+            vkb::Rect2D scissor{
+                .offset{
+                    .x = command.position.x(),
+                    .y = command.position.y(),
+                },
+                .extent{
+                    .width = static_cast<uint32_t>(command.size.x()),
+                    .height = static_cast<uint32_t>(command.size.y()),
+                },
+            };
+            cmd_buf.set_scissor(scissor);
+            continue;
+        }
+
         uint32_t next_texture_index = 0;
         if (auto image_command = command.variant.try_get<ImageCommand>()) {
             next_texture_index = image_command->texture_index;
@@ -143,11 +184,8 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
 
         if (texture_index != next_texture_index) {
             texture_index = next_texture_index;
-            if (const auto count = index_offset - first_index; count != 0) {
-                // NOLINTNEXTLINE
-                cmd_buf.draw_indexed(count, 1, first_index);
-                first_index = index_offset;
-            }
+            flush_draws();
+
             struct PushConstants {
                 Vec2u viewport;
                 uint32_t texture_index;
@@ -209,9 +247,9 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
         vertex_index += 4;
         index_offset += 6;
     }
-    if (const auto count = index_offset - first_index; count != 0) {
-        cmd_buf.draw_indexed(count, 1, first_index);
-    }
+
+    // Flush any remaining draws.
+    flush_draws();
 }
 
 } // namespace vull::ui

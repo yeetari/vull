@@ -40,10 +40,12 @@ struct TextCommand {
     uint32_t texture_index;
 };
 
+struct ScissorCommand {};
+
 struct PaintCommand {
     Vec2i position;
     Vec2i size;
-    Variant<RectCommand, ImageCommand, TextCommand> variant;
+    Variant<RectCommand, ImageCommand, TextCommand, ScissorCommand> variant;
 };
 
 class Painter {
@@ -69,6 +71,8 @@ public:
     void paint_rect(LayoutPoint position, LayoutSize size, const Colour &colour);
     void paint_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image);
     void paint_text(Font &font, LayoutPoint position, const Colour &colour, StringView text);
+    void set_scissor(LayoutPoint position, LayoutSize size);
+    void unset_scissor();
 };
 
 } // namespace vull::ui
