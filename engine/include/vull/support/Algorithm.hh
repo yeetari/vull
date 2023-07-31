@@ -4,6 +4,8 @@
 
 namespace vull {
 
+// TODO: Use ranges more.
+
 template <typename It>
 class Range {
     It m_begin;
@@ -88,6 +90,64 @@ constexpr bool contains(const Container &container, const T &value) {
         }
     }
     return false;
+}
+
+template <typename It, typename T>
+constexpr It find(It first, It last, const T &value) {
+    for (; first != last; ++first) {
+        if (*first == value) {
+            return first;
+        }
+    }
+    return last;
+}
+
+template <typename It, typename Predicate>
+constexpr It find_if(It first, It last, Predicate predicate) {
+    for (; first != last; ++first) {
+        if (predicate(*first)) {
+            return first;
+        }
+    }
+    return last;
+}
+
+template <typename It>
+constexpr void reverse(It first, It last) {
+    while (first != last && first != --last) {
+        swap(*first++, *last);
+    }
+}
+
+template <typename It>
+constexpr It rotate(It first, It middle, It last) {
+    if (first == middle) {
+        return last;
+    }
+
+    if (middle == last) {
+        return first;
+    }
+
+    // TODO: Support other random access iterators here.
+    if constexpr (is_ptr<It>) {
+        reverse(first, middle);
+        reverse(middle, last);
+        reverse(first, last);
+        return first + (last - middle);
+    }
+
+    It write = first;
+    It next_read = first;
+    for (It read = middle; read != last; ++write, ++read) {
+        if (write == next_read) {
+            next_read = read;
+        }
+        swap(*write, *read);
+    }
+
+    rotate(write, next_read, last);
+    return write;
 }
 
 template <typename Container, typename GreaterThan, typename SizeType = decltype(declval<Container>().size())>
