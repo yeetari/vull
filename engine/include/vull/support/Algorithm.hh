@@ -4,13 +4,25 @@
 
 namespace vull {
 
-// TODO: Does vull want to go down the route of an "iterator" or a "container" based algorithm and data structure API?
-//       For example, the Vector::extend(const Container &) API was added instead of one taking in begin and end
-//       iterators (since calculating the extension size of the vector would be tricky), with the thought that
-//       slices/ranges could be passed in via creating a Span. However, this design makes it impossible to do something
-//       like
-//           vector.extend(vull::reverse_view(other_vector));
-//       as a ViewAdapter<ReverseIterator> doesn't have the normal container functions like .data() and .size()
+template <typename It>
+class Range {
+    It m_begin;
+    It m_end;
+
+public:
+    constexpr Range(It begin, It end) : m_begin(begin), m_end(end) {}
+
+    It begin() const { return m_begin; }
+    It end() const { return m_end; }
+};
+
+template <typename It>
+Range(It) -> Range<It>;
+
+template <typename It>
+constexpr auto make_range(It begin, It end) {
+    return Range(begin, end);
+}
 
 template <typename It>
 class ReverseIterator {
@@ -29,21 +41,6 @@ template <typename It>
 ReverseIterator(It) -> ReverseIterator<It>;
 
 template <typename It>
-class ViewAdapter {
-    It m_begin;
-    It m_end;
-
-public:
-    ViewAdapter(It begin, It end) : m_begin(begin), m_end(end) {}
-
-    It begin() const { return m_begin; }
-    It end() const { return m_end; }
-};
-
-template <typename It>
-ViewAdapter(It) -> ViewAdapter<It>;
-
-template <typename It>
 auto &ReverseIterator<It>::operator++() {
     --m_it;
     return *this;
@@ -58,7 +55,7 @@ auto &ReverseIterator<It>::operator*() const {
 
 template <typename Container>
 auto reverse_view(Container &container) {
-    return ViewAdapter(ReverseIterator(container.end()), ReverseIterator(container.begin()));
+    return make_range(ReverseIterator(container.end()), ReverseIterator(container.begin()));
 }
 
 template <typename Container, typename SizeType>
@@ -68,7 +65,7 @@ auto slice(Container &container, SizeType first, SizeType last = 0) {
                       it + 0;
                       it - 0;
                   }) {
-        return ViewAdapter(container.begin() + first, container.end() - (container.size() - last));
+        return make_range(container.begin() + first, container.end() - (container.size() - last));
     }
 
     auto begin = container.begin();
@@ -80,7 +77,7 @@ auto slice(Container &container, SizeType first, SizeType last = 0) {
     for (SizeType i = 0; i < container.size() - last; i++) {
         --end;
     }
-    return ViewAdapter(begin, end);
+    return make_range(begin, end);
 }
 
 template <typename Container, typename T>

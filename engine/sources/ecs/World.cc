@@ -53,7 +53,7 @@ Result<float, StreamError> World::serialise(vpak::Writer &pack_writer, StringVie
             continue;
         }
         set.serialise(entry);
-        for (EntityId id : vull::ViewAdapter(set.dense_begin(), set.dense_end())) {
+        for (EntityId id : vull::make_range(set.dense_begin(), set.dense_end())) {
             VULL_TRY(entry.write_varint(id));
         }
     }
