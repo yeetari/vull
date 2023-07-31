@@ -47,6 +47,9 @@ class Pane : public Element {
     Vector<UniquePtr<Element>> m_children;
     Margins m_margins;
 
+protected:
+    Vector<UniquePtr<Element>> &children() { return m_children; }
+
 public:
     using Element::Element;
 

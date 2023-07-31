@@ -6,12 +6,14 @@
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
 #include <vull/support/Utility.hh>
+#include <vull/ui/Element.hh>
 #include <vull/ui/Event.hh>
 #include <vull/ui/Painter.hh>
 #include <vull/ui/Tree.hh>
 #include <vull/ui/Units.hh>
 #include <vull/ui/layout/BoxLayout.hh>
 #include <vull/ui/layout/Pane.hh>
+#include <vull/ui/layout/ScreenPane.hh>
 #include <vull/ui/widget/Label.hh>
 
 namespace vull::ui {
@@ -54,6 +56,9 @@ bool Window::mouse_in_resize_grab(LayoutPoint position) const {
 bool Window::handle_mouse_press(const MouseButtonEvent &event) {
     if (event.button() == MouseButton::Left) {
         tree().set_active_element(*this);
+        if (parent() && parent()->is_screen_pane()) {
+            static_cast<ScreenPane &>(*parent()).bring_to_front(*this);
+        }
         if (mouse_in_resize_grab(event.position())) {
             m_is_resizing = true;
         }

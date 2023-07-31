@@ -77,7 +77,9 @@ public:
     virtual void handle_mouse_move(const MouseMoveEvent &) {}
     virtual void handle_mouse_enter(const MouseEvent &);
     virtual void handle_mouse_exit(const MouseEvent &);
+
     virtual bool is_pane() const { return false; }
+    virtual bool is_screen_pane() const { return false; }
 
     bool is_active_element() const;
     bool is_hovered() const;
