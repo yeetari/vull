@@ -4,8 +4,12 @@
 #include <vull/maths/Vec.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Painter.hh>
+#include <vull/vpak/FileSystem.hh>
+#include <vull/vpak/Reader.hh>
+#include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Image.hh>
@@ -101,6 +105,59 @@ Renderer::Renderer(vk::Context &context) : m_context(context) {
             .subresourceRange = m_null_image.full_view().range(),
         });
     });
+
+    vkb::ImageCreateInfo shadow_image_ci{
+        .sType = vkb::StructureType::ImageCreateInfo,
+        .imageType = vkb::ImageType::_2D,
+        .format = vkb::Format::R8G8B8A8Srgb,
+        .extent = {384, 384, 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = vkb::SampleCount::_1,
+        .tiling = vkb::ImageTiling::Optimal,
+        .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::TransferDst,
+        .sharingMode = vkb::SharingMode::Exclusive,
+        .initialLayout = vkb::ImageLayout::Undefined,
+    };
+    m_shadow_image = m_context.create_image(shadow_image_ci, vk::MemoryUsage::DeviceOnly);
+
+    auto staging_buffer =
+        m_context.create_buffer(384 * 384 * 4, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto stream = vpak::open("/9slice");
+    VULL_EXPECT(stream->read({staging_buffer.mapped_raw(), staging_buffer.size()}));
+
+    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+        vkb::ImageMemoryBarrier2 transfer_write_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstAccessMask = vkb::Access2::TransferWrite,
+            .oldLayout = vkb::ImageLayout::Undefined,
+            .newLayout = vkb::ImageLayout::TransferDstOptimal,
+            .image = *m_shadow_image,
+            .subresourceRange = m_shadow_image.full_view().range(),
+        };
+        vkb::BufferImageCopy copy{
+            .imageSubresource{
+                .aspectMask = vkb::ImageAspect::Color,
+                .layerCount = 1,
+            },
+            .imageExtent = {384, 384, 1},
+        };
+        vkb::ImageMemoryBarrier2 image_read_barrier{
+            .sType = vkb::StructureType::ImageMemoryBarrier2,
+            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcAccessMask = vkb::Access2::TransferWrite,
+            .dstStageMask = vkb::PipelineStage2::AllCommands,
+            .dstAccessMask = vkb::Access2::ShaderRead,
+            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
+            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+            .image = *m_shadow_image,
+            .subresourceRange = m_shadow_image.full_view().range(),
+        };
+        cmd_buf.image_barrier(transfer_write_barrier);
+        cmd_buf.copy_buffer_to_image(staging_buffer, m_shadow_image, vkb::ImageLayout::TransferDstOptimal, copy);
+        cmd_buf.image_barrier(image_read_barrier);
+    });
 }
 
 Renderer::~Renderer() {
@@ -120,7 +177,15 @@ void Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painte
                                 .b = vkb::ComponentSwizzle::One,
                                 .a = vkb::ComponentSwizzle::One,
                             })
-                            .sampled(vk::Sampler::Nearest));
+                            .sampled(vk::Sampler::Nearest),
+                        m_shadow_image
+                            .swizzle_view({
+                                .r = vkb::ComponentSwizzle::One,
+                                .g = vkb::ComponentSwizzle::One,
+                                .b = vkb::ComponentSwizzle::One,
+                                .a = vkb::ComponentSwizzle::Identity,
+                            })
+                            .sampled(vk::Sampler::Linear));
     });
 }
 
