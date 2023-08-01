@@ -43,6 +43,8 @@ void Window::paint(Painter &painter, LayoutPoint position) const {
     painter.paint_rect(position + m_content_pane->offset_in_parent(),
                        {computed_width(), computed_height() - m_title_pane->computed_height()}, colour);
 
+    painter.paint_shadow(position, computed_size(), 40, 1.0f);
+
     // Paint children.
     Pane::paint(painter, position);
 }

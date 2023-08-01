@@ -61,14 +61,18 @@ private:
     FontAtlas *m_atlas{nullptr};
 
     void compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
-                 const vk::SampledImage &null_image);
+                 const vk::SampledImage &null_image, const vk::SampledImage &shadow_image);
     uint32_t get_texture_index(const vk::SampledImage &image);
 
 public:
-    Painter() { m_bound_textures.push({}); }
+    Painter() {
+        m_bound_textures.push({});
+        m_bound_textures.push({});
+    }
 
     void bind_atlas(FontAtlas &atlas);
     void paint_rect(LayoutPoint position, LayoutSize size, const Colour &colour);
+    void paint_shadow(LayoutPoint p, LayoutSize s, uint32_t width, float hardness);
     void paint_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image);
     void paint_text(Font &font, LayoutPoint position, const Colour &colour, StringView text);
     void set_scissor(LayoutPoint position, LayoutSize size);

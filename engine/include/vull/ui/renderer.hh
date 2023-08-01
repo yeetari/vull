@@ -21,6 +21,7 @@ class Renderer {
     vkb::DescriptorSetLayout m_descriptor_set_layout{nullptr};
     vk::Pipeline m_pipeline;
     vk::Image m_null_image;
+    vk::Image m_shadow_image;
 
 public:
     explicit Renderer(vk::Context &context);

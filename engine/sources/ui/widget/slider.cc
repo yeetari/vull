@@ -42,6 +42,8 @@ void Slider::paint(Painter &painter, LayoutPoint position) const {
 
     // Draw value label.
     m_value_label.paint(painter, position + computed_size() / 2 - m_value_label.computed_size() / 2);
+
+    painter.paint_shadow(position, computed_size(), 25, 0.5f);
 }
 
 void Slider::update(LayoutPoint mouse_position) {

@@ -53,6 +53,38 @@ void Painter::paint_rect(LayoutPoint position, LayoutSize size, const Colour &co
     });
 }
 
+void Painter::paint_shadow(LayoutPoint p, LayoutSize s, uint32_t width, float hardness) {
+    auto push_cmd = [this, hardness](LayoutPoint start, LayoutPoint end, Vec2f uv_a, Vec2f uv_c) {
+        m_commands.push(PaintCommand{
+            .position = start.round(),
+            .size = (end - start).round(),
+            .variant{TextCommand{
+                .colour = Colour::from_rgb(0.0f, 0.0f, 0.0f, hardness),
+                .uv_a = uv_a,
+                .uv_c = uv_c,
+                .texture_index = 1,
+            }},
+        });
+    };
+
+    float uv_0 = 0.0f;
+    float uv_1 = 0.333333f;
+    float uv_2 = 0.666666f;
+    float uv_3 = 1.0f;
+
+    auto m = p + s;
+    auto size = LayoutUnit::from_int_pixels(width);
+
+    push_cmd(LayoutPoint(p.x() - size, p.y() - size), p, {uv_0, uv_0}, {uv_1, uv_1});
+    push_cmd(LayoutPoint(p.x(), p.y() - size), LayoutPoint(m.x(), p.y()), {uv_1, uv_0}, {uv_2, uv_1});
+    push_cmd(LayoutPoint(m.x(), p.y() - size), LayoutPoint(m.x() + size, p.y()), {uv_2, uv_0}, {uv_3, uv_1});
+    push_cmd(LayoutPoint(p.x() - size, p.y()), LayoutPoint(p.x(), m.y()), {uv_0, uv_1}, {uv_1, uv_2});
+    push_cmd(LayoutPoint(m.x(), p.y()), LayoutPoint(m.x() + size, m.y()), {uv_2, uv_1}, {uv_3, uv_2});
+    push_cmd(LayoutPoint(p.x() - size, m.y()), LayoutPoint(p.x(), m.y() + size), {uv_0, uv_2}, {uv_1, uv_3});
+    push_cmd(LayoutPoint(p.x(), m.y()), LayoutPoint(m.x(), m.y() + size), {uv_1, uv_2}, {uv_2, uv_3});
+    push_cmd(LayoutPoint(m.x(), m.y()), LayoutPoint(m.x() + size, m.y() + size), {uv_2, uv_2}, {uv_3, uv_3});
+}
+
 void Painter::paint_image(LayoutPoint position, LayoutSize size, const vk::SampledImage &image) {
     m_commands.push(PaintCommand{
         .position = position.floor(),
@@ -101,13 +133,14 @@ void Painter::unset_scissor() {
 }
 
 void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
-                      const vk::SampledImage &null_image) {
+                      const vk::SampledImage &null_image, const vk::SampledImage &shadow_image) {
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
         context.create_buffer(m_bound_textures.size() * descriptor_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
                               vk::MemoryUsage::HostToDevice);
 
     m_bound_textures[0] = BoundTexture{*null_image.view(), null_image.sampler()};
+    m_bound_textures[1] = BoundTexture{*shadow_image.view(), shadow_image.sampler()};
 
     auto *descriptor_data = descriptor_buffer.mapped<uint8_t>();
     for (const auto &texture : m_bound_textures) {
