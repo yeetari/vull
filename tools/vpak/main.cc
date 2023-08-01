@@ -47,14 +47,15 @@ void print_usage(StringView executable) {
     StringBuilder sb;
     sb.append("usage:\n");
     sb.append("  {} <command> [<args>]\n", executable);
-    sb.append("  {} add [--fast|--ultra] <vpak> <file> <name>\n", executable);
+    sb.append("  {} add [--fast|--ultra] <vpak> <file> <entry>\n", executable);
     sb.append("  {} add-gltf [--dump-json] [--fast|--ultra] [--max-resolution]\n", executable);
     sb.append("  {}          [--reproducible] <vpak> <gltf>\n", whitespace);
-    sb.append("  {} add-skybox <vpak> <entry> <faces>\n");
-    sb.append("  {} get <vpak> <name> <file>\n", executable);
+    sb.append("  {} add-png <vpak> <png> <entry>\n", executable);
+    sb.append("  {} add-skybox <vpak> <entry> <faces>\n", executable);
+    sb.append("  {} get <vpak> <entry> <file>\n", executable);
     sb.append("  {} help\n", executable);
     sb.append("  {} ls <vpak>\n", executable);
-    sb.append("  {} stat <vpak> <name>\n", executable);
+    sb.append("  {} stat <vpak> <entry>\n", executable);
     sb.append("\narguments:\n");
     sb.append("  <vpak>           The vpak file to be inspected/modified\n");
     sb.append("  --dump-json      Dump the JSON scene data contained in the glTF\n");
@@ -221,6 +222,33 @@ int add_gltf(const Vector<StringView> &) {
 }
 #endif
 
+int add_png(const Vector<StringView> &args) {
+    if (args.size() != 5) {
+        vull::println("fatal: invalid usage");
+        return EXIT_FAILURE;
+    }
+
+    auto file_or_error = vull::open_file(args[3], OpenMode::Read);
+    if (file_or_error.is_error()) {
+        vull::println("fatal: failed to open file {}", args[3]);
+        return EXIT_FAILURE;
+    }
+    auto file_stream = file_or_error.value().create_stream();
+    auto png_stream = VULL_EXPECT(PngStream::create(file_stream.clone_unique()));
+
+    auto vpak_file = VULL_EXPECT(vull::open_file(args[2], OpenMode::Create | OpenMode::Read | OpenMode::Write));
+    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), vpak::CompressionLevel::Normal);
+    auto entry_stream = pack_writer.start_entry(args[4], vpak::EntryType::Blob);
+    for (uint32_t y = 0; y < png_stream.height(); y++) {
+        Array<uint8_t, 32768> row_buffer;
+        png_stream.read_row(row_buffer.span());
+        VULL_EXPECT(entry_stream.write(row_buffer.span().subspan(0, png_stream.row_byte_count())));
+    }
+    entry_stream.finish();
+    pack_writer.finish();
+    return EXIT_SUCCESS;
+}
+
 int add_skybox(const Vector<StringView> &args) {
     if (args.size() != 10) {
         vull::println("fatal: invalid usage");
@@ -365,6 +393,9 @@ int main(int argc, char **argv) {
     const auto command = args[1];
     if (command == "add") {
         return add(args);
+    }
+    if (command == "add-png") {
+        return add_png(args);
     }
     if (command == "add-skybox") {
         return add_skybox(args);
