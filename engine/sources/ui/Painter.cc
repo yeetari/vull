@@ -95,7 +95,7 @@ void Painter::set_scissor(LayoutPoint position, LayoutSize size) {
 void Painter::unset_scissor() {
     m_commands.push(PaintCommand{
         .position{},
-        .size{UINT32_MAX, UINT32_MAX},
+        .size{INT32_MAX, INT32_MAX},
         .variant{ScissorCommand{}},
     });
 }
