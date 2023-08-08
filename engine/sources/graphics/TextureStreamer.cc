@@ -166,7 +166,8 @@ vk::Image TextureStreamer::create_default_image(Vec2u extent, vkb::Format format
     memcpy(staging_buffer.mapped_raw(), pixel_data.data(), pixel_data.size());
 
     // Perform CPU -> GPU copy.
-    m_context.graphics_queue().immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
+    queue->immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Copy,
@@ -228,26 +229,24 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     };
     auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
-    // TODO: Not correct at all!
-    vk::Queue queue(m_context, 0);
+    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
+    auto &cmd_buf = queue->request_cmd_buf();
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
-    queue.immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier2 transfer_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .dstStageMask = vkb::PipelineStage2::Copy,
-            .dstAccessMask = vkb::Access2::TransferWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::TransferDstOptimal,
-            .image = *image,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = mip_count,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.image_barrier(transfer_write_barrier);
-    });
+    vkb::ImageMemoryBarrier2 transfer_write_barrier{
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .dstStageMask = vkb::PipelineStage2::Copy,
+        .dstAccessMask = vkb::Access2::TransferWrite,
+        .oldLayout = vkb::ImageLayout::Undefined,
+        .newLayout = vkb::ImageLayout::TransferDstOptimal,
+        .image = *image,
+        .subresourceRange{
+            .aspectMask = vkb::ImageAspect::Color,
+            .levelCount = mip_count,
+            .layerCount = 1,
+        },
+    };
+    cmd_buf.image_barrier(transfer_write_barrier);
 
     uint32_t mip_width = width;
     uint32_t mip_height = height;
@@ -258,41 +257,44 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
             m_context.create_buffer(mip_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
         VULL_TRY(stream.read({staging_buffer.mapped_raw(), mip_size}));
 
-        // Perform CPU -> GPU copy.
-        queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
-            vkb::BufferImageCopy copy{
-                .imageSubresource{
-                    .aspectMask = vkb::ImageAspect::Color,
-                    .mipLevel = i,
-                    .layerCount = 1,
-                },
-                .imageExtent = {mip_width, mip_height, 1},
-            };
-            cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
-        });
+        // Queue CPU -> GPU copy and transfer ownership of staging buffer so that it can be freed upon command buffer
+        // completion.
+        vkb::BufferImageCopy copy{
+            .imageSubresource{
+                .aspectMask = vkb::ImageAspect::Color,
+                .mipLevel = i,
+                .layerCount = 1,
+            },
+            .imageExtent = {mip_width, mip_height, 1},
+        };
+        cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
+        cmd_buf.bind_associated_buffer(vull::move(staging_buffer));
+
         mip_width >>= 1;
         mip_height >>= 1;
     }
 
     // Transition the whole image to ReadOnlyOptimal.
-    queue.immediate_submit([&image, mip_count](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier2 image_read_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::AllCommands,
-            .dstAccessMask = vkb::Access2::ShaderRead,
-            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
-            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            .image = *image,
-            .subresourceRange{
-                .aspectMask = vkb::ImageAspect::Color,
-                .levelCount = mip_count,
-                .layerCount = 1,
-            },
-        };
-        cmd_buf.image_barrier(image_read_barrier);
-    });
+    vkb::ImageMemoryBarrier2 image_read_barrier{
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .srcStageMask = vkb::PipelineStage2::Copy,
+        .srcAccessMask = vkb::Access2::TransferWrite,
+        .dstStageMask = vkb::PipelineStage2::AllCommands,
+        .dstAccessMask = vkb::Access2::ShaderRead,
+        .oldLayout = vkb::ImageLayout::TransferDstOptimal,
+        .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+        .image = *image,
+        .subresourceRange{
+            .aspectMask = vkb::ImageAspect::Color,
+            .levelCount = mip_count,
+            .layerCount = 1,
+        },
+    };
+    cmd_buf.image_barrier(image_read_barrier);
+
+    // Submit command buffer and release queue ownership immediately to avoid holding it during the upcoming mutex.
+    queue->submit(cmd_buf, nullptr, {}, {});
+    queue.release();
 
     ScopedLock images_lock(m_images_mutex);
     const auto next_index = m_images.size();

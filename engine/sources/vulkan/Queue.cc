@@ -11,8 +11,9 @@
 
 namespace vull::vk {
 
-Queue::Queue(const Context &context, uint32_t family_index) : m_context(context), m_family_index(family_index) {
-    context.vkGetDeviceQueue(family_index, 0, &m_queue);
+Queue::Queue(const Context &context, uint32_t family_index, uint32_t index)
+    : m_context(context), m_family_index(family_index), m_index(index) {
+    context.vkGetDeviceQueue(family_index, index, &m_queue);
     vkb::CommandPoolCreateInfo cmd_pool_ci{
         .sType = vkb::StructureType::CommandPoolCreateInfo,
         .flags = vkb::CommandPoolCreateFlags::Transient | vkb::CommandPoolCreateFlags::ResetCommandBuffer,
@@ -21,13 +22,14 @@ Queue::Queue(const Context &context, uint32_t family_index) : m_context(context)
     VULL_ENSURE(context.vkCreateCommandPool(&cmd_pool_ci, &m_cmd_pool) == vkb::Result::Success);
 }
 
-Queue::Queue(Queue &&other) : m_context(other.m_context), m_family_index(other.m_family_index) {
+Queue::Queue(Queue &&other) : m_context(other.m_context), m_family_index(other.m_family_index), m_index(other.m_index) {
     m_cmd_pool = vull::exchange(other.m_cmd_pool, nullptr);
     m_queue = vull::exchange(other.m_queue, nullptr);
     m_cmd_bufs = vull::move(other.m_cmd_bufs);
 }
 
 Queue::~Queue() {
+    wait_idle();
     m_context.vkDestroyCommandPool(m_cmd_pool);
 }
 

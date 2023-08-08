@@ -5,10 +5,10 @@
 #include <vull/container/Vector.hh>
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
+#include <vull/maths/Random.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
 #include <vull/support/Optional.hh>
-#include <vull/support/ScopedLock.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
@@ -198,24 +198,24 @@ Context::Context(bool enable_validation) : ContextTable{} {
 
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, nullptr);
-    m_queue_families.ensure_size(queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, m_queue_families.data());
-    vull::debug("[vulkan] Device has {} queue families", m_queue_families.size());
+    Vector<vkb::QueueFamilyProperties> queue_families(queue_family_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, queue_families.data());
+    vull::debug("[vulkan] Device has {} queue families", queue_families.size());
 
     Vector<vkb::DeviceQueueCreateInfo> queue_cis;
     const float queue_priority = 1.0f;
-    for (uint32_t i = 0; i < m_queue_families.size(); i++) {
+    for (uint32_t i = 0; i < queue_families.size(); i++) {
         queue_cis.push({
             .sType = vkb::StructureType::DeviceQueueCreateInfo,
             .queueFamilyIndex = i,
-            .queueCount = 1,
+            .queueCount = queue_families[i].queueCount,
             .pQueuePriorities = &queue_priority,
         });
 
         StringBuilder flags_string;
         bool first = true;
         for (uint32_t bit = 0; bit < 32; bit++) {
-            if ((static_cast<uint32_t>(m_queue_families[i].queueFlags) & (1u << bit)) == 0u) {
+            if ((static_cast<uint32_t>(queue_families[i].queueFlags) & (1u << bit)) == 0u) {
                 continue;
             }
             if (!vull::exchange(first, false)) {
@@ -223,7 +223,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
             }
             flags_string.append("{}", queue_flag_string(1u << bit));
         }
-        vull::debug("[vulkan]  - {} queues capable of {}", m_queue_families[i].queueCount, flags_string.build());
+        vull::debug("[vulkan]  - {} queues capable of {}", queue_families[i].queueCount, flags_string.build());
     }
 
     vkb::PhysicalDeviceFeatures2 device_10_features{
@@ -299,6 +299,32 @@ Context::Context(bool enable_validation) : ContextTable{} {
     vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
     for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
         m_allocators.emplace(new Allocator(*this, i));
+    }
+
+    auto create_queues = [&](uint32_t family_index, Vector<Queue &> &vector) {
+        for (uint32_t index = 0; index < queue_families[family_index].queueCount; index++) {
+            auto &queue = *m_queues.emplace(new Queue(*this, family_index, index));
+            vector.push(queue);
+        }
+    };
+
+    for (uint32_t family_index = 0; family_index < queue_families.size(); family_index++) {
+        auto flags = queue_families[family_index].queueFlags;
+        if ((flags & vkb::QueueFlags::Graphics) != vkb::QueueFlags::None) {
+            create_queues(family_index, m_graphics_queues);
+        } else if ((flags & vkb::QueueFlags::Compute) != vkb::QueueFlags::None) {
+            create_queues(family_index, m_compute_queues);
+        } else if ((flags & vkb::QueueFlags::Transfer) != vkb::QueueFlags::None) {
+            create_queues(family_index, m_transfer_queues);
+        }
+    }
+
+    VULL_ENSURE(!m_graphics_queues.empty());
+    if (m_compute_queues.empty()) {
+        m_compute_queues.extend(m_graphics_queues);
+    }
+    if (m_transfer_queues.empty()) {
+        m_transfer_queues.extend(m_compute_queues);
     }
 
     vull::debug("[vulkan] Memory usage -> memory type mapping:");
@@ -534,6 +560,36 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     return {vull::move(allocation), image_ci.extent, image_ci.format, ImageView(this, image, view, range)};
 }
 
+Vector<Queue &> &Context::queue_list_for(QueueKind kind) {
+    switch (kind) {
+    case QueueKind::Compute:
+        return m_compute_queues;
+    case QueueKind::Graphics:
+        return m_graphics_queues;
+    case QueueKind::Transfer:
+        return m_transfer_queues;
+    default:
+        vull::unreachable();
+    }
+}
+
+QueueHandle Context::lock_queue(QueueKind kind) {
+    // Try to pick a free queue.
+    auto &queue_list = queue_list_for(kind);
+    for (Queue &queue : queue_list) {
+        if (!queue.m_mutex.locked()) {
+            queue.m_mutex.lock();
+            return QueueHandle(queue);
+        }
+    }
+
+    // Otherwise pick a random queue to wait on.
+    VULL_ASSERT(!queue_list.empty());
+    Queue &queue = queue_list[vull::linear_rand(0u, queue_list.size() - 1)];
+    queue.m_mutex.lock();
+    return QueueHandle(queue);
+}
+
 size_t Context::descriptor_size(vkb::DescriptorType type) const {
     switch (type) {
     case vkb::DescriptorType::Sampler:
@@ -576,17 +632,6 @@ vkb::Sampler Context::get_sampler(Sampler sampler) const {
 
 float Context::timestamp_elapsed(uint64_t start, uint64_t end) const {
     return (static_cast<float>(end - start) * m_properties.limits.timestampPeriod) / 1000000000.0f;
-}
-
-Queue &Context::graphics_queue() {
-    thread_local Queue *thread_queue = nullptr;
-    if (thread_queue == nullptr) {
-        // TODO: Don't assume family 0!
-        thread_queue = new Queue(*this, 0);
-        ScopedLock lock(m_queues_mutex);
-        m_queues.emplace(thread_queue);
-    }
-    return *thread_queue;
 }
 
 } // namespace vull::vk

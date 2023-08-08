@@ -29,8 +29,8 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
     auto &first_frame = m_frames.first();
     m_image_index = swapchain.acquire_image(*first_frame.acquire_semaphore());
 
-    auto &queue = swapchain.context().graphics_queue();
-    auto &cmd_buf = queue.request_cmd_buf();
+    auto queue = swapchain.context().lock_queue(vk::QueueKind::Graphics);
+    auto &cmd_buf = queue->request_cmd_buf();
     vkb::ImageMemoryBarrier2 swapchain_present_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .oldLayout = vkb::ImageLayout::Undefined,
@@ -52,8 +52,8 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
         .sType = vkb::StructureType::SemaphoreSubmitInfo,
         .semaphore = *first_frame.present_semaphore(),
     };
-    queue.submit(cmd_buf, nullptr, signal_semaphore_info, wait_semaphore_info);
-    queue.wait_idle();
+    queue->submit(cmd_buf, nullptr, signal_semaphore_info, wait_semaphore_info);
+    queue->wait_idle();
 }
 
 Frame &FramePacer::request_frame() {

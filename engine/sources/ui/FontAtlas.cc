@@ -36,7 +36,8 @@ FontAtlas::FontAtlas(vk::Context &context, Vec2u extent) : m_context(context), m
     };
     m_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
-    context.graphics_queue().immediate_submit([this](vk::CommandBuffer &cmd_buf) {
+    auto queue = context.lock_queue(vk::QueueKind::Graphics);
+    queue->immediate_submit([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.image_barrier({
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Clear,
@@ -179,7 +180,8 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     auto staging_buffer = m_context.create_buffer(glyph_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
     font.rasterise(glyph_index, {staging_buffer.mapped<uint8_t>(), glyph_size});
 
-    auto &cmd_buf = m_context.graphics_queue().request_cmd_buf();
+    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
+    auto &cmd_buf = queue->request_cmd_buf();
     vkb::ImageMemoryBarrier2 transfer_write_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .srcStageMask = vkb::PipelineStage2::AllCommands,
@@ -224,7 +226,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     cmd_buf.image_barrier(sampled_read_barrier);
 
     cmd_buf.bind_associated_buffer(vull::move(staging_buffer));
-    m_context.graphics_queue().submit(cmd_buf, nullptr, {}, {});
+    queue->submit(cmd_buf, nullptr, {}, {});
 
     CachedGlyph glyph{
         .font = &font,

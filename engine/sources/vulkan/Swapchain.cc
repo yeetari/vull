@@ -111,12 +111,6 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
         m_images.push(
             Image(context, extent_3D(), view_ci.format, ImageView(&context, image, view, view_ci.subresourceRange)));
     }
-
-    // Ensure graphics queue supports presenting.
-    vkb::Bool present_supported = false;
-    context.vkGetPhysicalDeviceSurfaceSupportKHR(m_context.graphics_queue().family_index(), m_surface,
-                                                 &present_supported);
-    VULL_ENSURE(present_supported);
 }
 
 Swapchain::~Swapchain() {
@@ -139,7 +133,9 @@ void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphor
         .pSwapchains = &m_swapchain,
         .pImageIndices = &image_index,
     };
-    m_context.vkQueuePresentKHR(*m_context.graphics_queue(), &present_info);
+    // TODO: Assuming graphics queue last touched swapchain image + that whatever graphics queue we get can present.
+    auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
+    m_context.vkQueuePresentKHR(**queue, &present_info);
 }
 
 Image &Swapchain::image(uint32_t index) {

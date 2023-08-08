@@ -61,12 +61,6 @@
 
 using namespace vull;
 
-namespace vull::vk {
-
-class CommandBuffer;
-
-} // namespace vull::vk
-
 void vull_main(Vector<StringView> &&args) {
     if (args.size() < 2) {
         vull::println("usage: {} [--enable-vvl] <scene-name>", args[0]);
@@ -252,24 +246,6 @@ void vull_main(Vector<StringView> &&args) {
             object_renderer->build_pass(graph, suzanne_id);
             submit_pass.read(suzanne_id);
         }
-        submit_pass.set_on_execute([&](vk::CommandBuffer &cmd_buf) {
-            Array signal_semaphores{
-                vkb::SemaphoreSubmitInfo{
-                    .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                    .semaphore = *frame.present_semaphore(),
-                },
-            };
-            Array wait_semaphores{
-                vkb::SemaphoreSubmitInfo{
-                    .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                    .semaphore = *frame.acquire_semaphore(),
-                    .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-                },
-            };
-            auto &queue = graph.context().graphics_queue();
-            queue.submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
-        });
-
         cpu_time_graph.push_section("build-rg", build_rg_timer.elapsed());
 
         Timer compile_rg_timer;
@@ -277,8 +253,24 @@ void vull_main(Vector<StringView> &&args) {
         cpu_time_graph.push_section("compile-rg", compile_rg_timer.elapsed());
 
         Timer execute_rg_timer;
-        auto &cmd_buf = context.graphics_queue().request_cmd_buf();
+        auto queue = context.lock_queue(vk::QueueKind::Graphics);
+        auto &cmd_buf = queue->request_cmd_buf();
         graph.execute(cmd_buf, true);
+
+        Array signal_semaphores{
+            vkb::SemaphoreSubmitInfo{
+                .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                .semaphore = *frame.present_semaphore(),
+            },
+        };
+        Array wait_semaphores{
+            vkb::SemaphoreSubmitInfo{
+                .sType = vkb::StructureType::SemaphoreSubmitInfo,
+                .semaphore = *frame.acquire_semaphore(),
+                .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+            },
+        };
+        queue->submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
         cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }
     context.vkDeviceWaitIdle();
