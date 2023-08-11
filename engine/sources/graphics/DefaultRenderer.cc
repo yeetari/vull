@@ -136,6 +136,13 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
+        // Vertex buffer.
+        vkb::DescriptorSetLayoutBinding{
+            .binding = 5,
+            .descriptorType = vkb::DescriptorType::StorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vkb::ShaderStage::Vertex,
+        },
     };
     vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
@@ -265,7 +272,7 @@ void DefaultRenderer::load_scene(Scene &scene) {
     }
 
     m_vertex_buffer =
-        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::VertexBuffer | vkb::BufferUsage::TransferDst,
+        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
                                 vk::MemoryUsage::DeviceOnly);
     m_index_buffer = m_context.create_buffer(
         index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
@@ -344,7 +351,6 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
 }
 
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer) {
-    cmd_buf.bind_vertex_buffer(m_vertex_buffer);
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
     cmd_buf.draw_indexed_indirect_count(draw_buffer, sizeof(uint32_t), draw_buffer, 0, m_object_count, sizeof(DrawCmd));
 }
@@ -414,6 +420,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         descriptor_builder.set(0, 0, frame_ubo);
         descriptor_builder.set(1, 0, object_buffer);
         descriptor_builder.set(2, 0, m_object_visibility_buffer);
+        descriptor_builder.set(5, 0, m_vertex_buffer);
     });
 
     vk::BufferDescription draw_buffer_description{
