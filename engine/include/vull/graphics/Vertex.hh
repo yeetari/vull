@@ -5,9 +5,10 @@
 namespace vull {
 
 struct Vertex {
-    Vec3f position;
-    Vec3f normal;
-    Vec2f uv;
+    uint16_t px, py, pz;
+    uint16_t unused;
+    uint32_t uv;
+    uint32_t normal;
 };
 
 } // namespace vull

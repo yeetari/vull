@@ -6,6 +6,7 @@
 #extension GL_EXT_null_initializer : enable
 #extension GL_EXT_samplerless_texture_functions : enable
 #extension GL_EXT_scalar_block_layout : enable
+#extension GL_EXT_shader_explicit_arithmetic_types : enable
 #extension GL_KHR_shader_subgroup_arithmetic : enable
 #extension GL_KHR_shader_subgroup_ballot : enable
 
@@ -20,6 +21,15 @@ mat3 adjugate(mat4 mat) {
 float linearise_depth(float depth, mat4 proj) {
     // proj[3][2] is the near plane for an inverse, reverse depth projection matrix.
     return proj[3][2] / depth;
+}
+
+float half_to_float(uint half_bits) {
+    // TODO: Just use unpackHalf2x16(half_bits).x?
+    uint float_bits = 0;
+    float_bits |= (half_bits & 0x8000) << 16;
+    float_bits |= ((half_bits & 0x7c00) + 0x1c000) << 13;
+    float_bits |= (half_bits & 0x3ff) << 13;
+    return uintBitsToFloat(float_bits);
 }
 
 // See the Khronos Data Format Specification v1.3.1 section 13.3.1

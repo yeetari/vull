@@ -413,14 +413,48 @@ Converter::process_primitive(const json::Object &primitive, String &&name) {
     auto normal_offset = VULL_TRY(get_blob_offset(normal_accessor));
     auto uv_offset = VULL_TRY(get_blob_offset(uv_accessor));
 
-    auto vertices = FixedBuffer<Vertex>::create_uninitialised(vertex_count);
+    Vec3f aabb_min(FLT_MAX);
+    Vec3f aabb_max(FLT_MIN);
+    Vec3f sphere_center;
+    auto vertices = FixedBuffer<Vertex>::create_zeroed(vertex_count);
     for (auto &vertex : vertices) {
-        memcpy(&vertex.position, m_binary_blob.byte_offset(position_offset), sizeof(Vec3f));
-        memcpy(&vertex.normal, m_binary_blob.byte_offset(normal_offset), sizeof(Vec3f));
-        memcpy(&vertex.uv, m_binary_blob.byte_offset(uv_offset), sizeof(Vec2f));
+        Vec3f position;
+        Vec3f normal;
+        Vec2f uv;
+        memcpy(&position, m_binary_blob.byte_offset(position_offset), sizeof(Vec3f));
+        memcpy(&normal, m_binary_blob.byte_offset(normal_offset), sizeof(Vec3f));
+        memcpy(&uv, m_binary_blob.byte_offset(uv_offset), sizeof(Vec2f));
+
+        // Update bounding information.
+        aabb_min = vull::min(aabb_min, position);
+        aabb_max = vull::max(aabb_max, position);
+        sphere_center += position;
+
+        vertex.px = meshopt_quantizeHalf(position.x());
+        vertex.py = meshopt_quantizeHalf(position.y());
+        vertex.pz = meshopt_quantizeHalf(position.z());
+        vertex.normal |= vull::quantize_snorm<10>(normal.x()) << 20u;
+        vertex.normal |= vull::quantize_snorm<10>(normal.y()) << 10u;
+        vertex.normal |= vull::quantize_snorm<10>(normal.z());
+        vertex.uv |= static_cast<uint32_t>(meshopt_quantizeHalf(uv.x()));
+        vertex.uv |= static_cast<uint32_t>(meshopt_quantizeHalf(uv.y())) << 16u;
+
         position_offset += sizeof(Vec3f);
         normal_offset += sizeof(Vec3f);
         uv_offset += sizeof(Vec2f);
+    }
+
+    sphere_center /= static_cast<float>(vertices.size());
+
+    // Calculate sphere radius.
+    // TODO: Avoid second pass over vertices?
+    float sphere_radius = 0;
+    position_offset = VULL_TRY(get_blob_offset(position_accessor));
+    for (uint64_t i = 0; i < vertex_count; i++) {
+        Vec3f position;
+        memcpy(&position, m_binary_blob.byte_offset(position_offset), sizeof(Vec3f));
+        sphere_radius = vull::max(sphere_radius, vull::distance(sphere_center, position));
+        position_offset += sizeof(Vec3f);
     }
 
     // TODO: Don't do this if --fast passed.
@@ -435,21 +469,6 @@ Converter::process_primitive(const json::Object &primitive, String &&name) {
     auto index_data_entry = m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vpak::EntryType::Blob);
     VULL_TRY(index_data_entry.write(indices.span()));
     index_data_entry.finish();
-
-    Vec3f aabb_min(FLT_MAX);
-    Vec3f aabb_max(FLT_MIN);
-    Vec3f sphere_center;
-    for (const auto &vertex : vertices) {
-        aabb_min = vull::min(aabb_min, vertex.position);
-        aabb_max = vull::max(aabb_max, vertex.position);
-        sphere_center += vertex.position;
-    }
-    sphere_center /= static_cast<float>(vertices.size());
-
-    float sphere_radius = 0;
-    for (const auto &vertex : vertices) {
-        sphere_radius = vull::max(sphere_radius, vull::distance(sphere_center, vertex.position));
-    }
 
     BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
     BoundingSphere bounding_sphere(sphere_center, sphere_radius);

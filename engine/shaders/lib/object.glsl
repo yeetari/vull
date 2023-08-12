@@ -22,9 +22,10 @@ struct Object {
 };
 
 struct Vertex {
-    vec3 position;
-    vec3 normal;
-    vec2 uv;
+    uint16_t px, py, pz;
+    uint16_t unused;
+    uint uv;
+    uint normal;
 };
 
 #define DECLARE_DRAW_BUFFER(s, b) \

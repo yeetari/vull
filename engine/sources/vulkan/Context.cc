@@ -231,11 +231,13 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .features{
             .multiDrawIndirect = true,
             .samplerAnisotropy = true,
+            .shaderInt16 = true,
         },
     };
     vkb::PhysicalDeviceVulkan11Features device_11_features{
         .sType = vkb::StructureType::PhysicalDeviceVulkan11Features,
         .pNext = &device_10_features,
+        .storageBuffer16BitAccess = true,
         .shaderDrawParameters = true,
     };
     vkb::PhysicalDeviceVulkan12Features device_12_features{
