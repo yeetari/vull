@@ -2,6 +2,8 @@
 
 #include <vull/support/Assert.hh>
 
+#include <stdint.h>
+
 namespace vull {
 
 template <typename T>
@@ -96,6 +98,20 @@ constexpr T popcount(T value) {
     } else if constexpr (sizeof(T) <= sizeof(unsigned long long)) {
         return __builtin_popcountll(static_cast<unsigned long long>(value));
     }
+}
+
+template <unsigned Bits>
+constexpr uint32_t quantize_unorm(float value) {
+    const auto scale = static_cast<float>((1u << Bits) - 1u);
+    // NOLINTNEXTLINE
+    return static_cast<uint32_t>(value * scale + 0.5f);
+}
+
+template <unsigned Bits>
+constexpr uint32_t quantize_snorm(float value) {
+    const auto scale = static_cast<float>((1u << (Bits - 1u)) - 1u);
+    const auto round = value >= 0.0f ? 0.5f : -0.5f;
+    return static_cast<uint32_t>(value * scale + round) + (1u << (Bits - 1u));
 }
 
 template <typename T>
