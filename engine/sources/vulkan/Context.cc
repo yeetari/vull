@@ -226,11 +226,13 @@ Context::Context(bool enable_validation) : ContextTable{} {
         vull::debug("[vulkan]  - {} queues capable of {}", queue_families[i].queueCount, flags_string.build());
     }
 
+    // TODO: Some features (like pipelineStatisticsQuery) should be optional.
     vkb::PhysicalDeviceFeatures2 device_10_features{
         .sType = vkb::StructureType::PhysicalDeviceFeatures2,
         .features{
             .multiDrawIndirect = true,
             .samplerAnisotropy = true,
+            .pipelineStatisticsQuery = true,
             .shaderInt16 = true,
         },
     };

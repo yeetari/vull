@@ -95,7 +95,7 @@ HashMap<StringView, float> Frame::pass_times() {
     }
 
     Vector<uint64_t> timestamp_data(timestamp_pool.count());
-    timestamp_pool.read_host(timestamp_data.span());
+    timestamp_pool.read_host(timestamp_data.span(), timestamp_pool.count());
 
     for (uint32_t i = 1; i < timestamp_data.size(); i++) {
         if (timestamp_data[i] == 0) {

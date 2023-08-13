@@ -17,6 +17,7 @@ class QueryPool {
 public:
     explicit QueryPool(const Context &context) : m_context(context) {}
     QueryPool(const Context &context, uint32_t count, vkb::QueryType type);
+    QueryPool(const Context &context, uint32_t count, vkb::QueryPipelineStatisticFlags pipeline_statistics);
     QueryPool(const QueryPool &) = delete;
     QueryPool(QueryPool &&);
     ~QueryPool();
@@ -24,8 +25,9 @@ public:
     QueryPool &operator=(const QueryPool &) = delete;
     QueryPool &operator=(QueryPool &&) = delete;
 
-    void read_host(Span<uint64_t> data, uint32_t first = 0) const;
-    void recreate(uint32_t count, vkb::QueryType type);
+    void read_host(Span<uint64_t> data, uint32_t count, uint32_t first = 0) const;
+    void recreate(uint32_t count, vkb::QueryType type,
+                  vkb::QueryPipelineStatisticFlags pipeline_statistics = vkb::QueryPipelineStatisticFlags::None);
 
     explicit operator bool() const { return m_pool != nullptr; }
     const Context &context() const { return m_context; }

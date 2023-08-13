@@ -248,6 +248,14 @@ void CommandBuffer::reset_query_pool(const vk::QueryPool &query_pool) const {
     m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, 0, query_pool.count());
 }
 
+void CommandBuffer::begin_query(const QueryPool &query_pool, uint32_t query) const {
+    m_context.vkCmdBeginQuery(m_cmd_buf, *query_pool, query, vkb::QueryControlFlags::None);
+}
+
+void CommandBuffer::end_query(const QueryPool &query_pool, uint32_t query) const {
+    m_context.vkCmdEndQuery(m_cmd_buf, *query_pool, query);
+}
+
 void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const {
     // TODO: Neither amdvlk nor radv seem to handle None.
     if (stage == vkb::PipelineStage2::None) {
