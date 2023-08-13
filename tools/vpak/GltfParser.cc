@@ -183,7 +183,7 @@ Converter::process_texture(TextureType type, const String &path, Optional<uint64
         const auto image_index = VULL_TRY(texture["source"].get<int64_t>());
         const auto &image = VULL_TRY(m_document["images"][image_index].get<json::Object>());
 
-        const auto &mime_type = VULL_TRY(image["mimeType"].get<json::String>());
+        const auto &mime_type = VULL_TRY(image["mimeType"].get<String>());
         if (mime_type != "image/png") {
             // TODO: Don't error, just fallback to error texture?
             return GltfParser::Error::UnsupportedImageMimeType;

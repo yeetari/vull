@@ -4,6 +4,7 @@
 #include <vull/json/Token.hh>
 #include <vull/json/Tree.hh>
 #include <vull/support/Result.hh>
+#include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/Utility.hh>
 

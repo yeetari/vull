@@ -15,8 +15,6 @@ namespace vull::json {
 
 class Null {};
 
-using String = vull::String;
-
 struct JsonResult;
 struct Value;
 
