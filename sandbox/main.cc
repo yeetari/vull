@@ -26,6 +26,7 @@
 #include <vull/platform/Timer.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
+#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
@@ -44,20 +45,25 @@
 #include <vull/ui/layout/ScreenPane.hh>
 #include <vull/ui/widget/Button.hh>
 #include <vull/ui/widget/ImageLabel.hh>
+#include <vull/ui/widget/Label.hh>
 #include <vull/ui/widget/Slider.hh>
 #include <vull/ui/widget/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
+#include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
 #include <vull/vulkan/Image.hh>
 #include <vull/vulkan/MemoryUsage.hh>
+#include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
 #include <vull/vulkan/Semaphore.hh>
 #include <vull/vulkan/Swapchain.hh>
 #include <vull/vulkan/Vulkan.hh>
+
+#include <stdint.h>
 
 using namespace vull;
 
@@ -156,6 +162,15 @@ void vull_main(Vector<StringView> &&args) {
         window.close();
     });
 
+    auto &pipeline_statistics_window = screen_pane.add_child<ui::Window>("Pipeline statistics");
+    Vector<ui::Label &> pipeline_statistics_labels;
+    for (uint32_t i = 0; i < 5; i++) {
+        auto &label = pipeline_statistics_window.content_pane().add_child<ui::Label>();
+        label.set_align(ui::Align::Right);
+        label.set_font(ui_style.monospace_font());
+        pipeline_statistics_labels.push(label);
+    }
+
     bool has_suzanne = vpak::stat("/meshes/Suzanne.0/vertex").has_value();
     Optional<ui::Slider &> suzanne_slider;
     Optional<ObjectRenderer> object_renderer;
@@ -186,6 +201,13 @@ void vull_main(Vector<StringView> &&args) {
         object_renderer->load(Mesh("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index"));
     }
 
+    vk::QueryPool pipeline_statistics_pool(context, 1,
+                                           vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
+                                               vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
+                                               vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
+                                               vkb::QueryPipelineStatisticFlags::FragmentShaderInvocations |
+                                               vkb::QueryPipelineStatisticFlags::ComputeShaderInvocations);
+
     Timer frame_timer;
     cpu_time_graph.new_bar();
     while (!window.should_close()) {
@@ -206,6 +228,18 @@ void vull_main(Vector<StringView> &&args) {
             if (name != "submit") {
                 gpu_time_graph.push_section(name, time);
             }
+        }
+
+        // Collect pipeline statistics.
+        constexpr Array pipeline_statistics_strings{
+            "Assembled vertices: {d8 }", "Assembled primitives: {d8 }", "VS invocations: {d8 }",
+            "FS invocations: {d8 }",     "CS invocations: {d8 }",
+        };
+        Array<uint64_t, 5> pipeline_statistics{};
+        pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1);
+        for (uint32_t i = 0; i < pipeline_statistics.size(); i++) {
+            static_cast<ui::Label &>(pipeline_statistics_labels[i])
+                .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
         }
 
         // Step physics.
@@ -255,7 +289,10 @@ void vull_main(Vector<StringView> &&args) {
         Timer execute_rg_timer;
         auto queue = context.lock_queue(vk::QueueKind::Graphics);
         auto &cmd_buf = queue->request_cmd_buf();
+        cmd_buf.reset_query_pool(pipeline_statistics_pool);
+        cmd_buf.begin_query(pipeline_statistics_pool, 0);
         graph.execute(cmd_buf, true);
+        cmd_buf.end_query(pipeline_statistics_pool, 0);
 
         Array signal_semaphores{
             vkb::SemaphoreSubmitInfo{
