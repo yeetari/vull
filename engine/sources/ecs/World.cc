@@ -15,8 +15,6 @@
 
 namespace vull {
 
-enum class StreamError;
-
 Result<void, StreamError, WorldError> World::deserialise(Stream &stream) {
     const auto entity_count = VULL_TRY(stream.read_varint<EntityId>());
     m_entities.ensure_capacity(entity_count);

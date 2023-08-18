@@ -3,7 +3,6 @@
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/Stream.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/UniquePtr.hh>
 
 #include <stddef.h>
@@ -11,6 +10,7 @@
 namespace vull {
 
 class File;
+enum class StreamError;
 
 class FileStream final : public Stream {
     friend File;

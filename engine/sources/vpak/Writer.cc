@@ -20,12 +20,6 @@
 
 #include <zstd.h>
 
-namespace vull {
-
-enum class StreamError;
-
-} // namespace vull
-
 namespace vull::vpak {
 namespace {
 

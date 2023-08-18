@@ -17,7 +17,6 @@ using ZSTD_DCtx = struct ZSTD_DCtx_s;
 namespace vull {
 
 class File;
-enum class StreamError;
 
 } // namespace vull
 

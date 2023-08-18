@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/support/Result.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/UniquePtr.hh>
 
 using png_structp = struct png_struct_def *;
@@ -10,6 +9,7 @@ using png_infop = struct png_info_def *;
 namespace vull {
 
 struct Stream;
+enum class StreamError;
 
 enum class PngError {
     BadSignature,

@@ -35,8 +35,6 @@
 
 namespace vull {
 
-enum class StreamError;
-
 namespace {
 
 struct FormatInfo {

@@ -48,8 +48,6 @@ void resample_1d(const FixedBuffer<float> &source, FixedBuffer<float> &target, V
 
 } // namespace
 
-enum class StreamError;
-
 FloatImage FloatImage::from_colour(Colour colour) {
     FloatImage image(Vec2u(1, 1), 4);
     auto buffer = FixedBuffer<float>::create_uninitialised(4);

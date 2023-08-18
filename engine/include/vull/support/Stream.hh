@@ -4,7 +4,6 @@
 #include <vull/support/Integral.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
-#include <vull/support/StreamError.hh>
 #include <vull/support/String.hh> // IWYU pragma: keep
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
@@ -13,6 +12,12 @@
 #include <sys/types.h>
 
 namespace vull {
+
+enum class StreamError {
+    NotImplemented,
+    Truncated,
+    Unknown,
+};
 
 class StreamOffset {
     ssize_t m_value;

@@ -14,12 +14,6 @@
 
 using ZSTD_CCtx = struct ZSTD_CCtx_s;
 
-namespace vull {
-
-enum class StreamError;
-
-} // namespace vull
-
 namespace vull::vpak {
 
 class Writer;
