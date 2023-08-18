@@ -1,7 +1,6 @@
 #include <vull/physics/PhysicsEngine.hh>
 
 #include <vull/container/Vector.hh>
-#include <vull/core/Transform.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
 #include <vull/maths/Common.hh>
@@ -13,6 +12,7 @@
 #include <vull/physics/Mpr.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/physics/Shape.hh>
+#include <vull/scene/Transform.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>

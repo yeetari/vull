@@ -1,11 +1,11 @@
 #include <vull/physics/Mpr.hh>
 
-#include <vull/core/Transform.hh>
 #include <vull/maths/Epsilon.hh>
 #include <vull/maths/Quat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/physics/Contact.hh>
 #include <vull/physics/Shape.hh>
+#include <vull/scene/Transform.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Utility.hh>
 

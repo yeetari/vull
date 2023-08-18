@@ -6,7 +6,6 @@
 #include <vull/core/Input.hh>
 #include <vull/core/Log.hh>
 #include <vull/core/Main.hh>
-#include <vull/core/Scene.hh>
 #include <vull/core/Window.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/DefaultRenderer.hh>
@@ -24,6 +23,7 @@
 #include <vull/physics/PhysicsEngine.hh>
 #include <vull/physics/RigidBody.hh>
 #include <vull/platform/Timer.hh>
+#include <vull/scene/Scene.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>

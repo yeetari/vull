@@ -5,7 +5,6 @@
 #include <vull/container/HashSet.hh>
 #include <vull/container/Vector.hh>
 #include <vull/core/BoundingSphere.hh>
-#include <vull/core/Scene.hh>
 #include <vull/ecs/Entity.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/GBuffer.hh>
@@ -17,6 +16,7 @@
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/scene/Camera.hh>
+#include <vull/scene/Scene.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>

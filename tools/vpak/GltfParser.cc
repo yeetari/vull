@@ -10,7 +10,6 @@
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/BoundingSphere.hh>
 #include <vull/core/Log.hh>
-#include <vull/core/Transform.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
@@ -20,6 +19,7 @@
 #include <vull/maths/Vec.hh>
 #include <vull/platform/SystemLatch.hh>
 #include <vull/platform/Timer.hh>
+#include <vull/scene/Transform.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
 #include <vull/support/Format.hh>

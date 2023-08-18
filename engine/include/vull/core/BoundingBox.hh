@@ -1,11 +1,11 @@
 #pragma once
 
 #include <vull/core/BuiltinComponents.hh>
-#include <vull/core/Transform.hh>
 #include <vull/ecs/Component.hh>
 #include <vull/maths/Common.hh>
 #include <vull/maths/Relational.hh>
 #include <vull/maths/Vec.hh>
+#include <vull/scene/Transform.hh>
 
 namespace vull {
 

@@ -1,4 +1,4 @@
-#include <vull/core/Transform.hh>
+#include <vull/scene/Transform.hh>
 
 #include <vull/maths/Mat.hh>
 #include <vull/maths/Quat.hh>

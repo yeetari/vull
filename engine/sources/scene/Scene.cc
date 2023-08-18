@@ -1,13 +1,13 @@
-#include <vull/core/Scene.hh>
+#include <vull/scene/Scene.hh>
 
 #include <vull/core/BoundingBox.hh>
 #include <vull/core/BoundingSphere.hh>
-#include <vull/core/Transform.hh>
 #include <vull/ecs/EntityId.hh>
 #include <vull/ecs/World.hh>
 #include <vull/graphics/Material.hh>
 #include <vull/graphics/Mesh.hh>
 #include <vull/maths/Mat.hh>
+#include <vull/scene/Transform.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>

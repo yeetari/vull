@@ -1,11 +1,12 @@
 target_sources(vull-core PRIVATE
     core/Log.cc
-    core/Transform.cc
     ecs/Entity.cc
     ecs/World.cc
     maths/Colour.cc
     maths/Random.cc
     platform/Linux.cc
+    scene/Scene.cc
+    scene/Transform.cc
     support/Assert.cc
     support/Stream.cc
     support/String.cc
@@ -20,7 +21,6 @@ target_sources(vull-core PRIVATE
     vpak/Writer.cc)
 
 target_sources(vull-graphics PRIVATE
-    core/Scene.cc
     graphics/DefaultRenderer.cc
     graphics/DeferredRenderer.cc
     graphics/FramePacer.cc
