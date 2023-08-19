@@ -201,7 +201,7 @@ void vull_main(Vector<StringView> &&args) {
         object_renderer->load(Mesh("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index"));
     }
 
-    vk::QueryPool pipeline_statistics_pool(context, 1,
+    vk::QueryPool pipeline_statistics_pool(context, frame_pacer.queue_length(),
                                            vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                                vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
                                                vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
@@ -236,7 +236,7 @@ void vull_main(Vector<StringView> &&args) {
             "FS invocations: {d8 }",     "CS invocations: {d8 }",
         };
         Array<uint64_t, 5> pipeline_statistics{};
-        pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1);
+        pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1, frame_pacer.frame_index());
         for (uint32_t i = 0; i < pipeline_statistics.size(); i++) {
             static_cast<ui::Label &>(pipeline_statistics_labels[i])
                 .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
@@ -289,10 +289,10 @@ void vull_main(Vector<StringView> &&args) {
         Timer execute_rg_timer;
         auto queue = context.lock_queue(vk::QueueKind::Graphics);
         auto &cmd_buf = queue->request_cmd_buf();
-        cmd_buf.reset_query_pool(pipeline_statistics_pool);
-        cmd_buf.begin_query(pipeline_statistics_pool, 0);
+        cmd_buf.reset_query(pipeline_statistics_pool, frame_pacer.frame_index());
+        cmd_buf.begin_query(pipeline_statistics_pool, frame_pacer.frame_index());
         graph.execute(cmd_buf, true);
-        cmd_buf.end_query(pipeline_statistics_pool, 0);
+        cmd_buf.end_query(pipeline_statistics_pool, frame_pacer.frame_index());
 
         Array signal_semaphores{
             vkb::SemaphoreSubmitInfo{

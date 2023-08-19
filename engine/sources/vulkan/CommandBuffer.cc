@@ -248,6 +248,10 @@ void CommandBuffer::reset_query_pool(const vk::QueryPool &query_pool) const {
     m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, 0, query_pool.count());
 }
 
+void CommandBuffer::reset_query(const QueryPool &query_pool, uint32_t query) const {
+    m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, query, 1);
+}
+
 void CommandBuffer::begin_query(const QueryPool &query_pool, uint32_t query) const {
     m_context.vkCmdBeginQuery(m_cmd_buf, *query_pool, query, vkb::QueryControlFlags::None);
 }

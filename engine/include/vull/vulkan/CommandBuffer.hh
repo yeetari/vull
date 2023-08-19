@@ -86,6 +86,7 @@ public:
     void image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const;
     void pipeline_barrier(const vkb::DependencyInfo &dependency_info) const;
     void reset_query_pool(const QueryPool &query_pool) const;
+    void reset_query(const QueryPool &query_pool, uint32_t query) const;
     void begin_query(const QueryPool &query_pool, uint32_t query) const;
     void end_query(const QueryPool &query_pool, uint32_t query) const;
     void write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const;
