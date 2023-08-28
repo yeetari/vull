@@ -28,6 +28,7 @@ struct AttachmentDescription {
     vkb::Format format;
     vkb::ImageUsage usage;
     uint32_t mip_levels{1};
+    uint32_t array_layers{1};
 };
 
 struct BufferDescription {

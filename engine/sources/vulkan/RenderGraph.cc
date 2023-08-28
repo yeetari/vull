@@ -110,7 +110,7 @@ ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription 
                                    .format = description.format,
                                    .extent = {description.extent.width, description.extent.height, 1},
                                    .mipLevels = description.mip_levels,
-                                   .arrayLayers = 1,
+                                   .arrayLayers = description.array_layers,
                                    .samples = vkb::SampleCount::_1,
                                    .tiling = vkb::ImageTiling::Optimal,
                                    .usage = description.usage,
