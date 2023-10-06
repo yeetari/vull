@@ -86,7 +86,7 @@ void Painter::paint_text(Font &font, LayoutPoint position, const Colour &colour,
 
 void Painter::set_scissor(LayoutPoint position, LayoutSize size) {
     m_commands.push(PaintCommand{
-        .position = position.floor(),
+        .position = vull::max(position.floor(), Vec2i(0)),
         .size = size.ceil(),
         .variant{ScissorCommand{}},
     });
