@@ -12,11 +12,8 @@
 #include <vull/graphics/DeferredRenderer.hh>
 #include <vull/graphics/FramePacer.hh>
 #include <vull/graphics/GBuffer.hh>
-#include <vull/graphics/Mesh.hh>
-#include <vull/graphics/ObjectRenderer.hh>
 #include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Colour.hh>
-#include <vull/maths/Common.hh>
 #include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/physics/Collider.hh>
@@ -27,7 +24,6 @@
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Format.hh>
-#include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
 #include <vull/support/StringView.hh>
@@ -44,18 +40,13 @@
 #include <vull/ui/layout/Pane.hh>
 #include <vull/ui/layout/ScreenPane.hh>
 #include <vull/ui/widget/Button.hh>
-#include <vull/ui/widget/ImageLabel.hh>
 #include <vull/ui/widget/Label.hh>
-#include <vull/ui/widget/Slider.hh>
 #include <vull/ui/widget/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
-#include <vull/vpak/PackFile.hh>
 #include <vull/vpak/Reader.hh>
 #include <vull/vulkan/CommandBuffer.hh>
 #include <vull/vulkan/Context.hh>
 #include <vull/vulkan/Fence.hh>
-#include <vull/vulkan/Image.hh>
-#include <vull/vulkan/MemoryUsage.hh>
 #include <vull/vulkan/QueryPool.hh>
 #include <vull/vulkan/Queue.hh>
 #include <vull/vulkan/RenderGraph.hh>
@@ -171,36 +162,6 @@ void vull_main(Vector<StringView> &&args) {
         pipeline_statistics_labels.push(label);
     }
 
-    bool has_suzanne = vpak::stat("/meshes/Suzanne.0/vertex").has_value();
-    Optional<ui::Slider &> suzanne_slider;
-    Optional<ObjectRenderer> object_renderer;
-    Optional<vk::Image> suzanne_image;
-    if (has_suzanne) {
-        vkb::ImageCreateInfo image_ci{
-            .sType = vkb::StructureType::ImageCreateInfo,
-            .imageType = vkb::ImageType::_2D,
-            .format = vkb::Format::R8G8B8A8Unorm,
-            .extent = {256, 256, 1},
-            .mipLevels = 1,
-            .arrayLayers = 1,
-            .samples = vkb::SampleCount::_1,
-            .tiling = vkb::ImageTiling::Optimal,
-            .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::ColorAttachment,
-            .sharingMode = vkb::SharingMode::Exclusive,
-            .initialLayout = vkb::ImageLayout::Undefined,
-        };
-        suzanne_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
-
-        auto &suzanne_window = screen_pane.add_child<ui::Window>("Suzanne");
-        auto &suzanne_label = suzanne_window.content_pane().add_child<ui::ImageLabel>(*suzanne_image);
-        suzanne_label.set_align(ui::Align::Center);
-        suzanne_slider = suzanne_window.content_pane().add_child<ui::Slider>(0.0f, 2.0f * vull::pi<float>);
-        suzanne_slider->set_value(vull::pi<float>);
-
-        object_renderer.emplace(context);
-        object_renderer->load(Mesh("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index"));
-    }
-
     vk::QueryPool pipeline_statistics_pool(context, frame_pacer.queue_length(),
                                            vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                                vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
@@ -250,10 +211,6 @@ void vull_main(Vector<StringView> &&args) {
         // Update camera.
         free_camera.update(window, dt);
 
-        if (has_suzanne) {
-            object_renderer->set_rotation(suzanne_slider->value());
-        }
-
         Timer ui_timer;
         ui::Painter ui_painter;
         ui_painter.bind_atlas(atlas);
@@ -274,12 +231,7 @@ void vull_main(Vector<StringView> &&args) {
         skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
         ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
 
-        auto &submit_pass = graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
-        if (has_suzanne) {
-            vk::ResourceId suzanne_id = graph.import("suzanne", *suzanne_image);
-            object_renderer->build_pass(graph, suzanne_id);
-            submit_pass.read(suzanne_id);
-        }
+        graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
         cpu_time_graph.push_section("build-rg", build_rg_timer.elapsed());
 
         Timer compile_rg_timer;
