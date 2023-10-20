@@ -7,6 +7,9 @@ namespace vull {
 
 class Camera {
 public:
+    virtual float aspect_ratio() const = 0;
+    virtual float fov() const = 0;
+
     virtual Vec3f position() const = 0;
     virtual Vec3f forward() const = 0;
     virtual Vec3f right() const = 0;
