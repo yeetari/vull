@@ -2,7 +2,6 @@
 
 #include <vull/container/Array.hh>
 #include <vull/platform/Timer.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>

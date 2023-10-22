@@ -1,8 +1,8 @@
 #pragma once
 
 #include <vull/container/Vector.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 
 class Test;
 

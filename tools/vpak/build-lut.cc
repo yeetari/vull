@@ -8,9 +8,9 @@
 #include <vull/platform/FileStream.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Enum.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 
 #include <stddef.h>

@@ -13,7 +13,6 @@
 #include <vull/platform/FileStream.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>

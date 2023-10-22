@@ -4,10 +4,10 @@
 #include <vull/container/Vector.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Function.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/Tuple.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>

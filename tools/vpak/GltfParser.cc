@@ -22,9 +22,9 @@
 #include <vull/scene/Transform.hh>
 #include <vull/support/Assert.hh>
 #include <vull/support/Atomic.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/SpanStream.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/tasklet/Latch.hh>
 #include <vull/tasklet/Mutex.hh>
 #include <vull/tasklet/Scheduler.hh>

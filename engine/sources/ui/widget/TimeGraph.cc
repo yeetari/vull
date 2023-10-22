@@ -6,9 +6,9 @@
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Algorithm.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/Utility.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Painter.hh>

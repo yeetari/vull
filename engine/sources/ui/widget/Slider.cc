@@ -3,8 +3,8 @@
 #include <vull/core/Input.hh>
 #include <vull/maths/Colour.hh>
 #include <vull/maths/Common.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/ui/Element.hh>
 #include <vull/ui/Event.hh>
 #include <vull/ui/Painter.hh>

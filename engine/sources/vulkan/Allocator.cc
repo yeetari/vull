@@ -5,10 +5,10 @@
 #include <vull/core/Log.hh>
 #include <vull/maths/Common.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Optional.hh>
 #include <vull/support/ScopedLock.hh>
 #include <vull/support/String.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
 #include <vull/tasklet/Mutex.hh>

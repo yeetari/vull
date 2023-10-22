@@ -6,6 +6,7 @@
 #include <vull/support/Span.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringView.hh>
+#include <vull/support/Utility.hh>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -74,6 +75,13 @@ void StringBuilder::append(StringView fmt, const Args &...args) {
 template <typename Container>
 void StringBuilder::extend(const Container &container) {
     m_buffer.extend(container);
+}
+
+template <typename... Args>
+String format(StringView fmt, Args &&...args) {
+    StringBuilder builder;
+    builder.append(fmt, forward<Args>(args)...);
+    return builder.build();
 }
 
 } // namespace vull

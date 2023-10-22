@@ -23,9 +23,9 @@
 #include <vull/scene/Scene.hh>
 #include <vull/support/Algorithm.hh>
 #include <vull/support/Assert.hh>
-#include <vull/support/Format.hh>
 #include <vull/support/Result.hh>
 #include <vull/support/Span.hh>
+#include <vull/support/StringBuilder.hh>
 #include <vull/support/StringView.hh>
 #include <vull/support/UniquePtr.hh>
 #include <vull/support/Utility.hh>
