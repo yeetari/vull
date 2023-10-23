@@ -58,8 +58,9 @@ Optional<String> parse_args(int argc, char **argv, Vector<StringView> &applicati
 
 int main(int argc, char **argv) {
     vull::open_log();
-    Vector<StringView> application_args;
+    vull::set_log_colours_enabled(isatty(STDOUT_FILENO) == 1);
 
+    Vector<StringView> application_args;
     auto vpak_directory_path = parse_args(argc, argv, application_args);
     if (!vpak_directory_path) {
         return 1;

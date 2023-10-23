@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vull/container/Array.hh>
 #include <vull/platform/Timer.hh>
 #include <vull/support/String.hh>
 #include <vull/support/StringBuilder.hh>
@@ -11,23 +10,12 @@
 
 namespace vull {
 
-extern Timer g_log_timer;
-
-enum class LogLevel {
-    Trace,
-    Debug,
-    Info,
-    Warn,
-    Error,
-};
-
-constexpr Array k_level_strings{
-    "TRACE ", "DEBUG ", "INFO  ", "WARN  ", "ERROR ",
-};
-
 void logln(StringView);
 void open_log();
 void close_log();
+
+bool log_colours_enabled();
+void set_log_colours_enabled(bool log_colours_enabled);
 
 void print(StringView);
 void println(StringView);
@@ -40,22 +28,33 @@ void println(StringView fmt, Args &&...args) {
     println(vull::format(fmt, vull::forward<Args>(args)...));
 }
 
-#define DEFINE_LOG_LEVEL(fn, lvl)                                                                                      \
+#define DEFINE_LOG_LEVEL(fn, LEVEL_STRING, LEVEL_COLOUR)                                                               \
     template <typename... Args>                                                                                        \
     void fn(StringView fmt, Args &&...args) {                                                                          \
+        extern Timer g_log_timer;                                                                                      \
+                                                                                                                       \
         StringBuilder sb;                                                                                              \
         const uint64_t time = g_log_timer.elapsed_ns() / 1000000u;                                                     \
+        if (log_colours_enabled()) {                                                                                   \
+            sb.append("\x1b[37m");                                                                                     \
+        }                                                                                                              \
         sb.append("[{d5 }.{d3}] ", time / 1000u, time % 1000u);                                                        \
-        sb.append(k_level_strings[static_cast<uint32_t>(lvl)]);                                                        \
+        if (log_colours_enabled()) {                                                                                   \
+            sb.append("\x1b[0m" LEVEL_COLOUR);                                                                         \
+        }                                                                                                              \
+        sb.append(LEVEL_STRING);                                                                                       \
+        if (log_colours_enabled()) {                                                                                   \
+            sb.append("\x1b[0m");                                                                                      \
+        }                                                                                                              \
         sb.append(fmt, vull::forward<Args>(args)...);                                                                  \
         logln(sb.build());                                                                                             \
     }
 
-DEFINE_LOG_LEVEL(trace, LogLevel::Trace)
-DEFINE_LOG_LEVEL(debug, LogLevel::Debug)
-DEFINE_LOG_LEVEL(info, LogLevel::Info)
-DEFINE_LOG_LEVEL(warn, LogLevel::Warn)
-DEFINE_LOG_LEVEL(error, LogLevel::Error)
+DEFINE_LOG_LEVEL(trace, "TRACE ", "\x1b[35m")
+DEFINE_LOG_LEVEL(debug, "DEBUG ", "\x1b[36m")
+DEFINE_LOG_LEVEL(info, "INFO  ", "\x1b[32m")
+DEFINE_LOG_LEVEL(warn, "WARN  ", "\x1b[1;33m")
+DEFINE_LOG_LEVEL(error, "ERROR ", "\x1b[1;31m")
 #undef DEFINE_LOG_LEVEL
 
 } // namespace vull

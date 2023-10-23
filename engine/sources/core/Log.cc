@@ -178,6 +178,7 @@ bool GlobalState::wait() {
 
 VULL_GLOBAL(thread_local LogQueue *s_queue = nullptr);
 VULL_GLOBAL(GlobalState s_state);
+VULL_GLOBAL(bool s_log_colours_enabled = false);
 
 void *sink_loop(void *) {
     while (s_state.wait()) {
@@ -200,7 +201,16 @@ void *sink_loop(void *) {
 
 } // namespace
 
+extern Timer g_log_timer;
 VULL_GLOBAL(Timer g_log_timer);
+
+bool log_colours_enabled() {
+    return s_log_colours_enabled;
+}
+
+void set_log_colours_enabled(bool log_colours_enabled) {
+    s_log_colours_enabled = log_colours_enabled;
+}
 
 void logln(StringView message) {
     if (s_queue == nullptr) [[unlikely]] {
