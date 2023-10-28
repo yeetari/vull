@@ -26,6 +26,7 @@ class DeferredRenderer {
     vk::Pipeline m_light_cull_pipeline;
     vk::Pipeline m_deferred_pipeline;
     vk::Pipeline m_blit_tonemap_pipeline;
+    float m_exposure{1.0f};
 
     void create_set_layouts();
     void create_pipelines();
@@ -41,6 +42,7 @@ public:
 
     GBuffer create_gbuffer(vk::RenderGraph &graph);
     void build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::ResourceId &frame_ubo, vk::ResourceId &target);
+    void set_exposure(float exposure) { m_exposure = exposure; }
 };
 
 } // namespace vull

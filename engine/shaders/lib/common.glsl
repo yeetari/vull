@@ -32,7 +32,7 @@ float half_to_float(uint half_bits) {
     return uintBitsToFloat(float_bits);
 }
 
-// See the Khronos Data Format Specification v1.3.1 section 13.3.1
+// sRGB EOTF (Khronos Data Format Specification v1.3.1 section 13.3.1)
 vec3 srgb_to_linear(vec3 srgb) {
     vec3 r1 = srgb / 12.92f;
     vec3 r2 = pow((srgb + 0.055f) / 1.055f, vec3(2.4f));
@@ -42,7 +42,7 @@ vec4 srgb_to_linear(vec4 srgb) {
     return vec4(srgb_to_linear(srgb.rgb), srgb.a);
 }
 
-// See the Khronos Data Format Specification v1.3.1 section 13.3.2
+// sRGB inverse EOTF (Khronos Data Format Specification v1.3.1 section 13.3.2)
 vec3 linear_to_srgb(vec3 linear) {
     vec3 r1 = linear * 12.92f;
     vec3 r2 = pow(linear, vec3(1.0f / 2.4f)) * 1.055f - 0.055f;

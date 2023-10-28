@@ -151,6 +151,10 @@ void DeferredRenderer::create_pipelines() {
                                               .add_shader(triangle_shader)
                                               .add_shader(blit_tonemap_shader)
                                               .set_topology(vkb::PrimitiveTopology::TriangleList)
+                                              .set_push_constant_range({
+                                                  .stageFlags = vkb::ShaderStage::Fragment,
+                                                  .size = sizeof(float),
+                                              })
                                               .build(m_context));
 }
 
@@ -266,6 +270,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_blit_tonemap_pipeline);
+        cmd_buf.push_constants(vkb::ShaderStage::Fragment, m_exposure);
         cmd_buf.draw(3, 1);
     });
 }
