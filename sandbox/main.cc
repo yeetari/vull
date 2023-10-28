@@ -14,6 +14,7 @@
 #include <vull/graphics/GBuffer.hh>
 #include <vull/graphics/SkyboxRenderer.hh>
 #include <vull/maths/Colour.hh>
+#include <vull/maths/Common.hh>
 #include <vull/maths/Random.hh>
 #include <vull/maths/Vec.hh>
 #include <vull/physics/Collider.hh>
@@ -41,6 +42,7 @@
 #include <vull/ui/layout/ScreenPane.hh>
 #include <vull/ui/widget/Button.hh>
 #include <vull/ui/widget/Label.hh>
+#include <vull/ui/widget/Slider.hh>
 #include <vull/ui/widget/TimeGraph.hh>
 #include <vull/vpak/FileSystem.hh>
 #include <vull/vpak/Reader.hh>
@@ -162,6 +164,14 @@ void vull_main(Vector<StringView> &&args) {
         pipeline_statistics_labels.push(label);
     }
 
+    auto &camera_window = screen_pane.add_child<ui::Window>("Camera settings");
+    camera_window.content_pane().add_child<ui::Label>("Exposure");
+    auto &exposure_slider = camera_window.content_pane().add_child<ui::Slider>(0.0f, 20.0f);
+    camera_window.content_pane().add_child<ui::Label>("FOV");
+    auto &fov_slider = camera_window.content_pane().add_child<ui::Slider>(0.0f, 180.0f);
+    exposure_slider.set_value(5.0f);
+    fov_slider.set_value(90.0f);
+
     vk::QueryPool pipeline_statistics_pool(context, frame_pacer.queue_length(),
                                            vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                                vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
@@ -218,8 +228,10 @@ void vull_main(Vector<StringView> &&args) {
         cpu_time_graph.new_bar();
         cpu_time_graph.push_section("render-ui", ui_timer.elapsed());
 
+        deferred_renderer.set_exposure(exposure_slider.value());
         default_renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
         default_renderer.set_camera(free_camera);
+        free_camera.set_fov(fov_slider.value() * (vull::pi<float> / 180.0f));
 
         Timer build_rg_timer;
         auto &graph = frame.new_graph(context);
