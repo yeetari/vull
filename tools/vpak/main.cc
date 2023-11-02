@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <zstd.h>
 
 using namespace vull;
@@ -389,6 +390,8 @@ int main(int argc, char **argv) {
     }
 
     vull::open_log();
+    vull::set_log_colours_enabled(isatty(STDOUT_FILENO) == 1);
+
     const auto command = args[1];
     if (command == "add") {
         return add(args);
