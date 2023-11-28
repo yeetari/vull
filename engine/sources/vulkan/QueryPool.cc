@@ -42,6 +42,7 @@ void QueryPool::recreate(uint32_t count, vkb::QueryType type, vkb::QueryPipeline
         .pipelineStatistics = pipeline_statistics,
     };
     VULL_ENSURE(m_context.vkCreateQueryPool(&pool_ci, &m_pool) == vkb::Result::Success);
+    m_context.vkResetQueryPool(m_pool, 0, count);
 }
 
 } // namespace vull::vk

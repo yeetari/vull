@@ -252,6 +252,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .runtimeDescriptorArray = true,
         .samplerFilterMinmax = true,
         .scalarBlockLayout = true,
+        .hostQueryReset = true,
         .timelineSemaphore = true,
         // Extension promoted to vk 1.2, feature must be supported in vk 1.3
         .bufferDeviceAddress = true,
