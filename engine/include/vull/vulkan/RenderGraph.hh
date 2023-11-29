@@ -60,17 +60,14 @@ public:
 };
 
 class Resource {
-    // TODO: Remove m_physical_index and split ResourceId so it has a physical and virtual part?
     Pass *m_producer{nullptr};
     ResourceFlags m_flags;
-    uint32_t m_physical_index{0};
     vkb::PipelineStage2 m_write_stage{};
     vkb::Access2 m_write_access{};
     vkb::ImageLayout m_write_layout{};
 
 public:
-    Resource(Pass *producer, ResourceFlags flags, uint32_t physical_index)
-        : m_producer(producer), m_flags(flags), m_physical_index(physical_index) {}
+    Resource(Pass *producer, ResourceFlags flags) : m_producer(producer), m_flags(flags) {}
 
     void set_write_stage(vkb::PipelineStage2 stage) { m_write_stage = stage; }
     void set_write_access(vkb::Access2 access) { m_write_access = access; }
@@ -78,7 +75,6 @@ public:
 
     Pass &producer() const { return *m_producer; }
     ResourceFlags flags() const { return m_flags; }
-    uint32_t physical_index() const { return m_physical_index; }
     vkb::PipelineStage2 write_stage() const { return m_write_stage; }
     vkb::Access2 write_access() const { return m_write_access; }
     vkb::ImageLayout write_layout() const { return m_write_layout; }
@@ -170,9 +166,12 @@ private:
     Context &m_context;
     Vector<UniquePtr<Pass>> m_passes;
     Vector<Pass &> m_pass_order;
-    Vector<Resource, ResourceId> m_resources;
-    Vector<PhysicalResource, ResourceId> m_physical_resources;
+    Vector<Resource, uint16_t> m_resources;
+    Vector<PhysicalResource, uint16_t> m_physical_resources;
     vk::QueryPool m_timestamp_pool;
+
+    Resource &virtual_resource(ResourceId id) { return m_resources[id.virtual_index()]; }
+    PhysicalResource &physical_resource(ResourceId id) { return m_physical_resources[id.physical_index()]; }
 
     ResourceId create_resource(String &&name, ResourceFlags flags, Function<const void *()> &&materialise);
     ResourceId clone_resource(ResourceId id, Pass &producer);

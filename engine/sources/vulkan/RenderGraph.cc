@@ -133,15 +133,13 @@ ResourceId RenderGraph::new_buffer(String name, const BufferDescription &descrip
 }
 
 const Buffer &RenderGraph::get_buffer(ResourceId id) {
-    auto &resource = m_resources[id];
-    VULL_ASSERT((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Buffer);
-    return *static_cast<const Buffer *>(m_physical_resources[resource.physical_index()].materialised());
+    VULL_ASSERT((virtual_resource(id).flags() & ResourceFlags::Kind) == ResourceFlags::Buffer);
+    return *static_cast<const Buffer *>(physical_resource(id).materialised());
 }
 
 const Image &RenderGraph::get_image(ResourceId id) {
-    auto &resource = m_resources[id];
-    VULL_ASSERT((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image);
-    return *static_cast<const Image *>(m_physical_resources[resource.physical_index()].materialised());
+    VULL_ASSERT((virtual_resource(id).flags() & ResourceFlags::Kind) == ResourceFlags::Image);
+    return *static_cast<const Image *>(physical_resource(id).materialised());
 }
 
 RenderGraph::RenderGraph(Context &context) : m_context(context), m_timestamp_pool(context) {}
@@ -149,14 +147,14 @@ RenderGraph::~RenderGraph() = default;
 
 ResourceId RenderGraph::create_resource(String &&name, ResourceFlags flags, Function<const void *()> &&materialise) {
     m_physical_resources.emplace(vull::move(name), vull::move(materialise));
-    m_resources.emplace(nullptr, flags, m_physical_resources.size() - 1);
-    return m_resources.size() - 1;
+    m_resources.emplace(nullptr, flags);
+    return ResourceId(m_physical_resources.size() - 1, m_resources.size() - 1); // NOLINT
 }
 
 ResourceId RenderGraph::clone_resource(ResourceId id, Pass &producer) {
-    const auto new_flags = m_resources[id].flags() & ~(ResourceFlags::Imported | ResourceFlags::Uninitialised);
-    m_resources.emplace(&producer, new_flags, m_resources[id].physical_index());
-    return m_resources.size() - 1;
+    const auto new_flags = virtual_resource(id).flags() & ~(ResourceFlags::Imported | ResourceFlags::Uninitialised);
+    m_resources.emplace(&producer, new_flags);
+    return ResourceId(id.physical_index(), m_resources.size() - 1); // NOLINT
 }
 
 void RenderGraph::build_order(ResourceId target) {
@@ -168,7 +166,7 @@ void RenderGraph::build_order(ResourceId target) {
         }
         // Traverse dependant passes (those that produce a resource we read from).
         for (auto [id, flags] : pass.reads()) {
-            const auto &resource = m_resources[id];
+            const auto &resource = virtual_resource(id);
             VULL_ASSERT((resource.flags() & ResourceFlags::Uninitialised) == ResourceFlags::None);
             if ((resource.flags() & ResourceFlags::Imported) != ResourceFlags::None) {
                 // Imported resources have no producer.
@@ -178,7 +176,7 @@ void RenderGraph::build_order(ResourceId target) {
         }
         m_pass_order.push(pass);
     };
-    traverse(m_resources[target].producer());
+    traverse(virtual_resource(target).producer());
 }
 
 void RenderGraph::build_sync() {
@@ -208,7 +206,7 @@ void RenderGraph::build_sync() {
         resource.set_write_layout(vkb::ImageLayout::AttachmentOptimal);
     }
 
-    HashMap<vk::ResourceId, vkb::ImageLayout> layout_map;
+    HashMap<uint16_t, vkb::ImageLayout> layout_map;
     for (Pass &pass : m_pass_order) {
         auto &barrier = pass.m_memory_barrier;
         if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
@@ -220,7 +218,7 @@ void RenderGraph::build_sync() {
             if ((flags & ReadFlags::Additive) != ReadFlags::None) {
                 continue;
             }
-            const auto &resource = m_resources[id];
+            const auto &resource = virtual_resource(id);
             barrier.srcStageMask |= resource.write_stage();
             barrier.srcAccessMask |= resource.write_access();
             if ((flags & ReadFlags::Indirect) != ReadFlags::None) {
@@ -228,7 +226,7 @@ void RenderGraph::build_sync() {
                 barrier.dstAccessMask |= vkb::Access2::IndirectCommandRead;
             }
             if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
-                const auto current_layout = *layout_map.get(resource.physical_index());
+                const auto current_layout = *layout_map.get(id.physical_index());
                 auto read_layout = vkb::ImageLayout::ReadOnlyOptimal;
                 if ((flags & ReadFlags::Present) != ReadFlags::None) {
                     read_layout = vkb::ImageLayout::PresentSrcKHR;
@@ -237,34 +235,31 @@ void RenderGraph::build_sync() {
                 }
                 if (current_layout != read_layout) {
                     pass.add_transition(id, current_layout, read_layout);
-                    layout_map.set(resource.physical_index(), read_layout);
+                    layout_map.set(id.physical_index(), read_layout);
 #ifdef RG_DEBUG
-                    vull::debug("'{}' read '{}': {} -> {}", pass.name(),
-                                m_physical_resources[resource.physical_index()].name(),
+                    vull::debug("'{}' read '{}': {} -> {}", pass.name(), physical_resource(id).name(),
                                 vull::to_underlying(current_layout), vull::to_underlying(read_layout));
 #endif
                 }
             }
         }
         for (auto [id, flags] : pass.writes()) {
-            const auto &resource = m_resources[id];
+            const auto &resource = virtual_resource(id);
             VULL_ASSERT(&resource.producer() == &pass);
             barrier.srcStageMask |= resource.write_stage();
             barrier.srcAccessMask |= resource.write_access();
             barrier.dstStageMask |= resource.write_stage();
             barrier.dstAccessMask |= resource.write_access();
             if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
-                const auto current_layout =
-                    layout_map.get(resource.physical_index()).value_or(vkb::ImageLayout::Undefined);
+                const auto current_layout = layout_map.get(id.physical_index()).value_or(vkb::ImageLayout::Undefined);
                 if (current_layout == resource.write_layout()) {
                     continue;
                 }
                 pass.add_transition(id, current_layout, resource.write_layout());
-                layout_map.set(resource.physical_index(), resource.write_layout());
+                layout_map.set(id.physical_index(), resource.write_layout());
 #ifdef RG_DEBUG
-                vull::debug("'{}' write '{}': {} -> {}", pass.name(),
-                            m_physical_resources[resource.physical_index()].name(), vull::to_underlying(current_layout),
-                            vull::to_underlying(resource.write_layout()));
+                vull::debug("'{}' write '{}': {} -> {}", pass.name(), physical_resource(id).name(),
+                            vull::to_underlying(current_layout), vull::to_underlying(resource.write_layout()));
 #endif
             }
         }
@@ -273,7 +268,7 @@ void RenderGraph::build_sync() {
 
 void RenderGraph::compile(ResourceId target) {
 #ifdef RG_DEBUG
-    vull::debug("RenderGraph::compile({})", m_physical_resources[m_resources[target].physical_index()].name());
+    vull::debug("RenderGraph::compile({})", physical_resource(target).name());
 #endif
     // TODO: Graph validation.
     build_order(target);
@@ -300,7 +295,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
         vkb::Extent2D extent{};
 
         auto consider_resource = [&](ResourceId id, vkb::AttachmentLoadOp load_op, vkb::AttachmentStoreOp store_op) {
-            if ((m_resources[id].flags() & ResourceFlags::Kind) != ResourceFlags::Image) {
+            if ((virtual_resource(id).flags() & ResourceFlags::Kind) != ResourceFlags::Image) {
                 return;
             }
 
@@ -310,9 +305,8 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
 
             const bool is_colour = image.full_view().range().aspectMask == vkb::ImageAspect::Color;
 #ifdef RG_DEBUG
-            const auto &physical = m_physical_resources[m_resources[id].physical_index()];
             vull::debug("{} attachment '{}' (load_op: {}, store_op: {})", is_colour ? "colour" : "depth",
-                        physical.name(), vull::to_underlying(load_op), vull::to_underlying(store_op));
+                        physical_resource(id).name(), vull::to_underlying(load_op), vull::to_underlying(store_op));
 #endif
 
             // TODO: Allow view other than full_view + custom clear value.

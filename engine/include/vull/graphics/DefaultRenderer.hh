@@ -8,7 +8,6 @@
 #include <vull/support/String.hh>
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Pipeline.hh>
-#include <vull/vulkan/RenderGraphDefs.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 #include <stdint.h>
@@ -18,6 +17,7 @@ namespace vull::vk {
 class CommandBuffer;
 class Context;
 class RenderGraph;
+class ResourceId;
 
 } // namespace vull::vk
 

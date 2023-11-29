@@ -2,12 +2,12 @@
 
 #include <vull/vulkan/Buffer.hh>
 #include <vull/vulkan/Pipeline.hh>
-#include <vull/vulkan/RenderGraphDefs.hh>
 
 namespace vull::vk {
 
 class Context;
 class RenderGraph;
+class ResourceId;
 
 } // namespace vull::vk
 

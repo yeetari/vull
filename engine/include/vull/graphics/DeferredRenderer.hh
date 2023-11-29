@@ -1,13 +1,13 @@
 #pragma once
 
 #include <vull/vulkan/Pipeline.hh>
-#include <vull/vulkan/RenderGraphDefs.hh>
 #include <vull/vulkan/Vulkan.hh>
 
 namespace vull::vk {
 
 class Context;
 class RenderGraph;
+class ResourceId;
 
 } // namespace vull::vk
 
