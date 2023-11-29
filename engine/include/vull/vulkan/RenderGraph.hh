@@ -132,12 +132,12 @@ private:
     Vector<Tuple<ResourceId, WriteFlags>> m_writes;
     Function<void(CommandBuffer &)> m_on_execute;
 
-    vkb::MemoryBarrier2 m_memory_barrier{.sType = vkb::StructureType::MemoryBarrier2};
+    vkb::PipelineStage2 m_dst_stage{};
+    vkb::Access2 m_dst_access{};
     Vector<Transition> m_transitions;
     bool m_visited{false};
 
     void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
-    vkb::DependencyInfo dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const;
 
 public:
     Pass(RenderGraph &graph, String &&name, PassFlags flags)
@@ -168,6 +168,7 @@ private:
     Vector<Pass &> m_pass_order;
     Vector<Resource, uint16_t> m_resources;
     Vector<PhysicalResource, uint16_t> m_physical_resources;
+    Vector<vkb::Event, uint16_t> m_events;
     vk::QueryPool m_timestamp_pool;
 
     Resource &virtual_resource(ResourceId id) { return m_resources[id.virtual_index()]; }

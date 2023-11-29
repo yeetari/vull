@@ -39,33 +39,6 @@ void Pass::add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::Image
     m_transitions.push({id, old_layout, new_layout});
 }
 
-vkb::DependencyInfo Pass::dependency_info(RenderGraph &graph, Vector<vkb::ImageMemoryBarrier2> &image_barriers) const {
-    for (const auto &transition : m_transitions) {
-        const auto &image = graph.get_image(transition.id);
-        image_barriers.push({
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = m_memory_barrier.srcStageMask,
-            .srcAccessMask = m_memory_barrier.srcAccessMask,
-            .dstStageMask = m_memory_barrier.dstStageMask,
-            .dstAccessMask = m_memory_barrier.dstAccessMask,
-            .oldLayout = transition.old_layout,
-            .newLayout = transition.new_layout,
-            .image = *image,
-            .subresourceRange = image.full_view().range(),
-        });
-    }
-
-    const bool has_memory_barrier = m_memory_barrier.srcStageMask != vkb::PipelineStage2::None &&
-                                    m_memory_barrier.dstStageMask != vkb::PipelineStage2::None;
-    return {
-        .sType = vkb::StructureType::DependencyInfo,
-        .memoryBarrierCount = has_memory_barrier ? 1u : 0u,
-        .pMemoryBarriers = &m_memory_barrier,
-        .imageMemoryBarrierCount = image_barriers.size(),
-        .pImageMemoryBarriers = image_barriers.data(),
-    };
-}
-
 Pass &Pass::read(ResourceId &id, ReadFlags flags) {
     m_reads.push(vull::make_tuple(id, flags));
     if ((flags & ReadFlags::Present) != ReadFlags::None) {
@@ -143,7 +116,12 @@ const Image &RenderGraph::get_image(ResourceId id) {
 }
 
 RenderGraph::RenderGraph(Context &context) : m_context(context), m_timestamp_pool(context) {}
-RenderGraph::~RenderGraph() = default;
+
+RenderGraph::~RenderGraph() {
+    for (vkb::Event event : m_events) {
+        m_context.vkDestroyEvent(event);
+    }
+}
 
 ResourceId RenderGraph::create_resource(String &&name, ResourceFlags flags, Function<const void *()> &&materialise) {
     m_physical_resources.emplace(vull::move(name), vull::move(materialise));
@@ -195,23 +173,28 @@ void RenderGraph::build_sync() {
             continue;
         }
 
-        // TODO: Proper stage+access selection.
-        resource.set_write_stage(vkb::PipelineStage2::AllCommands);
-        resource.set_write_access(vkb::Access2::MemoryWrite);
         if (kind == PassFlags::Compute) {
+            resource.set_write_stage(vkb::PipelineStage2::ComputeShader);
+            resource.set_write_access(vkb::Access2::ShaderStorageWrite);
+
             // Writes to images in a compute shader are via storage images, which must be in the General layout.
             resource.set_write_layout(vkb::ImageLayout::General);
             continue;
         }
+
+        // Otherwise the write is the attachment output of a fragment shader.
         resource.set_write_layout(vkb::ImageLayout::AttachmentOptimal);
+
+        // TODO: Gather more information to be more granular here.
+        resource.set_write_stage(vkb::PipelineStage2::AllGraphics);
+        resource.set_write_access(vkb::Access2::MemoryWrite);
     }
 
     HashMap<uint16_t, vkb::ImageLayout> layout_map;
     for (Pass &pass : m_pass_order) {
-        auto &barrier = pass.m_memory_barrier;
         if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
-            barrier.dstStageMask |= vkb::PipelineStage2::AllTransfer;
-            barrier.dstAccessMask |= vkb::Access2::TransferRead;
+            pass.m_dst_stage |= vkb::PipelineStage2::AllTransfer;
+            pass.m_dst_access |= vkb::Access2::TransferRead;
         }
 
         for (auto [id, flags] : pass.reads()) {
@@ -219,11 +202,9 @@ void RenderGraph::build_sync() {
                 continue;
             }
             const auto &resource = virtual_resource(id);
-            barrier.srcStageMask |= resource.write_stage();
-            barrier.srcAccessMask |= resource.write_access();
             if ((flags & ReadFlags::Indirect) != ReadFlags::None) {
-                barrier.dstStageMask |= vkb::PipelineStage2::DrawIndirect;
-                barrier.dstAccessMask |= vkb::Access2::IndirectCommandRead;
+                pass.m_dst_stage |= vkb::PipelineStage2::DrawIndirect;
+                pass.m_dst_access |= vkb::Access2::IndirectCommandRead;
             }
             if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
                 const auto current_layout = *layout_map.get(id.physical_index());
@@ -246,10 +227,6 @@ void RenderGraph::build_sync() {
         for (auto [id, flags] : pass.writes()) {
             const auto &resource = virtual_resource(id);
             VULL_ASSERT(&resource.producer() == &pass);
-            barrier.srcStageMask |= resource.write_stage();
-            barrier.srcAccessMask |= resource.write_access();
-            barrier.dstStageMask |= resource.write_stage();
-            barrier.dstAccessMask |= resource.write_access();
             if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
                 const auto current_layout = layout_map.get(id.physical_index()).value_or(vkb::ImageLayout::Undefined);
                 if (current_layout == resource.write_layout()) {
@@ -273,6 +250,16 @@ void RenderGraph::compile(ResourceId target) {
     // TODO: Graph validation.
     build_order(target);
     build_sync();
+
+    // TODO: Recycle events.
+    m_events.ensure_size(m_resources.size());
+    for (uint16_t i = 0; i < m_resources.size(); i++) {
+        vkb::EventCreateInfo event_ci{
+            .sType = vkb::StructureType::EventCreateInfo,
+            .flags = vkb::EventCreateFlags::DeviceOnly,
+        };
+        m_context.vkCreateEvent(&event_ci, &m_events[i]);
+    }
 }
 
 void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
@@ -281,11 +268,54 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
 #endif
     cmd_buf.begin_label(vull::format("Pass {}", pass.name()));
 
-    // Emit barrier.
-    Vector<vkb::ImageMemoryBarrier2> image_barriers;
-    const auto dependency_info = pass.dependency_info(*this, image_barriers);
-    if (dependency_info.memoryBarrierCount + dependency_info.imageMemoryBarrierCount != 0) {
-        cmd_buf.pipeline_barrier(dependency_info);
+    // TODO(small-vector)
+    Vector<vkb::Event> wait_events;
+    for (auto [id, flags] : pass.reads()) {
+        wait_events.push(m_events[id.virtual_index()]);
+    }
+
+    if (!wait_events.empty()) {
+        Vector<vkb::MemoryBarrier2> wait_barriers;
+        for (auto [id, flags] : pass.reads()) {
+            wait_barriers.push({
+                .sType = vkb::StructureType::MemoryBarrier2,
+                .srcStageMask = virtual_resource(id).write_stage(),
+                .srcAccessMask = virtual_resource(id).write_access(),
+                .dstStageMask = pass.m_dst_stage,
+                .dstAccessMask = pass.m_dst_access,
+            });
+        }
+        Vector<vkb::DependencyInfo> wait_dependency_infos;
+        for (uint32_t i = 0; i < pass.reads().size(); i++) {
+            wait_dependency_infos.push({
+                .sType = vkb::StructureType::DependencyInfo,
+                .memoryBarrierCount = 1,
+                .pMemoryBarriers = &wait_barriers[i],
+            });
+        }
+        m_context.vkCmdWaitEvents2(*cmd_buf, wait_events.size(), wait_events.data(), wait_dependency_infos.data());
+    }
+
+    if (!pass.m_transitions.empty()) {
+        Vector<vkb::ImageMemoryBarrier2> image_barriers;
+        for (const auto &transition : pass.m_transitions) {
+            const auto &image = get_image(transition.id);
+            image_barriers.push({
+                .sType = vkb::StructureType::ImageMemoryBarrier2,
+                .dstStageMask = vkb::PipelineStage2::AllCommands,
+                .dstAccessMask = vkb::Access2::MemoryRead,
+                .oldLayout = transition.old_layout,
+                .newLayout = transition.new_layout,
+                .image = *image,
+                .subresourceRange = image.full_view().range(),
+            });
+        }
+
+        cmd_buf.pipeline_barrier({
+            .sType = vkb::StructureType::DependencyInfo,
+            .imageMemoryBarrierCount = image_barriers.size(),
+            .pImageMemoryBarriers = image_barriers.data(),
+        });
     }
 
     // Begin dynamic rendering state.
@@ -372,6 +402,23 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
     if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
         cmd_buf.end_rendering();
     }
+
+    for (auto [id, flags] : pass.writes()) {
+        vkb::MemoryBarrier2 memory_barrier{
+            .sType = vkb::StructureType::MemoryBarrier2,
+            .srcStageMask = virtual_resource(id).write_stage(),
+        };
+        vkb::DependencyInfo dependency_info{
+            .sType = vkb::StructureType::DependencyInfo,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memory_barrier,
+        };
+        m_context.vkCmdSetEvent2(*cmd_buf, m_events[id.virtual_index()], &dependency_info);
+#ifdef RG_DEBUG
+        vull::debug("'{}' signal for '{}'", pass.name(), physical_resource(id).name());
+#endif
+    }
+
     cmd_buf.end_label();
 }
 
