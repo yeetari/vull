@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# TODO: Can't run on GltfParser.cc due to FetchContent dependencies.
+# TODO: Can't run on gltf_parser.cc due to FetchContent dependencies.
 find engine/sources engine/tests sandbox tools \
     -name '*.cc' \
-    -and -not -name 'ContextTable.cc' \
-    -and -not -name 'GltfParser.cc' \
-    -and -not -name 'PngStream.cc' \
+    -and -not -name 'context_table.cc' \
+    -and -not -name 'gltf_parser.cc' \
+    -and -not -name 'png_stream.cc' \
     -print0 |
 parallel -0 \
     include-what-you-use \

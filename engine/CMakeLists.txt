@@ -51,17 +51,17 @@ set_target_properties(vull-vulkan PROPERTIES
     UNITY_BUILD ON
     UNITY_BUILD_MODE GROUP)
 set_source_files_properties(
-    sources/vulkan/Buffer.cc
-    sources/vulkan/CommandBuffer.cc
-    sources/vulkan/DescriptorBuilder.cc
-    sources/vulkan/Fence.cc
-    sources/vulkan/Image.cc
-    sources/vulkan/Pipeline.cc
-    sources/vulkan/QueryPool.cc
-    sources/vulkan/Queue.cc
-    sources/vulkan/Semaphore.cc
-    sources/vulkan/Shader.cc
-    sources/vulkan/Swapchain.cc
+    sources/vulkan/buffer.cc
+    sources/vulkan/command_buffer.cc
+    sources/vulkan/descriptor_builder.cc
+    sources/vulkan/fence.cc
+    sources/vulkan/image.cc
+    sources/vulkan/pipeline.cc
+    sources/vulkan/query_pool.cc
+    sources/vulkan/queue.cc
+    sources/vulkan/semaphore.cc
+    sources/vulkan/shader.cc
+    sources/vulkan/swapchain.cc
     PROPERTIES UNITY_GROUP "vulkan-wrappers"
 )
 

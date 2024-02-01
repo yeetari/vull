@@ -1,8 +1,8 @@
-#include <vull/script/Lexer.hh>
-#include <vull/script/Token.hh>
-#include <vull/support/Assert.hh>
-#include <vull/support/String.hh>
-#include <vull/support/Utility.hh>
+#include <vull/script/lexer.hh>
+#include <vull/script/token.hh>
+#include <vull/support/assert.hh>
+#include <vull/support/string.hh>
+#include <vull/support/utility.hh>
 
 #include <stddef.h>
 #include <stdint.h>

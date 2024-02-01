@@ -12,7 +12,7 @@ jobs:
         shell: bash
         run: |
           git config --global --add safe.directory $(pwd)
-          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'ContextTable.*' -and -not -name 'Vulkan.*' | xargs clang-format-16 -i
+          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'context_table.*' -and -not -name 'vulkan.*' | xargs clang-format-16 -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 

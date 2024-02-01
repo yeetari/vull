@@ -1,17 +1,17 @@
-#include "MadInst.hh"
+#include "mad_inst.hh"
 
-#include <vull/container/Vector.hh>
-#include <vull/core/Log.hh>
-#include <vull/maths/Common.hh>
-#include <vull/maths/Vec.hh>
-#include <vull/platform/File.hh>
-#include <vull/platform/FileStream.hh>
-#include <vull/support/Assert.hh>
-#include <vull/support/Enum.hh>
-#include <vull/support/Result.hh>
-#include <vull/support/String.hh>
-#include <vull/support/StringBuilder.hh>
-#include <vull/support/StringView.hh>
+#include <vull/container/vector.hh>
+#include <vull/core/log.hh>
+#include <vull/maths/common.hh>
+#include <vull/maths/vec.hh>
+#include <vull/platform/file.hh>
+#include <vull/platform/file_stream.hh>
+#include <vull/support/assert.hh>
+#include <vull/support/enum.hh>
+#include <vull/support/result.hh>
+#include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
+#include <vull/support/string_view.hh>
 
 #include <stddef.h>
 #include <stdint.h>

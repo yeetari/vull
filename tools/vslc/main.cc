@@ -1,16 +1,16 @@
-#include "Ast.hh"
-#include "CharStream.hh"
-#include "Legaliser.hh"
-#include "Lexer.hh"
-#include "Parser.hh"
-#include "spv/Backend.hh"
-#include "spv/Builder.hh"
-#include "spv/Spirv.hh"
+#include "ast.hh"
+#include "char_stream.hh"
+#include "legaliser.hh"
+#include "lexer.hh"
+#include "parser.hh"
+#include "spv/backend.hh"
+#include "spv/builder.hh"
+#include "spv/spirv.hh"
 
-#include <vull/platform/File.hh>
-#include <vull/platform/FileStream.hh>
-#include <vull/support/Result.hh>
-#include <vull/support/Utility.hh>
+#include <vull/platform/file.hh>
+#include <vull/platform/file_stream.hh>
+#include <vull/support/result.hh>
+#include <vull/support/utility.hh>
 
 #include <stdio.h>
 
