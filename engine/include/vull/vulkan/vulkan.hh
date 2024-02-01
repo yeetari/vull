@@ -40,6 +40,8 @@ constexpr uint32_t k_max_driver_info_size = 256;
 constexpr uint32_t k_shader_unused_khr = (~0u);
 constexpr uint32_t k_max_global_priority_size_khr = 16;
 constexpr uint32_t k_max_shader_module_identifier_size_ext = 32;
+constexpr uint32_t k_max_video_av1_references_per_frame_khr = 7;
+constexpr uint32_t k_shader_index_unused_amdx = (~0u);
 
 // Base types.
 using DeviceAddress = uint64_t;
@@ -545,6 +547,7 @@ enum class DriverId {
     MesaDozen = 23,
     MesaNvk = 24,
     ImaginationOpenSourceMESA = 25,
+    MesaAgxv = 26,
 };
 
 enum class DynamicState {
