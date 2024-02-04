@@ -1,18 +1,22 @@
 name: Code Style
-on: [push, pull_request]
+on: [workflow_call]
+
 jobs:
   clang-format:
     name: Clang Format
     runs-on: ubuntu-latest
     container: ghcr.io/yeetari/vull:master
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Run clang-format
         shell: bash
         run: |
           git config --global --add safe.directory $(pwd)
-          find . \( -name '*.cc' -or -name '*.hh' \) -and -not -name 'context_table.*' -and -not -name 'vulkan.*' | xargs clang-format-16 -i
+          find . \( -name '*.cc' -or -name '*.hh' \) \
+            -and -not -name 'context_table.*' \
+            -and -not -name 'vulkan.*' |
+          xargs clang-format -i
           git diff | tee format-diff
           if [ -s format-diff ]; then exit 1; fi
 
@@ -21,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/yeetari/vull:master
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
       - name: Run include-what-you-use
         run: |
           ./tools/run_iwyu.bash | tee output
