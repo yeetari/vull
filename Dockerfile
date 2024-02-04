@@ -58,11 +58,11 @@ RUN apt-get update \
    -DCMAKE_PREFIX_PATH=/usr/lib/llvm-16 \
    -DCMAKE_INSTALL_PREFIX=/usr \
    ./include-what-you-use \
- && ninja -Ciwyu-build \
  && ninja -Ciwyu-build install \
  && rm /usr/lib/clang/16/include \
  && cp -r iwyu-build/lib/clang/16/include/ /usr/lib/clang/16/include/ \
  && rm -r include-what-you-use iwyu-build \
  && ln -s /usr/bin/clang-16 /usr/bin/clang \
  && ln -s /usr/bin/clang++-16 /usr/bin/clang++ \
+ && ln -s /usr/bin/clang-format-16 /usr/bin/clang-format \
  && ln -s /usr/bin/g++-12 /usr/bin/g++
