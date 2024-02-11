@@ -65,4 +65,5 @@ RUN apt-get update \
  && ln -s /usr/bin/clang-16 /usr/bin/clang \
  && ln -s /usr/bin/clang++-16 /usr/bin/clang++ \
  && ln -s /usr/bin/clang-format-16 /usr/bin/clang-format \
+ && ln -s /usr/bin/clang-tidy-16 /usr/bin/clang-tidy \
  && ln -s /usr/bin/g++-12 /usr/bin/g++
