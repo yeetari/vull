@@ -51,8 +51,8 @@ constexpr uint32_t k_fl_offset = k_sl_count_log2 + k_align_log2;
 constexpr uint32_t k_fl_count = k_sl_count - k_fl_offset + 1u;
 constexpr uint32_t k_minimum_allocation_size = 1u << k_align_log2;
 
-constexpr vkb::DeviceSize k_big_heap_size = 128 * 1024 * 1024;
-constexpr vkb::DeviceSize k_small_heap_cutoff = 1024 * 1024 * 1024;
+constexpr auto k_big_heap_size = vkb::DeviceSize(128) * 1024 * 1024;
+constexpr auto k_small_heap_cutoff = vkb::DeviceSize(1024) * 1024 * 1024;
 
 struct Block {
     Block *prev_free;

@@ -110,8 +110,8 @@ void SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_im
 
 void SkyboxRenderer::load(Stream &stream) {
     const auto pixel_count = 1024 * 1024 * 6;
-    auto staging_buffer =
-        m_context.create_buffer(pixel_count * 4, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto staging_buffer = m_context.create_buffer(static_cast<vkb::DeviceSize>(pixel_count) * 4,
+                                                  vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
     auto *staging_data = staging_buffer.mapped<uint8_t>();
     for (uint32_t i = 0; i < pixel_count; i++) {
         VULL_EXPECT(stream.read({staging_data, 3}));
