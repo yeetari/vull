@@ -4,6 +4,7 @@ vull_module(json vull::core)
 vull_module(main vull::core)
 vull_module(physics vull::core)
 vull_module(script vull::core)
+vull_module(shaderc vull::core)
 vull_module(ui vull::core vull::vulkan PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
 vull_module(vulkan vull::core)
 vull_module(x11-window vull::core PRIVATE X11::xcb X11::xcb_randr X11::xcb_util X11::xcb_xkb)
@@ -69,7 +70,7 @@ if(VULL_BUILD_TESTS)
     add_executable(vull-tests)
     add_subdirectory(tests)
     target_compile_features(vull-tests PRIVATE cxx_std_20)
-    target_link_libraries(vull-tests PRIVATE vull::core vull::json vull::script)
+    target_link_libraries(vull-tests PRIVATE vull::core vull::json vull::script vull::shaderc)
 
     add_custom_command(TARGET vull-tests
         POST_BUILD

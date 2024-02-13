@@ -9,6 +9,7 @@ target_sources(vull-tests PRIVATE
     maths/epsilon.cc
     maths/relational.cc
     script/lexer.cc
+    shaderc/lexer.cc
     support/enum.cc
     support/variant.cc
     ui/units.cc
