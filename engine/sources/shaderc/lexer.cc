@@ -107,7 +107,7 @@ Token Lexer::next_token() {
 SourcePosition Lexer::recover_position(const Token &token) const {
     // Backtrack to find line start.
     uint32_t line_head = token.position();
-    while (line_head > 1 && m_source[line_head - 1] != '\n') {
+    while (line_head > 0 && m_source[line_head - 1] != '\n') {
         line_head--;
     }
 
