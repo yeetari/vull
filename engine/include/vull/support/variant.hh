@@ -8,12 +8,34 @@
 #include <stdint.h>
 
 namespace vull {
+namespace detail {
+
+// Logic for determining the best variant element type from a given type by using the compiler's overload resolution.
+
+template <typename...>
+struct all_overloads_t;
+
+template <>
+struct all_overloads_t<> {
+    void operator()() const;
+};
+
+template <typename T, typename... Ts>
+struct all_overloads_t<T, Ts...> : all_overloads_t<Ts...> {
+    using all_overloads_t<Ts...>::operator();
+    T operator()(T) const;
+};
+
+template <typename T, typename... Ts>
+using best_match_t = decltype(vull::declval<all_overloads_t<Ts...>>()(vull::declval<T &&>()));
+
+} // namespace detail
 
 // NOLINTBEGIN(cppcoreguidelines-special-member-functions)
 template <typename... Ts>
 class Variant {
     static_assert(sizeof...(Ts) < 255, "Variant too large");
-    template <typename... Us>
+    template <typename...>
     friend class Variant;
 
 private:
@@ -75,10 +97,10 @@ private:
     Variant() = default;
 
 public:
-    template <ContainsType<Ts...> T>
-    Variant(const T &value) : m_union(value), m_index(index_of<T>()) {}
-    template <ContainsType<Ts...> T>
-    Variant(T &&value) : m_union(move(value)), m_index(index_of<T>()) {} // NOLINT
+    template <typename T, typename U = detail::best_match_t<T, Ts...>>
+    Variant(T &&value) requires(!is_same<decay<T>, Variant>)
+        : m_union(union_tag_t<U>{}, forward<T>(value)), m_index(index_of<U>()) {}
+
     Variant(const Variant &) = delete;
     template <ContainsType<Ts...>... Us>
     Variant(Variant<Us...> &&);
@@ -103,9 +125,7 @@ public:
     template <ContainsType<Ts...> T>
     Optional<const T &> try_get() const;
 
-    template <ContainsType<Ts...> T>
-    void set(const T &value);
-    template <ContainsType<Ts...> T>
+    template <typename T, typename U = detail::best_match_t<T, Ts...>>
     void set(T &&value);
 
     uint8_t index() const { return m_index; }
@@ -171,19 +191,11 @@ Optional<const T &> Variant<Ts...>::try_get() const {
 }
 
 template <typename... Ts>
-template <ContainsType<Ts...> T>
-void Variant<Ts...>::set(const T &value) {
-    (maybe_destruct<Ts>() || ...);
-    m_union.set(value);
-    m_index = index_of<T>();
-}
-
-template <typename... Ts>
-template <ContainsType<Ts...> T>
+template <typename T, typename U>
 void Variant<Ts...>::set(T &&value) {
     (maybe_destruct<Ts>() || ...);
-    m_union.set(forward<T>(value));
-    m_index = index_of<T>();
+    m_union.template set<U>(forward<T>(value));
+    m_index = index_of<U>();
 }
 
 } // namespace vull

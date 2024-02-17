@@ -7,6 +7,9 @@
 // NOLINTBEGIN
 namespace vull {
 
+template <typename>
+struct union_tag_t {};
+
 template <typename... Ts>
 struct Union {
     static consteval size_t largest_type_size() {
@@ -22,27 +25,20 @@ struct Union {
     alignas(Ts...) unsigned char data[largest_type_size()];
 
     Union() = default;
-    template <ContainsType<Ts...> T>
-    Union(const T &value) {
-        set(value);
-    }
-    template <ContainsType<Ts...> T>
-    Union(T &&value) {
-        set(move(value));
+    template <typename T, typename... Args>
+    Union(union_tag_t<T>, Args &&...args) {
+        set<T>(forward<Args>(args)...);
     }
     ~Union() = default;
 
     Union &operator=(const Union &) = delete;
     Union &operator=(Union &&) = delete;
 
-    template <ContainsType<Ts...> T>
-    void set(const T &value) {
-        new (data) T(value);
+    template <typename T, typename... Args>
+    void set(Args &&...args) {
+        new (data) T(forward<Args>(args)...);
     }
-    template <ContainsType<Ts...> T>
-    void set(T &&value) {
-        new (data) T(move(value));
-    }
+
     template <ContainsType<Ts...> T>
     void release() {
         get<T>().~T();
