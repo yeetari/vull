@@ -41,10 +41,8 @@ public:
     // NOLINTNEXTLINE
     Result() requires(is_void) : m_value(storage_t{}) {}
 
-    template <ContainsType<T, Es...> U>
-    Result(const U &value) : m_value(value) {}
-    template <ContainsType<T, Es...> U>
-    Result(U &&value) : m_value(vull::move(value)) {}
+    template <typename U>
+    Result(U &&value) : m_value(vull::forward<U>(value)) {}
 
     // Error variant upcast.
     template <ContainsType<Es...>... Fs>
