@@ -3,6 +3,7 @@
 #include <vull/container/array.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/function.hh>
 #include <vull/support/result.hh>
 #include <vull/support/utility.hh>
 #include <vull/ui/painter.hh>

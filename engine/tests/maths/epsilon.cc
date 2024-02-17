@@ -1,6 +1,5 @@
 #include <vull/maths/epsilon.hh>
 
-#include <vull/support/assert.hh>
 #include <vull/support/test.hh>
 
 #include <float.h>

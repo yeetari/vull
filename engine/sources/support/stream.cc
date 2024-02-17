@@ -4,7 +4,6 @@
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
-#include <vull/support/utility.hh>
 
 namespace vull {
 

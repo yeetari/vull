@@ -1,6 +1,5 @@
 #include <vull/json/parser.hh>
-#include <vull/json/tree.hh>
-#include <vull/support/assert.hh>
+#include <vull/json/tree.hh> // IWYU pragma: keep
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
 

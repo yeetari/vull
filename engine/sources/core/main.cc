@@ -2,7 +2,6 @@
 #include <vull/core/log.hh>
 #include <vull/core/main.hh>
 #include <vull/platform/file.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>

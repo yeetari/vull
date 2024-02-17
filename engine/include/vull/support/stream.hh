@@ -8,6 +8,7 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 
+#include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
 

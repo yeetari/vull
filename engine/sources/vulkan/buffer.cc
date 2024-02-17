@@ -2,6 +2,7 @@
 
 #include <vull/maths/common.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/function.hh>
 #include <vull/support/span.hh>
 #include <vull/support/utility.hh>
 #include <vull/vulkan/allocation.hh>

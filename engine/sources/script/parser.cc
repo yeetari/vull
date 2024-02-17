@@ -11,6 +11,7 @@
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
+#include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>

@@ -2,7 +2,6 @@
 
 #include <vull/container/map_entry.hh>
 #include <vull/container/vector.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/string.hh>
 #include <vull/support/test.hh>

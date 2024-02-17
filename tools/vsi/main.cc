@@ -11,7 +11,6 @@
 #include <vull/script/value.hh>
 #include <vull/script/vm.hh>
 #include <vull/support/algorithm.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>

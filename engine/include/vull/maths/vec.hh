@@ -62,7 +62,7 @@ public:
         }                                                                                                              \
         return *this;                                                                                                  \
     }                                                                                                                  \
-    constexpr Vec &operator ope(const Vec &rhs) {                                                                      \
+    constexpr Vec &operator ope(const Vec & rhs) {                                                                     \
         for (unsigned i = 0; i < L; i++) {                                                                             \
             m_elems[i] ope rhs.m_elems[i];                                                                             \
         }                                                                                                              \

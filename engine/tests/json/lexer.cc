@@ -2,7 +2,6 @@
 
 #include <vull/json/token.hh>
 #include <vull/maths/epsilon.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/test.hh>
 

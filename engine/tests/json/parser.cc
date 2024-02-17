@@ -2,9 +2,8 @@
 
 #include <vull/json/tree.hh>
 #include <vull/maths/epsilon.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/result.hh>
-#include <vull/support/string.hh>
+#include <vull/support/string.hh> // IWYU pragma: keep
 #include <vull/support/test.hh>
 
 #include <stdint.h>

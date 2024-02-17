@@ -2,9 +2,7 @@
 
 #include <vull/container/vector.hh>
 #include <vull/support/algorithm.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
-#include <vull/support/optional.hh>
 #include <vull/support/test.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>

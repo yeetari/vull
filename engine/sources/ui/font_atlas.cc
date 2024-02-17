@@ -5,7 +5,9 @@
 #include <vull/maths/relational.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/function.hh>
 #include <vull/support/optional.hh>
+#include <vull/support/span.hh>
 #include <vull/support/tuple.hh>
 #include <vull/support/utility.hh>
 #include <vull/ui/font.hh>

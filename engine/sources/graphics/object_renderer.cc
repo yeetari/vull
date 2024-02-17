@@ -5,8 +5,10 @@
 #include <vull/maths/mat.hh>
 #include <vull/maths/projection.hh>
 #include <vull/maths/vec.hh>
+#include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/vpak/file_system.hh>

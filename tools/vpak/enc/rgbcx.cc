@@ -791,7 +791,7 @@ static void prepare_bc1_single_color_table_half(bc1_match_entry *pTable, const u
                 }
 
             } // hi
-        }     // lo
+        } // lo
     }
 }
 
@@ -824,7 +824,7 @@ static void prepare_bc1_single_color_table(bc1_match_entry *pTable, const uint8_
                 }
 
             } // hi
-        }     // lo
+        } // lo
     }
 }
 

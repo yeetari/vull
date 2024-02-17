@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 
+// IWYU pragma: no_include <xcb/xproto.h>
 using xcb_intern_atom_reply_t = struct xcb_intern_atom_reply_t;
 
 namespace vull::vk {

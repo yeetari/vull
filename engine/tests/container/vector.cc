@@ -1,7 +1,6 @@
 #include <vull/container/vector.hh>
 
 #include <vull/container/array.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/span.hh>
 #include <vull/support/test.hh>
 #include <vull/support/utility.hh>

@@ -57,7 +57,7 @@ class Image {
 
 private:
     const Context *m_context{nullptr};
-    Allocation m_allocation{};
+    Allocation m_allocation;
     vkb::Extent3D m_extent{};
     vkb::Format m_format{};
     vkb::Image m_owned_image{nullptr};

@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 
+// IWYU pragma: no_include <freetype/freetype.h>
 using FT_Face = struct FT_FaceRec_ *;
 using FT_Library = struct FT_LibraryRec_ *;
 

@@ -6,9 +6,9 @@
 #include <vull/maths/vec.hh>
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>

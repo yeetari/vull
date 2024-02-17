@@ -404,10 +404,10 @@ void bc7enc_compress_block_init() {
                         best.m_hi = (uint8_t)h;
                     }
                 } // h
-            }     // l
+            } // l
             g_bc7_mode_1_optimal_endpoints[c][lp] = best;
         } // lp
-    }     // c
+    } // c
 
     // Mode 7: 555.1 2-bit indices
     for (int c = 0; c < 256; c++) {
@@ -437,7 +437,7 @@ void bc7enc_compress_block_init() {
                             best.m_hi = (uint8_t)h;
                         }
                     } // h
-                }     // l
+                } // l
 
                 g_bc7_mode_7_optimal_endpoints[c][hp][lp] = best;
 

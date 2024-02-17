@@ -1,7 +1,6 @@
 #include <vull/support/string_builder.hh>
 
 #include <vull/container/array.hh>
-#include <vull/container/vector.hh>
 #include <vull/maths/common.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>

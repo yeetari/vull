@@ -36,7 +36,7 @@ class FontAtlas {
 
     struct Node {
         Node *next{nullptr};
-        Vec2u offset{};
+        Vec2u offset;
         uint32_t width;
     };
     Node *m_skyline{nullptr};

@@ -7,6 +7,7 @@
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/scoped_lock.hh>

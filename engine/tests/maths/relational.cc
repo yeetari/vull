@@ -1,7 +1,6 @@
 #include <vull/maths/relational.hh>
 
 #include <vull/maths/vec.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/test.hh>
 
 using namespace vull;

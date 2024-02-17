@@ -1,6 +1,5 @@
 #include <vull/script/lexer.hh>
 #include <vull/script/token.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/string.hh>
 #include <vull/support/utility.hh>
 

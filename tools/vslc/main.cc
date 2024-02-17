@@ -9,7 +9,9 @@
 
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
+#include <vull/support/function.hh>
 #include <vull/support/result.hh>
+#include <vull/support/string.hh>
 #include <vull/support/utility.hh>
 
 #include <stdio.h>
