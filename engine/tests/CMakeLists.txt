@@ -10,6 +10,8 @@ target_sources(vull-tests PRIVATE
     maths/relational.cc
     script/lexer.cc
     shaderc/lexer.cc
+    shaderc/parse_errors.cc
+    shaderc/parser.cc
     support/enum.cc
     support/variant.cc
     ui/units.cc

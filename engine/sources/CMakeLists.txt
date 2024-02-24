@@ -55,7 +55,9 @@ target_sources(vull-script PRIVATE
     script/vm.cc)
 
 target_sources(vull-shaderc PRIVATE
-    shaderc/lexer.cc)
+    shaderc/ast.cc
+    shaderc/lexer.cc
+    shaderc/parser.cc)
 
 target_sources(vull-ui PRIVATE
     ui/layout/box_layout.cc
