@@ -7,7 +7,7 @@
 #include <vull/support/test.hh>
 
 using namespace vull;
-using vull::shaderc::operator""_tk; // NOLINT
+using vull::shaderc::operator""_tk;
 
 TEST_CASE(ShaderLexer, Empty) {
     shaderc::Lexer lexer("", "");
@@ -61,10 +61,13 @@ TEST_CASE(ShaderLexer, Identifier) {
 }
 
 TEST_CASE(ShaderLexer, Decimal) {
-    shaderc::Lexer lexer("", "1234.56");
-    auto token = lexer.next();
-    EXPECT(token.kind() == shaderc::TokenKind::FloatLit);
-    EXPECT(vull::fuzzy_equal(token.decimal(), 1234.56f));
+    shaderc::Lexer lexer("", "1234.56 1234.56f");
+    auto first = lexer.next();
+    EXPECT(first.kind() == shaderc::TokenKind::FloatLit);
+    EXPECT(vull::fuzzy_equal(first.decimal(), 1234.56f));
+    auto second = lexer.next();
+    EXPECT(second.kind() == shaderc::TokenKind::FloatLit);
+    EXPECT(vull::fuzzy_equal(second.decimal(), 1234.56f));
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 

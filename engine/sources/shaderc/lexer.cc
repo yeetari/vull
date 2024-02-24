@@ -33,10 +33,19 @@ Token Lexer::next_token() {
         }
     }
 
+    auto consume = [this](char ch) {
+        if (m_source[m_head] == ch) {
+            m_head++;
+            return true;
+        }
+        return false;
+    };
+
     const auto position = m_head - 1;
     if (is_digit(ch)) {
         auto number = parse_number(ch);
         if (const auto decimal = number.try_get<double>()) {
+            consume('f');
             return MAKE_TOKEN(static_cast<float>(*decimal));
         }
         return MAKE_TOKEN(number.get<uint64_t>());
@@ -64,14 +73,6 @@ Token Lexer::next_token() {
         }
         return MAKE_TOKEN(TokenKind::Identifier, string);
     }
-
-    auto consume = [this](char ch) {
-        if (m_source[m_head] == ch) {
-            m_head++;
-            return true;
-        }
-        return false;
-    };
 
     if (ch == '\0') {
         m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
