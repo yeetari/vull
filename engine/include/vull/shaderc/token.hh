@@ -9,6 +9,7 @@ namespace vull::shaderc {
 
 enum class TokenKind : uint16_t {
     Invalid = 256,
+    Cursor,
     Eof,
     Identifier,
     FloatLit,

@@ -25,16 +25,21 @@ private:
     uint32_t m_head{0};
     uint16_t m_line{1};
 
+    uint32_t m_last_head{0};
+    uint16_t m_last_line{0};
+
     static bool is_eof(const Token &token) { return token.kind() == TokenKind::Eof; }
     void skip_char() { m_head++; }
     void unskip_char() { m_head--; }
     char peek_char() { return m_source[m_head]; }
     char next_char() { return m_source[m_head++]; }
+    Token next_token(bool in_comment);
     Token next_token();
 
 public:
     Lexer(String file_name, String source);
 
+    Token cursor_token() const;
     SourcePosition recover_position(const Token &token) const;
 };
 

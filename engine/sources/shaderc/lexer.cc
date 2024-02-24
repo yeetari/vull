@@ -25,7 +25,12 @@ Lexer::Lexer(String file_name, String source) : m_file_name(vull::move(file_name
     }
 }
 
-Token Lexer::next_token() {
+Token Lexer::next_token(bool in_comment) {
+    if (!in_comment) {
+        m_last_head = m_head;
+        m_last_line = m_line;
+    }
+
     char ch;
     while (is_space(ch = m_source[m_head++])) {
         if (ch == '\n') {
@@ -83,7 +88,7 @@ Token Lexer::next_token() {
         while (m_source[m_head] != '\n' && m_source[m_head] != '\0') {
             m_head++;
         }
-        return next_token();
+        return next_token(true);
     }
 
     if (ch == '+' && consume('=')) {
@@ -103,6 +108,14 @@ Token Lexer::next_token() {
         return MAKE_TOKEN(TokenKind::Invalid);
     }
     return MAKE_TOKEN(static_cast<TokenKind>(ch));
+}
+
+Token Lexer::next_token() {
+    return next_token(false);
+}
+
+Token Lexer::cursor_token() const {
+    return {TokenKind::Cursor, m_last_head, m_last_line};
 }
 
 SourcePosition Lexer::recover_position(const Token &token) const {
