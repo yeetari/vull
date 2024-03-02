@@ -40,7 +40,7 @@ if(VULL_BUILD_PNG)
 endif()
 
 vull_executable(vsi vull::core vull::script)
-target_sources(vsi PRIVATE vsi/main.cc)
+target_sources(vsi PRIVATE vsi.cc)
 
 vull_executable(vslc vull::core)
 target_sources(vslc PRIVATE
