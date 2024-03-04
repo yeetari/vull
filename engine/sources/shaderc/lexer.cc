@@ -60,7 +60,7 @@ Token Lexer::next_token(bool in_comment) {
         while (is_ident(m_source[m_head]) || is_digit(m_source[m_head])) {
             m_head++;
         }
-        auto string = m_source.view().substr(position, m_head);
+        auto string = m_source.view().substr(position, m_head - position);
         if (string == "fn") {
             return MAKE_TOKEN(TokenKind::KW_fn);
         }
@@ -131,7 +131,7 @@ SourcePosition Lexer::recover_position(const Token &token) const {
         line_end++;
     }
 
-    const auto line_view = m_source.view().substr(line_head, line_end);
+    const auto line_view = m_source.view().substr(line_head, line_end - line_head);
     return {m_file_name, line_view, token.line(), token.position() - line_head + 1};
 }
 

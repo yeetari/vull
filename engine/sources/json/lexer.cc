@@ -28,7 +28,7 @@ Token Lexer::next_token() {
         if (m_head > m_source.length()) {
             return Token(TokenKind::Invalid);
         }
-        return Token(m_source.substr(begin + 1, m_head - 1));
+        return Token(m_source.substr(begin + 1, m_head - begin - 2));
     }
 
     if (ch == '-') {
@@ -49,15 +49,15 @@ Token Lexer::next_token() {
         return Token(static_cast<int64_t>(number.get<uint64_t>()));
     }
 
-    if (ch == 'n' && m_head + 3 <= m_source.length() && m_source.substr(m_head, m_head + 3) == "ull") {
+    if (ch == 'n' && m_head + 3 <= m_source.length() && m_source.substr(m_head, 3) == "ull") {
         m_head += 3;
         return Token(TokenKind::Null);
     }
-    if (ch == 't' && m_head + 3 <= m_source.length() && m_source.substr(m_head, m_head + 3) == "rue") {
+    if (ch == 't' && m_head + 3 <= m_source.length() && m_source.substr(m_head, 3) == "rue") {
         m_head += 3;
         return Token(TokenKind::True);
     }
-    if (ch == 'f' && m_head + 4 <= m_source.length() && m_source.substr(m_head, m_head + 4) == "alse") {
+    if (ch == 'f' && m_head + 4 <= m_source.length() && m_source.substr(m_head, 4) == "alse") {
         m_head += 4;
         return Token(TokenKind::False);
     }

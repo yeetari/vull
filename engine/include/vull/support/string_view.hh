@@ -12,19 +12,19 @@ public:
     using Span::Span;
     constexpr StringView(const char *c_string) : Span(c_string, __builtin_strlen(c_string)) {}
 
-    constexpr StringView substr(size_t begin) const;
-    constexpr StringView substr(size_t begin, size_t end) const;
+    constexpr StringView substr(size_t offset) const;
+    constexpr StringView substr(size_t offset, size_t length) const;
     constexpr bool operator==(StringView other) const;
     constexpr size_t length() const { return size(); }
 };
 
-constexpr StringView StringView::substr(size_t begin) const {
-    return substr(begin, length());
+constexpr StringView StringView::substr(size_t offset) const {
+    return substr(offset, length() - offset);
 }
 
-constexpr StringView StringView::substr(size_t begin, size_t end) const {
-    VULL_ASSERT(begin + (end - begin) <= size());
-    return {data() + begin, end - begin};
+constexpr StringView StringView::substr(size_t offset, size_t length) const {
+    VULL_ASSERT(offset + length <= size());
+    return {data() + offset, length};
 }
 
 constexpr bool StringView::operator==(StringView other) const {
