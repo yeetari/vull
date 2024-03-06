@@ -25,6 +25,12 @@ String String::move_raw(char *data, size_t length) {
     return string;
 }
 
+String String::repeated(char ch, size_t length) {
+    String string(length);
+    memset(string.m_data, ch, length);
+    return string;
+}
+
 String::String(size_t length) : m_length(length) {
     m_data = new char[length + 1];
     m_data[length] = '\0';
@@ -41,17 +47,24 @@ String &String::operator=(String &&other) {
     return *this;
 }
 
-bool String::ends_with(StringView end) {
-    if (end.empty()) {
-        return true;
-    }
-    if (empty()) {
-        return false;
-    }
-    if (end.length() > m_length) {
-        return false;
-    }
-    return memcmp(&m_data[m_length - end.length()], end.data(), end.length()) == 0;
+int String::compare(StringView other) const {
+    return view().compare(other);
+}
+
+bool String::starts_with(char ch) const {
+    return view().starts_with(ch);
+}
+
+bool String::ends_with(char ch) const {
+    return view().ends_with(ch);
+}
+
+bool String::starts_with(StringView other) const {
+    return view().starts_with(other);
+}
+
+bool String::ends_with(StringView other) const {
+    return view().ends_with(other);
 }
 
 bool String::operator==(const String &other) const {

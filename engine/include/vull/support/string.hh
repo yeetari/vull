@@ -16,6 +16,7 @@ class String {
 public:
     static String copy_raw(const char *data, size_t length);
     static String move_raw(char *data, size_t length);
+    static String repeated(char ch, size_t length);
 
     constexpr String() = default;
     explicit String(size_t length);
@@ -28,6 +29,14 @@ public:
     String &operator=(const String &) = delete;
     String &operator=(String &&);
 
+    int compare(StringView other) const;
+
+    bool starts_with(char ch) const;
+    bool ends_with(char ch) const;
+
+    bool starts_with(StringView other) const;
+    bool ends_with(StringView other) const;
+
     char *begin() const { return m_data; }
     char *end() const { return m_data + m_length; }
 
@@ -36,8 +45,6 @@ public:
 
     char &operator[](size_t index) { return m_data[index]; }
     const char &operator[](size_t index) const { return m_data[index]; }
-
-    bool ends_with(StringView end);
 
     operator StringView() const { return view(); }
     StringView view() const { return {m_data, m_length}; }
