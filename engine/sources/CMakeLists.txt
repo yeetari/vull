@@ -7,6 +7,7 @@ target_sources(vull-core PRIVATE
     platform/linux.cc
     scene/scene.cc
     scene/transform.cc
+    support/args_parser.cc
     support/assert.cc
     support/stream.cc
     support/string.cc
