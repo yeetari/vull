@@ -20,6 +20,11 @@ void StringBuilder::append_single(double arg, const char *) {
 }
 
 void StringBuilder::append_single(size_t arg, const char *opts) {
+    if (opts[0] == 'c') {
+        m_buffer.push(static_cast<char>(arg));
+        return;
+    }
+
     const size_t base = opts[0] == 'h' ? 16 : 10;
     Array<char, 30> buf{};
     uint8_t len = 0;
