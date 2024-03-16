@@ -7,8 +7,17 @@
 #include <vull/support/utility.hh>
 
 namespace vull {
+namespace detail {
 
 template <typename T>
+constexpr bool is_equal(const T &lhs, const T &rhs) {
+    return lhs == rhs;
+}
+
+} // namespace detail
+
+template <typename T, hash_t HashFn(const T &) = &vull::hash_of<T>,
+          bool EqualityFn(const T &, const T &) = &detail::is_equal<T>>
 class HashSet {
     struct Bucket {
         Bucket *next{nullptr};
@@ -112,33 +121,33 @@ public:
     size_t size() const { return m_size; }
 };
 
-template <typename T>
-HashSet<T>::HashSet(HashSet &&other) {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+HashSet<T, HashFn, EqualityFn>::HashSet(HashSet &&other) {
     m_buckets = exchange(other.m_buckets, nullptr);
     m_capacity = exchange(other.m_capacity, 0u);
     m_size = exchange(other.m_size, 0u);
 }
 
-template <typename T>
-HashSet<T>::~HashSet() {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+HashSet<T, HashFn, EqualityFn>::~HashSet() {
     clear();
 }
 
-template <typename T>
-void HashSet<T>::insert(T &&elem) {
-    auto &bucket = m_buckets[hash_of(elem) % m_capacity];
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+void HashSet<T, HashFn, EqualityFn>::insert(T &&elem) {
+    auto &bucket = m_buckets[HashFn(elem) % m_capacity];
     bucket.append(move(elem));
 }
 
-template <typename T>
-void HashSet<T>::clear() {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+void HashSet<T, HashFn, EqualityFn>::clear() {
     m_size = 0;
     m_capacity = 0;
     delete[] exchange(m_buckets, nullptr);
 }
 
-template <typename T>
-bool HashSet<T>::ensure_capacity(size_t capacity) {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+bool HashSet<T, HashFn, EqualityFn>::ensure_capacity(size_t capacity) {
     if (capacity > m_capacity) {
         rehash(max(m_capacity * 2 + 1, capacity));
         return true;
@@ -146,8 +155,8 @@ bool HashSet<T>::ensure_capacity(size_t capacity) {
     return false;
 }
 
-template <typename T>
-void HashSet<T>::rehash(size_t capacity) {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+void HashSet<T, HashFn, EqualityFn>::rehash(size_t capacity) {
     VULL_ASSERT(capacity >= m_size);
     auto *old_buckets = exchange(m_buckets, new Bucket[capacity]);
     auto old_capacity = exchange(m_capacity, capacity);
@@ -168,22 +177,22 @@ void HashSet<T>::rehash(size_t capacity) {
     delete[] old_buckets;
 }
 
-template <typename T>
-Optional<T &> HashSet<T>::add(const T &elem) {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+Optional<T &> HashSet<T, HashFn, EqualityFn>::add(const T &elem) {
     return add(T(elem));
 }
 
-template <typename T>
-Optional<T &> HashSet<T>::add(T &&elem) {
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+Optional<T &> HashSet<T, HashFn, EqualityFn>::add(T &&elem) {
     Bucket *bucket = nullptr;
     if (!empty()) {
-        bucket = &m_buckets[hash_of(elem) % m_capacity];
+        bucket = &m_buckets[HashFn(elem) % m_capacity];
         while (true) {
             if (bucket->next == nullptr) {
                 break;
             }
             bucket = bucket->next;
-            if (elem == bucket->storage.get()) {
+            if (EqualityFn(elem, bucket->storage.get())) {
                 return bucket->storage.get();
             }
         }
@@ -199,16 +208,16 @@ Optional<T &> HashSet<T>::add(T &&elem) {
     return {};
 }
 
-template <typename T>
-bool HashSet<T>::contains(const T &elem) const {
-    return !!find_hash(hash_of(elem), [&](const T &other) {
-        return elem == other;
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+bool HashSet<T, HashFn, EqualityFn>::contains(const T &elem) const {
+    return !!find_hash(HashFn(elem), [&](const T &other) {
+        return EqualityFn(elem, other);
     });
 }
 
-template <typename T>
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 template <typename EqualFn>
-Optional<T &> HashSet<T>::find_hash(hash_t hash, EqualFn equal_fn) const {
+Optional<T &> HashSet<T, HashFn, EqualityFn>::find_hash(hash_t hash, EqualFn equal_fn) const {
     if (empty()) {
         return {};
     }
