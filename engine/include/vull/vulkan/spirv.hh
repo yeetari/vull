@@ -12,19 +12,19 @@ using Id = Word;
 constexpr Word k_magic_number = 0x07230203;
 constexpr Array<uint8_t, 4> k_magic_bytes{0x07, 0x23, 0x02, 0x03};
 
-enum class AddressingModel {
+enum class AddressingModel : uint32_t {
     Logical = 0,
 };
 
-enum class BuiltIn {
+enum class BuiltIn : uint32_t {
     Position = 0,
 };
 
-enum class Capability {
+enum class Capability : uint32_t {
     Shader = 1,
 };
 
-enum class Decoration {
+enum class Decoration : uint32_t {
     SpecId = 1,
     Block = 2,
     ColMajor = 5,
@@ -34,25 +34,25 @@ enum class Decoration {
     Offset = 35,
 };
 
-enum class ExecutionMode {
+enum class ExecutionMode : uint32_t {
     OriginUpperLeft = 7,
 };
 
-enum class ExecutionModel {
+enum class ExecutionModel : uint32_t {
     Vertex = 0,
     Fragment = 4,
     GLCompute = 5,
 };
 
-enum class FunctionControl {
+enum class FunctionControl : uint32_t {
     None = 0,
 };
 
-enum class MemoryModel {
+enum class MemoryModel : uint32_t {
     Glsl450 = 1,
 };
 
-enum class Op {
+enum class Op : uint32_t {
     Nop = 0,
     Name = 5,
     ExtInstImport = 11,
@@ -106,7 +106,7 @@ enum class Op {
     TerminateInvocation = 4416,
 };
 
-enum class StorageClass {
+enum class StorageClass : uint32_t {
     Input = 1,
     Output = 3,
     Function = 7,
