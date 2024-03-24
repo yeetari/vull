@@ -70,13 +70,6 @@ enum class BinaryOp {
     SubAssign,
     MulAssign,
     DivAssign,
-
-    // Parsed-generated Muls can be turned into these by the legaliser.
-    VectorTimesScalar,
-    MatrixTimesScalar,
-    VectorTimesMatrix,
-    MatrixTimesVector,
-    MatrixTimesMatrix,
 };
 
 class BinaryExpr final : public TypedNode {
@@ -220,9 +213,9 @@ public:
     Root &operator=(const Root &) = delete;
     Root &operator=(Root &&) = delete;
 
-    template <typename U, typename... Args>
-    U *allocate(Args &&...args) {
-        return m_arena.allocate<U>(vull::forward<Args>(args)...);
+    template <typename T, typename... Args>
+    T *allocate(Args &&...args) {
+        return m_arena.allocate<T>(vull::forward<Args>(args)...);
     }
 
     void append_top_level(Node *node);

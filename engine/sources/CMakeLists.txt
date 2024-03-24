@@ -57,8 +57,10 @@ target_sources(vull-script PRIVATE
 
 target_sources(vull-shaderc PRIVATE
     shaderc/ast.cc
+    shaderc/legaliser.cc
     shaderc/lexer.cc
     shaderc/parser.cc
+    shaderc/spv_backend.cc
     shaderc/spv_builder.cc)
 
 target_sources(vull-ui PRIVATE

@@ -85,6 +85,23 @@ bool Block::is_terminated() const {
     return !m_instructions.empty() && spv::is_terminator(m_instructions.last()->op());
 }
 
+Function::Function(Builder &builder, Id return_type, Id function_type)
+    : m_builder(builder), m_definition_inst(Op::Function, builder.make_id(), return_type) {
+    m_definition_inst.append_operand(FunctionControl::None);
+    m_definition_inst.append_operand(function_type);
+}
+
+Block &Function::append_block() {
+    return *m_blocks.emplace(new Block(m_builder));
+}
+
+Instruction &Function::append_variable(Id type) {
+    const Id pointer_type = m_builder.pointer_type(StorageClass::Function, type);
+    auto &variable = *m_variables.emplace(new Instruction(Op::Variable, m_builder.make_id(), pointer_type));
+    variable.append_operand(StorageClass::Function);
+    return variable;
+}
+
 Id Builder::import_extension(StringView name) {
     auto &inst = m_extension_imports.emplace(Op::ExtInstImport, m_next_id++);
     inst.append_operand(name);

@@ -67,6 +67,19 @@ public:
     bool is_terminated() const;
 };
 
+class Function {
+    Builder &m_builder;
+    Instruction m_definition_inst;
+    Vector<UniquePtr<Block>> m_blocks;
+    Vector<UniquePtr<Instruction>> m_variables;
+
+public:
+    Function(Builder &builder, Id return_type, Id function_type);
+
+    Block &append_block();
+    Instruction &append_variable(Id type);
+};
+
 class Builder {
     Vector<Instruction> m_extension_imports;
     Vector<Instruction> m_decorations;

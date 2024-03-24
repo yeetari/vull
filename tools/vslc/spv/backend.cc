@@ -59,52 +59,6 @@ Op unary_op(ast::UnaryOp op) {
 
 } // namespace
 
-Backend::Scope::Scope(Scope *&current) : m_current(current), m_parent(current) {
-    current = this;
-}
-
-Backend::Scope::~Scope() {
-    m_current = m_parent;
-}
-
-const Backend::Symbol &Backend::Scope::lookup_symbol(vull::StringView name) const {
-    if (auto symbol = m_symbol_map.get(name)) {
-        return *symbol;
-    }
-    VULL_ENSURE(m_parent != nullptr);
-    return m_parent->lookup_symbol(name);
-}
-
-Backend::Symbol &Backend::Scope::put_symbol(vull::StringView name, Id id) {
-    m_symbol_map.set(name, Symbol{.id = id});
-    return *m_symbol_map.get(name);
-}
-
-Id Backend::convert_type(ScalarType scalar_type) {
-    switch (scalar_type) {
-    case ScalarType::Void:
-        return m_builder.void_type();
-    case ScalarType::Float:
-        return m_builder.float_type(32);
-    case ScalarType::Uint:
-        VULL_ENSURE_NOT_REACHED("TODO Uint");
-    default:
-        VULL_ENSURE_NOT_REACHED();
-    }
-}
-
-Id Backend::convert_type(const Type &vsl_type) {
-    const auto scalar_type = convert_type(vsl_type.scalar_type());
-    if (vsl_type.is_scalar()) {
-        return scalar_type;
-    }
-    const auto vector_type = m_builder.vector_type(scalar_type, vsl_type.vector_size());
-    if (vsl_type.is_vector()) {
-        return vector_type;
-    }
-    return m_builder.matrix_type(vector_type, vsl_type.matrix_cols());
-}
-
 Instruction &Backend::translate_construct_expr(const Type &vsl_type) {
     // TODO(small-vector)
     vull::Vector<Id> arguments;
@@ -195,79 +149,6 @@ void Backend::visit(ast::Aggregate &aggregate) {
     default:
         VULL_ENSURE_NOT_REACHED();
     }
-}
-
-void Backend::visit(ast::BinaryExpr &binary_expr) {
-    const bool is_assign_op = ast::is_assign_op(binary_expr.op());
-    if (is_assign_op) {
-        m_load_symbol = false;
-    }
-    binary_expr.lhs().traverse(*this);
-    binary_expr.rhs().traverse(*this);
-
-    const auto rhs = m_value_stack.take_last();
-    const auto lhs = m_value_stack.take_last();
-    if (is_assign_op) {
-        auto rhs_id = rhs.id();
-        if (binary_expr.op() != ast::BinaryOp::Assign) {
-            const auto var_type = convert_type(lhs);
-            auto &load_inst = m_block->append(Op::Load, var_type);
-            load_inst.append_operand(lhs.id());
-
-            auto &arith_inst = m_block->append(binary_op(binary_expr.op()), var_type);
-            arith_inst.append_operand(load_inst.id());
-            arith_inst.append_operand(rhs.id());
-            rhs_id = arith_inst.id();
-        }
-
-        auto &inst = m_block->append(Op::Store);
-        inst.append_operand(lhs.id());
-        inst.append_operand(rhs_id);
-        return;
-    }
-    const auto op = binary_op(binary_expr.op());
-    const auto type = convert_type(binary_expr.type());
-    auto &inst = m_block->append(op, type);
-    inst.append_operand(lhs.id());
-    inst.append_operand(rhs.id());
-    m_value_stack.emplace(inst, binary_expr.type());
-}
-
-void Backend::visit(ast::CallExpr &call_expr) {
-    auto saved_stack = vull::move(m_value_stack);
-    for (auto *argument : call_expr.arguments()) {
-        argument->traverse(*this);
-    }
-
-    auto op = [](vull::StringView name) {
-        if (name == "dot") {
-            return Op::Dot;
-        }
-        if (name == "max") {
-            return Op::ExtInst;
-        }
-        VULL_ENSURE_NOT_REACHED();
-    }(call_expr.name());
-
-    auto &inst = m_block->append(op, convert_type(call_expr.type()));
-    if (op == Op::ExtInst) {
-        inst.append_operand(m_std_450);
-        inst.append_operand(40);
-    }
-    for (const auto &value : m_value_stack) {
-        inst.append_operand(value.id());
-    }
-
-    m_value_stack = vull::move(saved_stack);
-    if (call_expr.type().scalar_type() != ScalarType::Void) {
-        m_value_stack.emplace(inst, call_expr.type());
-    }
-}
-
-void Backend::visit(ast::Constant &constant) {
-    const auto type = convert_type(constant.scalar_type());
-    auto &inst = m_builder.scalar_constant(type, static_cast<Word>(constant.integer()));
-    m_value_stack.emplace(inst, constant.type());
 }
 
 void Backend::visit(ast::DeclStmt &decl_stmt) {
@@ -364,20 +245,6 @@ void Backend::visit(ast::PipelineDecl &pipeline_decl) {
     m_pipeline_decls.push(pipeline_decl);
 }
 
-void Backend::visit(ast::ReturnStmt &return_stmt) {
-    return_stmt.expr().traverse(*this);
-
-    auto expr_value = m_value_stack.take_last();
-    if (m_is_fragment_entry) {
-        auto &store_inst = m_block->append(Op::Store);
-        store_inst.append_operand(m_fragment_output_id);
-        store_inst.append_operand(expr_value.id());
-        return;
-    }
-    auto &return_inst = m_block->append(Op::ReturnValue);
-    return_inst.append_operand(expr_value.id());
-}
-
 void Backend::visit(ast::Symbol &ast_symbol) {
     const auto type = convert_type(ast_symbol.type());
     const auto &symbol = m_scope->lookup_symbol(ast_symbol.name());
@@ -399,23 +266,6 @@ void Backend::visit(ast::Symbol &ast_symbol) {
     auto &load_inst = m_block->append(Op::Load, type);
     load_inst.append_operand(var_id);
     m_value_stack.emplace(load_inst, ast_symbol.type());
-}
-
-void Backend::visit(ast::Root &root) {
-    m_std_450 = m_builder.import_extension("GLSL.std.450");
-    for (auto *node : root.top_level_nodes()) {
-        node->traverse(*this);
-    }
-}
-
-void Backend::visit(ast::UnaryExpr &unary_expr) {
-    unary_expr.expr().traverse(*this);
-
-    const auto expr = m_value_stack.take_last();
-    const auto type = convert_type(unary_expr.type());
-    auto &inst = m_block->append(unary_op(unary_expr.op()), type);
-    inst.append_operand(expr.id());
-    m_value_stack.emplace(inst, unary_expr.type());
 }
 
 } // namespace spv
