@@ -42,14 +42,5 @@ endif()
 vull_executable(vsi vull::core vull::script)
 target_sources(vsi PRIVATE vsi.cc)
 
-vull_executable(vslc vull::core)
-target_sources(vslc PRIVATE
-    vslc/spv/backend.cc
-    vslc/spv/builder.cc
-    vslc/ast.cc
-    vslc/char_stream.cc
-    vslc/legaliser.cc
-    vslc/lexer.cc
-    vslc/main.cc
-    vslc/parser.cc
-    vslc/token.cc)
+vull_executable(vslc vull::core vull::shaderc)
+target_sources(vslc PRIVATE vslc.cc)

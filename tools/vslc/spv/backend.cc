@@ -86,8 +86,10 @@ Id Backend::convert_type(ScalarType scalar_type) {
         return m_builder.void_type();
     case ScalarType::Float:
         return m_builder.float_type(32);
+    case ScalarType::Int:
+        return m_builder.int_type(32, true);
     case ScalarType::Uint:
-        VULL_ENSURE_NOT_REACHED("TODO Uint");
+        return m_builder.int_type(32, false);
     default:
         VULL_ENSURE_NOT_REACHED();
     }
