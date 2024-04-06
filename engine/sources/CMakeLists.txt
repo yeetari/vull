@@ -1,4 +1,5 @@
 target_sources(vull-core PRIVATE
+    core/application.cc
     core/log.cc
     ecs/entity.cc
     ecs/world.cc
@@ -39,8 +40,6 @@ target_sources(vull-json PRIVATE
     json/lexer.cc
     json/parser.cc
     json/tree.cc)
-
-target_sources(vull-main PRIVATE core/main.cc)
 
 target_sources(vull-physics PRIVATE
     physics/mpr.cc

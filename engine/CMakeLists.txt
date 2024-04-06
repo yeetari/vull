@@ -1,7 +1,6 @@
 vull_module(core xxHash::xxHash Zstd::Zstd)
 vull_module(graphics vull::core vull::vulkan)
 vull_module(json vull::core)
-vull_module(main vull::core)
 vull_module(physics vull::core)
 vull_module(script vull::core)
 vull_module(shaderc vull::core)

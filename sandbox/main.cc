@@ -3,9 +3,8 @@
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/core/application.hh>
 #include <vull/core/input.hh>
-#include <vull/core/log.hh>
-#include <vull/core/main.hh>
 #include <vull/core/window.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/default_renderer.hh>
@@ -22,11 +21,11 @@
 #include <vull/physics/rigid_body.hh>
 #include <vull/platform/timer.hh>
 #include <vull/scene/scene.hh>
-#include <vull/support/algorithm.hh>
+#include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
-#include <vull/support/span.hh>
+#include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
@@ -61,28 +60,7 @@
 
 using namespace vull;
 
-void vull_main(Vector<StringView> &&args) {
-    if (args.size() < 2) {
-        vull::println("usage: {} [--enable-vvl] <scene-name>", args[0]);
-        return;
-    }
-
-    StringView scene_name;
-    bool enable_validation = false;
-    for (const auto &arg : vull::slice(args, 1u)) {
-        if (arg == "--enable-vvl") {
-            enable_validation = true;
-        } else if (arg[0] == '-') {
-            vull::println("fatal: unknown option {}", arg);
-            return;
-        } else if (scene_name.empty()) {
-            scene_name = arg;
-        } else {
-            vull::println("fatal: unexpected argument {}", arg);
-            return;
-        }
-    }
-
+static void sandbox_main(bool enable_validation, StringView scene_name) {
     Window window({}, {}, true);
     vk::Context context(enable_validation);
     auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
@@ -276,4 +254,16 @@ void vull_main(Vector<StringView> &&args) {
         cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
     }
     context.vkDeviceWaitIdle();
+}
+
+int main(int argc, char **argv) {
+    bool enable_validation = false;
+    String scene_name;
+
+    ArgsParser args_parser("vull-sandbox", "Vull Sandbox", "0.1.0");
+    args_parser.add_flag(enable_validation, "Enable vulkan validation layer", "enable-vvl");
+    args_parser.add_argument(scene_name, "scene-name", true);
+    return vull::start_application(argc, argv, args_parser, [&] {
+        sandbox_main(enable_validation, scene_name);
+    });
 }
