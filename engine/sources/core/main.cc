@@ -12,6 +12,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -53,6 +54,10 @@ Optional<String> parse_args(int argc, char **argv, Vector<StringView> &applicati
     return String::copy_raw(argv[0], static_cast<size_t>(last_slash - argv[0]));
 }
 
+int vpak_select(const struct dirent *entry) {
+    return StringView(static_cast<const char *>(entry->d_name)).ends_with(".vpak") ? 1 : 0;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -62,32 +67,39 @@ int main(int argc, char **argv) {
     Vector<StringView> application_args;
     auto vpak_directory_path = parse_args(argc, argv, application_args);
     if (!vpak_directory_path) {
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    DIR *dir = opendir(vpak_directory_path->data());
+    struct dirent **entry_list;
+    int entry_count = scandir(vpak_directory_path->data(), &entry_list, &vpak_select, &alphasort);
+    if (entry_count < 0) {
+        vull::error("[main] Failed to scan vpak directory '{}': {}", *vpak_directory_path, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
     int dir_fd = open(vpak_directory_path->data(), O_DIRECTORY);
-    if (dir == nullptr || dir_fd < 0) {
-        vull::println("fatal: failed to open vpak directory {}", *vpak_directory_path);
-        return 1;
+    if (dir_fd < 0) {
+        vull::error("[main] Failed to open vpak directory '{}': {}", *vpak_directory_path, strerror(errno));
+        return EXIT_FAILURE;
     }
 
-    // TODO: Sort alphabetically to allow overriding entries.
-    dirent *entry;
-    while ((entry = readdir(dir)) != nullptr) {
+    for (int i = 0; i < entry_count; i++) {
+        const dirent *entry = entry_list[i];
+
         String name(static_cast<const char *>(entry->d_name));
-        if (name.ends_with(".vpak")) {
-            vull::info("[main] Found vpak {}", name);
-            int fd = openat(dir_fd, name.data(), 0);
-            if (fd < 0) {
-                vull::error("[main] Failed to open {}: {}", name, strerror(errno));
-                continue;
-            }
-            vpak::load_vpak(File::from_fd(fd));
+        vull::info("[main] Found vpak {}", name);
+
+        int fd = openat(dir_fd, name.data(), 0);
+        if (fd < 0) {
+            vull::error("[main] Failed to open vpak '{}': {}", name, strerror(errno));
+            return EXIT_FAILURE;
         }
+
+        vpak::load_vpak(File::from_fd(fd));
+        free(entry_list[i]);
     }
+    free(entry_list);
     close(dir_fd);
-    closedir(dir);
 
     Scheduler scheduler;
     scheduler.start([args = vull::move(application_args)]() mutable {
