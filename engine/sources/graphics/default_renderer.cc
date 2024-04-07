@@ -439,7 +439,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         // TODO: This should be a separate pass so RG can add the barrier itself.
         cmd_buf.buffer_barrier({
             .sType = vkb::StructureType::BufferMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcStageMask = vkb::PipelineStage2::Clear,
             .srcAccessMask = vkb::Access2::TransferWrite,
             .dstStageMask = vkb::PipelineStage2::ComputeShader,
             .dstAccessMask = vkb::Access2::ShaderStorageRead,
@@ -563,7 +563,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             .sType = vkb::StructureType::BufferMemoryBarrier2,
             .srcStageMask = vkb::PipelineStage2::DrawIndirect,
             .srcAccessMask = vkb::Access2::IndirectCommandRead,
-            .dstStageMask = vkb::PipelineStage2::Copy,
+            .dstStageMask = vkb::PipelineStage2::Clear,
             .dstAccessMask = vkb::Access2::TransferWrite,
             .buffer = *draw_buffer,
             .size = vkb::k_whole_size,
@@ -571,7 +571,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         cmd_buf.zero_buffer(draw_buffer, 0, sizeof(uint32_t));
         cmd_buf.buffer_barrier({
             .sType = vkb::StructureType::BufferMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
+            .srcStageMask = vkb::PipelineStage2::Clear,
             .srcAccessMask = vkb::Access2::TransferWrite,
             .dstStageMask = vkb::PipelineStage2::ComputeShader,
             .dstAccessMask = vkb::Access2::ShaderStorageRead,
