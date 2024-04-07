@@ -65,13 +65,13 @@ Frame &FramePacer::request_frame() {
     m_frame_index = (m_frame_index + 1) % m_frames.size();
     auto &frame = m_frames[m_frame_index];
 
-    // Acquire swapchain image for next frame.
-    m_image_index = m_swapchain.acquire_image(*frame.acquire_semaphore());
-
     // Wait on fence if host running ahead.
     const auto &wait_fence = frame.fence();
     wait_fence.wait();
     wait_fence.reset();
+
+    // Acquire swapchain image for next frame.
+    m_image_index = m_swapchain.acquire_image(*frame.acquire_semaphore());
     return frame;
 }
 
