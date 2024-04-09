@@ -44,16 +44,18 @@ FramePacer::FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length) : 
     };
     cmd_buf.image_barrier(swapchain_present_barrier);
 
+    // Wait for the acquire semaphore straight away and signal the present semaphore at the end.
     vkb::SemaphoreSubmitInfo wait_semaphore_info{
         .sType = vkb::StructureType::SemaphoreSubmitInfo,
         .semaphore = *first_frame.acquire_semaphore(),
+        .stageMask = vkb::PipelineStage2::AllCommands,
     };
     vkb::SemaphoreSubmitInfo signal_semaphore_info{
         .sType = vkb::StructureType::SemaphoreSubmitInfo,
         .semaphore = *first_frame.present_semaphore(),
+        .stageMask = vkb::PipelineStage2::AllCommands,
     };
     queue->submit(cmd_buf, nullptr, signal_semaphore_info, wait_semaphore_info);
-    queue->wait_idle();
 }
 
 Frame &FramePacer::request_frame() {
