@@ -241,6 +241,7 @@ static void sandbox_main(bool enable_validation, StringView scene_name) {
             vkb::SemaphoreSubmitInfo{
                 .sType = vkb::StructureType::SemaphoreSubmitInfo,
                 .semaphore = *frame.present_semaphore(),
+                .stageMask = vkb::PipelineStage2::AllCommands,
             },
         };
         Array wait_semaphores{
