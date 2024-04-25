@@ -35,8 +35,8 @@ const void *PhysicalResource::materialised() {
     return m_materialised;
 }
 
-void Pass::add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout) {
-    m_transitions.push({id, old_layout, new_layout});
+void Pass::add_transition(const Transition &transition) {
+    m_transitions.push(transition);
 }
 
 Pass &Pass::read(ResourceId &id, ReadFlags flags) {
@@ -68,31 +68,51 @@ ResourceId RenderGraph::import(String name, const Buffer &buffer) {
     });
 }
 
+static bool is_depth_stencil_format(vkb::Format format) {
+    switch (format) {
+    case vkb::Format::D16Unorm:
+    case vkb::Format::D16UnormS8Uint:
+    case vkb::Format::D24UnormS8Uint:
+    case vkb::Format::D32Sfloat:
+    case vkb::Format::D32SfloatS8Uint:
+        return true;
+    default:
+        return false;
+    }
+}
+
 ResourceId RenderGraph::import(String name, const Image &image) {
+    auto flags = ResourceFlags::Image | ResourceFlags::Imported;
+    if (is_depth_stencil_format(image.format())) {
+        flags |= ResourceFlags::DepthStencil;
+    }
     return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Imported, [&image] {
         return &image;
     });
 }
 
 ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription &description) {
-    return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Uninitialised,
-                           [description, &context = m_context, image = vk::Image()]() mutable {
-                               vkb::ImageCreateInfo image_ci{
-                                   .sType = vkb::StructureType::ImageCreateInfo,
-                                   .imageType = vkb::ImageType::_2D,
-                                   .format = description.format,
-                                   .extent = {description.extent.width, description.extent.height, 1},
-                                   .mipLevels = description.mip_levels,
-                                   .arrayLayers = description.array_layers,
-                                   .samples = vkb::SampleCount::_1,
-                                   .tiling = vkb::ImageTiling::Optimal,
-                                   .usage = description.usage,
-                                   .sharingMode = vkb::SharingMode::Exclusive,
-                                   .initialLayout = vkb::ImageLayout::Undefined,
-                               };
-                               image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
-                               return &image;
-                           });
+    auto flags = ResourceFlags::Image | ResourceFlags::Uninitialised;
+    if (is_depth_stencil_format(description.format)) {
+        flags |= ResourceFlags::DepthStencil;
+    }
+    return create_resource(vull::move(name), flags, [description, &context = m_context, image = vk::Image()]() mutable {
+        vkb::ImageCreateInfo image_ci{
+            .sType = vkb::StructureType::ImageCreateInfo,
+            .imageType = vkb::ImageType::_2D,
+            .format = description.format,
+            .extent = {description.extent.width, description.extent.height, 1},
+            .mipLevels = description.mip_levels,
+            .arrayLayers = description.array_layers,
+            .samples = vkb::SampleCount::_1,
+            .tiling = vkb::ImageTiling::Optimal,
+            .usage = description.usage,
+            .sharingMode = vkb::SharingMode::Exclusive,
+            .initialLayout = vkb::ImageLayout::Undefined,
+        };
+        image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+        return &image;
+    });
 }
 
 ResourceId RenderGraph::new_buffer(String name, const BufferDescription &description) {
@@ -165,15 +185,15 @@ void RenderGraph::build_sync() {
         }
 
         const auto &producer = resource.producer();
-        const auto kind = producer.flags() & PassFlags::Kind;
-        if (kind == PassFlags::Transfer) {
+        const auto pass_kind = producer.flags() & PassFlags::Kind;
+        if (pass_kind == PassFlags::Transfer) {
             resource.set_write_stage(vkb::PipelineStage2::AllTransfer);
             resource.set_write_access(vkb::Access2::TransferWrite);
             resource.set_write_layout(vkb::ImageLayout::TransferDstOptimal);
             continue;
         }
 
-        if (kind == PassFlags::Compute) {
+        if (pass_kind == PassFlags::Compute) {
             resource.set_write_stage(vkb::PipelineStage2::ComputeShader);
             resource.set_write_access(vkb::Access2::ShaderStorageWrite);
 
@@ -182,12 +202,26 @@ void RenderGraph::build_sync() {
             continue;
         }
 
-        // Otherwise the write is the attachment output of a fragment shader.
+        const auto resource_kind = resource.flags() & ResourceFlags::Kind;
+        if (resource_kind == ResourceFlags::Buffer) {
+            // A write to a buffer from a graphics pass could be from either shader type.
+            // TODO: Gather more information to be more granular here.
+            resource.set_write_stage(vkb::PipelineStage2::VertexShader | vkb::PipelineStage2::FragmentShader);
+            resource.set_write_access(vkb::Access2::ShaderStorageWrite);
+            continue;
+        }
+
+        // Otherwise we have a write to an image from a graphics pass, which must be the output of a fragment shader.
         resource.set_write_layout(vkb::ImageLayout::AttachmentOptimal);
 
-        // TODO: Gather more information to be more granular here.
-        resource.set_write_stage(vkb::PipelineStage2::AllGraphics);
-        resource.set_write_access(vkb::Access2::MemoryWrite);
+        if ((resource.flags() & ResourceFlags::DepthStencil) != ResourceFlags::None) {
+            resource.set_write_stage(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests);
+            resource.set_write_access(vkb::Access2::DepthStencilAttachmentRead |
+                                      vkb::Access2::DepthStencilAttachmentWrite);
+        } else {
+            resource.set_write_stage(vkb::PipelineStage2::ColorAttachmentOutput);
+            resource.set_write_access(vkb::Access2::ColorAttachmentWrite);
+        }
     }
 
     HashMap<uint16_t, vkb::ImageLayout> layout_map;
@@ -209,13 +243,24 @@ void RenderGraph::build_sync() {
             if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
                 const auto current_layout = *layout_map.get(id.physical_index());
                 auto read_layout = vkb::ImageLayout::ReadOnlyOptimal;
+                auto dst_access = vkb::Access2::MemoryRead;
                 if ((flags & ReadFlags::Present) != ReadFlags::None) {
                     read_layout = vkb::ImageLayout::PresentSrcKHR;
+                    dst_access = vkb::Access2::None;
                 } else if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
                     read_layout = vkb::ImageLayout::TransferSrcOptimal;
+                    dst_access = vkb::Access2::TransferRead;
                 }
                 if (current_layout != read_layout) {
-                    pass.add_transition(id, current_layout, read_layout);
+                    pass.add_transition({
+                        .id = id,
+                        .old_layout = current_layout,
+                        .new_layout = read_layout,
+                        .src_stage = resource.write_stage(),
+                        .src_access = resource.write_access(),
+                        .dst_stage = vkb::PipelineStage2::AllCommands,
+                        .dst_access = dst_access,
+                    });
                     layout_map.set(id.physical_index(), read_layout);
 #ifdef RG_DEBUG
                     vull::debug("'{}' read '{}': {} -> {}", pass.name(), physical_resource(id).name(),
@@ -232,7 +277,15 @@ void RenderGraph::build_sync() {
                 if (current_layout == resource.write_layout()) {
                     continue;
                 }
-                pass.add_transition(id, current_layout, resource.write_layout());
+                pass.add_transition({
+                    .id = id,
+                    .old_layout = current_layout,
+                    .new_layout = resource.write_layout(),
+                    .src_stage = vkb::PipelineStage2::AllCommands,
+                    .src_access = vkb::Access2::MemoryRead,
+                    .dst_stage = resource.write_stage(),
+                    .dst_access = resource.write_access(),
+                });
                 layout_map.set(id.physical_index(), resource.write_layout());
 #ifdef RG_DEBUG
                 vull::debug("'{}' write '{}': {} -> {}", pass.name(), physical_resource(id).name(),
@@ -302,8 +355,10 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
             const auto &image = get_image(transition.id);
             image_barriers.push({
                 .sType = vkb::StructureType::ImageMemoryBarrier2,
-                .dstStageMask = vkb::PipelineStage2::AllCommands,
-                .dstAccessMask = vkb::Access2::MemoryRead,
+                .srcStageMask = transition.src_stage,
+                .srcAccessMask = transition.src_access,
+                .dstStageMask = transition.dst_stage,
+                .dstAccessMask = transition.dst_access,
                 .oldLayout = transition.old_layout,
                 .newLayout = transition.new_layout,
                 .image = *image,

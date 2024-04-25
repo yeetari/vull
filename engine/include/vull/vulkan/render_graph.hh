@@ -43,6 +43,7 @@ enum class ResourceFlags {
     Image = 1u << 1u,
     Imported = 1u << 2u,
     Uninitialised = 1u << 3u,
+    DepthStencil = 1u << 4u,
     Kind = Buffer | Image,
 };
 
@@ -122,6 +123,10 @@ class Pass {
         ResourceId id;
         vkb::ImageLayout old_layout;
         vkb::ImageLayout new_layout;
+        vkb::PipelineStage2 src_stage;
+        vkb::Access2 src_access;
+        vkb::PipelineStage2 dst_stage;
+        vkb::Access2 dst_access;
     };
 
 private:
@@ -137,7 +142,7 @@ private:
     Vector<Transition> m_transitions;
     bool m_visited{false};
 
-    void add_transition(ResourceId id, vkb::ImageLayout old_layout, vkb::ImageLayout new_layout);
+    void add_transition(const Transition &transition);
 
 public:
     Pass(RenderGraph &graph, String &&name, PassFlags flags)
