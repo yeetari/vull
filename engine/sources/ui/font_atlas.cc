@@ -229,6 +229,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
 
     cmd_buf.bind_associated_buffer(vull::move(staging_buffer));
     queue->submit(cmd_buf, nullptr, {}, {});
+    queue->wait_idle();
 
     CachedGlyph glyph{
         .font = &font,
