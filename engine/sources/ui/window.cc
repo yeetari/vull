@@ -20,7 +20,7 @@ namespace vull::ui {
 
 Window::Window(Tree &tree, Optional<Element &> parent, String title) : Pane(tree, parent) {
     m_title_pane = &add_child<HBoxLayout>();
-    m_title_pane->margins().set_all(Length::make_cm(0.1f));
+    m_title_pane->margins().set_all(Length::make_cm(0.2f));
     m_title_pane->add_child<Label>(vull::move(title));
 
     m_content_pane = &add_child<VBoxLayout>();
