@@ -31,13 +31,14 @@ Window::Window(Tree &tree, Optional<Element &> parent, String title) : Pane(tree
 }
 
 void Window::paint(Painter &painter, LayoutPoint position) const {
-    Colour colour = Colour::from_srgb(0.13f, 0.14f, 0.15f);
+    Colour colour = Colour::from_srgb(0.13f, 0.14f, 0.15f, 0.99f);
     if (m_is_resizing) {
-        colour = Colour::from_srgb(0.18f, 0.19f, 0.20f);
+        colour = Colour::from_srgb(0.18f, 0.19f, 0.20f, 0.99f);
     }
 
     // Title pane background.
-    painter.paint_rect(position, {computed_width(), m_title_pane->computed_height()}, Colour::black());
+    painter.paint_rect(position, {computed_width(), m_title_pane->computed_height()},
+                       Colour::from_rgb(0.0f, 0.0f, 0.0f, 0.99f));
 
     // Content pane background.
     painter.paint_rect(position + m_content_pane->offset_in_parent(),
