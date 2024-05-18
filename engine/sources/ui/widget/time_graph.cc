@@ -89,7 +89,9 @@ void TimeGraph::pre_layout(LayoutSize available_space) {
     m_legend_vbox->clear_children();
     const auto &latest_bar = m_bars[m_bars.size() - 1];
     for (const auto &section : vull::reverse_view(latest_bar.sections)) {
-        const auto text = vull::format("{}: {} ms", section.name, section.duration * 1000.0f);
+        // TODO: vull::format should have padding builtin.
+        const auto *pad_string = section.duration < 0.01f ? " " : "";
+        const auto text = vull::format("{}: {}{} ms", section.name, pad_string, section.duration * 1000.0f);
         auto &label = m_legend_vbox->add_child<Label>(vull::move(text));
         label.set_align(Align::Right);
         label.set_colour(colour_for_section(section.name));

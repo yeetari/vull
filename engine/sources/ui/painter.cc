@@ -78,9 +78,7 @@ void Painter::paint_text(Font &font, LayoutPoint position, const Colour &colour,
                 .texture_index = get_texture_index(m_atlas->sampled_image()),
             }},
         });
-
-        // Round the advance to the nearest pixel to avoid jittering issues.
-        position += LayoutDelta::from_int_pixels(advance.round());
+        position += advance;
     }
 }
 
