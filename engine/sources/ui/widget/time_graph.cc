@@ -62,7 +62,7 @@ TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_
     m_graph_panel = &hbox.add_child<TimeGraphPanel>(*this);
     m_legend_vbox = &hbox.add_child<VBoxLayout>();
     m_legend_vbox->set_maximum_width(Length::shrink());
-    set_bar_width(Length::make_cm(0.06f));
+    set_bar_width(Length::make_cm(0.1f));
 }
 
 Colour TimeGraph::colour_for_section(const String &name) {
