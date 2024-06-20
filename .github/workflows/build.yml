@@ -18,11 +18,7 @@ jobs:
           cmake .
           --preset ${{ matrix.preset }}
           -Bbuild
-          -DCMAKE_COMPILE_WARNING_AS_ERROR=On
-          -DVULL_BUILD_GLTF=On
-          -DVULL_BUILD_PNG=On
-          -DVULL_BUILD_SANDBOX=On
-          -DVULL_BUILD_TESTS=On
+          -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           -GNinja
 
       - name: Build

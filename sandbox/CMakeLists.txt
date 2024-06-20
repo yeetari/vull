@@ -1,3 +1,5 @@
-vull_executable(vull-sandbox vull::core vull::graphics vull::physics vull::ui vull::x11-window)
-target_sources(vull-sandbox PRIVATE free_camera.cc main.cc orbit_camera.cc)
+vull_add_executable(vull-sandbox
+    free_camera.cc
+    main.cc
+    orbit_camera.cc)
 vull_depend_builtin(vull-sandbox)

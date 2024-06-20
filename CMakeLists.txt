@@ -9,51 +9,63 @@ project(vull VERSION 0.1.0 LANGUAGES ASM CXX)
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(VullModule)
+include(CMakeDependentOption)
+include(FetchContent)
+include(VullAddExecutable)
+include(VullAddShader)
 include(VullVpak)
 
-option(VULL_BUILD_GLTF "Build the vpak tool with glTF support" OFF)
-option(VULL_BUILD_PNG "Build the vpak tool with PNG support" OFF)
-option(VULL_BUILD_SANDBOX "Build sandbox" ON)
-option(VULL_BUILD_TESTS "Build tests" OFF)
+set(VULL_ALL_COMPONENTS "graphics;physics;script;ui;x11-window")
+set(VULL_ENABLED_COMPONENTS "${VULL_ALL_COMPONENTS}" CACHE STRING "")
 
-if(VULL_BUILD_TESTS)
-    enable_testing()
+# Ensure enabled components are valid.
+foreach(component ${VULL_ENABLED_COMPONENTS})
+    if(NOT "${component}" IN_LIST VULL_ALL_COMPONENTS)
+        message(FATAL_ERROR "Unknown vull component ${component}")
+    endif()
+endforeach()
+
+# Set variables for enabled components.
+foreach(component ${VULL_ALL_COMPONENTS})
+    string(TOUPPER "${component}" upper_component)
+    string(REGEX REPLACE "-" "_" upper_component "${upper_component}")
+    if("${component}" IN_LIST VULL_ENABLED_COMPONENTS)
+        set(VULL_BUILD_${upper_component} TRUE)
+    else()
+        set(VULL_BUILD_${upper_component} FALSE)
+    endif()
+endforeach()
+
+if(VULL_BUILD_UI AND NOT VULL_BUILD_GRAPHICS)
+    message(FATAL_ERROR "Cannot build UI component with graphics component")
 endif()
 
-find_package(Freetype)
-find_package(harfbuzz)
-find_package(X11)
+# TODO: Make vpak tool not require graphics component.
+cmake_dependent_option(VULL_BUILD_VPAK "Build the vpak tool" ON "VULL_BUILD_GRAPHICS" OFF)
+cmake_dependent_option(VULL_BUILD_SANDBOX "Build the vull sandbox" ${PROJECT_IS_TOP_LEVEL}
+    "VULL_BUILD_GRAPHICS;VULL_BUILD_PHYSICS;VULL_BUILD_UI;VULL_BUILD_X11_WINDOW;VULL_BUILD_VPAK" OFF)
+option(VULL_BUILD_TESTS "Build the vull tests" ${PROJECT_IS_TOP_LEVEL})
+
 find_package(xxHash REQUIRED)
 find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
 
-function(add_shader name)
-    set(source ${CMAKE_CURRENT_SOURCE_DIR}/${name})
-    set(binary ${CMAKE_CURRENT_BINARY_DIR}/${name}.spv)
-    cmake_path(GET source EXTENSION extension)
-    cmake_path(GET binary PARENT_PATH binary_dir)
-    file(MAKE_DIRECTORY ${binary_dir})
-    if(${extension} STREQUAL ".vsl")
-        # Vull shader.
-        add_custom_command(
-            OUTPUT ${binary}
-            COMMAND vslc ${source} ${binary}
-            DEPENDS ${source}
-            VERBATIM)
-    else()
-        # GLSL.
-        add_custom_command(
-            OUTPUT ${binary}
-            COMMAND ${GLSLC} -MD --target-env=vulkan1.3 ${source} -o ${binary}
-            DEPENDS ${source}
-            DEPFILE ${binary}.d
-            VERBATIM)
-    endif()
+if(VULL_BUILD_UI)
+    find_package(Freetype REQUIRED)
+    find_package(harfbuzz REQUIRED)
+endif()
 
-    # TODO: This shouldn't be needed.
-    set_property(TARGET vull-vulkan APPEND PROPERTY SOURCES ${binary})
-endfunction()
+if(VULL_BUILD_X11_WINDOW)
+    find_package(X11 REQUIRED)
+endif()
+
+if(VULL_BUILD_VPAK)
+    find_package(PNG REQUIRED)
+endif()
+
+if(VULL_BUILD_TESTS)
+    enable_testing()
+endif()
 
 add_subdirectory(docs)
 add_subdirectory(engine)

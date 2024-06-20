@@ -1,8 +1,11 @@
-target_sources(vull-core PRIVATE
+target_sources(vull PRIVATE
     core/application.cc
     core/log.cc
     ecs/entity.cc
     ecs/world.cc
+    json/lexer.cc
+    json/parser.cc
+    json/tree.cc
     maths/colour.cc
     maths/random.cc
     platform/linux.cc
@@ -22,37 +25,53 @@ target_sources(vull-core PRIVATE
     vpak/reader.cc
     vpak/writer.cc)
 
-target_sources(vull-graphics PRIVATE
-    graphics/default_renderer.cc
-    graphics/deferred_renderer.cc
-    graphics/frame_pacer.cc
-    graphics/material.cc
-    graphics/mesh.cc
-    graphics/object_renderer.cc
-    graphics/skybox_renderer.cc
-    graphics/texture_streamer.cc
-    terrain/chunk.cc
-    terrain/noise.cc
-    terrain/quad_tree.cc
-    terrain/terrain.cc)
+if(VULL_BUILD_GRAPHICS)
+    target_sources(vull PRIVATE
+        graphics/default_renderer.cc
+        graphics/deferred_renderer.cc
+        graphics/frame_pacer.cc
+        graphics/material.cc
+        graphics/mesh.cc
+        graphics/object_renderer.cc
+        graphics/skybox_renderer.cc
+        graphics/texture_streamer.cc
+        terrain/chunk.cc
+        terrain/noise.cc
+        terrain/quad_tree.cc
+        terrain/terrain.cc
+        vulkan/allocator.cc
+        vulkan/buffer.cc
+        vulkan/command_buffer.cc
+        vulkan/context.cc
+        vulkan/context_table.cc
+        vulkan/descriptor_builder.cc
+        vulkan/fence.cc
+        vulkan/image.cc
+        vulkan/pipeline.cc
+        vulkan/query_pool.cc
+        vulkan/queue.cc
+        vulkan/render_graph.cc
+        vulkan/semaphore.cc
+        vulkan/shader.cc
+        vulkan/swapchain.cc)
+endif()
 
-target_sources(vull-json PRIVATE
-    json/lexer.cc
-    json/parser.cc
-    json/tree.cc)
+if(VULL_BUILD_PHYSICS)
+    target_sources(vull PRIVATE
+        physics/mpr.cc
+        physics/physics_engine.cc
+        physics/rigid_body.cc
+        physics/shape.cc)
+endif()
 
-target_sources(vull-physics PRIVATE
-    physics/mpr.cc
-    physics/physics_engine.cc
-    physics/rigid_body.cc
-    physics/shape.cc)
-
-target_sources(vull-script PRIVATE
-    script/builder.cc
-    script/constant_pool.cc
-    script/lexer.cc
-    script/parser.cc
-    script/vm.cc)
+if(VULL_BUILD_SCRIPT)
+    target_sources(vull PRIVATE
+        script/builder.cc
+        script/constant_pool.cc
+        script/lexer.cc
+        script/parser.cc
+        script/vm.cc)
+endif()
 
 target_sources(vull-shaderc PRIVATE
     shaderc/ast.cc
@@ -60,40 +79,27 @@ target_sources(vull-shaderc PRIVATE
     shaderc/parser.cc
     shaderc/spv_builder.cc)
 
-target_sources(vull-ui PRIVATE
-    ui/layout/box_layout.cc
-    ui/layout/pane.cc
-    ui/layout/screen_pane.cc
-    ui/widget/button.cc
-    ui/widget/image_label.cc
-    ui/widget/label.cc
-    ui/widget/slider.cc
-    ui/widget/time_graph.cc
-    ui/element.cc
-    ui/font.cc
-    ui/font_atlas.cc
-    ui/painter.cc
-    ui/renderer.cc
-    ui/tree.cc
-    ui/units.cc
-    ui/window.cc)
+if(VULL_BUILD_UI)
+    target_sources(vull PRIVATE
+        ui/layout/box_layout.cc
+        ui/layout/pane.cc
+        ui/layout/screen_pane.cc
+        ui/widget/button.cc
+        ui/widget/image_label.cc
+        ui/widget/label.cc
+        ui/widget/slider.cc
+        ui/widget/time_graph.cc
+        ui/element.cc
+        ui/font.cc
+        ui/font_atlas.cc
+        ui/painter.cc
+        ui/renderer.cc
+        ui/tree.cc
+        ui/units.cc
+        ui/window.cc)
+endif()
 
-target_sources(vull-vulkan PRIVATE
-    vulkan/allocator.cc
-    vulkan/buffer.cc
-    vulkan/command_buffer.cc
-    vulkan/context.cc
-    vulkan/context_table.cc
-    vulkan/descriptor_builder.cc
-    vulkan/fence.cc
-    vulkan/image.cc
-    vulkan/pipeline.cc
-    vulkan/query_pool.cc
-    vulkan/queue.cc
-    vulkan/render_graph.cc
-    vulkan/semaphore.cc
-    vulkan/shader.cc
-    vulkan/swapchain.cc)
-
-target_sources(vull-x11-window PRIVATE
-    core/window.cc)
+if(VULL_BUILD_X11_WINDOW)
+    target_sources(vull PRIVATE
+        core/window.cc)
+endif()

@@ -11,7 +11,6 @@ class Foo {
     int *m_destruct_count{nullptr};
 
 public:
-    Foo() = default;
     explicit Foo(int &destruct_count) : m_destruct_count(&destruct_count) {}
     Foo(const Foo &) = delete;
     Foo(Foo &&other) : m_destruct_count(vull::exchange(other.m_destruct_count, nullptr)) {}

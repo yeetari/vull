@@ -1,6 +1,4 @@
-#ifdef BUILD_GLTF
 #include "gltf_parser.hh"
-#endif
 #include "mad_lut.hh"
 #include "png_stream.hh"
 
@@ -139,7 +137,6 @@ int add(const Vector<StringView> &args) {
     return EXIT_SUCCESS;
 }
 
-#ifdef BUILD_GLTF
 int add_gltf(const Vector<StringView> &args) {
     bool dump_json = false;
     bool fast = false;
@@ -215,12 +212,6 @@ int add_gltf(const Vector<StringView> &args) {
     vull::info("[main] Wrote {} bytes to {}", bytes_written, vpak_path);
     return EXIT_SUCCESS;
 }
-#else
-int add_gltf(const Vector<StringView> &) {
-    vull::println("fatal: not built with gltf support");
-    return EXIT_FAILURE;
-}
-#endif
 
 int add_png(const Vector<StringView> &args) {
     if (args.size() != 5) {

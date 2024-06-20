@@ -59,7 +59,7 @@ Value Vm::exec_frame(Frame &frame) {
         switch (inst.opcode()) {
             using enum Opcode;
 #define VM_CASE(opcode) case opcode:
-#include <script/opcodes.in>
+#include "opcodes.in"
         default:
             // TODO: This generates better code on GCC and clang < 15, but enables some very aggressive optimisation on
             //       clang 15.

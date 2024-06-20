@@ -8,11 +8,17 @@ target_sources(vull-tests PRIVATE
     maths/colour.cc
     maths/epsilon.cc
     maths/relational.cc
-    script/lexer.cc
     shaderc/lexer.cc
     shaderc/parse_errors.cc
     shaderc/parser.cc
     support/enum.cc
     support/variant.cc
-    ui/units.cc
     main.cc)
+
+if(VULL_BUILD_SCRIPT)
+    target_sources(vull-tests PRIVATE script/lexer.cc)
+endif()
+
+if(VULL_BUILD_UI)
+    target_sources(vull-tests PRIVATE ui/units.cc)
+endif()

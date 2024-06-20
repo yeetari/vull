@@ -1,31 +1,43 @@
-vull_module(core xxHash::xxHash Zstd::Zstd)
-vull_module(graphics vull::core vull::vulkan)
-vull_module(json vull::core)
-vull_module(physics vull::core)
-vull_module(script vull::core)
-vull_module(shaderc vull::core)
-vull_module(ui vull::core vull::vulkan PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
-vull_module(vulkan vull::core)
-vull_module(x11-window vull::core PRIVATE X11::xcb X11::xcb_randr X11::xcb_util X11::xcb_xkb)
+# Main vull library.
+add_library(vull)
+target_compile_features(vull PRIVATE cxx_std_20)
+target_compile_options(vull PRIVATE ${VULL_COMPILER_FLAGS_LIST})
+target_include_directories(vull PUBLIC include)
+target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd)
 
-add_subdirectory(sources)
-target_include_directories(vull-core PUBLIC include)
-target_include_directories(vull-script PRIVATE sources)
+if(VULL_BUILD_UI)
+    target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
+endif()
 
-add_shader(shaders/blit_tonemap.frag)
-add_shader(shaders/default.frag)
-add_shader(shaders/default.vert)
-add_shader(shaders/deferred.comp)
-add_shader(shaders/depth_reduce.comp)
-add_shader(shaders/draw_cull.comp)
-add_shader(shaders/fst.vert)
-add_shader(shaders/light_cull.comp)
-add_shader(shaders/object.vsl)
-add_shader(shaders/shadow.vert)
-add_shader(shaders/skybox.frag)
-add_shader(shaders/skybox.vert)
-add_shader(shaders/ui.frag)
-add_shader(shaders/ui.vert)
+if(VULL_BUILD_X11_WINDOW)
+    target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_util X11::xcb_xkb)
+endif()
+
+# Separate shaderc library. This is a separate library rather than a component since you'd likely want the shader
+# compiler to be built for development, but not shipped with the final game.
+add_library(vull-shaderc)
+target_compile_features(vull-shaderc PRIVATE cxx_std_20)
+target_compile_options(vull-shaderc PRIVATE ${VULL_COMPILER_FLAGS_LIST})
+target_link_libraries(vull-shaderc PRIVATE vull)
+
+# Add alias targets.
+add_library(vull::vull ALIAS vull)
+add_library(vull::shaderc ALIAS vull-shaderc)
+
+vull_add_shader(shaders/blit_tonemap.frag)
+vull_add_shader(shaders/default.frag)
+vull_add_shader(shaders/default.vert)
+vull_add_shader(shaders/deferred.comp)
+vull_add_shader(shaders/depth_reduce.comp)
+vull_add_shader(shaders/draw_cull.comp)
+vull_add_shader(shaders/fst.vert)
+vull_add_shader(shaders/light_cull.comp)
+vull_add_shader(shaders/object.vsl)
+vull_add_shader(shaders/shadow.vert)
+vull_add_shader(shaders/skybox.frag)
+vull_add_shader(shaders/skybox.vert)
+vull_add_shader(shaders/ui.frag)
+vull_add_shader(shaders/ui.vert)
 
 function(vull_depend_builtin target)
     target_add_vpak(${target} builtin.vpak
@@ -47,7 +59,8 @@ function(vull_depend_builtin target)
         ${CMAKE_BINARY_DIR}/engine/shaders/ui.vert.spv /shaders/ui.vert)
 endfunction()
 
-set_target_properties(vull-vulkan PROPERTIES
+add_subdirectory(sources)
+set_target_properties(vull PROPERTIES
     UNITY_BUILD ON
     UNITY_BUILD_MODE GROUP)
 set_source_files_properties(
@@ -66,10 +79,10 @@ set_source_files_properties(
 )
 
 if(VULL_BUILD_TESTS)
-    add_executable(vull-tests)
+    vull_add_executable(vull-tests)
+    target_compile_options(vull-tests PRIVATE -fexceptions)
+    target_link_libraries(vull-tests PRIVATE vull-shaderc)
     add_subdirectory(tests)
-    target_compile_features(vull-tests PRIVATE cxx_std_20)
-    target_link_libraries(vull-tests PRIVATE vull::core vull::json vull::script vull::shaderc)
 
     add_custom_command(TARGET vull-tests
         POST_BUILD
