@@ -63,21 +63,32 @@ validation layers (`vulkan-layers`) are not required but are extremely useful fo
 
 To configure vull, use one of the available presets:
 
-    cmake . \
-     --preset release-gcc \
-     -Bbuild \
-     -DVULL_BUILD_SANDBOX=ON \
-     -DVULL_BUILD_TESTS=ON \
-     -GNinja
+    cmake . --preset release-gcc -GNinja
+
+#### Available presets
+
+| Preset          | Description                     |
+|-----------------|---------------------------------|
+| `asan-clang`    | ASan and UBSan build with clang |
+| `asan-gcc`      | ASan and UBSan build with gcc   |
+| `debug-clang`   | Debug build with clang          |
+| `debug-gcc`     | Debug build with gcc            |
+| `release-clang` | Release build with clang        |
+| `release-gcc`   | Release build with gcc          |
+| `fuzz`          | Fuzz with AFLplusplus           |
 
 #### Available options
 
-| Option               | Description                           | Default Value |
-|----------------------|---------------------------------------|---------------|
-| `VULL_BUILD_GLTF`    | Build the vpak tool with glTF support | `OFF`         |
-| `VULL_BUILD_PNG`     | Build the vpak tool with PNG support  | `OFF`         |
-| `VULL_BUILD_SANDBOX` | Build the sandbox application         | `ON`          |
-| `VULL_BUILD_TESTS`   | Build tests                           | `OFF`         |
+| Option                    | Description                   | Default Value                           |
+|---------------------------|-------------------------------|-----------------------------------------|
+| `VULL_ENABLED_COMPONENTS` | List of components to build   | `graphics;physics;script;ui;x11-window` |
+| `VULL_BUILD_VPAK`         | Build the vpak tool           | `ON`¹                                   |
+| `VULL_BUILD_SANDBOX`      | Build the sandbox application | `PROJECT_IS_TOP_LEVEL`²                 |
+| `VULL_BUILD_TESTS`        | Build tests                   | `PROJECT_IS_TOP_LEVEL`                  |
+
+¹: Requires the `graphics` component to be enabled
+
+²: Requires the vpak tool to be enabled, as well as the `graphics`, `physics`, `ui`, and `x11-window` components
 
 ### Building
 
