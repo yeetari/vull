@@ -86,13 +86,13 @@ struct RemoveRef<T &&> {
 } // namespace detail
 
 template <bool B, typename T, typename F>
-using conditional = typename detail::Conditional<B, T, F>::type;
+using conditional = detail::Conditional<B, T, F>::type;
 template <typename T, typename U>
-using copy_const = typename detail::CopyConst<T, U>::type;
+using copy_const = detail::CopyConst<T, U>::type;
 template <typename T>
-using remove_cv = typename detail::RemoveCv<T>::type;
+using remove_cv = detail::RemoveCv<T>::type;
 template <typename T>
-using remove_ref = typename detail::RemoveRef<T>::type;
+using remove_ref = detail::RemoveRef<T>::type;
 template <typename T>
 using decay = remove_cv<remove_ref<T>>;
 
@@ -258,7 +258,7 @@ struct UnrapRefWrapper<RefWrapper<T>> {
 };
 
 template <typename T>
-using unwrap_ref = typename UnrapRefWrapper<T>::type;
+using unwrap_ref = UnrapRefWrapper<T>::type;
 
 template <typename T>
 using decay_unwrap = unwrap_ref<decay<T>>;
