@@ -83,8 +83,17 @@ struct RemoveRef<T &&> {
     using type = T;
 };
 
+template <typename T>
+struct TypeIdentity {
+    using type = T;
+};
+
 } // namespace detail
 
+using nullptr_t = decltype(nullptr);
+
+template <typename T>
+using type_identity = detail::TypeIdentity<T>::type;
 template <bool B, typename T, typename F>
 using conditional = detail::Conditional<B, T, F>::type;
 template <typename T, typename U>
