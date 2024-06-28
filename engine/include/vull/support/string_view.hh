@@ -12,6 +12,7 @@ class StringView : public Span<const char> {
 public:
     using Span::Span;
     constexpr StringView(const char *c_string) : Span(c_string, __builtin_strlen(c_string)) {}
+    StringView(nullptr_t) = delete;
 
     constexpr int compare(StringView other) const;
     constexpr StringView substr(size_t offset) const;
