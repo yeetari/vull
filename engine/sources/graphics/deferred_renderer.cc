@@ -258,7 +258,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_deferred_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8u), vull::ceil_div(m_viewport_extent.height, 8u));
+        cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8), vull::ceil_div(m_viewport_extent.height, 8));
     });
 
     auto &blit_tonemap_pass = graph.add_pass("blit-tonemap", vk::PassFlags::Graphics)

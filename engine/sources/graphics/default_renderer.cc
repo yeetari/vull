@@ -450,7 +450,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         vk::DescriptorBuilder(m_main_set_layout, descriptor_buffer).set(3, 0, draw_buffer);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_early_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32));
     });
 
     // TODO: Make GBuffer writes additive.
@@ -509,8 +509,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
 
             DepthReduceData shader_data{
                 .mip_size{
-                    vull::max(m_depth_pyramid_extent.width >> i, 1u),
-                    vull::max(m_depth_pyramid_extent.height >> i, 1u),
+                    vull::max(m_depth_pyramid_extent.width >> i, 1),
+                    vull::max(m_depth_pyramid_extent.height >> i, 1),
                 },
             };
             cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);
@@ -531,8 +531,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
                     .layerCount = 1,
                 },
             };
-            cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32u),
-                             vull::ceil_div(shader_data.mip_size.y(), 32u));
+            cmd_buf.dispatch(vull::ceil_div(shader_data.mip_size.x(), 32),
+                             vull::ceil_div(shader_data.mip_size.y(), 32));
             cmd_buf.image_barrier(sample_barrier);
         }
         cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
@@ -581,7 +581,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_late_cull_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32u));
+        cmd_buf.dispatch(vull::ceil_div(m_object_count, 32));
     });
 
     auto &late_draw_pass = graph.add_pass("late-draw", vk::PassFlags::Graphics)

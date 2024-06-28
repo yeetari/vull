@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/assert.hh>
+#include <vull/support/utility.hh>
 
 #include <stdint.h>
 
@@ -18,7 +19,7 @@ constexpr T abs(T x) {
 }
 
 template <typename T>
-constexpr T ceil_div(T x, T y) {
+constexpr T ceil_div(T x, type_identity<T> y) {
     return x / y + T(x % y != 0);
 }
 
@@ -33,17 +34,17 @@ constexpr T sign(T x) {
 }
 
 template <typename T>
-constexpr T min(T a, T b) {
+constexpr T min(T a, type_identity<T> b) {
     return b < a ? b : a;
 }
 
 template <typename T>
-constexpr T max(T a, T b) {
+constexpr T max(T a, type_identity<T> b) {
     return a < b ? b : a;
 }
 
 template <typename T>
-constexpr T clamp(T val, T min_val, T max_val) {
+constexpr T clamp(T val, type_identity<T> min_val, type_identity<T> max_val) {
     return min(max(val, min_val), max_val);
 }
 

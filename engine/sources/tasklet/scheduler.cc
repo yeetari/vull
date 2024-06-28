@@ -56,7 +56,7 @@ TaskletQueue &Scheduler::pick_victim(uint32_t &rng_state) {
 
 Scheduler::Scheduler(uint32_t thread_count) {
     if (thread_count == 0) {
-        thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2u);
+        thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
     }
     sem_init(&s_work_available, 0, 1);
     for (uint32_t i = 0; i < thread_count; i++) {
