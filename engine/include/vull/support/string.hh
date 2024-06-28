@@ -51,7 +51,6 @@ public:
 
     char *disown() { return exchange(m_data, nullptr); }
 
-    bool operator==(const String &other) const;
     bool empty() const { return m_length == 0; }
     size_t length() const { return m_length; }
 };

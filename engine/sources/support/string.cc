@@ -67,8 +67,4 @@ bool String::ends_with(StringView other) const {
     return view().ends_with(other);
 }
 
-bool String::operator==(const String &other) const {
-    return StringView(m_data, m_length) == StringView(other.m_data, other.m_length);
-}
-
 } // namespace vull

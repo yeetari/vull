@@ -4,6 +4,7 @@
 #include <vull/maths/epsilon.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh> // IWYU pragma: keep
+#include <vull/support/string_view.hh>
 #include <vull/support/test.hh>
 
 #include <stdint.h>

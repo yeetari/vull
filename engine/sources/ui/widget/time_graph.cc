@@ -9,6 +9,7 @@
 #include <vull/support/optional.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
+#include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 #include <vull/ui/element.hh>
 #include <vull/ui/layout/box_layout.hh>

@@ -6,6 +6,7 @@
 #include <vull/maths/mat.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_view.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/vulkan.hh>

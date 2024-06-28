@@ -24,20 +24,22 @@ public:
     constexpr bool starts_with(StringView other) const;
     constexpr bool ends_with(StringView other) const;
 
-    constexpr bool operator==(StringView other) const;
     constexpr size_t length() const { return size(); }
 };
 
 constexpr int StringView::compare(StringView other) const {
-    int ret = __builtin_memcmp(data(), other.data(), vull::min(length(), other.length()));
-    if (ret == 0) {
-        if (length() < other.length()) {
-            ret = -1;
-        } else if (length() > other.length()) {
-            ret = 1;
+    size_t common_length = vull::min(length(), other.length());
+    for (size_t i = 0; i < common_length; i++) {
+        if (data()[i] < other.data()[i]) {
+            return -1;
+        }
+        if (other.data()[i] < data()[i]) {
+            return 1;
         }
     }
-    return ret;
+
+    // Else equal up to their common length, compare lengths.
+    return length() == other.length() ? 0 : (length() < other.length() ? -1 : 1);
 }
 
 constexpr StringView StringView::substr(size_t offset) const {
@@ -65,17 +67,8 @@ constexpr bool StringView::ends_with(StringView other) const {
     return length() >= other.length() && substr(length() - other.length()).compare(other) == 0;
 }
 
-constexpr bool StringView::operator==(StringView other) const {
-    if (data() == nullptr) {
-        return other.data() == nullptr;
-    }
-    if (other.data() == nullptr) {
-        return false;
-    }
-    if (length() != other.length()) {
-        return false;
-    }
-    return __builtin_memcmp(data(), other.data(), length()) == 0;
+constexpr bool operator==(StringView lhs, type_identity<StringView> rhs) {
+    return lhs.length() == rhs.length() && lhs.compare(rhs) == 0;
 }
 
 } // namespace vull
