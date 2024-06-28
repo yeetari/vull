@@ -1,10 +1,12 @@
 // File: bc7enc.c - Richard Geldreich, Jr. 3/31/2020 - MIT license or public domain (see end of file)
 // Currently supports modes 1, 6 for RGB blocks, and modes 5, 6, 7 for RGBA blocks.
 #include "bc7enc.hh"
-#include <algorithm>
+
+#include <vull/maths/common.hh>
+
 #include <assert.h>
-#include <cmath>
 #include <limits.h>
+#include <string.h>
 
 // Helpers
 static inline int32_t clampi(int32_t value, int32_t low, int32_t high) {
@@ -160,7 +162,7 @@ static inline vec4F vec4F_mul(const vec4F *pLHS, float s) {
 static inline vec4F *vec4F_normalize_in_place(vec4F *pV) {
     float s = pV->m_c[0] * pV->m_c[0] + pV->m_c[1] * pV->m_c[1] + pV->m_c[2] * pV->m_c[2] + pV->m_c[3] * pV->m_c[3];
     if (s != 0.0f) {
-        s = 1.0f / sqrtf(s);
+        s = 1.0f / vull::sqrt(s);
         pV->m_c[0] *= s;
         pV->m_c[1] *= s;
         pV->m_c[2] *= s;
@@ -372,7 +374,7 @@ void bc7enc_compress_block_init() {
                 int ik = (j * 127 + 31) / 63;
                 float k = ((ik << 1) + p) / 255.0f;
 
-                float e = fabsf(k - f);
+                float e = vull::abs(k - f);
                 if (e < best_err) {
                     best_err = e;
                     best_index = ik;
@@ -990,7 +992,7 @@ static void fixDegenerateEndpoints(uint32_t mode, color_rgba *pTrialMinColor, co
         // with grayscale ramps)
         for (uint32_t i = 0; i < 3; i++) {
             if (pTrialMinColor->m_c[i] == pTrialMaxColor->m_c[i]) {
-                if (fabs(pXl->m_c[i] - pXh->m_c[i]) > 0.0f) {
+                if (vull::abs(pXl->m_c[i] - pXh->m_c[i]) > 0.0f) {
                     if (pTrialMinColor->m_c[i] > (iscale >> 1)) {
                         if (pTrialMinColor->m_c[i] > 0)
                             pTrialMinColor->m_c[i]--;
@@ -1107,7 +1109,7 @@ static uint64_t find_optimal_solution(uint32_t mode, vec4F xl, vec4F xh, const c
             if ((mode == 1) && (pComp_params->m_bias_mode1_pbits)) {
                 float x = 0.0f;
                 for (uint32_t c = 0; c < 3; c++)
-                    x = std::max(std::max(x, xl.m_c[c]), xh.m_c[c]);
+                    x = vull::max(vull::max(x, xl.m_c[c]), xh.m_c[c]);
 
                 int p = 0;
                 if (x > (253.0f / 255.0f))
@@ -1315,7 +1317,7 @@ static uint64_t color_cell_compression(uint32_t mode, const color_cell_compresso
             float g = vfr * cov[1] + vfg * cov[3] + vfb * cov[4];
             float b = vfr * cov[2] + vfg * cov[4] + vfb * cov[5];
 
-            float m = maximumf(maximumf(fabsf(r), fabsf(g)), fabsf(b));
+            float m = maximumf(maximumf(vull::abs(r), vull::abs(g)), vull::abs(b));
             if (m > 1e-10f) {
                 m = 1.0f / m;
                 r *= m;
@@ -1332,7 +1334,7 @@ static uint64_t color_cell_compression(uint32_t mode, const color_cell_compresso
         if (len < 1e-10f)
             vec4F_set_scalar(&axis, 0.0f);
         else {
-            len = 1.0f / sqrtf(len);
+            len = 1.0f / vull::sqrt(len);
             vfr *= len;
             vfg *= len;
             vfb *= len;
@@ -1512,9 +1514,9 @@ static uint64_t color_cell_compression(uint32_t mode, const color_cell_compresso
 
                     for (uint32_t i = 0; i < pParams->m_num_pixels; i++)
                         selectors_temp1[i] =
-                            (uint8_t)clampf(floorf((float)max_selector * ((float)selectors_temp[i] - (float)ly) /
-                                                       ((float)hy - (float)ly) +
-                                                   .5f),
+                            (uint8_t)clampf(vull::floor((float)max_selector * ((float)selectors_temp[i] - (float)ly) /
+                                                            ((float)hy - (float)ly) +
+                                                        .5f),
                                             0, (float)max_selector);
 
                     // vec4F xl, xh;
@@ -2255,8 +2257,8 @@ static void handle_alpha_block_mode5(const color_rgba *pPixels, const bc7enc_com
                 compute_least_squares_endpoints_a(16, trial_alpha_selectors, (const vec4F *)g_bc7_weights2x, &xl, &xh,
                                                   pParams->m_pPixels);
 
-                uint32_t new_lo_a = clampi((int)floor(xl + .5f), 0, 255);
-                uint32_t new_hi_a = clampi((int)floor(xh + .5f), 0, 255);
+                uint32_t new_lo_a = clampi((int)vull::floor(xl + .5f), 0, 255);
+                uint32_t new_hi_a = clampi((int)vull::floor(xh + .5f), 0, 255);
                 if (new_lo_a > new_hi_a)
                     swapu(&new_lo_a, &new_hi_a);
 
@@ -2591,7 +2593,7 @@ static inline uint32_t compute_match_cost_estimate(uint32_t dist, uint32_t match
     if (dist < 512)
         dist_cost += g_tdefl_small_dist_extra[dist & 511];
     else {
-        dist_cost += g_tdefl_large_dist_extra[std::min<uint32_t>(dist, 32767) >> 8];
+        dist_cost += g_tdefl_large_dist_extra[vull::min(dist, 32767) >> 8];
         while (dist >= 32768) {
             dist_cost++;
             dist >>= 1;
@@ -2626,7 +2628,9 @@ public:
     uint64_t get_total2() const { return m_total2; }
 
     float get_average() const { return m_num ? (float)m_total / m_num : 0.0f; };
-    float get_std_dev() const { return m_num ? sqrtf((float)(m_num * m_total2 - m_total * m_total)) / m_num : 0.0f; }
+    float get_std_dev() const {
+        return m_num ? vull::sqrt((float)(m_num * m_total2 - m_total * m_total)) / m_num : 0.0f;
+    }
     float get_variance() const {
         float s = get_std_dev();
         return s * s;
@@ -2648,8 +2652,8 @@ static inline float compute_block_max_std_dev(const color_rgba *pPixels) {
         a_stats.update(pPixels[i].m_c[3]);
     }
 
-    return std::max<float>(
-        std::max<float>(std::max(r_stats.get_std_dev(), g_stats.get_std_dev()), b_stats.get_std_dev()),
+    return vull::max<float>(
+        vull::max<float>(vull::max(r_stats.get_std_dev(), g_stats.get_std_dev()), b_stats.get_std_dev()),
         a_stats.get_std_dev());
 }
 

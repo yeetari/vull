@@ -16,8 +16,8 @@
 #include <vull/support/stream.hh>
 #include <vull/support/utility.hh>
 
+#include <bc5enc.hh>
 #include <bc7enc.hh>
-#include <rgbcx.hh>
 #include <string.h>
 
 namespace vull {

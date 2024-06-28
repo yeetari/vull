@@ -11,8 +11,8 @@ if(VULL_BUILD_VPAK)
     FetchContent_MakeAvailable(meshoptimizer)
 
     vull_add_executable(vpak
+        vpak/enc/bc5enc.cc
         vpak/enc/bc7enc.cc
-        vpak/enc/rgbcx.cc
         vpak/float_image.cc
         vpak/gltf_parser.cc
         vpak/mad_inst.cc
@@ -23,8 +23,8 @@ if(VULL_BUILD_VPAK)
     target_link_libraries(vpak PRIVATE PNG::PNG Zstd::Zstd meshoptimizer)
 
     configure_file(vpak/mad_lut.bin.zst ${CMAKE_CURRENT_BINARY_DIR}/mad_lut.bin.zst COPYONLY)
+    set_source_files_properties(vpak/enc/bc5enc.cc PROPERTIES COMPILE_FLAGS -w)
     set_source_files_properties(vpak/enc/bc7enc.cc PROPERTIES COMPILE_FLAGS -w)
-    set_source_files_properties(vpak/enc/rgbcx.cc PROPERTIES COMPILE_FLAGS -w)
 
     vull_add_executable(vpak-build-lut
         vpak/build-lut.cc

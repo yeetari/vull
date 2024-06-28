@@ -26,7 +26,6 @@
 #include <vull/vpak/writer.hh>
 
 #include <bc7enc.hh>
-#include <rgbcx.hh>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -404,7 +403,6 @@ int main(int argc, char **argv) {
     }
 
     bc7enc_compress_block_init();
-    rgbcx::init();
     auto lut = load_lut(argv[0]);
     MadLut::set_instance(&lut);
     if (command == "add-gltf") {

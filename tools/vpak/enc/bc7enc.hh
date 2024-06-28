@@ -2,7 +2,6 @@
 // If you use this software in a product, attribution / credits is requested but not required.
 #pragma once
 #include <stdint.h>
-#include <string.h>
 
 #define BC7ENC_BLOCK_SIZE (16)
 #define BC7ENC_MAX_PARTITIONS (64)
@@ -54,7 +53,7 @@ struct bc7enc_compress_block_params {
 
     float m_low_frequency_partition_weight;
 
-    void clear() { memset(this, 0, sizeof(*this)); }
+    void clear() { __builtin_memset(this, 0, sizeof(*this)); }
 };
 
 inline void bc7enc_compress_block_params_init_linear_weights(bc7enc_compress_block_params *p) {
