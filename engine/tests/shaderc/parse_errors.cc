@@ -38,70 +38,70 @@ static bool has_note(const shaderc::ParseError &error, StringView text, shaderc:
            has_message(error, shaderc::ParseMessage::Kind::NoteNoLine, text, token_kind);
 }
 
-TEST_CASE(ShaderParseErrors, BadTopLevel) {
+OLD_TEST_CASE(ShaderParseErrors, BadTopLevel) {
     auto parse_error = try_parse("foo");
     EXPECT(has_error(parse_error, "unexpected token 'foo'", shaderc::TokenKind::Identifier));
     EXPECT(has_note(parse_error, "expected top level declaration or <eof>", shaderc::TokenKind::Identifier));
 }
 
-TEST_CASE(ShaderParseErrors, FunctionDeclBadName) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclBadName) {
     auto parse_error = try_parse("fn 123() {}");
     EXPECT(has_error(parse_error, "expected identifier for function name", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "got '123u' instead", shaderc::TokenKind::IntLit));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclMissingName) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclMissingName) {
     auto parse_error = try_parse("fn () {}");
     EXPECT(has_error(parse_error, "expected identifier for function name", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "got '(' instead", '('_tk));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclMissingOpenParen) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclMissingOpenParen) {
     auto parse_error = try_parse("fn foo) {}");
     EXPECT(has_error(parse_error, "expected '(' to open the parameter list", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "got ')' instead", ')'_tk));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclBadParameter) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclBadParameter) {
     auto parse_error = try_parse("fn foo(bar) {}");
     EXPECT(has_error(parse_error, "unexpected token 'bar'", shaderc::TokenKind::Identifier));
     EXPECT(has_note(parse_error, "expected a parameter (let) or ')'", shaderc::TokenKind::Identifier));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclMissingParameterName) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclMissingParameterName) {
     auto parse_error = try_parse("fn foo(let) {}");
     EXPECT(has_error(parse_error, "expected identifier for parameter name", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "got ')' instead", ')'_tk));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclMissingReturnType) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclMissingReturnType) {
     auto parse_error = try_parse("fn foo(): {}");
     EXPECT(has_error(parse_error, "expected type name but got '{'", '{'_tk));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclUnknownReturnType) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclUnknownReturnType) {
     auto parse_error = try_parse("fn foo(): footype {}");
     EXPECT(has_error(parse_error, "unknown type name 'footype'", shaderc::TokenKind::Identifier));
 }
-TEST_CASE(ShaderParseErrors, FunctionDeclMissingBlock) {
+OLD_TEST_CASE(ShaderParseErrors, FunctionDeclMissingBlock) {
     auto parse_error = try_parse("fn foo()");
     EXPECT(has_error(parse_error, "expected '{' to open a block", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "got <eof> instead", shaderc::TokenKind::Eof));
 }
 
-TEST_CASE(ShaderParseErrors, PipelineDeclBadType) {
+OLD_TEST_CASE(ShaderParseErrors, PipelineDeclBadType) {
     auto parse_error = try_parse("pipeline 123 g_foo;");
     EXPECT(has_error(parse_error, "expected type name but got '123u'", shaderc::TokenKind::IntLit));
 }
-TEST_CASE(ShaderParseErrors, PipelineDeclUnknownType) {
+OLD_TEST_CASE(ShaderParseErrors, PipelineDeclUnknownType) {
     auto parse_error = try_parse("pipeline footype g_foo;");
     EXPECT(has_error(parse_error, "unknown type name 'footype'", shaderc::TokenKind::Identifier));
 }
-TEST_CASE(ShaderParseErrors, PipelineDeclBadName) {
+OLD_TEST_CASE(ShaderParseErrors, PipelineDeclBadName) {
     auto parse_error = try_parse("pipeline vec2 123;");
     EXPECT(has_error(parse_error, "expected identifier but got '123u'", shaderc::TokenKind::IntLit));
 }
-TEST_CASE(ShaderParseErrors, PipelineDeclMissingSemicolon) {
+OLD_TEST_CASE(ShaderParseErrors, PipelineDeclMissingSemicolon) {
     auto parse_error = try_parse("pipeline vec3 g_foo");
     EXPECT(has_error(parse_error, "missing ';' after pipeline declaration", shaderc::TokenKind::Cursor));
     EXPECT(has_note(parse_error, "expected ';' before <eof>", shaderc::TokenKind::Eof));
 }
 
-TEST_CASE(ShaderParseErrors, UniformBlockDeclMissingSemicolon) {
+OLD_TEST_CASE(ShaderParseErrors, UniformBlockDeclMissingSemicolon) {
     auto parse_error = try_parse(R"(
 uniform {
     g_transform: mat4,

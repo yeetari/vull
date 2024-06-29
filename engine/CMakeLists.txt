@@ -80,7 +80,6 @@ set_source_files_properties(
 
 if(VULL_BUILD_TESTS)
     vull_add_executable(vull-tests)
-    target_compile_options(vull-tests PRIVATE -fexceptions)
     target_link_libraries(vull-tests PRIVATE vull-shaderc)
     add_subdirectory(tests)
 

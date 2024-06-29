@@ -15,7 +15,7 @@ static Result<shaderc::ast::Root, shaderc::ParseError> try_parse(StringView sour
     return parser.parse();
 }
 
-TEST_CASE(ShaderParser, Empty) {
+OLD_TEST_CASE(ShaderParser, Empty) {
     auto result = try_parse("");
     EXPECT(!result.is_error());
 }

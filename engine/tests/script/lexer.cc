@@ -8,37 +8,37 @@
 
 using namespace vull;
 
-TEST_CASE(ScriptLexer, Empty) {
+OLD_TEST_CASE(ScriptLexer, Empty) {
     script::Lexer lexer("", "");
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Whitespace) {
+OLD_TEST_CASE(ScriptLexer, Whitespace) {
     script::Lexer lexer("", "        \r\n\t");
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, EmptyComment) {
+OLD_TEST_CASE(ScriptLexer, EmptyComment) {
     script::Lexer lexer("", ";");
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Comment) {
+OLD_TEST_CASE(ScriptLexer, Comment) {
     script::Lexer lexer("", "; Hello world");
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, DoubleComment) {
+OLD_TEST_CASE(ScriptLexer, DoubleComment) {
     script::Lexer lexer("", ";; Hello world ; Test");
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Punctuation) {
+OLD_TEST_CASE(ScriptLexer, Punctuation) {
     script::Lexer lexer("", "() [] '");
     EXPECT(lexer.next().kind() == script::TokenKind::ListBegin);
     EXPECT(lexer.next().kind() == script::TokenKind::ListEnd);
@@ -48,7 +48,7 @@ TEST_CASE(ScriptLexer, Punctuation) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Identifier) {
+OLD_TEST_CASE(ScriptLexer, Identifier) {
     script::Lexer lexer("", "abcd ABCD a123 A_12? !#$%&*+-./:<=>?@^_ 1abc");
     EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
     EXPECT(lexer.next().string() == "abcd");
@@ -65,7 +65,7 @@ TEST_CASE(ScriptLexer, Identifier) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Quote) {
+OLD_TEST_CASE(ScriptLexer, Quote) {
     script::Lexer lexer("", "'foo '5");
     EXPECT(lexer.next().kind() == script::TokenKind::Quote);
     EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
@@ -76,7 +76,7 @@ TEST_CASE(ScriptLexer, Quote) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Integer) {
+OLD_TEST_CASE(ScriptLexer, Integer) {
     script::Lexer lexer("", "1234 -1234 1 -1");
     EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
     EXPECT(lexer.next().integer() == 1234);
@@ -89,7 +89,7 @@ TEST_CASE(ScriptLexer, Integer) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Decimal) {
+OLD_TEST_CASE(ScriptLexer, Decimal) {
     script::Lexer lexer("", "1234.56 -1234.56");
     EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
     EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234.56));
@@ -98,7 +98,7 @@ TEST_CASE(ScriptLexer, Decimal) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, Exponent) {
+OLD_TEST_CASE(ScriptLexer, Exponent) {
     script::Lexer lexer("", "1234e5 1234.56E5 1234e-5 1234.56E-5");
     EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
     EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234e5));
@@ -111,7 +111,7 @@ TEST_CASE(ScriptLexer, Exponent) {
     EXPECT(lexer.next().kind() == script::TokenKind::Eof);
 }
 
-TEST_CASE(ScriptLexer, String) {
+OLD_TEST_CASE(ScriptLexer, String) {
     script::Lexer lexer("", "\"hello\"");
     EXPECT(lexer.peek().kind() == script::TokenKind::String);
     EXPECT(lexer.next().string() == "hello");

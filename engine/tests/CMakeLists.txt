@@ -13,7 +13,7 @@ target_sources(vull-tests PRIVATE
     shaderc/parser.cc
     support/enum.cc
     support/variant.cc
-    main.cc)
+    runner.cc)
 
 if(VULL_BUILD_SCRIPT)
     target_sources(vull-tests PRIVATE script/lexer.cc)
