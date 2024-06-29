@@ -7,8 +7,11 @@
 #include <vull/support/test.hh>
 #include <vull/support/tuple.hh>
 #include <vull/support/utility.hh>
+#include <vull/test/assertions.hh>
+#include <vull/test/test.hh>
 
 using namespace vull;
+using namespace vull::test::matchers;
 
 namespace vull {
 
@@ -61,7 +64,7 @@ Vector<Tuple<Entity, Comps &...>> sum_view(EntityManager &manager) {
 
 } // namespace
 
-TEST_CASE(Entity, CreateDestroy) {
+OLD_TEST_CASE(Entity, CreateDestroy) {
     EntityManager manager;
     Vector<Entity> entities;
     for (int i = 0; i < 20; i++) {
@@ -77,7 +80,7 @@ TEST_CASE(Entity, CreateDestroy) {
     }
 }
 
-TEST_CASE(Entity, AddRemoveComponent) {
+OLD_TEST_CASE(Entity, AddRemoveComponent) {
     EntityManager manager;
     manager.register_component<Foo>();
     manager.register_component<Bar>();
@@ -115,7 +118,7 @@ TEST_CASE(Entity, AddRemoveComponent) {
     EXPECT(bar_destruct_count == 2);
 }
 
-TEST_CASE(Entity, View) {
+OLD_TEST_CASE(Entity, View) {
     EntityManager manager;
     manager.register_component<Foo>();
     manager.register_component<Bar>();
@@ -181,5 +184,5 @@ TEST_CASE(Entity, ViewNoFirstMatch) {
     entity.add<Foo>();
 
     auto view = manager.view<Foo, Bar>();
-    EXPECT(view.begin() == view.end());
+    EXPECT_THAT(view.begin(), is(equal_to(view.end())));
 }

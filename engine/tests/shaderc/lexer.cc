@@ -9,31 +9,31 @@
 using namespace vull;
 using vull::shaderc::operator""_tk;
 
-TEST_CASE(ShaderLexer, Empty) {
+OLD_TEST_CASE(ShaderLexer, Empty) {
     shaderc::Lexer lexer("", "");
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Whitespace) {
+OLD_TEST_CASE(ShaderLexer, Whitespace) {
     shaderc::Lexer lexer("", "        \r\n\t");
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, EmptyComment) {
+OLD_TEST_CASE(ShaderLexer, EmptyComment) {
     shaderc::Lexer lexer("", "//");
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Comment) {
+OLD_TEST_CASE(ShaderLexer, Comment) {
     shaderc::Lexer lexer("", "// Hello world");
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Punctuation) {
+OLD_TEST_CASE(ShaderLexer, Punctuation) {
     shaderc::Lexer lexer("", "(); += -= *= /=");
     EXPECT(lexer.next().kind() == '('_tk);
     EXPECT(lexer.next().kind() == ')'_tk);
@@ -45,7 +45,7 @@ TEST_CASE(ShaderLexer, Punctuation) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Identifier) {
+OLD_TEST_CASE(ShaderLexer, Identifier) {
     shaderc::Lexer lexer("", "abcd ABCD a123 A123 1abc");
     EXPECT(lexer.peek().kind() == shaderc::TokenKind::Identifier);
     EXPECT(lexer.next().string() == "abcd");
@@ -60,7 +60,7 @@ TEST_CASE(ShaderLexer, Identifier) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Decimal) {
+OLD_TEST_CASE(ShaderLexer, Decimal) {
     shaderc::Lexer lexer("", "1234.56 1234.56f");
     auto first = lexer.next();
     EXPECT(first.kind() == shaderc::TokenKind::FloatLit);
@@ -71,7 +71,7 @@ TEST_CASE(ShaderLexer, Decimal) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Integer) {
+OLD_TEST_CASE(ShaderLexer, Integer) {
     shaderc::Lexer lexer("", "1234");
     auto token = lexer.next();
     EXPECT(token.kind() == shaderc::TokenKind::IntLit);
@@ -79,7 +79,7 @@ TEST_CASE(ShaderLexer, Integer) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Exponent) {
+OLD_TEST_CASE(ShaderLexer, Exponent) {
     shaderc::Lexer lexer("", "1234e5 1234.56E5");
     auto first = lexer.next();
     EXPECT(first.kind() == shaderc::TokenKind::FloatLit);
@@ -90,7 +90,7 @@ TEST_CASE(ShaderLexer, Exponent) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Negative) {
+OLD_TEST_CASE(ShaderLexer, Negative) {
     shaderc::Lexer lexer("", "-1234 -1234.56 -1234e-5 -1234.56E-5");
     EXPECT(lexer.next().kind() == '-'_tk);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::IntLit);
@@ -103,7 +103,7 @@ TEST_CASE(ShaderLexer, Negative) {
     EXPECT(lexer.next().kind() == shaderc::TokenKind::Eof);
 }
 
-TEST_CASE(ShaderLexer, Keywords) {
+OLD_TEST_CASE(ShaderLexer, Keywords) {
     shaderc::Lexer lexer("", "fn let pipeline uniform var");
     EXPECT(lexer.next().kind() == shaderc::TokenKind::KW_fn);
     EXPECT(lexer.next().kind() == shaderc::TokenKind::KW_let);

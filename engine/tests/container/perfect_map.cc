@@ -11,7 +11,7 @@
 
 using namespace vull;
 
-TEST_CASE(PerfectMap, FromEntries) {
+OLD_TEST_CASE(PerfectMap, FromEntries) {
     Vector<MapEntry<String, size_t>> entries;
     entries.push({"Foo", 5});
     entries.push({"Bar", 7});

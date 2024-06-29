@@ -13,7 +13,7 @@
 
 using namespace vull;
 
-TEST_CASE(WorkStealingQueue, EnqueueDequeue) {
+OLD_TEST_CASE(WorkStealingQueue, EnqueueDequeue) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
     EXPECT(wsq->empty());
     for (unsigned i = 0; i < 512; i++) {
@@ -30,7 +30,7 @@ TEST_CASE(WorkStealingQueue, EnqueueDequeue) {
     EXPECT(!wsq->steal());
 }
 
-TEST_CASE(WorkStealingQueue, EnqueueSteal) {
+OLD_TEST_CASE(WorkStealingQueue, EnqueueSteal) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
     for (unsigned i = 0; i < 512; i++) {
         EXPECT(wsq->enqueue(unsigned(i)));
@@ -45,7 +45,7 @@ TEST_CASE(WorkStealingQueue, EnqueueSteal) {
     EXPECT(!wsq->steal());
 }
 
-TEST_CASE(WorkStealingQueue, OverCapacity) {
+OLD_TEST_CASE(WorkStealingQueue, OverCapacity) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned, 1>>();
     for (unsigned i = 0; i < 2; i++) {
         EXPECT(wsq->enqueue(0u));
@@ -53,7 +53,7 @@ TEST_CASE(WorkStealingQueue, OverCapacity) {
     EXPECT(!wsq->enqueue(0u));
 }
 
-TEST_CASE(WorkStealingQueue, Threaded) {
+OLD_TEST_CASE(WorkStealingQueue, Threaded) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
     Vector<pthread_t> consumer_threads(4);
     Vector<Vector<unsigned>> consumer_popped(consumer_threads.size());

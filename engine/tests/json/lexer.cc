@@ -7,37 +7,37 @@
 
 using namespace vull;
 
-TEST_CASE(JsonLexer, Empty) {
+OLD_TEST_CASE(JsonLexer, Empty) {
     json::Lexer lexer("");
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Whitespace) {
+OLD_TEST_CASE(JsonLexer, Whitespace) {
     json::Lexer lexer("        ");
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Null) {
+OLD_TEST_CASE(JsonLexer, Null) {
     json::Lexer lexer("null");
     EXPECT(lexer.next().kind() == json::TokenKind::Null);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, True) {
+OLD_TEST_CASE(JsonLexer, True) {
     json::Lexer lexer("true");
     EXPECT(lexer.next().kind() == json::TokenKind::True);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, False) {
+OLD_TEST_CASE(JsonLexer, False) {
     json::Lexer lexer("false");
     EXPECT(lexer.next().kind() == json::TokenKind::False);
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Punctuation) {
+OLD_TEST_CASE(JsonLexer, Punctuation) {
     json::Lexer lexer("{}[]:,");
     EXPECT(lexer.next().kind() == json::TokenKind::ObjectBegin);
     EXPECT(lexer.next().kind() == json::TokenKind::ObjectEnd);
@@ -48,7 +48,7 @@ TEST_CASE(JsonLexer, Punctuation) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Integer) {
+OLD_TEST_CASE(JsonLexer, Integer) {
     json::Lexer lexer("1234");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::Integer);
@@ -56,7 +56,7 @@ TEST_CASE(JsonLexer, Integer) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, NegativeInteger) {
+OLD_TEST_CASE(JsonLexer, NegativeInteger) {
     json::Lexer lexer("-1234");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::Integer);
@@ -64,7 +64,7 @@ TEST_CASE(JsonLexer, NegativeInteger) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Decimal) {
+OLD_TEST_CASE(JsonLexer, Decimal) {
     json::Lexer lexer("1234.56");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::Decimal);
@@ -72,7 +72,7 @@ TEST_CASE(JsonLexer, Decimal) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, NegativeDecimal) {
+OLD_TEST_CASE(JsonLexer, NegativeDecimal) {
     json::Lexer lexer("-1234.56");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::Decimal);
@@ -80,7 +80,7 @@ TEST_CASE(JsonLexer, NegativeDecimal) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, Exponent) {
+OLD_TEST_CASE(JsonLexer, Exponent) {
     json::Lexer lexer("1234e5 -1234.56E5");
     auto first = lexer.next();
     EXPECT(first.kind() == json::TokenKind::Decimal);
@@ -91,7 +91,7 @@ TEST_CASE(JsonLexer, Exponent) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, NegativeExponent) {
+OLD_TEST_CASE(JsonLexer, NegativeExponent) {
     json::Lexer lexer("1234e-5 -1234.56E-5");
     auto first = lexer.next();
     EXPECT(first.kind() == json::TokenKind::Decimal);
@@ -102,7 +102,7 @@ TEST_CASE(JsonLexer, NegativeExponent) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, EmptyString) {
+OLD_TEST_CASE(JsonLexer, EmptyString) {
     json::Lexer lexer("\"\"");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::String);
@@ -110,7 +110,7 @@ TEST_CASE(JsonLexer, EmptyString) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, String) {
+OLD_TEST_CASE(JsonLexer, String) {
     json::Lexer lexer("\"foo\"");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::String);
@@ -118,7 +118,7 @@ TEST_CASE(JsonLexer, String) {
     EXPECT(lexer.next().kind() == json::TokenKind::Eof);
 }
 
-TEST_CASE(JsonLexer, MalformedString) {
+OLD_TEST_CASE(JsonLexer, MalformedString) {
     json::Lexer lexer("\"foo");
     auto token = lexer.next();
     EXPECT(token.kind() == json::TokenKind::Invalid);
