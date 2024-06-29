@@ -1,119 +1,151 @@
 #include <vull/script/lexer.hh>
 
-#include <vull/maths/epsilon.hh>
 #include <vull/script/token.hh>
+#include <vull/support/enum.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
-#include <vull/support/test.hh>
+#include <vull/test/assertions.hh>
+#include <vull/test/matchers.hh>
+#include <vull/test/message.hh>
+#include <vull/test/test.hh>
 
 using namespace vull;
+using namespace vull::test::matchers;
+
+namespace {
+
+class OfTokenKind {
+    script::TokenKind m_expected;
+
+public:
+    constexpr explicit OfTokenKind(script::TokenKind expected) : m_expected(expected) {}
+
+    void describe(test::Message &message) const {
+        message.append_text("a token of kind ");
+        message.append_text(vull::enum_name<1>(m_expected));
+    }
+
+    // NOLINTNEXTLINE
+    void describe_mismatch(test::Message &message, const script::Token &actual) const {
+        message.append_text("was ");
+        message.append_text(vull::enum_name<1>(actual.kind()));
+    }
+
+    bool matches(const script::Token &actual) const { return m_expected == actual.kind(); }
+};
+
+constexpr auto of_token_kind(script::TokenKind token_kind) {
+    return OfTokenKind(token_kind);
+}
+
+} // namespace
 
 TEST_CASE(ScriptLexer, Empty) {
     script::Lexer lexer("", "");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Whitespace) {
     script::Lexer lexer("", "        \r\n\t");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, EmptyComment) {
     script::Lexer lexer("", ";");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Comment) {
     script::Lexer lexer("", "; Hello world");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, DoubleComment) {
     script::Lexer lexer("", ";; Hello world ; Test");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Punctuation) {
     script::Lexer lexer("", "() [] '");
-    EXPECT(lexer.next().kind() == script::TokenKind::ListBegin);
-    EXPECT(lexer.next().kind() == script::TokenKind::ListEnd);
-    EXPECT(lexer.next().kind() == script::TokenKind::ListBegin);
-    EXPECT(lexer.next().kind() == script::TokenKind::ListEnd);
-    EXPECT(lexer.next().kind() == script::TokenKind::Quote);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::ListBegin)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::ListEnd)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::ListBegin)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::ListEnd)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Quote)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Identifier) {
     script::Lexer lexer("", "abcd ABCD a123 A_12? !#$%&*+-./:<=>?@^_ 1abc");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "abcd");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "ABCD");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "a123");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "A_12?");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "!#$%&*+-./:<=>?@^_");
-    EXPECT(lexer.next().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("abcd"))));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("ABCD"))));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("a123"))));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("A_12?"))));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("!#$%&*+-./:<=>?@^_"))));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Quote) {
     script::Lexer lexer("", "'foo '5");
-    EXPECT(lexer.next().kind() == script::TokenKind::Quote);
-    EXPECT(lexer.peek().kind() == script::TokenKind::Identifier);
-    EXPECT(lexer.next().string() == "foo");
-    EXPECT(lexer.next().kind() == script::TokenKind::Quote);
-    EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().integer() == 5);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Quote)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Identifier)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("foo"))));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Quote)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next().integer(), is(equal_to(5)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Integer) {
     script::Lexer lexer("", "1234 -1234 1 -1");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().integer() == 1234);
-    EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().integer() == -1234);
-    EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().integer() == 1);
-    EXPECT(lexer.peek().kind() == script::TokenKind::Integer);
-    EXPECT(lexer.next().integer() == -1);
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next().integer(), is(equal_to(1234)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next().integer(), is(equal_to(-1234)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next().integer(), is(equal_to(1)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Integer)));
+    EXPECT_THAT(lexer.next().integer(), is(equal_to(-1)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Decimal) {
     script::Lexer lexer("", "1234.56 -1234.56");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234.56));
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), -1234.56));
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(1234.56)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(-1234.56)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, Exponent) {
     script::Lexer lexer("", "1234e5 1234.56E5 1234e-5 1234.56E-5");
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234e5));
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234.56e5));
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234e-5));
-    EXPECT(lexer.peek().kind() == script::TokenKind::Decimal);
-    EXPECT(vull::fuzzy_equal(lexer.next().decimal(), 1234.56e-5));
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(1234e5)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(1234.56e5)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(1234e-5)));
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::Decimal)));
+    EXPECT_THAT(lexer.next().decimal(), is(close_to(1234.56e-5)));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }
 
 TEST_CASE(ScriptLexer, String) {
     script::Lexer lexer("", "\"hello\"");
-    EXPECT(lexer.peek().kind() == script::TokenKind::String);
-    EXPECT(lexer.next().string() == "hello");
-    EXPECT(lexer.next().kind() == script::TokenKind::Eof);
+    ASSERT_THAT(lexer.peek(), is(of_token_kind(script::TokenKind::String)));
+    EXPECT_THAT(lexer.next().string(), is(equal_to(StringView("hello"))));
+    EXPECT_THAT(lexer.next(), is(of_token_kind(script::TokenKind::Eof)));
 }

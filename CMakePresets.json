@@ -24,7 +24,7 @@
         "CMAKE_ASM_COMPILER": "clang",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "VULL_COMPILER_FLAGS": "-fno-exceptions -fno-rtti -Weverything -Wno-c++20-compat -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-cast-function-type-strict -Wno-covered-switch-default -Wno-disabled-macro-expansion -Wno-double-promotion -Wno-gnu-statement-expression -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-padded -Wno-shadow-uncaptured-local -Wno-switch -Wno-switch-default -Wno-switch-enum -Wno-undefined-func-template -Wno-unsafe-buffer-usage -Wno-weak-vtables"
+        "VULL_COMPILER_FLAGS": "-fno-exceptions -fno-rtti -Weverything -Wno-c++20-compat -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-cast-function-type-strict -Wno-covered-switch-default -Wno-disabled-macro-expansion -Wno-double-promotion -Wno-gnu-statement-expression -Wno-missing-field-initializers -Wno-missing-variable-declarations -Wno-non-virtual-dtor -Wno-padded -Wno-shadow-uncaptured-local -Wno-switch -Wno-switch-default -Wno-switch-enum -Wno-undefined-func-template -Wno-unsafe-buffer-usage -Wno-used-but-marked-unused -Wno-weak-vtables"
       }
     },
     {

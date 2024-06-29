@@ -3,54 +3,68 @@
 #include <vull/container/vector.hh>
 #include <vull/support/algorithm.hh>
 #include <vull/support/atomic.hh>
-#include <vull/support/test.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/test/assertions.hh>
+#include <vull/test/matchers.hh>
+#include <vull/test/test.hh>
 
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
 
 using namespace vull;
+using namespace vull::test::matchers;
+
+TEST_CASE(WorkStealingQueue, Empty) {
+    auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
+    EXPECT_THAT(*wsq, is(empty()));
+    EXPECT_THAT(wsq->size(), is(equal_to(0)));
+    EXPECT_THAT(wsq->dequeue(), is(null()));
+    EXPECT_THAT(wsq->steal(), is(null()));
+}
+
+TEST_CASE(WorkStealingQueue, Enqueue) {
+    auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
+    for (unsigned i = 0; i < 512; i++) {
+        EXPECT_TRUE(wsq->enqueue(i));
+    }
+    EXPECT_THAT(*wsq, is(not_(empty())));
+    EXPECT_THAT(wsq->size(), is(equal_to(512)));
+}
 
 TEST_CASE(WorkStealingQueue, EnqueueDequeue) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
-    EXPECT(wsq->empty());
     for (unsigned i = 0; i < 512; i++) {
-        EXPECT(wsq->enqueue(unsigned(i)));
+        EXPECT_TRUE(wsq->enqueue(i));
     }
-    EXPECT(wsq->size() == 512);
     for (unsigned i = 0; i < 512; i++) {
-        auto elem = wsq->dequeue();
-        EXPECT(elem);
-        EXPECT(*elem == 512 - i - 1);
+        EXPECT_THAT(wsq->dequeue(), is(equal_to(512 - i - 1)));
     }
-    EXPECT(wsq->empty());
-    EXPECT(!wsq->dequeue());
-    EXPECT(!wsq->steal());
+    EXPECT_THAT(*wsq, is(empty()));
+    EXPECT_THAT(wsq->dequeue(), is(null()));
+    EXPECT_THAT(wsq->steal(), is(null()));
 }
 
 TEST_CASE(WorkStealingQueue, EnqueueSteal) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned>>();
     for (unsigned i = 0; i < 512; i++) {
-        EXPECT(wsq->enqueue(unsigned(i)));
+        EXPECT_TRUE(wsq->enqueue(i));
     }
     for (unsigned i = 0; i < 512; i++) {
-        auto elem = wsq->steal();
-        EXPECT(elem);
-        EXPECT(*elem == i);
+        EXPECT_THAT(wsq->steal(), is(equal_to(i)));
     }
-    EXPECT(wsq->empty());
-    EXPECT(!wsq->dequeue());
-    EXPECT(!wsq->steal());
+    EXPECT_THAT(*wsq, is(empty()));
+    EXPECT_THAT(wsq->dequeue(), is(null()));
+    EXPECT_THAT(wsq->steal(), is(null()));
 }
 
 TEST_CASE(WorkStealingQueue, OverCapacity) {
     auto wsq = vull::make_unique<WorkStealingQueue<unsigned, 1>>();
     for (unsigned i = 0; i < 2; i++) {
-        EXPECT(wsq->enqueue(0u));
+        EXPECT_TRUE(wsq->enqueue(0u));
     }
-    EXPECT(!wsq->enqueue(0u));
+    EXPECT_FALSE(wsq->enqueue(0u));
 }
 
 TEST_CASE(WorkStealingQueue, Threaded) {
@@ -74,22 +88,23 @@ TEST_CASE(WorkStealingQueue, Threaded) {
     }
 
     for (uint32_t i = 0; i < consumer_threads.size(); i++) {
-        EXPECT(pthread_create(
-                   &consumer_threads[i], nullptr,
-                   +[](void *ptr) {
-                       auto *data = static_cast<ConsumerData *>(ptr);
-                       auto seed = static_cast<unsigned>(time(nullptr));
-                       while (data->popped_count.load() != 1024) {
-                           if (rand_r(&seed) % 3 == 0) {
-                               if (auto elem = data->wsq.steal()) {
-                                   data->consumer_popped.push(*elem);
-                                   data->popped_count.fetch_add(1);
-                               }
-                           }
-                       }
-                       return static_cast<void *>(nullptr);
-                   },
-                   &consumer_data[i]) == 0);
+        ASSERT_THAT(pthread_create(
+                        &consumer_threads[i], nullptr,
+                        +[](void *ptr) {
+                            auto *data = static_cast<ConsumerData *>(ptr);
+                            auto seed = static_cast<unsigned>(time(nullptr));
+                            while (data->popped_count.load() != 1024) {
+                                if (rand_r(&seed) % 3 == 0) {
+                                    if (auto elem = data->wsq.steal()) {
+                                        data->consumer_popped.push(*elem);
+                                        data->popped_count.fetch_add(1);
+                                    }
+                                }
+                            }
+                            return static_cast<void *>(nullptr);
+                        },
+                        &consumer_data[i]),
+                    is(equal_to(0)));
     }
 
     // Main thread will act as the single producer.
@@ -97,7 +112,7 @@ TEST_CASE(WorkStealingQueue, Threaded) {
     auto seed = static_cast<unsigned>(time(nullptr));
     for (unsigned i = 0; i < 1024;) {
         if (int num = rand_r(&seed) % 3; num == 0) {
-            EXPECT(wsq->enqueue(unsigned(i++)));
+            EXPECT_TRUE(wsq->enqueue(i++));
         } else if (num == 1) {
             if (auto elem = wsq->dequeue()) {
                 producer_popped.push(*elem);
@@ -109,7 +124,7 @@ TEST_CASE(WorkStealingQueue, Threaded) {
     for (pthread_t consumer_thread : consumer_threads) {
         pthread_join(consumer_thread, nullptr);
     }
-    EXPECT(wsq->empty());
+    EXPECT_THAT(*wsq, is(empty()));
 
     Vector<unsigned> all_popped;
     for (const auto &popped : consumer_popped) {
@@ -120,12 +135,12 @@ TEST_CASE(WorkStealingQueue, Threaded) {
     for (unsigned elem : producer_popped) {
         all_popped.push(elem);
     }
-    EXPECT(all_popped.size() == 1024);
+    EXPECT_THAT(all_popped.size(), is(equal_to(1024)));
 
     vull::sort(all_popped, [](unsigned a, unsigned b) {
         return a > b;
     });
     for (unsigned i = 0; i < all_popped.size(); i++) {
-        EXPECT(all_popped[i] == i);
+        EXPECT_THAT(all_popped[i], is(equal_to(i)));
     }
 }

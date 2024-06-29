@@ -2,10 +2,13 @@
 
 #include <vull/container/array.hh>
 #include <vull/support/span.hh>
-#include <vull/support/test.hh>
 #include <vull/support/utility.hh>
+#include <vull/test/assertions.hh>
+#include <vull/test/matchers.hh>
+#include <vull/test/test.hh>
 
 using namespace vull;
+using namespace vull::test::matchers;
 
 namespace {
 
@@ -32,49 +35,49 @@ public:
 
 TEST_CASE(VectorTrivial, Empty) {
     Vector<int> vector;
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 0);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(0)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
 }
 
 TEST_CASE(VectorTrivial, EnsureCapacity) {
     Vector<int> vector;
     vector.ensure_capacity(16);
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 16);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(16)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
 }
 
 TEST_CASE(VectorTrivial, EnsureSize) {
     Vector<int> vector;
     vector.ensure_size(16);
-    EXPECT(!vector.empty());
-    EXPECT(vector.capacity() == 16);
-    EXPECT(vector.size() == 16);
-    EXPECT(vector.size_bytes() == 16 * sizeof(int));
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_THAT(vector.capacity(), is(equal_to(16)));
+    EXPECT_THAT(vector.size(), is(equal_to(16)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(16 * sizeof(int))));
 
     unsigned count = 0;
     for (int i : vector) {
-        EXPECT(i == 0);
+        EXPECT_THAT(i, is(equal_to(0)));
         count++;
     }
-    EXPECT(count == vector.size());
+    EXPECT_THAT(count, is(equal_to(vector.size())));
 }
 
 TEST_CASE(VectorTrivial, PushEmplace) {
     Vector<int> vector;
     vector.push(5);
     vector.emplace(10);
-    EXPECT(!vector.empty());
-    EXPECT(vector.capacity() >= 2);
-    EXPECT(vector.size() == 2);
-    EXPECT(vector.size_bytes() == 2 * sizeof(int));
-    EXPECT(vector[0] == 5);
-    EXPECT(vector[1] == 10);
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_TRUE(vector.capacity() >= 2); // TODO
+    ASSERT_THAT(vector.size(), is(equal_to(2)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(int))));
+    EXPECT_THAT(vector[0], is(equal_to(5)));
+    EXPECT_THAT(vector[1], is(equal_to(10)));
 }
 
 TEST_CASE(VectorTrivial, Extend) {
@@ -85,70 +88,70 @@ TEST_CASE(VectorTrivial, Extend) {
 
     Vector<int> extended;
     extended.extend(vector);
-    EXPECT(!extended.empty());
-    EXPECT(extended.capacity() >= 3);
-    EXPECT(extended.size() == 3);
-    EXPECT(extended[0] == 5);
-    EXPECT(extended[1] == 10);
-    EXPECT(extended[2] == 15);
+    EXPECT_THAT(extended, is(not_(empty())));
+    EXPECT_TRUE(extended.capacity() >= 3); // TODO
+    ASSERT_THAT(extended.size(), is(equal_to(3)));
+    EXPECT_THAT(extended[0], is(equal_to(5)));
+    EXPECT_THAT(extended[1], is(equal_to(10)));
+    EXPECT_THAT(extended[2], is(equal_to(15)));
 
     extended.extend(vector);
-    EXPECT(!extended.empty());
-    EXPECT(extended.capacity() >= 6);
-    EXPECT(extended.size() == 6);
-    EXPECT(extended[0] == 5);
-    EXPECT(extended[1] == 10);
-    EXPECT(extended[2] == 15);
-    EXPECT(extended[3] == 5);
-    EXPECT(extended[4] == 10);
-    EXPECT(extended[5] == 15);
+    EXPECT_THAT(extended, is(not_(empty())));
+    EXPECT_TRUE(extended.capacity() >= 6); // TODO
+    ASSERT_THAT(extended.size(), is(equal_to(6)));
+    EXPECT_THAT(extended[0], is(equal_to(5)));
+    EXPECT_THAT(extended[1], is(equal_to(10)));
+    EXPECT_THAT(extended[2], is(equal_to(15)));
+    EXPECT_THAT(extended[3], is(equal_to(5)));
+    EXPECT_THAT(extended[4], is(equal_to(10)));
+    EXPECT_THAT(extended[5], is(equal_to(15)));
 }
 
 TEST_CASE(VectorTrivial, Pop) {
     Vector<int> vector;
     vector.extend(Array{5, 10, 15});
     vector.pop();
-    EXPECT(!vector.empty());
-    EXPECT(vector.size() == 2);
-    EXPECT(vector.size_bytes() == 2 * sizeof(int));
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_THAT(vector.size(), is(equal_to(2)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(int))));
     vector.pop();
     vector.pop();
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
 }
 
 TEST_CASE(VectorTrivial, TakeLast) {
     Vector<int> vector;
     vector.extend(Array{5, 10, 15});
-    EXPECT(vector.take_last() == 15);
-    EXPECT(!vector.empty());
-    EXPECT(vector.size() == 2);
-    EXPECT(vector.size_bytes() == 2 * sizeof(int));
-    EXPECT(vector.take_last() == 10);
-    EXPECT(vector.take_last() == 5);
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
+    EXPECT_THAT(vector.take_last(), is(equal_to(15)));
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_THAT(vector.size(), is(equal_to(2)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(int))));
+    EXPECT_THAT(vector.take_last(), is(equal_to(10)));
+    EXPECT_THAT(vector.take_last(), is(equal_to(5)));
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
 }
 
 TEST_CASE(VectorTrivial, Clear) {
     Vector<int> vector;
     vector.extend(Array{5, 10, 15});
     vector.clear();
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 0);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(0)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
 
     // Reuse vector.
     vector.push(20);
-    EXPECT(!vector.empty());
-    EXPECT(vector.capacity() >= 1);
-    EXPECT(vector.size() == 1);
-    EXPECT(vector.size_bytes() == sizeof(int));
-    EXPECT(vector[0] == 20);
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_TRUE(vector.capacity() >= 1); // TODO
+    ASSERT_THAT(vector.size(), is(equal_to(1)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(sizeof(int))));
+    EXPECT_THAT(vector[0], is(equal_to(20)));
 }
 
 TEST_CASE(VectorTrivial, TakeAll) {
@@ -156,27 +159,27 @@ TEST_CASE(VectorTrivial, TakeAll) {
     vector.extend(Array{5, 10, 15});
 
     auto span = vector.take_all();
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 0);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(!span.empty());
-    EXPECT(span.size() == 3);
-    EXPECT(span[0] == 5);
-    EXPECT(span[1] == 10);
-    EXPECT(span[2] == 15);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(0)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(span, is(not_(empty())));
+    ASSERT_THAT(span.size(), is(equal_to(3)));
+    EXPECT_THAT(span[0], is(equal_to(5)));
+    EXPECT_THAT(span[1], is(equal_to(10)));
+    EXPECT_THAT(span[2], is(equal_to(15)));
     delete[] span.data();
 }
 
 TEST_CASE(VectorTrivial, FirstLast) {
     Vector<int> vector;
     vector.extend(Array{5, 10, 15});
-    EXPECT(vector.first() == 5);
-    EXPECT(vector.last() == 15);
+    EXPECT_THAT(vector.first(), is(equal_to(5)));
+    EXPECT_THAT(vector.last(), is(equal_to(15)));
     vector.pop();
-    EXPECT(vector.first() == 5);
-    EXPECT(vector.last() == 10);
+    EXPECT_THAT(vector.first(), is(equal_to(5)));
+    EXPECT_THAT(vector.last(), is(equal_to(10)));
 }
 
 TEST_CASE(VectorTrivial, MoveConstruct) {
@@ -184,14 +187,15 @@ TEST_CASE(VectorTrivial, MoveConstruct) {
     vector.extend(Array{5, 10, 15});
 
     Vector<int> moved(vull::move(vector));
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(!moved.empty());
-    EXPECT(moved.size() == 3);
-    EXPECT(moved[0] == 5);
-    EXPECT(moved[1] == 10);
-    EXPECT(moved[2] == 15);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(moved, is(not_(empty())));
+    ASSERT_THAT(moved.size(), is(equal_to(3)));
+    EXPECT_THAT(moved[0], is(equal_to(5)));
+    EXPECT_THAT(moved[1], is(equal_to(10)));
+    EXPECT_THAT(moved[2], is(equal_to(15)));
 }
 
 TEST_CASE(VectorTrivial, MoveAssign) {
@@ -200,44 +204,45 @@ TEST_CASE(VectorTrivial, MoveAssign) {
 
     Vector<int> moved;
     moved = vull::move(vector);
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(!moved.empty());
-    EXPECT(moved.size() == 3);
-    EXPECT(moved[0] == 5);
-    EXPECT(moved[1] == 10);
-    EXPECT(moved[2] == 15);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(moved, is(not_(empty())));
+    ASSERT_THAT(moved.size(), is(equal_to(3)));
+    EXPECT_THAT(moved[0], is(equal_to(5)));
+    EXPECT_THAT(moved[1], is(equal_to(10)));
+    EXPECT_THAT(moved[2], is(equal_to(15)));
 }
 
 TEST_CASE(VectorTrivial, MoveAssignSelf) {
     Vector<int> vector;
     vector.extend(Array{5, 10, 15});
     vector = vull::move(vector);
-    EXPECT(!vector.empty());
-    EXPECT(vector.size() == 3);
-    EXPECT(vector[0] == 5);
-    EXPECT(vector[1] == 10);
-    EXPECT(vector[2] == 15);
+    EXPECT_THAT(vector, is(not_(empty())));
+    ASSERT_THAT(vector.size(), is(equal_to(3)));
+    EXPECT_THAT(vector[0], is(equal_to(5)));
+    EXPECT_THAT(vector[1], is(equal_to(10)));
+    EXPECT_THAT(vector[2], is(equal_to(15)));
 }
 
 TEST_CASE(VectorObject, Empty) {
     Vector<Foo> vector;
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 0);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(0)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
 }
 
 TEST_CASE(VectorObject, EnsureCapacity) {
     Vector<Foo> vector;
     vector.ensure_capacity(16);
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 16);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(16)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
 }
 
 TEST_CASE(VectorObject, EnsureSize) {
@@ -245,27 +250,27 @@ TEST_CASE(VectorObject, EnsureSize) {
     {
         Vector<Foo> vector;
         vector.ensure_size(16, destruct_count);
-        EXPECT(!vector.empty());
-        EXPECT(vector.capacity() == 16);
-        EXPECT(vector.size() == 16);
-        EXPECT(vector.size_bytes() == 16 * sizeof(Foo));
-        EXPECT(destruct_count == 0);
+        EXPECT_THAT(vector, is(not_(empty())));
+        EXPECT_THAT(vector.capacity(), is(equal_to(16)));
+        EXPECT_THAT(vector.size(), is(equal_to(16)));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(16 * sizeof(Foo))));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
 
         unsigned count = 0;
         for ([[maybe_unused]] const auto &foo : vector) {
             count++;
         }
-        EXPECT(count == vector.size());
-        EXPECT(destruct_count == 0);
+        EXPECT_THAT(count, is(equal_to(vector.size())));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
 
         count = 0;
         for (auto foo : vector) {
             count++;
         }
-        EXPECT(count == vector.size());
-        EXPECT(destruct_count == 16);
+        EXPECT_THAT(count, is(equal_to(vector.size())));
+        EXPECT_THAT(destruct_count, is(equal_to(16)));
     }
-    EXPECT(destruct_count == 32);
+    EXPECT_THAT(destruct_count, is(equal_to(32)));
 }
 
 TEST_CASE(VectorObject, Emplace) {
@@ -274,13 +279,13 @@ TEST_CASE(VectorObject, Emplace) {
         Vector<Foo> vector;
         vector.emplace(destruct_count);
         vector.emplace(destruct_count);
-        EXPECT(!vector.empty());
-        EXPECT(vector.capacity() >= 2);
-        EXPECT(vector.size() == 2);
-        EXPECT(vector.size_bytes() == 2 * sizeof(Foo));
-        EXPECT(destruct_count == 0);
+        EXPECT_THAT(vector, is(not_(empty())));
+        EXPECT_TRUE(vector.capacity() >= 2); // TODO
+        EXPECT_THAT(vector.size(), is(equal_to(2)));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(Foo))));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
     }
-    EXPECT(destruct_count == 2);
+    EXPECT_THAT(destruct_count, is(equal_to(2)));
 }
 
 TEST_CASE(VectorObject, Push) {
@@ -290,13 +295,13 @@ TEST_CASE(VectorObject, Push) {
         Vector<Foo> vector;
         vector.push(foo);
         vector.push(vull::move(foo));
-        EXPECT(!vector.empty());
-        EXPECT(vector.capacity() >= 2);
-        EXPECT(vector.size() == 2);
-        EXPECT(vector.size_bytes() == 2 * sizeof(Foo));
-        EXPECT(destruct_count == 0);
+        EXPECT_THAT(vector, is(not_(empty())));
+        EXPECT_TRUE(vector.capacity() >= 2); // TODO
+        EXPECT_THAT(vector.size(), is(equal_to(2)));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(Foo))));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
     }
-    EXPECT(destruct_count == 2);
+    EXPECT_THAT(destruct_count, is(equal_to(2)));
 }
 
 TEST_CASE(VectorObject, Extend) {
@@ -307,16 +312,16 @@ TEST_CASE(VectorObject, Extend) {
 
         Vector<Foo> extended;
         extended.extend(vector);
-        EXPECT(!extended.empty());
-        EXPECT(extended.capacity() >= 3);
-        EXPECT(extended.size() == 3);
+        EXPECT_THAT(extended, is(not_(empty())));
+        EXPECT_TRUE(extended.capacity() >= 3); // TODO
+        EXPECT_THAT(extended.size(), is(equal_to(3)));
 
         extended.extend(vector);
-        EXPECT(!extended.empty());
-        EXPECT(extended.capacity() >= 6);
-        EXPECT(extended.size() == 6);
+        EXPECT_THAT(extended, is(not_(empty())));
+        EXPECT_TRUE(extended.capacity() >= 6); // TODO
+        EXPECT_THAT(extended.size(), is(equal_to(6)));
     }
-    EXPECT(destruct_count == 9);
+    EXPECT_THAT(destruct_count, is(equal_to(9)));
 }
 
 TEST_CASE(VectorObject, PopTakeLast) {
@@ -326,19 +331,19 @@ TEST_CASE(VectorObject, PopTakeLast) {
         vector.ensure_size(3, destruct_count);
         vector.emplace(destruct_count);
         vector.pop();
-        EXPECT(!vector.empty());
-        EXPECT(vector.size() == 3);
-        EXPECT(vector.size_bytes() == 3 * sizeof(Foo));
-        EXPECT(destruct_count == 1);
+        EXPECT_THAT(vector, is(not_(empty())));
+        EXPECT_THAT(vector.size(), is(equal_to(3)));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(3 * sizeof(Foo))));
+        EXPECT_THAT(destruct_count, is(equal_to(1)));
         vector.take_last();
         vector.pop();
         vector.pop();
-        EXPECT(vector.empty());
-        EXPECT(vector.size() == 0);
-        EXPECT(vector.size_bytes() == 0);
-        EXPECT(destruct_count == 4);
+        EXPECT_THAT(vector, is(empty()));
+        EXPECT_THAT(vector.size(), is(equal_to(0)));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+        EXPECT_THAT(destruct_count, is(equal_to(4)));
     }
-    EXPECT(destruct_count == 4);
+    EXPECT_THAT(destruct_count, is(equal_to(4)));
 }
 
 TEST_CASE(VectorObject, Clear) {
@@ -346,21 +351,21 @@ TEST_CASE(VectorObject, Clear) {
     Vector<Foo> vector;
     vector.ensure_size(16, destruct_count);
     vector.clear();
-    EXPECT(vector.empty());
-    EXPECT(vector.capacity() == 0);
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.size_bytes() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.capacity(), is(equal_to(0)));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
 
     // Reuse vector.
     vector.emplace(destruct_count);
-    EXPECT(!vector.empty());
-    EXPECT(vector.capacity() >= 1);
-    EXPECT(vector.size() == 1);
-    EXPECT(vector.size_bytes() == sizeof(Foo));
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_TRUE(vector.capacity() >= 1); // TODO
+    EXPECT_THAT(vector.size(), is(equal_to(1)));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(sizeof(Foo))));
     vector.clear();
-    EXPECT(destruct_count == 17);
+    EXPECT_THAT(destruct_count, is(equal_to(17)));
 }
 
 TEST_CASE(VectorObject, MoveConstruct) {
@@ -369,17 +374,17 @@ TEST_CASE(VectorObject, MoveConstruct) {
     vector.ensure_size(16, destruct_count);
 
     Vector<Foo> moved(vull::move(vector));
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(!moved.empty());
-    EXPECT(moved.size() == 16);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(moved, is(not_(empty())));
+    EXPECT_THAT(moved.size(), is(equal_to(16)));
 
-    EXPECT(destruct_count == 0);
+    EXPECT_THAT(destruct_count, is(equal_to(0)));
     moved.clear();
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
     vector.clear();
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
 }
 
 TEST_CASE(VectorObject, MoveAssign) {
@@ -389,17 +394,17 @@ TEST_CASE(VectorObject, MoveAssign) {
 
     Vector<Foo> moved;
     moved = vull::move(vector);
-    EXPECT(vector.empty());
-    EXPECT(vector.size() == 0);
-    EXPECT(vector.begin() == vector.end());
-    EXPECT(!moved.empty());
-    EXPECT(moved.size() == 16);
+    EXPECT_THAT(vector, is(empty()));
+    EXPECT_THAT(vector.size(), is(equal_to(0)));
+    EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
+    EXPECT_THAT(moved, is(not_(empty())));
+    EXPECT_THAT(moved.size(), is(equal_to(16)));
 
-    EXPECT(destruct_count == 0);
+    EXPECT_THAT(destruct_count, is(equal_to(0)));
     moved.clear();
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
     vector.clear();
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
 }
 
 TEST_CASE(VectorObject, MoveAssignSelf) {
@@ -407,11 +412,11 @@ TEST_CASE(VectorObject, MoveAssignSelf) {
     Vector<Foo> vector;
     vector.ensure_size(16, destruct_count);
     vector = vull::move(vector);
-    EXPECT(!vector.empty());
-    EXPECT(vector.size() == 16);
-    EXPECT(destruct_count == 0);
+    EXPECT_THAT(vector, is(not_(empty())));
+    EXPECT_THAT(vector.size(), is(equal_to(16)));
+    EXPECT_THAT(destruct_count, is(equal_to(0)));
     vector.clear();
-    EXPECT(destruct_count == 16);
+    EXPECT_THAT(destruct_count, is(equal_to(16)));
 }
 
 // NOLINTEND(readability-container-size-empty)

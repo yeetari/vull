@@ -4,11 +4,14 @@
 #include <vull/ecs/component.hh>
 #include <vull/ecs/entity_id.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/test.hh>
 #include <vull/support/tuple.hh>
 #include <vull/support/utility.hh>
+#include <vull/test/assertions.hh>
+#include <vull/test/matchers.hh>
+#include <vull/test/test.hh>
 
 using namespace vull;
+using namespace vull::test::matchers;
 
 namespace vull {
 
@@ -67,13 +70,13 @@ TEST_CASE(Entity, CreateDestroy) {
     for (int i = 0; i < 20; i++) {
         auto entity = manager.create_entity();
         // IDs should be sequential.
-        EXPECT(entity == EntityId(i));
+        EXPECT_THAT(entity, is(equal_to(EntityId(i))));
         entities.push(entity);
     }
     for (auto entity : entities) {
-        EXPECT(manager.valid(entity));
+        EXPECT_TRUE(manager.valid(entity));
         entity.destroy();
-        EXPECT(!manager.valid(entity));
+        EXPECT_FALSE(manager.valid(entity));
     }
 }
 
@@ -86,33 +89,33 @@ TEST_CASE(Entity, AddRemoveComponent) {
     int bar_destruct_count = 0;
 
     auto entity = manager.create_entity();
-    EXPECT(!entity.has<Foo>());
-    EXPECT(!entity.has<Bar>());
+    EXPECT_FALSE(entity.has<Foo>());
+    EXPECT_FALSE(entity.has<Bar>());
 
     entity.add<Foo>(foo_destruct_count);
-    EXPECT(entity.has<Foo>());
-    EXPECT(!entity.has<Bar>());
+    EXPECT_TRUE(entity.has<Foo>());
+    EXPECT_FALSE(entity.has<Bar>());
 
     entity.add<Bar>(bar_destruct_count);
-    EXPECT(entity.has<Foo>());
-    EXPECT(entity.has<Bar>());
-    EXPECT(entity.has<Foo, Bar>());
+    EXPECT_TRUE(entity.has<Foo>());
+    EXPECT_TRUE(entity.has<Bar>());
+    EXPECT_TRUE((entity.has<Foo, Bar>()));
 
     entity.remove<Bar>();
-    EXPECT(entity.has<Foo>());
-    EXPECT(!entity.has<Bar>());
+    EXPECT_TRUE(entity.has<Foo>());
+    EXPECT_FALSE(entity.has<Bar>());
 
     entity.remove<Foo>();
     entity.add<Bar>(bar_destruct_count);
-    EXPECT(!entity.has<Foo>());
-    EXPECT(entity.has<Bar>());
+    EXPECT_FALSE(entity.has<Foo>());
+    EXPECT_TRUE(entity.has<Bar>());
 
     entity.destroy();
-    EXPECT(!entity.has<Foo>());
-    EXPECT(!entity.has<Bar>());
-    EXPECT(!entity.has<Foo, Bar>());
-    EXPECT(foo_destruct_count == 1);
-    EXPECT(bar_destruct_count == 2);
+    EXPECT_FALSE(entity.has<Foo>());
+    EXPECT_FALSE(entity.has<Bar>());
+    EXPECT_FALSE((entity.has<Foo, Bar>()));
+    EXPECT_THAT(foo_destruct_count, is(equal_to(1)));
+    EXPECT_THAT(bar_destruct_count, is(equal_to(2)));
 }
 
 TEST_CASE(Entity, View) {
@@ -137,9 +140,9 @@ TEST_CASE(Entity, View) {
     auto foo_view = sum_view<Foo>(manager);
     auto bar_view = sum_view<Bar>(manager);
     auto foo_bar_view = sum_view<Foo, Bar>(manager);
-    EXPECT(foo_view.size() == 250);
-    EXPECT(bar_view.size() == 167);
-    EXPECT(foo_bar_view.size() == 84);
+    EXPECT_THAT(foo_view.size(), is(equal_to(250)));
+    EXPECT_THAT(bar_view.size(), is(equal_to(167)));
+    EXPECT_THAT(foo_bar_view.size(), is(equal_to(84)));
 
     auto contains = [](const auto &view, EntityId entity) {
         for (auto tuple : view) {
@@ -151,23 +154,23 @@ TEST_CASE(Entity, View) {
     };
 
     for (EntityId entity : foo_entities) {
-        EXPECT(contains(foo_view, entity));
+        EXPECT_TRUE(contains(foo_view, entity));
         if (entity % 3 == 0) {
-            EXPECT(contains(bar_view, entity));
-            EXPECT(contains(foo_bar_view, entity));
+            EXPECT_TRUE(contains(bar_view, entity));
+            EXPECT_TRUE(contains(foo_bar_view, entity));
         } else {
-            EXPECT(!contains(bar_view, entity));
-            EXPECT(!contains(foo_bar_view, entity));
+            EXPECT_FALSE(contains(bar_view, entity));
+            EXPECT_FALSE(contains(foo_bar_view, entity));
         }
     }
     for (EntityId entity : bar_entities) {
-        EXPECT(contains(bar_view, entity));
+        EXPECT_TRUE(contains(bar_view, entity));
         if (entity % 2 == 0) {
-            EXPECT(contains(foo_view, entity));
-            EXPECT(contains(foo_bar_view, entity));
+            EXPECT_TRUE(contains(foo_view, entity));
+            EXPECT_TRUE(contains(foo_bar_view, entity));
         } else {
-            EXPECT(!contains(foo_view, entity));
-            EXPECT(!contains(foo_bar_view, entity));
+            EXPECT_FALSE(contains(foo_view, entity));
+            EXPECT_FALSE(contains(foo_bar_view, entity));
         }
     }
 }
@@ -181,5 +184,5 @@ TEST_CASE(Entity, ViewNoFirstMatch) {
     entity.add<Foo>();
 
     auto view = manager.view<Foo, Bar>();
-    EXPECT(view.begin() == view.end());
+    EXPECT_THAT(view.begin(), is(equal_to(view.end())));
 }
