@@ -8,8 +8,6 @@
 
 namespace vull {
 
-class Latch;
-
 enum class TaskletState {
     Uninitialised,
     Running,
@@ -25,7 +23,6 @@ class Tasklet {
     void *m_fake_stack{nullptr};
 #endif
     void *m_pool{nullptr};
-    Latch *m_latch{nullptr};
     Atomic<Tasklet *> m_linked_tasklet{nullptr};
     Atomic<TaskletState> m_state{TaskletState::Uninitialised};
 
