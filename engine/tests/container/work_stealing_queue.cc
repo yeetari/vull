@@ -79,11 +79,11 @@ TEST_CASE(WorkStealingQueue, Threaded) {
                    +[](void *ptr) {
                        auto *data = static_cast<ConsumerData *>(ptr);
                        auto seed = static_cast<unsigned>(time(nullptr));
-                       while (data->popped_count.load(MemoryOrder::Relaxed) != 1024) {
+                       while (data->popped_count.load() != 1024) {
                            if (rand_r(&seed) % 3 == 0) {
                                if (auto elem = data->wsq.steal()) {
                                    data->consumer_popped.push(*elem);
-                                   data->popped_count.fetch_add(1, MemoryOrder::Relaxed);
+                                   data->popped_count.fetch_add(1);
                                }
                            }
                        }
@@ -101,7 +101,7 @@ TEST_CASE(WorkStealingQueue, Threaded) {
         } else if (num == 1) {
             if (auto elem = wsq->dequeue()) {
                 producer_popped.push(*elem);
-                popped_count.fetch_add(1, MemoryOrder::Relaxed);
+                popped_count.fetch_add(1);
             }
         }
     }

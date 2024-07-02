@@ -60,8 +60,8 @@ LogQueue::~LogQueue() {
 }
 
 void LogQueue::enqueue(StringView string) {
-    int64_t head = m_head.load(MemoryOrder::Relaxed);
-    int64_t tail = m_tail.load(MemoryOrder::Acquire);
+    int64_t head = m_head.load(vull::memory_order_relaxed);
+    int64_t tail = m_tail.load(vull::memory_order_acquire);
 
     if (head - tail >= m_slots.size()) [[unlikely]] {
         m_lost_message_count.fetch_add(1);
@@ -75,12 +75,12 @@ void LogQueue::enqueue(StringView string) {
 
     // Store element in slot and bump the head index.
     m_slots[static_cast<uint32_t>(head % m_slots.size())].store(message);
-    m_head.store(head + 1, MemoryOrder::Release);
+    m_head.store(head + 1, vull::memory_order_release);
 }
 
 LogMessage *LogQueue::dequeue() {
-    int64_t tail = m_tail.load(MemoryOrder::Relaxed);
-    int64_t head = m_head.load(MemoryOrder::Acquire);
+    int64_t tail = m_tail.load(vull::memory_order_relaxed);
+    int64_t head = m_head.load(vull::memory_order_acquire);
 
     // Nothing available.
     if (tail >= head) {
@@ -88,7 +88,7 @@ LogMessage *LogQueue::dequeue() {
     }
 
     auto *message = m_slots[static_cast<uint32_t>(tail % m_slots.size())].exchange(nullptr);
-    m_tail.store(tail + 1, MemoryOrder::Release);
+    m_tail.store(tail + 1, vull::memory_order_release);
     return message;
 }
 

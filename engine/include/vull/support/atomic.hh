@@ -6,29 +6,26 @@
 
 namespace vull {
 
-enum class MemoryOrder {
-    Relaxed = __ATOMIC_RELAXED,
-    Consume = __ATOMIC_CONSUME,
-    Acquire = __ATOMIC_ACQUIRE,
-    Release = __ATOMIC_RELEASE,
-    AcqRel = __ATOMIC_ACQ_REL,
-    SeqCst = __ATOMIC_SEQ_CST,
-};
+inline constexpr int memory_order_relaxed = __ATOMIC_RELAXED;
+inline constexpr int memory_order_acquire = __ATOMIC_ACQUIRE;
+inline constexpr int memory_order_release = __ATOMIC_RELEASE;
+inline constexpr int memory_order_acq_rel = __ATOMIC_ACQ_REL;
+inline constexpr int memory_order_seq_cst = __ATOMIC_SEQ_CST;
 
-inline void atomic_thread_fence(MemoryOrder order) {
-    __atomic_thread_fence(static_cast<int>(order));
+inline void atomic_thread_fence(int order) {
+    __atomic_thread_fence(order);
 }
 
 template <typename T>
-T atomic_load(T &ptr, MemoryOrder order = MemoryOrder::Relaxed) {
+T atomic_load(T &ptr, int order = memory_order_relaxed) {
     AlignedStorage<T> storage;
-    __atomic_load(&ptr, &storage.get(), static_cast<int>(order));
+    __atomic_load(&ptr, &storage.get(), order);
     return move(storage.get());
 }
 
 template <typename T>
-void atomic_store(T &ptr, T &&val, MemoryOrder order = MemoryOrder::Relaxed) {
-    __atomic_store(&ptr, &val, static_cast<int>(order));
+void atomic_store(T &ptr, T &&val, int order = memory_order_relaxed) {
+    __atomic_store(&ptr, &val, order);
 }
 
 template <typename T>
@@ -46,7 +43,7 @@ using atomic_storage_t = typename AtomicStorageType<T>::type;
 template <typename T>
 concept SimpleAtomic = requires(atomic_storage_t<T> t) { __atomic_load_n(&t, __ATOMIC_RELAXED); };
 
-template <SimpleAtomic T, MemoryOrder Order = MemoryOrder::Relaxed>
+template <SimpleAtomic T>
 class Atomic {
     using storage_t = atomic_storage_t<T>;
     storage_t m_value{};
@@ -61,80 +58,75 @@ public:
     Atomic &operator=(const Atomic &) = delete;
     Atomic &operator=(Atomic &&) = delete;
 
-    T cmpxchg(T expected, T desired, MemoryOrder success_order = Order, MemoryOrder failure_order = Order) volatile;
-    T cmpxchg_weak(T expected, T desired, MemoryOrder success_order = Order,
-                   MemoryOrder failure_order = Order) volatile;
-    bool compare_exchange(T &expected, T desired, MemoryOrder success_order = Order,
-                          MemoryOrder failure_order = Order) volatile;
-    bool compare_exchange_weak(T &expected, T desired, MemoryOrder success_order = Order,
-                               MemoryOrder failure_order = Order) volatile;
-    T exchange(T desired, MemoryOrder order = Order) volatile;
-    T fetch_add(T value, MemoryOrder order = Order) volatile;
-    T fetch_sub(T value, MemoryOrder order = Order) volatile;
-    T load(MemoryOrder order = Order) const volatile;
-    void store(T value, MemoryOrder order = Order) volatile;
+    T cmpxchg(T expected, T desired, int success_order = memory_order_relaxed,
+              int failure_order = memory_order_relaxed) volatile;
+    T cmpxchg_weak(T expected, T desired, int success_order = memory_order_relaxed,
+                   int failure_order = memory_order_relaxed) volatile;
+    bool compare_exchange(T &expected, T desired, int success_order = memory_order_relaxed,
+                          int failure_order = memory_order_relaxed) volatile;
+    bool compare_exchange_weak(T &expected, T desired, int success_order = memory_order_relaxed,
+                               int failure_order = memory_order_relaxed) volatile;
+    T exchange(T desired, int order = memory_order_relaxed) volatile;
+    T fetch_add(T value, int order = memory_order_relaxed) volatile;
+    T fetch_sub(T value, int order = memory_order_relaxed) volatile;
+    T load(int order = memory_order_relaxed) const volatile;
+    void store(T value, int order = memory_order_relaxed) volatile;
     storage_t *raw_ptr() { return &m_value; }
 };
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::cmpxchg(T expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile {
+template <SimpleAtomic T>
+T Atomic<T>::cmpxchg(T expected, T desired, int success_order, int failure_order) volatile {
     auto exp = storage_t(expected);
-    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false, static_cast<int>(success_order),
-                                static_cast<int>(failure_order));
+    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false, success_order, failure_order);
     return T(exp);
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::cmpxchg_weak(T expected, T desired, MemoryOrder success_order, MemoryOrder failure_order) volatile {
+template <SimpleAtomic T>
+T Atomic<T>::cmpxchg_weak(T expected, T desired, int success_order, int failure_order) volatile {
     auto exp = storage_t(expected);
-    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true, static_cast<int>(success_order),
-                                static_cast<int>(failure_order));
+    __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true, success_order, failure_order);
     return T(exp);
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-bool Atomic<T, Order>::compare_exchange(T &expected, T desired, MemoryOrder success_order,
-                                        MemoryOrder failure_order) volatile {
+template <SimpleAtomic T>
+bool Atomic<T>::compare_exchange(T &expected, T desired, int success_order, int failure_order) volatile {
     auto exp = storage_t(expected);
-    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false,
-                                               static_cast<int>(success_order), static_cast<int>(failure_order));
+    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), false, success_order, failure_order);
     expected = T(exp);
     return success;
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-bool Atomic<T, Order>::compare_exchange_weak(T &expected, T desired, MemoryOrder success_order,
-                                             MemoryOrder failure_order) volatile {
+template <SimpleAtomic T>
+bool Atomic<T>::compare_exchange_weak(T &expected, T desired, int success_order, int failure_order) volatile {
     auto exp = storage_t(expected);
-    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true,
-                                               static_cast<int>(success_order), static_cast<int>(failure_order));
+    bool success = __atomic_compare_exchange_n(&m_value, &exp, storage_t(desired), true, success_order, failure_order);
     expected = T(exp);
     return success;
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::exchange(T desired, MemoryOrder order) volatile {
-    return T(__atomic_exchange_n(&m_value, storage_t(desired), static_cast<int>(order)));
+template <SimpleAtomic T>
+T Atomic<T>::exchange(T desired, int order) volatile {
+    return T(__atomic_exchange_n(&m_value, storage_t(desired), order));
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::fetch_add(T value, MemoryOrder order) volatile {
-    return __atomic_fetch_add(&m_value, value, static_cast<int>(order));
+template <SimpleAtomic T>
+T Atomic<T>::fetch_add(T value, int order) volatile {
+    return __atomic_fetch_add(&m_value, value, order);
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::fetch_sub(T value, MemoryOrder order) volatile {
-    return __atomic_fetch_sub(&m_value, value, static_cast<int>(order));
+template <SimpleAtomic T>
+T Atomic<T>::fetch_sub(T value, int order) volatile {
+    return __atomic_fetch_sub(&m_value, value, order);
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-T Atomic<T, Order>::load(MemoryOrder order) const volatile {
-    return T(__atomic_load_n(&m_value, static_cast<int>(order)));
+template <SimpleAtomic T>
+T Atomic<T>::load(int order) const volatile {
+    return T(__atomic_load_n(&m_value, order));
 }
 
-template <SimpleAtomic T, MemoryOrder Order>
-void Atomic<T, Order>::store(T value, MemoryOrder order) volatile {
-    __atomic_store_n(&m_value, storage_t(value), static_cast<int>(order));
+template <SimpleAtomic T>
+void Atomic<T>::store(T value, int order) volatile {
+    __atomic_store_n(&m_value, storage_t(value), order);
 }
 
 } // namespace vull

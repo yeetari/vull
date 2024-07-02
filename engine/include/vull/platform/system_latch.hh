@@ -19,7 +19,7 @@ public:
     SystemLatch &operator=(SystemLatch &&) = delete;
 
     void count_down();
-    void increment(uint32_t amt = 1) { m_value.fetch_add(amt, MemoryOrder::AcqRel); }
+    void increment(uint32_t amt = 1) { m_value.fetch_add(amt, vull::memory_order_acq_rel); }
     void wait();
 };
 
