@@ -56,14 +56,15 @@ Pool<TaskletCount, StackSize>::Pool() : PoolBase(StackSize) {
 }
 
 template <unsigned TaskletCount, size_t StackSize>
-Tasklet *Pool<TaskletCount, StackSize>::allocate() {
-    auto *next_free = m_next_free.load();
+[[gnu::noinline]] Tasklet *Pool<TaskletCount, StackSize>::allocate() {
+    auto *next_free = m_next_free.load(vull::memory_order_seq_cst);
     if (next_free != nullptr) {
         // Since we are the only thread allocating, m_next_free can never become null after this check.
         void *desired;
         do {
             memcpy(&desired, next_free, sizeof(void *));
-        } while (!m_next_free.compare_exchange_weak(next_free, desired));
+        } while (!m_next_free.compare_exchange_weak(next_free, desired, vull::memory_order_seq_cst,
+                                                    vull::memory_order_seq_cst));
         return new (next_free) Tasklet(StackSize, this);
     }
 
@@ -77,11 +78,12 @@ Tasklet *Pool<TaskletCount, StackSize>::allocate() {
     return new (m_base + head) Tasklet(StackSize, this);
 }
 
-void PoolBase::free(Tasklet *tasklet) {
-    void *next_free = m_next_free.load();
+[[gnu::noinline]] void PoolBase::free(Tasklet *tasklet) {
+    void *next_free = m_next_free.load(vull::memory_order_seq_cst);
     do {
         memcpy(tasklet, &next_free, sizeof(void *));
-    } while (!m_next_free.compare_exchange_weak(next_free, tasklet));
+    } while (
+        !m_next_free.compare_exchange_weak(next_free, tasklet, vull::memory_order_seq_cst, vull::memory_order_seq_cst));
 }
 
 bool PoolBase::is_guard_page(uintptr_t page) const {

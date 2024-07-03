@@ -25,6 +25,7 @@ class Tasklet {
     void *m_pool{nullptr};
     Atomic<Tasklet *> m_linked_tasklet{nullptr};
     Atomic<TaskletState> m_state{TaskletState::Uninitialised};
+    Atomic<bool> m_in_wait_list{false};
 
     template <typename F>
     static void invoke_helper(const uint8_t *inline_storage) {
@@ -55,7 +56,8 @@ public:
     void *stack_top() const { return m_stack_top; }
     void *pool() const { return m_pool; }
     Tasklet *linked_tasklet() const { return m_linked_tasklet.load(); }
-    TaskletState state() const { return m_state.load(); }
+    TaskletState state() const { return m_state.load(vull::memory_order_seq_cst); }
+    Atomic<bool> &in_wait_list() { return m_in_wait_list; }
 };
 
 inline Tasklet::Tasklet(size_t size, void *pool) : m_pool(pool) {

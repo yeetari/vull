@@ -171,7 +171,7 @@ static Tasklet *pick_next() {
     abort();
 }
 
-void *Scheduler::worker_entry(void *worker_ptr) {
+[[gnu::noinline]] void *Scheduler::worker_entry(void *worker_ptr) {
     auto &[scheduler, queue, _] = *static_cast<Worker *>(worker_ptr);
     s_queue = queue.ptr();
     s_scheduler = &scheduler;
@@ -195,34 +195,36 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     }
 
     // Use thread stack for scheduler tasklet.
-    Array<uint8_t, 131072> tasklet_data{};
-    s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
+    auto *my_data = new uint8_t[131072];
+    s_scheduler_tasklet = new (my_data) Tasklet(131072, nullptr);
     vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
     auto *next = pick_next();
     vull_load_context(s_current_tasklet = next, nullptr);
 }
 
-void pump_work() {
+[[gnu::noinline]] void pump_work() {
     auto *dequeued = s_queue->dequeue();
     if (dequeued == nullptr) {
         return;
     }
+    vull::atomic_thread_fence(vull::memory_order_seq_cst);
     [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
     VULL_ASSERT(success);
 
     VULL_ASSERT(s_to_schedule == nullptr);
     s_to_schedule = dequeued;
+    vull::atomic_thread_fence(vull::memory_order_seq_cst);
     yield();
 }
 
-bool try_schedule(Tasklet *tasklet) {
+[[gnu::noinline]] bool try_schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
     sem_post(&s_work_available);
     return s_queue->enqueue(tasklet);
 }
 
-void schedule(Tasklet *tasklet) {
+[[gnu::noinline]] void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
     sem_post(&s_work_available);
     while (!s_queue->enqueue(tasklet)) {
@@ -230,7 +232,7 @@ void schedule(Tasklet *tasklet) {
     }
 }
 
-void yield() {
+[[gnu::noinline]] void yield() {
     VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
     vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
 }

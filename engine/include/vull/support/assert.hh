@@ -5,6 +5,9 @@
 #define VULL_ASSERTIONS_PEDANTIC
 #endif
 
+#define VULL_ASSERTIONS
+#define VULL_ASSERTIONS_PEDANTIC
+
 #define VULL_STRINGIFY_A(x) #x
 #define VULL_STRINGIFY(x) VULL_STRINGIFY_A(x)
 #define VULL_ENSURE(expr, ...)                                                                                         \
