@@ -75,9 +75,9 @@ Variant<double, uint64_t> LexerBase<Derived, TokenType>::parse_number(auto ch) {
         break;
     }
 
-    unsigned exponent = 0;
+    int32_t exponent = 0;
     while (is_digit(ch = derived().peek_char())) {
-        exponent = exponent * 10 + static_cast<unsigned>(ch - '0');
+        exponent = exponent * 10 + static_cast<int32_t>(ch - '0');
         derived().skip_char();
     }
     value *= __builtin_pow(10, negative_exponent ? -exponent : exponent);
