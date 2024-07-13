@@ -66,10 +66,10 @@ endif()
 
 if(VULL_BUILD_SCRIPT)
     target_sources(vull PRIVATE
-        script/builder.cc
-        script/constant_pool.cc
+        script/environment.cc
         script/lexer.cc
         script/parser.cc
+        script/value.cc
         script/vm.cc)
 endif()
 

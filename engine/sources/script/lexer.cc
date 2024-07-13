@@ -2,7 +2,6 @@
 
 #include <vull/script/token.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
@@ -12,12 +11,20 @@
 
 #include <stdint.h>
 
+#define MAKE_TOKEN(...)                                                                                                \
+    { __VA_ARGS__, position, m_line }
+
 namespace vull::script {
 
 Lexer::Lexer(String file_name, String source) : m_file_name(vull::move(file_name)), m_source(vull::move(source)) {
     if (m_source.empty()) {
         m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
     }
+}
+
+static bool is_identifier(char ch) {
+    return (ch >= '!' && ch <= '&' && ch != '"') || (ch >= '*' && ch <= 'Z' && ch != ';') ||
+           (ch >= '^' && ch <= 'z' && ch != '`');
 }
 
 Token Lexer::next_token() {
@@ -29,85 +36,62 @@ Token Lexer::next_token() {
     }
 
     const auto position = m_head - 1;
+
+    // Handle special case of negative numbers first since - is a valid identifier character.
+    if (ch == '-' && is_digit(m_source[m_head])) {
+        auto number = parse_number(m_source[m_head++]);
+        if (const auto decimal = number.try_get<double>()) {
+            return MAKE_TOKEN(-*decimal);
+        }
+        return MAKE_TOKEN(-static_cast<int64_t>(number.get<uint64_t>()));
+    }
+
     if (is_digit(ch)) {
         auto number = parse_number(ch);
         if (const auto decimal = number.try_get<double>()) {
-            return {*decimal, position, m_line};
+            return MAKE_TOKEN(*decimal);
         }
-        return {static_cast<double>(number.get<uint64_t>()), position, m_line};
+        return MAKE_TOKEN(static_cast<int64_t>(number.get<uint64_t>()));
     }
-    if (is_ident(ch)) {
-        while (is_ident(m_source[m_head]) || is_digit(m_source[m_head])) {
+
+    if (is_identifier(ch)) {
+        while (is_identifier(m_source[m_head])) {
             m_head++;
         }
         auto string = m_source.view().substr(position, m_head - position);
-        // TODO: Perfect hashing (http://0x80.pl/notesen/2023-04-30-lookup-in-strings.html) or trie switch.
-        if (string == "elif") {
-            return {TokenKind::KW_elif, position, m_line};
-        }
-        if (string == "else") {
-            return {TokenKind::KW_else, position, m_line};
-        }
-        if (string == "end") {
-            return {TokenKind::KW_end, position, m_line};
-        }
-        if (string == "function") {
-            return {TokenKind::KW_function, position, m_line};
-        }
-        if (string == "if") {
-            return {TokenKind::KW_if, position, m_line};
-        }
-        if (string == "let") {
-            return {TokenKind::KW_let, position, m_line};
-        }
-        if (string == "return") {
-            return {TokenKind::KW_return, position, m_line};
-        }
-        return {TokenKind::Identifier, string, position, m_line};
+        return MAKE_TOKEN(TokenKind::Identifier, string);
     }
 
     switch (ch) {
-    case 0:
+    case '\0':
         m_peek_token.emplace(TokenKind::Eof, 0u, uint16_t(0));
-        return {TokenKind::Eof, position, m_line};
-    case '=':
-        if (m_source[m_head] == '=') {
+        return MAKE_TOKEN(TokenKind::Eof);
+    case ';':
+        while (m_source[m_head] != '\n' && m_source[m_head] != '\0') {
             m_head++;
-            return {TokenKind::EqualEqual, position, m_line};
         }
-        return {'='_tk, position, m_line};
-    case '!':
-        if (m_source[m_head] == '=') {
+        return next_token();
+    case '"': {
+        while (m_source[m_head] != '"' && m_source[m_head] != '\0') {
             m_head++;
-            return {TokenKind::NotEqual, position, m_line};
         }
-        return {'!'_tk, position, m_line};
-    case '<':
-        if (m_source[m_head] == '=') {
-            m_head++;
-            return {TokenKind::LessEqual, position, m_line};
+        if (m_source[m_head] == '\0') {
+            return MAKE_TOKEN(TokenKind::Invalid);
         }
-        return {'<'_tk, position, m_line};
-    case '>':
-        if (m_source[m_head] == '=') {
-            m_head++;
-            return {TokenKind::GreaterEqual, position, m_line};
-        }
-        return {'>'_tk, position, m_line};
-    case '/':
-        // Handle comments.
-        if (m_source[m_head] == '/') {
-            while (m_source[m_head] != '\n' && m_source[m_head] != '\0') {
-                m_head++;
-            }
-            return next_token();
-        }
-        [[fallthrough]];
+        m_head++;
+        auto string = m_source.view().substr(position + 1, m_head - position - 2);
+        return MAKE_TOKEN(TokenKind::String, string);
+    }
+    case '(':
+    case '[':
+        return MAKE_TOKEN(TokenKind::ListBegin);
+    case ')':
+    case ']':
+        return MAKE_TOKEN(TokenKind::ListEnd);
+    case '\'':
+        return MAKE_TOKEN(TokenKind::Quote);
     default:
-        if (ch <= 31) {
-            return {TokenKind::Invalid, position, m_line};
-        }
-        return {static_cast<TokenKind>(ch), position, m_line};
+        return MAKE_TOKEN(TokenKind::Invalid);
     }
 }
 
@@ -128,22 +112,22 @@ SourcePosition Lexer::recover_position(const Token &token) const {
     return {m_file_name, line_view, token.line(), token.position() - line_head + 1};
 }
 
-double Token::number() const {
-    VULL_ASSERT(m_kind == TokenKind::Number);
+double Token::decimal() const {
+    VULL_ASSERT(m_kind == TokenKind::Decimal);
     return m_number_data.decimal_data;
 }
 
+int64_t Token::integer() const {
+    VULL_ASSERT(m_kind == TokenKind::Integer);
+    return m_number_data.integer_data;
+}
+
 StringView Token::string() const {
-    VULL_ASSERT(m_kind == TokenKind::Identifier);
-    return {static_cast<const char *>(m_ptr_data), m_number_data.integer_data};
+    VULL_ASSERT(m_kind == TokenKind::Identifier || m_kind == TokenKind::String);
+    return {static_cast<const char *>(m_ptr_data), m_number_data.unsigned_data};
 }
 
 String Token::kind_string(TokenKind kind) {
-    if (auto value = vull::to_underlying(kind); value < 256) {
-        String string("'x'");
-        string.data()[1] = static_cast<char>(value);
-        return string;
-    }
     switch (kind) {
     case TokenKind::Invalid:
         return "<invalid>";
@@ -151,43 +135,32 @@ String Token::kind_string(TokenKind kind) {
         return "<eof>";
     case TokenKind::Identifier:
         return "identifier";
-    case TokenKind::Number:
-        return "number literal";
-    case TokenKind::EqualEqual:
-        return "'=='";
-    case TokenKind::NotEqual:
-        return "'!='";
-    case TokenKind::LessEqual:
-        return "'<='";
-    case TokenKind::GreaterEqual:
-        return "'>='";
-    case TokenKind::KW_elif:
-        return "'elif'";
-    case TokenKind::KW_else:
-        return "'else'";
-    case TokenKind::KW_end:
-        return "'end'";
-    case TokenKind::KW_function:
-        return "'function'";
-    case TokenKind::KW_if:
-        return "'if'";
-    case TokenKind::KW_let:
-        return "'let'";
-    case TokenKind::KW_return:
-        return "'return'";
-#if defined(__GNUC__) && !defined(__clang__)
+    case TokenKind::Decimal:
+        return "float literal";
+    case TokenKind::Integer:
+        return "integer literal";
+    case TokenKind::String:
+        return "string literal";
+    case TokenKind::ListBegin:
+        return "'('";
+    case TokenKind::ListEnd:
+        return "')'";
+    case TokenKind::Quote:
+        return "'";
     default:
         vull::unreachable();
-#endif
     }
 }
 
 String Token::to_string() const {
     switch (m_kind) {
     case TokenKind::Identifier:
+    case TokenKind::String:
         return vull::format("'{}'", string());
-    case TokenKind::Number:
-        return vull::format("{}", number());
+    case TokenKind::Decimal:
+        return vull::format("'{}'", decimal());
+    case TokenKind::Integer:
+        return vull::format("'{}'", integer());
     default:
         return kind_string(m_kind);
     }

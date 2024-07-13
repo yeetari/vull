@@ -1,13 +1,12 @@
-function main()
-    if 5 > 6
-        return 10
-    elif 2 <= 2
-        let foo = 5 + 5 * 2
-        if 3 == 4
-            return foo
-        else
-            return foo * 2
-        end
-    end
-    return 0
-end
+;; Test comment.
+
+(define foo 5)
+(define list1 '(+ foo bar))
+(define bar (+ foo foo))
+(collect-garbage)
+
+(define add +)
+
+(seq
+ (+ 1 2)
+ (add 1 foo bar -1))

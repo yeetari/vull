@@ -1,22 +1,17 @@
 #pragma once
 
-#include <vull/container/array.hh>
-#include <vull/script/builder.hh>
+#include <vull/container/vector.hh>
 #include <vull/script/token.hh>
+#include <vull/script/value.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
-#include <vull/support/span.hh>
 #include <vull/support/string.hh>
-#include <vull/support/unique_ptr.hh> // IWYU pragma: keep
 #include <vull/support/utility.hh>
-
-#include <stdint.h>
 
 namespace vull::script {
 
-class ConstantPool;
-class Frame;
 class Lexer;
+class Vm;
 
 class ParseMessage {
 public:
@@ -27,61 +22,50 @@ public:
 
 private:
     Token m_token;
-    String m_message;
+    String m_text;
     Kind m_kind;
 
 public:
-    ParseMessage() = default;
-    ParseMessage(Kind kind, const Token &token, String &&message)
-        : m_token(token), m_message(vull::move(message)), m_kind(kind) {}
+    ParseMessage(Kind kind, const Token &token, String &&text)
+        : m_token(token), m_text(vull::move(text)), m_kind(kind) {}
 
     const Token &token() const { return m_token; }
-    const String &message() const { return m_message; }
+    const String &text() const { return m_text; }
     Kind kind() const { return m_kind; }
 };
 
 class ParseError {
-    Array<ParseMessage, 3> m_messages;
-    uint8_t m_message_count{0};
+    // TODO(small-vector)
+    Vector<ParseMessage> m_messages;
 
 public:
-    void add_error(const Token &token, String &&message) {
-        m_messages[m_message_count++] = {ParseMessage::Kind::Error, token, vull::move(message)};
-    }
-    void add_note(const Token &token, String &&message) {
-        m_messages[m_message_count++] = {ParseMessage::Kind::Note, token, vull::move(message)};
-    }
+    ParseError() = default;
+    ParseError(const ParseError &other) { m_messages.extend(other.m_messages); }
+    ParseError(ParseError &&) = default;
+    ~ParseError() = default;
 
-    Span<const ParseMessage> messages() const { return m_messages.span().subspan(0, m_message_count); }
+    ParseError &operator=(const ParseError &) = delete;
+    ParseError &operator=(ParseError &&) = delete;
+
+    void add_error(const Token &token, String &&message);
+    void add_note(const Token &token, String &&message);
+
+    const Vector<ParseMessage> &messages() const { return m_messages; }
 };
 
 class Parser {
-    class Scope;
-
-private:
+    Vm &m_vm;
     Lexer &m_lexer;
-    Builder m_builder;
-    Scope *m_scope{nullptr};
 
     Optional<Token> consume(TokenKind kind);
-    Result<Token, ParseError> expect(TokenKind kind);
-
-    Result<Op, ParseError> parse_subexpr(Expr &expr, unsigned precedence);
-    Result<void, ParseError> parse_expr(Expr &expr);
-
-    Result<void, ParseError> parse_if_stmt();
-    Result<void, ParseError> parse_let_stmt();
-    Result<void, ParseError> parse_return_stmt();
-    Result<void, ParseError> parse_stmt();
-    Result<void, ParseError> parse_block();
-
-    Result<void, ParseError> parse_function();
-    Result<void, ParseError> parse_top_level();
+    Result<Value, ParseError> parse_quote();
+    Result<Value, ParseError> parse_list();
+    Result<Value, ParseError> parse_form();
 
 public:
-    Parser(Lexer &lexer, ConstantPool &constant_pool) : m_lexer(lexer), m_builder(constant_pool) {}
+    Parser(Vm &vm, Lexer &lexer) : m_vm(vm), m_lexer(lexer) {}
 
-    Result<UniquePtr<Frame>, ParseError> parse();
+    Result<Value, ParseError> parse();
 };
 
 } // namespace vull::script
