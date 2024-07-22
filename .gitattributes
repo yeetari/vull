@@ -2,6 +2,6 @@
 *.comp linguist-language=GLSL
 
 # Mark vk.xml generated files.
-engine/include/vull/vulkan/ContextTable.hh linguist-generated
-engine/include/vull/vulkan/Vulkan.hh linguist-generated
-engine/sources/vulkan/ContextTable.cc linguist-generated
+engine/include/vull/vulkan/context_table.hh linguist-generated
+engine/include/vull/vulkan/vulkan.hh linguist-generated
+engine/sources/vulkan/context_table.cc linguist-generated
