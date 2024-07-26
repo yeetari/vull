@@ -41,12 +41,18 @@ static Value native_add(Vm &, Environment &, Span<const Value> args) {
     return Value::real(real + static_cast<double>(integer));
 }
 
+static Value native_collect_garbage(Vm &vm, Environment &environment, Span<const Value>) {
+    vm.collect_garbage(environment);
+    return Value::null();
+}
+
 static Value native_seq(Vm &, Environment &, Span<const Value> args) {
     return args.end()[-1];
 }
 
 Vm::Vm() : m_root_environment(vull::nullopt) {
     m_root_environment.put_symbol("+", Value::native_fn(&native_add));
+    m_root_environment.put_symbol("collect-garbage", Value::native_fn(&native_collect_garbage));
     m_root_environment.put_symbol("seq", Value::native_fn(&native_seq));
 }
 
@@ -194,10 +200,6 @@ Value Vm::evaluate(Value form, Environment &environment) {
     // Handle any special forms.
     if (auto symbol = list->at(0).as_symbol()) {
         // TODO: Check argument lengths and types.
-        if (*symbol == "collect-garbage") {
-            collect_garbage(environment);
-            return Value::null();
-        }
         if (*symbol == "def!") {
             const auto name = list->at(1).as_symbol();
             environment.put_symbol(*name, evaluate(list->at(2), environment));
