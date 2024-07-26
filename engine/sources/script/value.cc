@@ -38,6 +38,10 @@ Optional<ListObject &> Value::as_list() const {
     return m_type == Type::List ? *m_data.list : Optional<ListObject &>();
 }
 
+Optional<ClosureObject &> Value::as_closure() const {
+    return m_type == Type::Closure ? *m_data.closure : Optional<ClosureObject &>();
+}
+
 void Value::format_into(StringBuilder &sb) const {
     switch (m_type) {
     case Type::Null:
@@ -65,6 +69,9 @@ void Value::format_into(StringBuilder &sb) const {
             value.format_into(sb);
         }
         sb.append(')');
+        break;
+    case Type::Closure:
+        sb.append("<closure>");
         break;
     case Type::NativeFn:
         sb.append("<native fn at {h}>", vull::bit_cast<uintptr_t>(m_data.native_fn));
@@ -100,6 +107,10 @@ Object::Object(ObjectType type) {
 
 Optional<ListObject &> Object::as_list() {
     return type() == ObjectType::List ? static_cast<ListObject &>(*this) : Optional<ListObject &>();
+}
+
+Optional<ClosureObject &> Object::as_closure() {
+    return type() == ObjectType::Closure ? static_cast<ClosureObject &>(*this) : Optional<ClosureObject &>();
 }
 
 Optional<Environment &> Object::as_environment() {

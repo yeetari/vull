@@ -90,6 +90,11 @@ Value Vm::make_list(Span<const Value> elements) {
     return Value(Type::List, object);
 }
 
+Value Vm::make_closure(Environment &environment, Value bindings, Value body) {
+    auto *object = allocate_object<ClosureObject>(0, &environment, bindings.as_list().ptr(), body);
+    return Value(Type::Closure, object);
+}
+
 void Vm::collect_garbage(Optional<Environment &> current_environment) {
     // Unmark all objects.
     size_t object_count = 0;
@@ -122,6 +127,10 @@ void Vm::collect_garbage(Optional<Environment &> current_environment) {
             for (const auto &list_item : *list) {
                 mark_value(list_item);
             }
+        } else if (auto closure = object.as_closure()) {
+            mark_queue.push(closure->environment());
+            mark_queue.push(closure->bindings());
+            mark_value(closure->body());
         } else if (auto environment = object.as_environment()) {
             if (auto parent = environment->parent()) {
                 mark_queue.push(*parent);
@@ -194,6 +203,9 @@ Value Vm::evaluate(Value form, Environment &environment) {
             environment.put_symbol(*name, evaluate(list->at(2), environment));
             return Value::null();
         }
+        if (*symbol == "fn") {
+            return make_closure(environment, list->at(1), list->at(2));
+        }
         if (*symbol == "quote") {
             return list->at(1);
         }
@@ -210,13 +222,20 @@ Value Vm::evaluate(Value form, Environment &environment) {
 
     // Apply operation.
     const auto &op = evaluated_list[0];
-    switch (op.type()) {
-    case Type::NativeFn:
-        return op.native_fn()(evaluated_list.size() - 1, &evaluated_list[1]);
-    default:
-        // Not applicable.
-        VULL_ENSURE_NOT_REACHED();
+    if (auto closure = op.as_closure()) {
+        auto *closure_environment = allocate_object<Environment>(0, Optional<Environment &>(closure->environment()));
+        for (size_t i = 0; i < closure->bindings().size(); i++) {
+            closure_environment->put_symbol(*closure->bindings().at(i).as_symbol(), evaluated_list[i + 1]);
+        }
+        return evaluate(closure->body(), *closure_environment);
     }
+
+    if (op.type() == Type::NativeFn) {
+        return op.native_fn()(evaluated_list.size() - 1, &evaluated_list[1]);
+    }
+
+    // Not applicable.
+    VULL_ENSURE_NOT_REACHED();
 }
 
 } // namespace vull::script

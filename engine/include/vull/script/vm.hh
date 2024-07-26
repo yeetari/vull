@@ -39,6 +39,7 @@ public:
     Value make_symbol(StringView name);
     Value make_string(StringView value);
     Value make_list(Span<const Value> elements);
+    Value make_closure(Environment &environment, Value bindings, Value body);
 
     void collect_garbage(Optional<Environment &> current_environment);
     Value evaluate(Value form);

@@ -15,6 +15,7 @@ class StringBuilder;
 
 namespace vull::script {
 
+class ClosureObject;
 class Environment;
 class ListObject;
 class Object;
@@ -33,6 +34,7 @@ enum class Type {
     Symbol,
     String,
     List,
+    Closure,
     Environment,
 };
 
@@ -47,6 +49,7 @@ private:
         double real;
         StringObject *string;
         ListObject *list;
+        ClosureObject *closure;
         NativeFn native_fn;
     } m_data{};
     Type m_type;
@@ -71,6 +74,7 @@ public:
     Optional<StringView> as_symbol() const;
     Optional<StringView> as_string() const;
     Optional<ListObject &> as_list() const;
+    Optional<ClosureObject &> as_closure() const;
 
     void format_into(StringBuilder &sb) const;
 
@@ -87,6 +91,7 @@ static_assert(alignof(Value) >= alignof(Value *));
 enum class ObjectType : uint8_t {
     List = 0,
     String,
+    Closure,
     Environment,
 };
 
@@ -105,6 +110,7 @@ public:
     Object &operator=(Object &&) = delete;
 
     Optional<ListObject &> as_list();
+    Optional<ClosureObject &> as_closure();
     Optional<Environment &> as_environment();
 
     void set_next_object(Object *next_object);
@@ -143,6 +149,23 @@ private:
 
 public:
     StringView view() const;
+};
+
+class ClosureObject : public Object {
+    friend Vm;
+
+private:
+    Environment *m_environment;
+    ListObject *m_bindings;
+    Value m_body;
+
+    ClosureObject(Environment *environment, ListObject *bindings, Value body)
+        : Object(ObjectType::Closure), m_environment(environment), m_bindings(bindings), m_body(body) {}
+
+public:
+    Environment &environment() const { return *m_environment; }
+    ListObject &bindings() const { return *m_bindings; }
+    Value body() const { return m_body; }
 };
 
 } // namespace vull::script
