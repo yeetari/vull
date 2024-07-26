@@ -1,11 +1,11 @@
 ;; Test comment.
 
-(define foo 5)
-(define list1 '(+ foo bar))
-(define bar (+ foo foo))
+(def! foo 5)
+(def! list1 '(+ foo bar))
+(def! bar (+ foo foo))
 (collect-garbage)
 
-(define add +)
+(def! add +)
 
 (seq
  (+ 1 2)

@@ -188,7 +188,7 @@ Value Vm::evaluate(Value form) {
             collect_garbage();
             return Value::null();
         }
-        if (*symbol == "define") {
+        if (*symbol == "def!") {
             const auto name = list->at(1).as_symbol();
             m_environment_stack.last()->put_symbol(*name, evaluate(list->at(2)));
             return Value::null();
