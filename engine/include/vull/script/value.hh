@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/optional.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 
@@ -38,7 +39,7 @@ enum class Type {
     Environment,
 };
 
-using NativeFn = Value (*)(size_t, Value *);
+using NativeFn = Value (*)(Vm &, Environment &, Span<const Value>);
 
 class Value {
     friend Vm;

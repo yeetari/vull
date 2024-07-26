@@ -17,17 +17,17 @@
 
 namespace vull::script {
 
-static Value add(size_t argc, Value *args) {
+static Value native_add(Vm &, Environment &, Span<const Value> args) {
     int64_t integer = 0;
     double real = 0;
     bool has_real_part = false;
-    for (size_t i = 0; i < argc; i++) {
-        switch (args[i].type()) {
+    for (const auto &value : args) {
+        switch (value.type()) {
         case Type::Integer:
-            integer += args[i].integer();
+            integer += value.integer();
             break;
         case Type::Real:
-            real += args[i].real();
+            real += value.real();
             has_real_part = true;
             break;
         default:
@@ -41,13 +41,13 @@ static Value add(size_t argc, Value *args) {
     return Value::real(real + static_cast<double>(integer));
 }
 
-static Value seq(size_t argc, Value *args) {
-    return args[argc - 1];
+static Value native_seq(Vm &, Environment &, Span<const Value> args) {
+    return args.end()[-1];
 }
 
 Vm::Vm() : m_root_environment(vull::nullopt) {
-    m_root_environment.put_symbol("+", Value::native_fn(&add));
-    m_root_environment.put_symbol("seq", Value::native_fn(&seq));
+    m_root_environment.put_symbol("+", Value::native_fn(&native_add));
+    m_root_environment.put_symbol("seq", Value::native_fn(&native_seq));
 }
 
 Vm::~Vm() {
@@ -220,18 +220,23 @@ Value Vm::evaluate(Value form, Environment &environment) {
     }
     m_marked.pop();
 
-    // Apply operation.
+    // Handle native call special case.
     const auto &op = evaluated_list[0];
+    if (op.type() == Type::NativeFn) {
+        Span<const Value> args;
+        if (evaluated_list.size() > 1) {
+            args = vull::make_span(&evaluated_list[1], evaluated_list.size() - 1);
+        }
+        return op.native_fn()(*this, environment, args);
+    }
+
+    // Apply operation.
     if (auto closure = op.as_closure()) {
         auto *closure_environment = allocate_object<Environment>(0, Optional<Environment &>(closure->environment()));
         for (size_t i = 0; i < closure->bindings().size(); i++) {
             closure_environment->put_symbol(*closure->bindings().at(i).as_symbol(), evaluated_list[i + 1]);
         }
         return evaluate(closure->body(), *closure_environment);
-    }
-
-    if (op.type() == Type::NativeFn) {
-        return op.native_fn()(evaluated_list.size() - 1, &evaluated_list[1]);
     }
 
     // Not applicable.
