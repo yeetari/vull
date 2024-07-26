@@ -2,6 +2,8 @@
 
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/script/environment.hh>
+#include <vull/support/optional.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh> // IWYU pragma: keep
@@ -10,7 +12,6 @@
 
 namespace vull::script {
 
-class Environment;
 class Object;
 class StringObject;
 enum class Type;
@@ -18,9 +19,9 @@ class Value;
 
 class Vm {
     HashMap<StringView, StringObject *> m_symbol_cache;
-    Vector<UniquePtr<Environment>> m_environment_stack;
-    Vector<Value> m_marked;
+    Vector<Object &> m_marked;
     Object *m_object_list{nullptr};
+    Environment m_root_environment;
 
     template <typename T, typename... Args>
     T *allocate_object(size_t data_size, Args &&...args);
@@ -39,9 +40,9 @@ public:
     Value make_string(StringView value);
     Value make_list(Span<const Value> elements);
 
-    void collect_garbage();
-    Value lookup_symbol(StringView name);
+    void collect_garbage(Optional<Environment &> current_environment);
     Value evaluate(Value form);
+    Value evaluate(Value form, Environment &environment);
 };
 
 } // namespace vull::script

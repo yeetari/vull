@@ -13,6 +13,9 @@ Optional<Value> Environment::lookup_symbol(StringView name) const {
     if (value) {
         return *value;
     }
+    if (m_parent) {
+        return m_parent->lookup_symbol(name);
+    }
     return vull::nullopt;
 }
 

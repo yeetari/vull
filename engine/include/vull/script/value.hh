@@ -15,66 +15,25 @@ class StringBuilder;
 
 namespace vull::script {
 
+class Environment;
+class ListObject;
+class Object;
+class StringObject;
 class Value;
 class Vm;
 
-class Object {
-    uintptr_t m_header{};
-
-public:
-    Object() = default;
-    Object(const Object &) = delete;
-    Object(Object &&) = delete;
-    ~Object() = default;
-
-    Object &operator=(const Object &) = delete;
-    Object &operator=(Object &&) = delete;
-
-    void set_next_object(Object *next_object);
-    void set_marked(bool marked);
-
-    Object *next_object() const;
-    bool marked() const;
-};
-
-class ListObject : public Object {
-    friend Vm;
-
-private:
-    size_t m_size;
-
-    explicit ListObject(size_t size) : m_size(size) {}
-
-public:
-    Value *begin() const;
-    Value *end() const;
-
-    Value &at(size_t index) const;
-    Value &operator[](size_t index) const;
-    bool empty() const { return m_size == 0; }
-    size_t size() const { return m_size; }
-};
-
-class StringObject : public Object {
-    friend Vm;
-
-private:
-    size_t m_length;
-
-    explicit StringObject(size_t length) : m_length(length) {}
-
-public:
-    StringView view() const;
-};
-
 enum class Type {
-    Null,
+    // Simple types.
+    Null = 0,
     Integer,
     Real,
+    NativeFn,
+
+    // Object types.
     Symbol,
     String,
     List,
-    NativeFn,
+    Environment,
 };
 
 using NativeFn = Value (*)(size_t, Value *);
@@ -124,5 +83,66 @@ public:
 
 // This needs to hold for ListObject's allocation structure.
 static_assert(alignof(Value) >= alignof(Value *));
+
+enum class ObjectType : uint8_t {
+    List = 0,
+    String,
+    Environment,
+};
+
+class Object {
+    uintptr_t m_header{};
+
+protected:
+    explicit Object(ObjectType type);
+
+public:
+    Object(const Object &) = delete;
+    Object(Object &&) = delete;
+    ~Object() = default;
+
+    Object &operator=(const Object &) = delete;
+    Object &operator=(Object &&) = delete;
+
+    Optional<ListObject &> as_list();
+    Optional<Environment &> as_environment();
+
+    void set_next_object(Object *next_object);
+    void set_marked(bool marked);
+
+    Object *next_object() const;
+    ObjectType type() const;
+    bool marked() const;
+};
+
+class ListObject : public Object {
+    friend Vm;
+
+private:
+    size_t m_size;
+
+    ListObject(size_t size) : Object(ObjectType::List), m_size(size) {}
+
+public:
+    Value *begin() const;
+    Value *end() const;
+
+    Value &at(size_t index) const;
+    Value &operator[](size_t index) const;
+    bool empty() const { return m_size == 0; }
+    size_t size() const { return m_size; }
+};
+
+class StringObject : public Object {
+    friend Vm;
+
+private:
+    size_t m_length;
+
+    StringObject(size_t length) : Object(ObjectType::String), m_length(length) {}
+
+public:
+    StringView view() const;
+};
 
 } // namespace vull::script

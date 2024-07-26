@@ -1,6 +1,8 @@
 #include <vull/script/value.hh>
 
+#include <vull/script/environment.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
@@ -8,54 +10,8 @@
 
 namespace vull::script {
 
-void Object::set_next_object(Object *next_object) {
-    const auto address = vull::bit_cast<uintptr_t>(next_object);
-    VULL_ASSERT((address & ~1ull) == address);
-    m_header &= 1u;
-    m_header |= address;
-}
-
-void Object::set_marked(bool marked) {
-    m_header &= ~1ull;
-    if (marked) {
-        m_header |= 1u;
-    }
-}
-
-Object *Object::next_object() const {
-    return vull::bit_cast<Object *>(m_header & ~1ull);
-}
-
-bool Object::marked() const {
-    return (m_header & 1u) != 0u;
-}
-
-Value *ListObject::begin() const {
-    return vull::bit_cast<Value *>(this + 1);
-}
-
-Value *ListObject::end() const {
-    return begin() + m_size;
-}
-
-Value &ListObject::at(size_t index) const {
-    VULL_ASSERT(index < m_size);
-    return begin()[index];
-}
-
-Value &ListObject::operator[](size_t index) const {
-    VULL_ASSERT(index < m_size);
-    return begin()[index];
-}
-
-StringView StringObject::view() const {
-    const auto *bytes = vull::bit_cast<const char *>(this + 1);
-    return {bytes, m_length};
-}
-
 bool Value::is_object() const {
-    // TODO: Could be optimised with a sentinel bit in Type.
-    return m_type == Type::Symbol || m_type == Type::String || m_type == Type::List;
+    return vull::to_underlying(m_type) >= vull::to_underlying(Type::Symbol);
 }
 
 bool Value::is_string_object() const {
@@ -136,6 +92,67 @@ StringView Value::string() const {
 NativeFn Value::native_fn() const {
     VULL_ASSERT(m_type == Type::NativeFn);
     return m_data.native_fn;
+}
+
+Object::Object(ObjectType type) {
+    m_header = static_cast<uintptr_t>(type) << 1u;
+}
+
+Optional<ListObject &> Object::as_list() {
+    return type() == ObjectType::List ? static_cast<ListObject &>(*this) : Optional<ListObject &>();
+}
+
+Optional<Environment &> Object::as_environment() {
+    return type() == ObjectType::Environment ? static_cast<Environment &>(*this) : Optional<Environment &>();
+}
+
+void Object::set_next_object(Object *next_object) {
+    const auto address = vull::bit_cast<uintptr_t>(next_object);
+    VULL_ASSERT((address & ~0xfull) == address);
+    m_header &= 0xfu;
+    m_header |= address;
+}
+
+void Object::set_marked(bool marked) {
+    m_header &= ~1ull;
+    if (marked) {
+        m_header |= 1u;
+    }
+}
+
+Object *Object::next_object() const {
+    return vull::bit_cast<Object *>(m_header & ~0xfull);
+}
+
+ObjectType Object::type() const {
+    return static_cast<ObjectType>((m_header >> 1u) & 0b111u);
+}
+
+bool Object::marked() const {
+    return (m_header & 1u) != 0u;
+}
+
+Value *ListObject::begin() const {
+    return vull::bit_cast<Value *>(this + 1);
+}
+
+Value *ListObject::end() const {
+    return begin() + m_size;
+}
+
+Value &ListObject::at(size_t index) const {
+    VULL_ASSERT(index < m_size);
+    return begin()[index];
+}
+
+Value &ListObject::operator[](size_t index) const {
+    VULL_ASSERT(index < m_size);
+    return begin()[index];
+}
+
+StringView StringObject::view() const {
+    const auto *bytes = vull::bit_cast<const char *>(this + 1);
+    return {bytes, m_length};
 }
 
 } // namespace vull::script

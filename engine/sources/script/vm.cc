@@ -5,13 +5,11 @@
 #include <vull/core/log.hh>
 #include <vull/script/environment.hh>
 #include <vull/script/value.hh>
-#include <vull/support/algorithm.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
-#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 
 #include <stdint.h>
@@ -47,15 +45,13 @@ static Value seq(size_t argc, Value *args) {
     return args[argc - 1];
 }
 
-Vm::Vm() {
-    auto &root_environment = *m_environment_stack.emplace(new Environment);
-    root_environment.put_symbol("+", Value::native_fn(&add));
-    root_environment.put_symbol("seq", Value::native_fn(&seq));
+Vm::Vm() : m_root_environment(vull::nullopt) {
+    m_root_environment.put_symbol("+", Value::native_fn(&add));
+    m_root_environment.put_symbol("seq", Value::native_fn(&seq));
 }
 
 Vm::~Vm() {
-    m_environment_stack.pop();
-    collect_garbage();
+    collect_garbage(vull::nullopt);
     VULL_ASSERT(m_object_list == nullptr);
 }
 
@@ -94,7 +90,7 @@ Value Vm::make_list(Span<const Value> elements) {
     return Value(Type::List, object);
 }
 
-void Vm::collect_garbage() {
+void Vm::collect_garbage(Optional<Environment &> current_environment) {
     // Unmark all objects.
     size_t object_count = 0;
     for (auto *object = m_object_list; object != nullptr; object = object->next_object()) {
@@ -102,36 +98,39 @@ void Vm::collect_garbage() {
         object_count++;
     }
 
-    Vector<ListObject &> mark_queue;
+    // Mark roots.
+    Vector<Object &> mark_queue;
+    mark_queue.extend(m_marked);
+    if (current_environment) {
+        mark_queue.push(*current_environment);
+    }
 
-    auto inspect_value = [&](const Value &value) {
-        if (auto list = value.as_list()) {
-            mark_queue.push(*list);
-        } else if (auto object = value.as_object()) {
-            object->set_marked(true);
+    auto mark_value = [&](Value value) {
+        if (auto object = value.as_object()) {
+            mark_queue.push(*object);
         }
     };
 
-    // Iterate all environments to mark root objects.
-    for (const auto &environment : m_environment_stack) {
-        for (const auto &[name, value] : environment->symbol_map()) {
-            inspect_value(value);
-        }
-    }
-    for (const auto &value : m_marked) {
-        inspect_value(value);
-    }
-
-    // Iteratively mark objects in lists.
+    // Iteratively mark through the object graph.
     while (!mark_queue.empty()) {
-        ListObject &list = mark_queue.take_last();
-        if (list.marked()) {
+        Object &object = mark_queue.take_last();
+        if (object.marked()) {
             continue;
         }
-        for (const auto &value : list) {
-            inspect_value(value);
+
+        if (auto list = object.as_list()) {
+            for (const auto &list_item : *list) {
+                mark_value(list_item);
+            }
+        } else if (auto environment = object.as_environment()) {
+            if (auto parent = environment->parent()) {
+                mark_queue.push(*parent);
+            }
+            for (const auto &[name, value] : environment->symbol_map()) {
+                mark_value(value);
+            }
         }
-        list.set_marked(true);
+        object.set_marked(true);
     }
 
     size_t swept_object_count = 0;
@@ -147,6 +146,9 @@ void Vm::collect_garbage() {
             if (m_object_list == object) {
                 m_object_list = next;
             }
+            if (auto environment = object->as_environment()) {
+                environment->~Environment();
+            }
             delete[] vull::bit_cast<uint8_t *>(object);
             swept_object_count++;
         } else {
@@ -158,19 +160,18 @@ void Vm::collect_garbage() {
     vull::debug("[vm] Swept {} out of {} objects", swept_object_count, object_count);
 }
 
-Value Vm::lookup_symbol(StringView name) {
-    for (const auto &environment : vull::reverse_view(m_environment_stack)) {
-        if (auto value = environment->lookup_symbol(name)) {
-            return *value;
-        }
-    }
-    vull::error("[vm] No symbol named {}", name);
-    VULL_ENSURE_NOT_REACHED();
+Value Vm::evaluate(Value form) {
+    Environment environment{Optional<Environment &>(m_root_environment)};
+    return evaluate(form, environment);
 }
 
-Value Vm::evaluate(Value form) {
+Value Vm::evaluate(Value form, Environment &environment) {
     if (auto symbol = form.as_symbol()) {
-        return lookup_symbol(*symbol);
+        if (auto value = environment.lookup_symbol(*symbol)) {
+            return *value;
+        }
+        vull::error("[vm] No symbol named {}", *symbol);
+        VULL_ENSURE_NOT_REACHED();
     }
 
     auto list = form.as_list();
@@ -185,12 +186,12 @@ Value Vm::evaluate(Value form) {
     if (auto symbol = list->at(0).as_symbol()) {
         // TODO: Check argument lengths and types.
         if (*symbol == "collect-garbage") {
-            collect_garbage();
+            collect_garbage(environment);
             return Value::null();
         }
         if (*symbol == "def!") {
             const auto name = list->at(1).as_symbol();
-            m_environment_stack.last()->put_symbol(*name, evaluate(list->at(2)));
+            environment.put_symbol(*name, evaluate(list->at(2), environment));
             return Value::null();
         }
         if (*symbol == "quote") {
@@ -200,14 +201,14 @@ Value Vm::evaluate(Value form) {
 
     // Evaluate list.
     auto evaluated_list_value = make_list(vull::make_span(list->begin(), list->size()));
-    m_marked.push(evaluated_list_value);
-
     auto &evaluated_list = *evaluated_list_value.as_list();
+    m_marked.push(evaluated_list);
     for (auto &value : evaluated_list) {
-        value = evaluate(value);
+        value = evaluate(value, environment);
     }
     m_marked.pop();
 
+    // Apply operation.
     const auto &op = evaluated_list[0];
     switch (op.type()) {
     case Type::NativeFn:
