@@ -107,6 +107,10 @@ Value Vm::make_closure(Environment &environment, Value bindings, Value body) {
     return Value(Type::Closure, object);
 }
 
+Environment &Vm::make_environment(Environment &parent) {
+    return *allocate_object<Environment>(0, Optional<Environment &>(parent));
+}
+
 void Vm::collect_garbage(Optional<Environment &> current_environment) {
     // Unmark all objects.
     size_t object_count = 0;
@@ -221,7 +225,6 @@ Value Vm::evaluate(Value form, Environment &environment) {
     case Type::Closure:
     case Type::NativeFn: {
         // Evaluate all arguments.
-        // TODO: Potential UB.
         auto argument_list_value = make_list(list->span().subspan(1));
         auto &argument_list = *argument_list_value.as_list();
         m_marked.push(argument_list);
@@ -231,14 +234,9 @@ Value Vm::evaluate(Value form, Environment &environment) {
         m_marked.pop();
 
         if (auto closure = op.as_closure()) {
-            auto *closure_environment =
-                allocate_object<Environment>(0, Optional<Environment &>(closure->environment()));
-            for (size_t i = 0; i < closure->bindings().size(); i++) {
-                closure_environment->put_symbol(*closure->bindings().at(i).as_symbol(), argument_list[i]);
-            }
-            return evaluate(closure->body(), *closure_environment);
+            auto &closure_environment = closure->bind_arguments(*this, argument_list);
+            return evaluate(closure->body(), closure_environment);
         }
-
         return op.native_fn()(*this, environment, argument_list.span());
     }
     default:

@@ -1,6 +1,7 @@
 #include <vull/script/value.hh>
 
 #include <vull/script/environment.hh>
+#include <vull/script/vm.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
@@ -169,6 +170,18 @@ Span<Value> ListObject::span() const {
 StringView StringObject::view() const {
     const auto *bytes = vull::bit_cast<const char *>(this + 1);
     return {bytes, m_length};
+}
+
+Environment &ClosureObject::bind_arguments(Vm &vm, ListObject &arguments) const {
+    if (arguments.empty()) {
+        return *m_environment;
+    }
+
+    auto &environment = vm.make_environment(*m_environment);
+    for (size_t i = 0; i < m_bindings->size(); i++) {
+        environment.put_symbol(*m_bindings->at(i).as_symbol(), arguments[i]);
+    }
+    return environment;
 }
 
 } // namespace vull::script

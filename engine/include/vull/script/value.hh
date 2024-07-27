@@ -171,6 +171,8 @@ private:
         : Object(ObjectType::Closure), m_environment(environment), m_bindings(bindings), m_body(body) {}
 
 public:
+    Environment &bind_arguments(Vm &vm, ListObject &arguments) const;
+
     Environment &environment() const { return *m_environment; }
     ListObject &bindings() const { return *m_bindings; }
     Value body() const { return m_body; }
