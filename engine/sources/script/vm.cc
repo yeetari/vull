@@ -51,6 +51,12 @@ static Value native_seq(Vm &, Environment &, Span<const Value> args) {
 }
 
 Vm::Vm() : m_root_environment(vull::nullopt) {
+    // Special forms.
+    m_root_environment.put_symbol("def!", Value(Type::Def));
+    m_root_environment.put_symbol("fn", Value(Type::Fn));
+    m_root_environment.put_symbol("quote", Value(Type::Quote));
+
+    // Functions backed by native code.
     m_root_environment.put_symbol("+", Value::native_fn(&native_add));
     m_root_environment.put_symbol("collect-garbage", Value::native_fn(&native_collect_garbage));
     m_root_environment.put_symbol("seq", Value::native_fn(&native_seq));
@@ -197,52 +203,48 @@ Value Vm::evaluate(Value form, Environment &environment) {
         return Value::null();
     }
 
-    // Handle any special forms.
-    if (auto symbol = list->at(0).as_symbol()) {
-        // TODO: Check argument lengths and types.
-        if (*symbol == "def!") {
-            const auto name = list->at(1).as_symbol();
-            environment.put_symbol(*name, evaluate(list->at(2), environment));
-            return Value::null();
-        }
-        if (*symbol == "fn") {
-            return make_closure(environment, list->at(1), list->at(2));
-        }
-        if (*symbol == "quote") {
-            return list->at(1);
-        }
-    }
+    // Evaluate operation name.
+    const auto op = evaluate(list->at(0), environment);
 
-    // Evaluate list.
-    auto evaluated_list_value = make_list(vull::make_span(list->begin(), list->size()));
-    auto &evaluated_list = *evaluated_list_value.as_list();
-    m_marked.push(evaluated_list);
-    for (auto &value : evaluated_list) {
-        value = evaluate(value, environment);
+    // TODO: Check argument list length and types.
+    switch (op.type()) {
+    case Type::Def: {
+        const auto name = list->at(1).as_symbol();
+        const auto value = evaluate(list->at(2), environment);
+        environment.put_symbol(*name, value);
+        return Value::null();
     }
-    m_marked.pop();
-
-    // Handle native call special case.
-    const auto &op = evaluated_list[0];
-    if (op.type() == Type::NativeFn) {
-        Span<const Value> args;
-        if (evaluated_list.size() > 1) {
-            args = vull::make_span(&evaluated_list[1], evaluated_list.size() - 1);
+    case Type::Fn:
+        return make_closure(environment, list->at(1), list->at(2));
+    case Type::Quote:
+        return list->at(1);
+    case Type::Closure:
+    case Type::NativeFn: {
+        // Evaluate all arguments.
+        // TODO: Potential UB.
+        auto argument_list_value = make_list(list->span().subspan(1));
+        auto &argument_list = *argument_list_value.as_list();
+        m_marked.push(argument_list);
+        for (auto &value : argument_list) {
+            value = evaluate(value, environment);
         }
-        return op.native_fn()(*this, environment, args);
-    }
+        m_marked.pop();
 
-    // Apply operation.
-    if (auto closure = op.as_closure()) {
-        auto *closure_environment = allocate_object<Environment>(0, Optional<Environment &>(closure->environment()));
-        for (size_t i = 0; i < closure->bindings().size(); i++) {
-            closure_environment->put_symbol(*closure->bindings().at(i).as_symbol(), evaluated_list[i + 1]);
+        if (auto closure = op.as_closure()) {
+            auto *closure_environment =
+                allocate_object<Environment>(0, Optional<Environment &>(closure->environment()));
+            for (size_t i = 0; i < closure->bindings().size(); i++) {
+                closure_environment->put_symbol(*closure->bindings().at(i).as_symbol(), argument_list[i]);
+            }
+            return evaluate(closure->body(), *closure_environment);
         }
-        return evaluate(closure->body(), *closure_environment);
-    }
 
-    // Not applicable.
-    VULL_ENSURE_NOT_REACHED();
+        return op.native_fn()(*this, environment, argument_list.span());
+    }
+    default:
+        // TODO: Not applicable.
+        VULL_ENSURE_NOT_REACHED();
+    }
 }
 
 } // namespace vull::script

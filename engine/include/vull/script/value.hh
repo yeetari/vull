@@ -31,6 +31,11 @@ enum class Type {
     Real,
     NativeFn,
 
+    // Special forms.
+    Def,
+    Fn,
+    Quote,
+
     // Object types.
     Symbol,
     String,
@@ -136,6 +141,8 @@ public:
 
     Value &at(size_t index) const;
     Value &operator[](size_t index) const;
+    Span<Value> span() const;
+
     bool empty() const { return m_size == 0; }
     size_t size() const { return m_size; }
 };

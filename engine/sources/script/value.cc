@@ -4,6 +4,7 @@
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
@@ -159,6 +160,10 @@ Value &ListObject::at(size_t index) const {
 Value &ListObject::operator[](size_t index) const {
     VULL_ASSERT(index < m_size);
     return begin()[index];
+}
+
+Span<Value> ListObject::span() const {
+    return vull::make_span(begin(), m_size);
 }
 
 StringView StringObject::view() const {
