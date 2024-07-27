@@ -46,6 +46,10 @@ static Value native_collect_garbage(Vm &vm, Environment &environment, Span<const
     return Value::null();
 }
 
+static Value native_nth(Vm &, Environment &, Span<const Value> args) {
+    return args[1].as_list()->at(static_cast<size_t>(args[0].integer()));
+}
+
 static Value native_seq(Vm &, Environment &, Span<const Value> args) {
     return args.end()[-1];
 }
@@ -59,6 +63,7 @@ Vm::Vm() : m_root_environment(vull::nullopt) {
     // Functions backed by native code.
     m_root_environment.put_symbol("+", Value::native_fn(&native_add));
     m_root_environment.put_symbol("collect-garbage", Value::native_fn(&native_collect_garbage));
+    m_root_environment.put_symbol("nth", Value::native_fn(&native_nth));
     m_root_environment.put_symbol("seq", Value::native_fn(&native_seq));
 }
 
