@@ -45,6 +45,21 @@ cmake_dependent_option(VULL_BUILD_VPAK "Build the vpak tool" ON "VULL_BUILD_GRAP
 cmake_dependent_option(VULL_BUILD_SANDBOX "Build the vull sandbox" ${PROJECT_IS_TOP_LEVEL}
     "VULL_BUILD_GRAPHICS;VULL_BUILD_PHYSICS;VULL_BUILD_UI;VULL_BUILD_X11_WINDOW;VULL_BUILD_VPAK" OFF)
 option(VULL_BUILD_TESTS "Build the vull tests" ${PROJECT_IS_TOP_LEVEL})
+option(VULL_ENABLE_COVERAGE "Enable code coverage for testing" OFF)
+
+if(VULL_ENABLE_COVERAGE)
+    find_package(Gcov REQUIRED)
+    gcov_append_compiler_flags()
+
+    find_package(Gcovr REQUIRED)
+    add_custom_target(coverage.xml
+      COMMAND Gcovr::gcovr
+        --cobertura "${CMAKE_CURRENT_BINARY_DIR}/coverage.xml"
+        --filter "engine/(include|sources)"
+        --verbose
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      VERBATIM)
+endif()
 
 find_package(xxHash REQUIRED)
 find_package(Zstd REQUIRED)
