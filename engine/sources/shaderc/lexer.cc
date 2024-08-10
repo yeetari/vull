@@ -14,8 +14,7 @@
 
 // TODO: Deduplicate functionality between this lexer and the script lexer.
 
-#define MAKE_TOKEN(...)                                                                                                \
-    { __VA_ARGS__, position, m_line }
+#define MAKE_TOKEN(...) {__VA_ARGS__, position, m_line}
 
 namespace vull::shaderc {
 

@@ -183,7 +183,7 @@ void *Scheduler::worker_entry(void *worker_ptr) {
         vull::error("[tasklet] Failed to mask signals");
     }
 
-    struct sigaction sa {
+    struct sigaction sa{
         .sa_flags = SA_SIGINFO,
     };
     sigemptyset(&sa.sa_mask);

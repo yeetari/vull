@@ -12,7 +12,7 @@
 CharStream::CharStream(const vull::String &path) : m_file(fopen(path.data(), "rb")) {
     VULL_ENSURE(m_file != nullptr);
 
-    struct stat stat {};
+    struct stat stat{};
     VULL_ENSURE(fstat(fileno(m_file), &stat) >= 0);
     const auto file_size = static_cast<size_t>(stat.st_size);
     m_data = {static_cast<const char *>(mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, fileno(m_file), 0)),

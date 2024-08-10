@@ -137,7 +137,7 @@ Reader::Reader(File &&file) {
     }
 
     // mmapping will keep the fd open even when the File is destructed.
-    struct stat stat {};
+    struct stat stat{};
     fstat(file.fd(), &stat);
     const auto file_size = static_cast<size_t>(stat.st_size);
     m_data = {static_cast<uint8_t *>(mmap(nullptr, file_size, PROT_READ, MAP_PRIVATE, file.fd(), 0)), file_size};

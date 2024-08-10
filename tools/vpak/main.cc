@@ -355,7 +355,7 @@ MadLut load_lut(char *executable_path) {
     auto parent_path = String::copy_raw(executable_path, static_cast<size_t>(last_slash - executable_path));
     auto file = VULL_EXPECT(vull::open_file(vull::format("{}/mad_lut.bin.zst", parent_path), OpenMode::Read));
 
-    struct stat stat {};
+    struct stat stat{};
     fstat(file.fd(), &stat);
     const auto file_size = static_cast<size_t>(stat.st_size);
     auto compressed_buffer = FixedBuffer<uint8_t>::create_uninitialised(file_size);

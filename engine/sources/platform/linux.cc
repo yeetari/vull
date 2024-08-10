@@ -30,7 +30,7 @@ File::~File() {
 }
 
 FileStream File::create_stream() const {
-    struct stat stat_buf {};
+    struct stat stat_buf{};
     fstat(m_fd, &stat_buf);
     return {dup(m_fd), (stat_buf.st_mode & S_IFREG) != 0};
 }
@@ -83,7 +83,7 @@ Result<size_t, StreamError> FileStream::seek(StreamOffset offset, SeekMode mode)
         m_head = static_cast<size_t>(static_cast<ssize_t>(m_head) + offset);
         break;
     case SeekMode::End: {
-        struct stat stat_buf {};
+        struct stat stat_buf{};
         if (fstat(m_fd, &stat_buf) < 0) {
             return StreamError::Unknown;
         }
@@ -166,7 +166,7 @@ void SystemMutex::unlock() {
 }
 
 static uint64_t monotonic_time() {
-    struct timespec ts {};
+    struct timespec ts{};
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return uint64_t(ts.tv_sec) * 1000000000ull + uint64_t(ts.tv_nsec);
 }

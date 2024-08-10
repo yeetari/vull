@@ -11,8 +11,7 @@
 
 #include <stdint.h>
 
-#define MAKE_TOKEN(...)                                                                                                \
-    { __VA_ARGS__, position, m_line }
+#define MAKE_TOKEN(...) {__VA_ARGS__, position, m_line}
 
 namespace vull::script {
 
