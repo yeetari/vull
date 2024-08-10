@@ -1,9 +1,16 @@
 #include "png_stream.hh"
 
+#include <vull/container/array.hh>
+#include <vull/support/assert.hh>
+#include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/stream.hh>
+#include <vull/support/unique_ptr.hh>
+#include <vull/support/utility.hh>
 
-#include <new>
 #include <png.h>
+#include <pngconf.h>
+#include <stddef.h>
 
 // TODO: Proper error handling from libpng.
 

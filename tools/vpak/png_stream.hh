@@ -1,7 +1,10 @@
 #pragma once
 
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/unique_ptr.hh>
+
+#include <stdint.h>
 
 using png_structp = struct png_struct_def *;
 using png_infop = struct png_info_def *;
