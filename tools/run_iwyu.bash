@@ -4,8 +4,10 @@
 find engine/sources engine/tests sandbox tools \
     -name '*.cc' \
     -and -not -name 'context_table.cc' \
+    -and -not -name 'enum.cc' \
     -and -not -name 'gltf_parser.cc' \
-    -and -not -name 'png_stream.cc' \
+    -and -not -name 'variant.cc' \
+    -and -not -name 'vector.cc' \
     -print0 |
 parallel -0 \
     include-what-you-use \
