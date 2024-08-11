@@ -257,6 +257,36 @@ constexpr auto empty() {
     return Empty();
 }
 
+template <typename T>
+class Success {
+    // TODO: Make matcher optional, and if absent, only check for no error?
+    T m_matcher;
+
+public:
+    explicit Success(const T &matcher) : m_matcher(matcher) {}
+
+    void describe(Message &message) const {
+        message.append_text("a successful result that is ");
+        m_matcher.describe(message);
+    }
+
+    void describe_mismatch(Message &message, const auto &actual) const {
+        if (actual.is_error()) {
+            message.append_text("was error ");
+            message.append_value(actual.error());
+        } else {
+            message.append_text("was ");
+            m_matcher.describe_mismatch(message, actual);
+        }
+    }
+
+    bool matches(const auto &actual) const { return !actual.is_error() && m_matcher.matches(actual.value()); }
+};
+
+constexpr auto success(const auto &matcher) {
+    return Success(matcher);
+}
+
 } // namespace vull::test::matchers
 
 // NOLINTEND(readability-convert-member-functions-to-static)
