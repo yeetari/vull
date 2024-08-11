@@ -59,7 +59,10 @@ class EqualTo {
 public:
     explicit EqualTo(const T &expected) : m_expected(expected) {}
 
-    void describe(Message &message) const { message.append_value(m_expected); }
+    void describe(Message &message) const {
+        message.append_text("equal to ");
+        message.append_value(m_expected);
+    }
 
     void describe_mismatch(Message &message, const auto &actual) const {
         message.append_text("was ");
