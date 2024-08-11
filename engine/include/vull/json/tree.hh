@@ -8,7 +8,6 @@
 #include <vull/support/utility.hh>
 #include <vull/support/variant.hh>
 
-#include <stddef.h>
 #include <stdint.h>
 
 namespace vull::json {
@@ -38,7 +37,7 @@ public:
     bool has(StringView key) const;
     JsonResult operator[](StringView key) const;
     bool empty() const { return m_keys.empty(); }
-    size_t size() const { return m_keys.size(); }
+    uint32_t size() const { return m_keys.size(); }
 };
 
 class Array {
