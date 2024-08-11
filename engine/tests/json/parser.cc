@@ -6,6 +6,7 @@
 #include <vull/support/string.hh> // IWYU pragma: keep
 #include <vull/support/string_view.hh>
 #include <vull/test/assertions.hh>
+#include <vull/test/json.hh>
 #include <vull/test/matchers.hh>
 #include <vull/test/test.hh>
 
@@ -14,42 +15,36 @@
 using namespace vull;
 using namespace vull::test::matchers;
 
-// TODO: This should use proper matchers.
-
 TEST_CASE(JsonParser, Null) {
-    auto value = VULL_EXPECT(json::parse("null"));
-    EXPECT_TRUE(value.has<json::Null>());
+    EXPECT_THAT(json::parse("null"), is(success(of_json_null())));
 }
 
 TEST_CASE(JsonParser, True) {
-    auto value = VULL_EXPECT(json::parse("true"));
-    EXPECT_TRUE(value.has<bool>());
-    EXPECT_TRUE(VULL_ASSUME(value.get<bool>()));
+    EXPECT_THAT(json::parse("true"), is(success(of_json_value<bool>(equal_to(true)))));
 }
 
 TEST_CASE(JsonParser, False) {
-    auto value = VULL_EXPECT(json::parse("false"));
-    EXPECT_TRUE(value.has<bool>());
-    EXPECT_FALSE(VULL_ASSUME(value.get<bool>()));
+    EXPECT_THAT(json::parse("false"), is(success(of_json_value<bool>(equal_to(false)))));
 }
 
 TEST_CASE(JsonParser, Integer) {
-    auto value = VULL_EXPECT(json::parse("300"));
-    EXPECT_TRUE(value.has<int64_t>());
-    EXPECT_TRUE(VULL_ASSUME(value.get<int64_t>()) == 300);
-    EXPECT_TRUE(vull::fuzzy_equal(VULL_EXPECT(value.get<double>()), 300.0));
+    EXPECT_THAT(json::parse("300"), is(success(of_json_value<int64_t>(equal_to(300)))));
+}
+
+TEST_CASE(JsonParser, Integer_Double) {
+    EXPECT_THAT(json::parse("300"), is(success(of_json_value<double>(close_to(300.0)))));
+}
+
+TEST_CASE(JsonParser, Double) {
+    EXPECT_THAT(json::parse("300.5"), is(success(of_json_value<double>(close_to(300.5)))));
 }
 
 TEST_CASE(JsonParser, String) {
-    auto value = VULL_EXPECT(json::parse("\"hello\""));
-    EXPECT_TRUE(value.has<String>());
-    EXPECT_TRUE(VULL_ASSUME(value.get<String>()) == "hello");
+    EXPECT_THAT(json::parse("\"hello\""), is(success(of_json_value<String>(equal_to(String("hello"))))));
 }
 
 TEST_CASE(JsonParser, Array1) {
-    auto value = VULL_EXPECT(json::parse("[]"));
-    EXPECT_TRUE(value.has<json::Array>());
-    EXPECT_TRUE(VULL_ASSUME(value.get<json::Array>()).empty());
+    EXPECT_THAT(json::parse("[]"), is(success(of_json_value<json::Array>(empty()))));
 }
 TEST_CASE(JsonParser, Array2) {
     auto value = VULL_EXPECT(json::parse("[null]"));
@@ -80,9 +75,7 @@ TEST_CASE(JsonParser, Array5) {
 }
 
 TEST_CASE(JsonParser, Object1) {
-    auto value = VULL_EXPECT(json::parse("{}"));
-    EXPECT_TRUE(value.has<json::Object>());
-    EXPECT_TRUE(VULL_ASSUME(value.get<json::Object>()).empty());
+    EXPECT_THAT(json::parse("{}"), is(success(of_json_value<json::Object>(empty()))));
 }
 TEST_CASE(JsonParser, Object2) {
     auto value = VULL_EXPECT(json::parse("{\"foo\":\"bar\"}"));
