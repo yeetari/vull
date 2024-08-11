@@ -72,11 +72,12 @@ template <typename T>
 using value_handle_t = ValueHandleType<T>::type;
 
 struct Value : private Variant<Null, Object, Array, String, bool, int64_t, double> {
-    using Variant::has;
     using Variant::Variant;
 
     bool is_null() const;
 
+    template <typename T>
+    bool has() const;
     template <typename T>
     Result<value_handle_t<T>, TreeError> get() const;
     template <Integral I>
@@ -117,6 +118,16 @@ JsonResult Array::operator[](I index) const {
 
 inline bool Value::is_null() const {
     return has<Null>();
+}
+
+template <typename T>
+bool Value::has() const {
+    if constexpr (is_same<T, double>) {
+        if (Variant::has<int64_t>()) {
+            return true;
+        }
+    }
+    return Variant::has<T>();
 }
 
 template <typename T>
