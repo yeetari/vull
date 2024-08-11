@@ -38,6 +38,9 @@ public:
     JsonResult operator[](StringView key) const;
     bool empty() const { return m_keys.empty(); }
     uint32_t size() const { return m_keys.size(); }
+
+    const Vector<String> &keys() const { return m_keys; }
+    const Vector<Value> &values() const { return m_values; }
 };
 
 class Array {
@@ -49,6 +52,7 @@ public:
     JsonResult operator[](I index) const;
     bool empty() const { return m_data.empty(); }
     uint32_t size() const { return m_data.size(); }
+    const Vector<Value> &data() const { return m_data; }
 };
 
 template <typename>
