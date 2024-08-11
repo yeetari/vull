@@ -75,6 +75,8 @@ struct Value : private Variant<Null, Object, Array, String, bool, int64_t, doubl
     using Variant::has;
     using Variant::Variant;
 
+    bool is_null() const;
+
     template <typename T>
     Result<value_handle_t<T>, TreeError> get() const;
     template <Integral I>
@@ -111,6 +113,10 @@ JsonResult Array::operator[](I index) const {
         return TreeError::OutOfBounds;
     }
     return m_data[array_index];
+}
+
+inline bool Value::is_null() const {
+    return has<Null>();
 }
 
 template <typename T>
