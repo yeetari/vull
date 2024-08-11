@@ -1,24 +1,36 @@
 name: CI Runner
 on: [push, pull_request]
 
-permissions: write-all
-
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-runner
   cancel-in-progress: true
 
+# In parallel, do a debug build and test (with test coverage report), check formatting, and run static analysis
+# tools. If all three succeed, do release builds.
 jobs:
+  build-test:
+    name: Debug Build (w/ Test Coverage Report)
+    uses: ./.github/workflows/build.yml
+    with:
+      preset: debug-gcc
+      coverage: true
+
   code-style:
     name: Code Style
     uses: ./.github/workflows/code_style.yml
 
   static-analysis:
     name: Static Analysis
-    needs: code-style
     uses: ./.github/workflows/static_analysis.yml
 
-  build:
-    name: Build
-    needs: static-analysis
+  build-release:
+    name: Release Build
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [release-clang, release-gcc]
+    needs: [build-test, code-style, static-analysis]
     uses: ./.github/workflows/build.yml
-    secrets: inherit
+    with:
+      preset: ${{ matrix.preset }}
+      upload: true

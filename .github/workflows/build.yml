@@ -1,15 +1,24 @@
 name: Build
-on: [workflow_call]
+on:
+  workflow_call:
+    inputs:
+      preset:
+        required: true
+        type: string
+      coverage:
+        default: false
+        required: false
+        type: boolean
+      upload:
+        default: false
+        required: false
+        type: boolean
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     container: ghcr.io/yeetari/vull:master
-    strategy:
-      fail-fast: false
-      matrix:
-        preset: [debug-gcc, release-clang, release-gcc]
     steps:
       - uses: actions/checkout@v4
 
@@ -17,10 +26,10 @@ jobs:
         shell: bash
         run: >-
           cmake .
-          --preset ${{ matrix.preset }}
+          --preset ${{ inputs.preset }}
           -Bbuild
           -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
-          $( [[ ${{ matrix.preset }} == debug-gcc ]] && echo -DVULL_ENABLE_COVERAGE=ON )
+          -DVULL_ENABLE_COVERAGE=${{ inputs.coverage }}
           -GNinja
 
       - name: Build
@@ -29,23 +38,29 @@ jobs:
       - name: Run tests
         run: cmake --build build --target test
 
+      - name: Upload artifacts
+        if: ${{ inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ inputs.preset }}
+          path: |
+            build/sandbox/vull-sandbox
+            build/sandbox/builtin.vpak
+
       - name: Generate coverage report
-        if: ${{ matrix.preset == 'debug-gcc' }}
+        if: ${{ inputs.coverage }}
         run: cmake --build build --target coverage.xml
 
-      - name: Upload coverage summary report
-        if: ${{ matrix.preset == 'debug-gcc' }}
+      - name: Upload coverage report
+        if: ${{ inputs.coverage }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage.xml
+          path: build/coverage.xml
+
+      - name: Print coverage summary
+        if: ${{ inputs.coverage }}
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: build/coverage.xml
-          badge: true
-          format: markdown
-          output: both
           hide_complexity: true
-
-      - name: Add coverage comment
-        if: ${{ matrix.preset == 'debug-gcc' && github.event_name == 'pull_request' }}
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          recreate: true
-          path: code-coverage-results.md
