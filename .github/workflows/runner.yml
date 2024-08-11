@@ -1,6 +1,8 @@
 name: CI Runner
 on: [push, pull_request]
 
+permissions: write-all
+
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-runner
   cancel-in-progress: true
@@ -19,3 +21,4 @@ jobs:
     name: Build
     needs: static-analysis
     uses: ./.github/workflows/build.yml
+    secrets: inherit
