@@ -8,6 +8,7 @@
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
+#include <vull/support/utility.hh>
 
 namespace vull::shaderc::ast {
 namespace {
@@ -85,8 +86,8 @@ Root::~Root() {
     traverse(destroy_visitor);
 }
 
-void Root::append_top_level(Node *node) {
-    m_top_level_nodes.push(node);
+void Root::append_top_level(NodeHandle<Node> &&node) {
+    m_top_level_nodes.push(node.disown());
 }
 
 #define DEFINE_SIMPLE_TRAVERSE(node)                                                                                   \

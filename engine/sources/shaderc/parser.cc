@@ -211,14 +211,14 @@ Result<Type, ParseError> Parser::parse_type() {
     return *builtin_type;
 }
 
-Result<ast::Node *, ParseError> Parser::build_call_or_construct(Vector<Operand> &operands) {
+ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands) {
     // We should have at least the name operand and an argument list or a single argument AST node.
     VULL_ASSERT(operands.size() >= 2);
 
     auto argument_list = operands.take_last();
-    if (auto single_argument = argument_list.try_get<ast::Node *>()) {
-        Vector<ast::Node *> vector;
-        vector.push(*single_argument);
+    if (auto single_argument = argument_list.try_get<ast::NodeHandle<ast::Node>>()) {
+        Vector<ast::NodeHandle<ast::Node>> vector;
+        vector.push(vull::move(*single_argument));
         argument_list.set(vull::move(vector));
     }
 
@@ -231,26 +231,30 @@ Result<ast::Node *, ParseError> Parser::build_call_or_construct(Vector<Operand> 
         return error;
     }
 
-    auto arguments = vull::move(argument_list.get<Vector<ast::Node *>>());
+    auto arguments = vull::move(argument_list.get<Vector<ast::NodeHandle<ast::Node>>>());
     auto name = name_operand.get<StringView>();
 
     // Builtin type construction, e.g. vec4(1.0f).
     if (auto type = m_builtin_type_map.get(name)) {
-        auto *construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
-        construct_expr->set_nodes(vull::move(arguments));
+        auto construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
+        for (auto &argument : arguments) {
+            construct_expr->append_node(vull::move(argument));
+        }
         construct_expr->set_type(*type);
         return construct_expr;
     }
 
     // Otherwise a regular function call.
-    auto *call_expr = m_root.allocate<ast::CallExpr>(name);
-    call_expr->set_arguments(vull::move(arguments));
+    auto call_expr = m_root.allocate<ast::CallExpr>(name);
+    for (auto &argument : arguments) {
+        call_expr->append_argument(vull::move(argument));
+    }
     return call_expr;
 }
 
-ast::Node *Parser::build_node(Operand operand) {
-    if (auto node = operand.try_get<ast::Node *>()) {
-        return *node;
+ast::NodeHandle<ast::Node> Parser::build_node(Operand operand) {
+    if (auto node = operand.try_get<ast::NodeHandle<ast::Node>>()) {
+        return vull::move(*node);
     }
     return m_root.allocate<ast::Symbol>(operand.get<StringView>());
 }
@@ -284,32 +288,32 @@ static ast::BinaryOp to_binary_op(Operator op) {
 
 void Parser::build_expr(Operator op, Vector<Operand> &operands) {
     // Handle unary operators first.
-    auto *rhs = build_node(operands.take_last());
+    auto rhs = build_node(operands.take_last());
     if (op == Operator::Negate) {
-        operands.push(m_root.allocate<ast::UnaryExpr>(ast::UnaryOp::Negate, rhs));
+        operands.push(m_root.allocate<ast::UnaryExpr>(ast::UnaryOp::Negate, vull::move(rhs)));
         return;
     }
 
     // Special handling for argument separator (comma).
     if (op == Operator::ArgumentSeparator) {
         // Check if we already have an arguments vector.
-        if (auto vector = operands.last().try_get<Vector<ast::Node *>>()) {
-            vector->push(rhs);
+        if (auto vector = operands.last().try_get<Vector<ast::NodeHandle<ast::Node>>>()) {
+            vector->push(vull::move(rhs));
             return;
         }
 
         // Otherwise this is the second argument and we need to create a vector.
-        auto *lhs = build_node(operands.take_last());
-        Vector<ast::Node *> arguments;
-        arguments.push(lhs);
-        arguments.push(rhs);
+        auto lhs = build_node(operands.take_last());
+        Vector<ast::NodeHandle<ast::Node>> arguments;
+        arguments.push(vull::move(lhs));
+        arguments.push(vull::move(rhs));
         operands.emplace(vull::move(arguments));
         return;
     }
 
     // Otherwise op is a binary operator.
-    auto *lhs = build_node(operands.take_last());
-    operands.push(m_root.allocate<ast::BinaryExpr>(to_binary_op(op), lhs, rhs));
+    auto lhs = build_node(operands.take_last());
+    operands.push(m_root.allocate<ast::BinaryExpr>(to_binary_op(op), vull::move(lhs), vull::move(rhs)));
 }
 
 Optional<Parser::Operand> Parser::parse_operand() {
@@ -327,7 +331,7 @@ Optional<Parser::Operand> Parser::parse_operand() {
 
 // Implementation of The Double-E Infix Expression Parsing Method.
 // See https://github.com/erikeidt/erikeidt.github.io/blob/master/The-Double-E-Method.md
-Result<ast::Node *, ParseError> Parser::parse_expr() {
+ParseResult<ast::Node> Parser::parse_expr() {
     // The parser is in one of two states. In the unary state we are looking for a unary operator or an operand. In the
     // binary state we are looking for a binary operator or the end of the expression.
 
@@ -423,7 +427,7 @@ Result<ast::Node *, ParseError> Parser::parse_expr() {
 
                 // Push an empty argument list beforehand.
                 operators.pop();
-                operands.push(Vector<ast::Node *>());
+                operands.push(Vector<ast::NodeHandle<ast::Node>>());
                 operands.push(VULL_TRY(build_call_or_construct(operands)));
                 state = ParseState::Binary;
                 continue;
@@ -475,35 +479,35 @@ Result<ast::Node *, ParseError> Parser::parse_expr() {
     return build_node(operands.take_last());
 }
 
-Result<ast::Node *, ParseError> Parser::parse_stmt() {
+ParseResult<ast::Node> Parser::parse_stmt() {
     if (consume(TokenKind::KW_let) || consume(TokenKind::KW_var)) {
         auto name = VULL_TRY(expect(TokenKind::Identifier));
         VULL_TRY(expect('='_tk));
-        auto *value = VULL_TRY(parse_expr());
+        auto value = VULL_TRY(parse_expr());
         VULL_TRY(expect(';'_tk));
-        return m_root.allocate<ast::DeclStmt>(name.string(), value);
+        return m_root.allocate<ast::DeclStmt>(name.string(), vull::move(value));
     }
 
     // Freestanding expression.
-    auto *expr = VULL_TRY(parse_expr());
+    auto expr = VULL_TRY(parse_expr());
     if (consume(';'_tk)) {
         return expr;
     }
 
     // No semicolon, implicit return.
-    return m_root.allocate<ast::ReturnStmt>(expr);
+    return m_root.allocate<ast::ReturnStmt>(vull::move(expr));
 }
 
-Result<ast::Aggregate *, ParseError> Parser::parse_block() {
+ParseResult<ast::Aggregate> Parser::parse_block() {
     VULL_TRY(expect('{'_tk, "to open a block"));
-    auto *block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
+    auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
     while (!consume('}'_tk)) {
         block->append_node(VULL_TRY(parse_stmt()));
     }
-    return block;
+    return vull::move(block);
 }
 
-Result<ast::FunctionDecl *, ParseError> Parser::parse_function_decl() {
+ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
     auto name = VULL_TRY(expect(TokenKind::Identifier, "for function name"));
     VULL_TRY(expect('('_tk, "to open the parameter list"));
 
@@ -524,34 +528,34 @@ Result<ast::FunctionDecl *, ParseError> Parser::parse_function_decl() {
         return_type = VULL_TRY(parse_type());
     }
 
-    auto *block = VULL_TRY(parse_block());
-    return m_root.allocate<ast::FunctionDecl>(name.string(), block, return_type, vull::move(parameters));
+    auto block = VULL_TRY(parse_block());
+    return m_root.allocate<ast::FunctionDecl>(name.string(), vull::move(block), return_type, vull::move(parameters));
 }
 
-Result<ast::PipelineDecl *, ParseError> Parser::parse_pipeline_decl() {
+ParseResult<ast::PipelineDecl> Parser::parse_pipeline_decl() {
     auto type = VULL_TRY(parse_type());
     auto name = VULL_TRY(expect(TokenKind::Identifier));
     VULL_TRY(expect_semi("pipeline declaration"));
     return m_root.allocate<ast::PipelineDecl>(name.string(), type);
 }
 
-Result<ast::Aggregate *, ParseError> Parser::parse_uniform_block() {
+ParseResult<ast::Aggregate> Parser::parse_uniform_block() {
     VULL_TRY(expect('{'_tk, "to open the uniform block"));
-    auto *block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::UniformBlock);
+    auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::UniformBlock);
     while (!consume('}'_tk)) {
         auto name = VULL_TRY(expect(TokenKind::Identifier));
         VULL_TRY(expect(':'_tk));
         auto type = VULL_TRY(parse_type());
-        auto *symbol = m_root.allocate<ast::Symbol>(name.string());
+        auto symbol = m_root.allocate<ast::Symbol>(name.string());
         symbol->set_type(type);
-        block->append_node(symbol);
+        block->append_node(vull::move(symbol));
         VULL_TRY(expect(','_tk));
     }
     VULL_TRY(expect_semi("uniform block declaration"));
-    return block;
+    return vull::move(block);
 }
 
-Result<ast::Node *, ParseError> Parser::parse_top_level() {
+ParseResult<ast::Node> Parser::parse_top_level() {
     if (consume(TokenKind::KW_fn)) {
         return VULL_TRY(parse_function_decl());
     }

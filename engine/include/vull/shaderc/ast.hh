@@ -27,6 +27,29 @@ struct Node {
     virtual Type type() const { VULL_ENSURE_NOT_REACHED(); }
 };
 
+template <typename T>
+class NodeHandle {
+    Arena &m_arena;
+    T *m_node;
+
+public:
+    NodeHandle(Arena &arena, T *node) : m_arena(arena), m_node(node) {}
+    NodeHandle(const NodeHandle &) = delete;
+    NodeHandle(NodeHandle &&other) : m_arena(other.m_arena), m_node(vull::exchange(other.m_node, nullptr)) {}
+    ~NodeHandle();
+
+    NodeHandle &operator=(const NodeHandle &) = delete;
+    NodeHandle &operator=(NodeHandle &&) = delete;
+
+    operator NodeHandle<Node>() const && { return NodeHandle<Node>(m_arena, m_node); }
+
+    T *disown() { return vull::exchange(m_node, nullptr); }
+    T *operator->() const { return m_node; }
+};
+
+template <typename T>
+NodeHandle(T) -> NodeHandle<T>;
+
 class TypedNode : public Node {
     Type m_type;
 
@@ -48,8 +71,7 @@ class Aggregate final : public TypedNode {
 public:
     explicit Aggregate(AggregateKind kind) : m_kind(kind) {}
 
-    void append_node(Node *node) { m_nodes.push(node); }
-    void set_nodes(Vector<Node *> &&nodes) { m_nodes = vull::move(nodes); }
+    void append_node(NodeHandle<Node> &&handle) { m_nodes.push(handle.disown()); }
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
     void traverse(Traverser<TraverseOrder::PostOrder> &) override;
@@ -85,7 +107,8 @@ class BinaryExpr final : public TypedNode {
     BinaryOp m_op;
 
 public:
-    BinaryExpr(BinaryOp op, Node *lhs, Node *rhs) : m_lhs(lhs), m_rhs(rhs), m_op(op) {}
+    BinaryExpr(BinaryOp op, NodeHandle<Node> &&lhs, NodeHandle<Node> &&rhs)
+        : m_lhs(lhs.disown()), m_rhs(rhs.disown()), m_op(op) {}
 
     void set_op(BinaryOp op) { m_op = op; }
     void traverse(Traverser<TraverseOrder::None> &) override;
@@ -104,8 +127,7 @@ class CallExpr final : public TypedNode {
 public:
     explicit CallExpr(StringView name) : m_name(name) {}
 
-    void append_argument(Node *argument) { m_arguments.push(argument); }
-    void set_arguments(Vector<Node *> &&arguments) { m_arguments = vull::move(arguments); }
+    void append_argument(NodeHandle<Node> &&argument) { m_arguments.push(argument.disown()); }
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
     void traverse(Traverser<TraverseOrder::PostOrder> &) override;
@@ -140,7 +162,7 @@ class DeclStmt final : public Node {
     Node *m_value;
 
 public:
-    DeclStmt(StringView name, Node *value) : m_name(name), m_value(value) {}
+    DeclStmt(StringView name, NodeHandle<Node> &&value) : m_name(name), m_value(value.disown()) {}
 
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
@@ -168,8 +190,8 @@ class FunctionDecl final : public Node {
     Vector<Parameter> m_parameters;
 
 public:
-    FunctionDecl(StringView name, Aggregate *block, const Type &return_type, Vector<Parameter> &&parameters)
-        : m_name(name), m_block(block), m_return_type(return_type), m_parameters(vull::move(parameters)) {}
+    FunctionDecl(StringView name, NodeHandle<Aggregate> block, const Type &return_type, Vector<Parameter> &&parameters)
+        : m_name(name), m_block(block.disown()), m_return_type(return_type), m_parameters(vull::move(parameters)) {}
 
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
@@ -198,7 +220,7 @@ class ReturnStmt final : public Node {
     Node *m_expr;
 
 public:
-    explicit ReturnStmt(Node *expr) : m_expr(expr) {}
+    explicit ReturnStmt(NodeHandle<Node> &&expr) : m_expr(expr.disown()) {}
 
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
@@ -220,12 +242,12 @@ public:
     Root &operator=(const Root &) = delete;
     Root &operator=(Root &&) = delete;
 
-    template <typename U, typename... Args>
-    U *allocate(Args &&...args) {
-        return m_arena.allocate<U>(vull::forward<Args>(args)...);
+    template <typename T, typename... Args>
+    NodeHandle<T> allocate(Args &&...args) {
+        return NodeHandle(m_arena, m_arena.allocate<T>(vull::forward<Args>(args)...));
     }
 
-    void append_top_level(Node *node);
+    void append_top_level(NodeHandle<Node> &&node);
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
     void traverse(Traverser<TraverseOrder::PostOrder> &) override;
@@ -254,7 +276,7 @@ class UnaryExpr final : public TypedNode {
     UnaryOp m_op;
 
 public:
-    UnaryExpr(UnaryOp op, Node *expr) : m_expr(expr), m_op(op) {}
+    UnaryExpr(UnaryOp op, NodeHandle<Node> &&expr) : m_expr(expr.disown()), m_op(op) {}
 
     void traverse(Traverser<TraverseOrder::None> &) override;
     void traverse(Traverser<TraverseOrder::PreOrder> &) override;
@@ -297,6 +319,18 @@ public:
     void visit(Root &) override;
     void visit(UnaryExpr &) override;
 };
+
+template <typename T>
+NodeHandle<T>::~NodeHandle() {
+    if (m_node != nullptr) {
+        m_arena.destroy(m_node);
+    }
+}
+
+// NOLINTBEGIN
+template <>
+inline NodeHandle<Node>::~NodeHandle() = default;
+// NOLINTEND
 
 constexpr bool is_assign_op(BinaryOp op) {
     switch (op) {

@@ -60,8 +60,11 @@ public:
     const Vector<ParseMessage> &messages() const { return m_messages; }
 };
 
+template <typename T>
+using ParseResult = Result<ast::NodeHandle<T>, ParseError>;
+
 class Parser {
-    using Operand = Variant<ast::Node *, StringView, Vector<ast::Node *>>;
+    using Operand = Variant<ast::NodeHandle<ast::Node>, StringView, Vector<ast::NodeHandle<ast::Node>>>;
 
 public:
     enum class Operator : uint32_t;
@@ -78,19 +81,19 @@ private:
 
     Result<Type, ParseError> parse_type();
 
-    Result<ast::Node *, ParseError> build_call_or_construct(Vector<Operand> &operands);
-    ast::Node *build_node(Operand operand);
+    ParseResult<ast::Node> build_call_or_construct(Vector<Operand> &operands);
+    ast::NodeHandle<ast::Node> build_node(Operand operand);
     void build_expr(Operator op, Vector<Operand> &operands);
     Optional<Operand> parse_operand();
-    Result<ast::Node *, ParseError> parse_expr();
+    ParseResult<ast::Node> parse_expr();
 
-    Result<ast::Node *, ParseError> parse_stmt();
-    Result<ast::Aggregate *, ParseError> parse_block();
+    ParseResult<ast::Node> parse_stmt();
+    ParseResult<ast::Aggregate> parse_block();
 
-    Result<ast::FunctionDecl *, ParseError> parse_function_decl();
-    Result<ast::PipelineDecl *, ParseError> parse_pipeline_decl();
-    Result<ast::Aggregate *, ParseError> parse_uniform_block();
-    Result<ast::Node *, ParseError> parse_top_level();
+    ParseResult<ast::FunctionDecl> parse_function_decl();
+    ParseResult<ast::PipelineDecl> parse_pipeline_decl();
+    ParseResult<ast::Aggregate> parse_uniform_block();
+    ParseResult<ast::Node> parse_top_level();
 
 public:
     explicit Parser(Lexer &lexer);
