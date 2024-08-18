@@ -4,12 +4,16 @@
 #include <vull/platform/system_mutex.hh>
 #include <vull/platform/timer.hh>
 
+#include <vull/container/array.hh>
+#include <vull/container/vector.hh>
+#include <vull/support/algorithm.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
 #include <vull/support/string.hh>
 #include <vull/support/unique_ptr.hh>
+#include <vull/support/utility.hh>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -58,6 +62,34 @@ Result<File, OpenError> open_file(String path, OpenMode mode) {
         return OpenError::Unknown;
     }
     return File::from_fd(rc);
+}
+
+Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes) {
+    // TODO: Could optimise by stat'ing and ensuring vectory capacity.
+    int fd = open(path.data(), O_RDONLY);
+    if (fd < 0) {
+        if (errno == EACCES) {
+            return FileError::BadAccess;
+        }
+        if (errno == ENOENT) {
+            return FileError::NonExistent;
+        }
+        return FileError::Unknown;
+    }
+
+    uint32_t bytes_read = 0;
+    do {
+        Array<uint8_t, 16384> temp{};
+        ssize_t rc = read(fd, temp.data(), temp.size());
+        if (rc < 0) {
+            close(fd);
+            return FileError::Unknown;
+        }
+        bytes_read = static_cast<uint32_t>(rc);
+        vull::copy(temp.begin(), temp.begin() + bytes_read, vull::back_inserter(bytes));
+    } while (bytes_read != 0);
+    close(fd);
+    return {};
 }
 
 FileStream::~FileStream() {

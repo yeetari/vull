@@ -1,12 +1,22 @@
 #pragma once
 
+#include <vull/container/vector.hh>
 #include <vull/platform/file_stream.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 
+#include <stdint.h>
+
 namespace vull {
+
+enum class FileError {
+    BadAccess,
+    NonExistent,
+    Unknown,
+};
 
 enum class OpenError {
     NonExistent,
@@ -46,5 +56,17 @@ public:
 };
 
 Result<File, OpenError> open_file(String path, OpenMode mode);
+Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes);
+
+inline StringView file_error_string(FileError error) {
+    switch (error) {
+    case FileError::BadAccess:
+        return "bad access";
+    case FileError::NonExistent:
+        return "no such file or directory";
+    default:
+        return "unknown error";
+    }
+}
 
 } // namespace vull
