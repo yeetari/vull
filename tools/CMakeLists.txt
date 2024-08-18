@@ -45,3 +45,6 @@ vull_add_executable(vslc
     vslc/main.cc
     vslc/parser.cc
     vslc/token.cc)
+
+vull_add_executable(vslc-new vslc.cc)
+target_link_libraries(vslc-new PRIVATE vull::shaderc)
