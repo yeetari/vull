@@ -26,6 +26,35 @@ constexpr auto make_range(It begin, It end) {
     return Range(begin, end);
 }
 
+template <typename Container>
+class BackInserterIterator {
+    Container *m_container;
+
+public:
+    explicit BackInserterIterator(Container &container) : m_container(&container) {}
+
+    BackInserterIterator &operator=(const auto &value) {
+        m_container->push(value);
+        return *this;
+    }
+    BackInserterIterator &operator=(auto &&value) {
+        m_container->push(vull::move(value));
+        return *this;
+    }
+
+    BackInserterIterator &operator*() { return *this; }
+    BackInserterIterator &operator++() { return *this; }
+    BackInserterIterator &operator++(int) { return *this; }
+};
+
+template <typename Container>
+BackInserterIterator(Container) -> BackInserterIterator<Container>;
+
+template <typename Container>
+auto back_inserter(Container &container) {
+    return BackInserterIterator(container);
+}
+
 template <typename It>
 class ReverseIterator {
     It m_it;
@@ -90,6 +119,14 @@ constexpr bool contains(const Container &container, const T &value) {
         }
     }
     return false;
+}
+
+template <typename InputIt, typename OutputIt>
+constexpr OutputIt copy(InputIt first, InputIt last, OutputIt d_first) {
+    for (; first != last; ++first, ++d_first) {
+        *d_first = *first;
+    }
+    return d_first;
 }
 
 template <typename It, typename T>
