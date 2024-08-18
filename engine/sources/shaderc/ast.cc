@@ -2,7 +2,7 @@
 
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
-#include <vull/shaderc/arena.hh>
+#include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/string.hh>
@@ -14,10 +14,10 @@ namespace vull::shaderc::ast {
 namespace {
 
 class DestroyVisitor final : public Traverser<TraverseOrder::PostOrder> {
-    Arena &m_arena;
+    tree::Arena &m_arena;
 
 public:
-    explicit DestroyVisitor(Arena &arena) : m_arena(arena) {}
+    explicit DestroyVisitor(tree::Arena &arena) : m_arena(arena) {}
 
     void visit(Aggregate &) override;
     void visit(BinaryExpr &) override;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vull/container/vector.hh>
-#include <vull/shaderc/arena.hh>
+#include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/string_view.hh>
@@ -28,27 +28,7 @@ struct Node {
 };
 
 template <typename T>
-class NodeHandle {
-    Arena &m_arena;
-    T *m_node;
-
-public:
-    NodeHandle(Arena &arena, T *node) : m_arena(arena), m_node(node) {}
-    NodeHandle(const NodeHandle &) = delete;
-    NodeHandle(NodeHandle &&other) : m_arena(other.m_arena), m_node(vull::exchange(other.m_node, nullptr)) {}
-    ~NodeHandle();
-
-    NodeHandle &operator=(const NodeHandle &) = delete;
-    NodeHandle &operator=(NodeHandle &&) = delete;
-
-    operator NodeHandle<Node>() const && { return NodeHandle<Node>(m_arena, m_node); }
-
-    T *disown() { return vull::exchange(m_node, nullptr); }
-    T *operator->() const { return m_node; }
-};
-
-template <typename T>
-NodeHandle(T) -> NodeHandle<T>;
+using NodeHandle = tree::NodeHandle<Node, T>;
 
 class TypedNode : public Node {
     Type m_type;
@@ -92,13 +72,6 @@ enum class BinaryOp {
     SubAssign,
     MulAssign,
     DivAssign,
-
-    // Parsed-generated Muls can be turned into these by the legaliser.
-    VectorTimesScalar,
-    MatrixTimesScalar,
-    VectorTimesMatrix,
-    MatrixTimesVector,
-    MatrixTimesMatrix,
 };
 
 class BinaryExpr final : public TypedNode {
@@ -230,7 +203,7 @@ public:
 };
 
 class Root final : public Node {
-    Arena m_arena;
+    tree::Arena m_arena;
     Vector<Node *> m_top_level_nodes;
 
 public:
@@ -319,18 +292,6 @@ public:
     void visit(Root &) override;
     void visit(UnaryExpr &) override;
 };
-
-template <typename T>
-NodeHandle<T>::~NodeHandle() {
-    if (m_node != nullptr) {
-        m_arena.destroy(m_node);
-    }
-}
-
-// NOLINTBEGIN
-template <>
-inline NodeHandle<Node>::~NodeHandle() = default;
-// NOLINTEND
 
 constexpr bool is_assign_op(BinaryOp op) {
     switch (op) {

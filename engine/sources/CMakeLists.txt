@@ -77,7 +77,8 @@ target_sources(vull-shaderc PRIVATE
     shaderc/ast.cc
     shaderc/lexer.cc
     shaderc/parser.cc
-    shaderc/spv_builder.cc)
+    shaderc/spv_builder.cc
+    shaderc/tree.cc)
 
 if(VULL_BUILD_UI)
     target_sources(vull PRIVATE

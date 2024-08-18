@@ -6,6 +6,7 @@
 #include <vull/shaderc/ast.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/token.hh>
+#include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
