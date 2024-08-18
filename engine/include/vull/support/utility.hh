@@ -105,6 +105,9 @@ using remove_ref = detail::RemoveRef<T>::type;
 template <typename T>
 using decay = remove_cv<remove_ref<T>>;
 
+template <typename B, typename D>
+inline constexpr bool is_base_of = __is_base_of(B, D);
+
 template <typename>
 inline constexpr bool is_const = false;
 template <typename T>
@@ -148,6 +151,8 @@ inline constexpr bool is_convertible_to = is_same<T, U> || requires(T obj) { sta
 
 template <typename T, typename U>
 concept ConvertibleTo = is_convertible_to<T, U>;
+template <typename D, typename B>
+concept DerivedFrom = is_base_of<B, D> && is_convertible_to<const volatile D *, const volatile B *>;
 template <typename T>
 concept TriviallyCopyable = is_trivially_copyable<T>;
 
