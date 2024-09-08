@@ -81,6 +81,159 @@ void DestroyVisitor::visit(UnaryExpr &unary_expr) {
 
 } // namespace
 
+void Node::traverse(Traverser<TraverseOrder::None> &traverser) {
+    switch (m_kind) {
+        using enum NodeKind;
+    case Root:
+        traverser.visit(static_cast<ast::Root &>(*this));
+        break;
+    case FunctionDecl:
+        traverser.visit(static_cast<ast::FunctionDecl &>(*this));
+        break;
+    case PipelineDecl:
+        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+        break;
+    case DeclStmt:
+        traverser.visit(static_cast<ast::DeclStmt &>(*this));
+        break;
+    case ReturnStmt:
+        traverser.visit(static_cast<ast::ReturnStmt &>(*this));
+        break;
+    case Aggregate:
+        traverser.visit(static_cast<ast::Aggregate &>(*this));
+        break;
+    case BinaryExpr:
+        traverser.visit(static_cast<ast::BinaryExpr &>(*this));
+        break;
+    case CallExpr:
+        traverser.visit(static_cast<ast::CallExpr &>(*this));
+        break;
+    case Constant:
+        traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case Symbol:
+        traverser.visit(static_cast<ast::Symbol &>(*this));
+        break;
+    case UnaryExpr:
+        traverser.visit(static_cast<ast::UnaryExpr &>(*this));
+        break;
+    }
+}
+
+void Node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
+    switch (m_kind) {
+        using enum NodeKind;
+    case Root: {
+        auto &root = static_cast<ast::Root &>(*this);
+        traverser.visit(root);
+        for (auto *node : root.top_level_nodes()) {
+            node->traverse(traverser);
+        }
+        break;
+    }
+    case FunctionDecl:
+        traverser.visit(static_cast<ast::FunctionDecl &>(*this));
+        break;
+    case PipelineDecl:
+        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+        break;
+    case DeclStmt: {
+        auto &stmt = static_cast<ast::DeclStmt &>(*this);
+        traverser.visit(stmt);
+        stmt.value().traverse(traverser);
+        break;
+    }
+    case ReturnStmt: {
+        auto &stmt = static_cast<ast::ReturnStmt &>(*this);
+        traverser.visit(stmt);
+        stmt.expr().traverse(traverser);
+        break;
+    }
+    case Aggregate:
+        traverser.visit(static_cast<ast::Aggregate &>(*this));
+        break;
+    case BinaryExpr: {
+        auto &expr = static_cast<ast::BinaryExpr &>(*this);
+        traverser.visit(expr);
+        expr.lhs().traverse(traverser);
+        expr.rhs().traverse(traverser);
+        break;
+    }
+    case CallExpr:
+        traverser.visit(static_cast<ast::CallExpr &>(*this));
+        break;
+    case Constant:
+        traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case Symbol:
+        traverser.visit(static_cast<ast::Symbol &>(*this));
+        break;
+    case UnaryExpr: {
+        auto &expr = static_cast<ast::UnaryExpr &>(*this);
+        traverser.visit(expr);
+        expr.expr().traverse(traverser);
+        break;
+    }
+    }
+}
+
+void Node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
+    switch (m_kind) {
+        using enum NodeKind;
+    case Root: {
+        auto &root = static_cast<ast::Root &>(*this);
+        for (auto *node : root.top_level_nodes()) {
+            node->traverse(traverser);
+        }
+        traverser.visit(root);
+        break;
+    }
+    case FunctionDecl:
+        traverser.visit(static_cast<ast::FunctionDecl &>(*this));
+        break;
+    case PipelineDecl:
+        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+        break;
+    case DeclStmt: {
+        auto &stmt = static_cast<ast::DeclStmt &>(*this);
+        stmt.value().traverse(traverser);
+        traverser.visit(stmt);
+        break;
+    }
+    case ReturnStmt: {
+        auto &stmt = static_cast<ast::ReturnStmt &>(*this);
+        stmt.expr().traverse(traverser);
+        traverser.visit(stmt);
+        break;
+    }
+    case Aggregate:
+        traverser.visit(static_cast<ast::Aggregate &>(*this));
+        break;
+    case BinaryExpr: {
+        auto &expr = static_cast<ast::BinaryExpr &>(*this);
+        expr.lhs().traverse(traverser);
+        expr.rhs().traverse(traverser);
+        traverser.visit(expr);
+        break;
+    }
+    case CallExpr:
+        traverser.visit(static_cast<ast::CallExpr &>(*this));
+        break;
+    case Constant:
+        traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case Symbol:
+        traverser.visit(static_cast<ast::Symbol &>(*this));
+        break;
+    case UnaryExpr: {
+        auto &expr = static_cast<ast::UnaryExpr &>(*this);
+        expr.expr().traverse(traverser);
+        traverser.visit(expr);
+        break;
+    }
+    }
+}
+
 Root::~Root() {
     DestroyVisitor destroy_visitor(m_arena);
     traverse(destroy_visitor);
@@ -88,102 +241,6 @@ Root::~Root() {
 
 void Root::append_top_level(NodeHandle<Node> &&node) {
     m_top_level_nodes.push(node.disown());
-}
-
-#define DEFINE_SIMPLE_TRAVERSE(node)                                                                                   \
-    void node::traverse(Traverser<TraverseOrder::None> &traverser) {                                                   \
-        traverser.visit(*this);                                                                                        \
-    }                                                                                                                  \
-    void node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {                                               \
-        traverser.visit(*this);                                                                                        \
-    }                                                                                                                  \
-    void node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {                                              \
-        traverser.visit(*this);                                                                                        \
-    }
-
-// Aggregates and functions usually require special handling.
-DEFINE_SIMPLE_TRAVERSE(Aggregate)
-DEFINE_SIMPLE_TRAVERSE(CallExpr)
-DEFINE_SIMPLE_TRAVERSE(Constant)
-DEFINE_SIMPLE_TRAVERSE(FunctionDecl)
-DEFINE_SIMPLE_TRAVERSE(PipelineDecl)
-DEFINE_SIMPLE_TRAVERSE(Symbol)
-#undef DEFINE_SIMPLE_TRAVERSE
-
-void BinaryExpr::traverse(Traverser<TraverseOrder::None> &traverser) {
-    traverser.visit(*this);
-}
-
-void BinaryExpr::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
-    traverser.visit(*this);
-    m_lhs->traverse(traverser);
-    m_rhs->traverse(traverser);
-}
-
-void BinaryExpr::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
-    m_lhs->traverse(traverser);
-    m_rhs->traverse(traverser);
-    traverser.visit(*this);
-}
-
-void DeclStmt::traverse(Traverser<TraverseOrder::None> &traverser) {
-    traverser.visit(*this);
-}
-
-void DeclStmt::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
-    traverser.visit(*this);
-    m_value->traverse(traverser);
-}
-
-void DeclStmt::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
-    m_value->traverse(traverser);
-    traverser.visit(*this);
-}
-
-void ReturnStmt::traverse(Traverser<TraverseOrder::None> &traverser) {
-    traverser.visit(*this);
-}
-
-void ReturnStmt::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
-    traverser.visit(*this);
-    m_expr->traverse(traverser);
-}
-
-void ReturnStmt::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
-    m_expr->traverse(traverser);
-    traverser.visit(*this);
-}
-
-void Root::traverse(Traverser<TraverseOrder::None> &traverser) {
-    traverser.visit(*this);
-}
-
-void Root::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
-    traverser.visit(*this);
-    for (auto *node : m_top_level_nodes) {
-        node->traverse(traverser);
-    }
-}
-
-void Root::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
-    for (auto *node : m_top_level_nodes) {
-        node->traverse(traverser);
-    }
-    traverser.visit(*this);
-}
-
-void UnaryExpr::traverse(Traverser<TraverseOrder::None> &traverser) {
-    traverser.visit(*this);
-}
-
-void UnaryExpr::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
-    traverser.visit(*this);
-    m_expr->traverse(traverser);
-}
-
-void UnaryExpr::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
-    m_expr->traverse(traverser);
-    traverser.visit(*this);
 }
 
 void Dumper::print(StringView string) const {

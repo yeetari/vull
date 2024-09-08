@@ -45,9 +45,9 @@ protected:
 public:
     NodeKind kind() const { return m_kind; }
 
-    virtual void traverse(Traverser<TraverseOrder::None> &) = 0;
-    virtual void traverse(Traverser<TraverseOrder::PreOrder> &) = 0;
-    virtual void traverse(Traverser<TraverseOrder::PostOrder> &) = 0;
+    void traverse(Traverser<TraverseOrder::None> &);
+    void traverse(Traverser<TraverseOrder::PreOrder> &);
+    void traverse(Traverser<TraverseOrder::PostOrder> &);
     virtual Type type() const { VULL_ENSURE_NOT_REACHED(); }
 };
 
@@ -79,9 +79,6 @@ public:
     explicit Aggregate(AggregateKind kind) : TypedNode(NodeKind::Aggregate), m_kind(kind) {}
 
     void append_node(NodeHandle<Node> &&handle) { m_nodes.push(handle.disown()); }
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     AggregateKind kind() const { return m_kind; }
     const Vector<Node *> &nodes() const { return m_nodes; }
@@ -111,9 +108,6 @@ public:
         : TypedNode(NodeKind::BinaryExpr), m_lhs(lhs.disown()), m_rhs(rhs.disown()), m_op(op) {}
 
     void set_op(BinaryOp op) { m_op = op; }
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     BinaryOp op() const { return m_op; }
     Node &lhs() const { return *m_lhs; }
@@ -128,9 +122,6 @@ public:
     explicit CallExpr(StringView name) : TypedNode(NodeKind::CallExpr), m_name(name) {}
 
     void append_argument(NodeHandle<Node> &&argument) { m_arguments.push(argument.disown()); }
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     StringView name() const { return m_name; }
     const Vector<Node *> &arguments() const { return m_arguments; }
@@ -149,9 +140,6 @@ public:
     explicit Constant(size_t integer)
         : Node(NodeKind::Constant), m_literal({.integer = integer}), m_scalar_type(ScalarType::Uint) {}
 
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
     Type type() const override { return {m_scalar_type, 1, 1}; }
 
     float decimal() const { return m_literal.decimal; }
@@ -166,10 +154,6 @@ class DeclStmt final : public Node {
 public:
     DeclStmt(StringView name, NodeHandle<Node> &&value)
         : Node(NodeKind::DeclStmt), m_name(name), m_value(value.disown()) {}
-
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     StringView name() const { return m_name; }
     Node &value() const { return *m_value; }
@@ -197,10 +181,6 @@ public:
         : Node(NodeKind::FunctionDecl), m_name(name), m_block(block.disown()), m_return_type(return_type),
           m_parameters(vull::move(parameters)) {}
 
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
-
     StringView name() const { return m_name; }
     Aggregate &block() const { return *m_block; }
     const Type &return_type() const { return m_return_type; }
@@ -215,10 +195,6 @@ public:
         set_type(type);
     }
 
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
-
     StringView name() const { return m_name; }
 };
 
@@ -227,10 +203,6 @@ class ReturnStmt final : public Node {
 
 public:
     explicit ReturnStmt(NodeHandle<Node> &&expr) : Node(NodeKind::ReturnStmt), m_expr(expr.disown()) {}
-
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     Node &expr() const { return *m_expr; }
 };
@@ -254,9 +226,6 @@ public:
     }
 
     void append_top_level(NodeHandle<Node> &&node);
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
     const Vector<Node *> &top_level_nodes() const { return m_top_level_nodes; }
 };
 
@@ -265,10 +234,6 @@ class Symbol final : public TypedNode {
 
 public:
     explicit Symbol(StringView name) : TypedNode(NodeKind::Symbol), m_name(name) {}
-
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     StringView name() const { return m_name; }
 };
@@ -283,10 +248,6 @@ class UnaryExpr final : public TypedNode {
 
 public:
     UnaryExpr(UnaryOp op, NodeHandle<Node> &&expr) : TypedNode(NodeKind::UnaryExpr), m_expr(expr.disown()), m_op(op) {}
-
-    void traverse(Traverser<TraverseOrder::None> &) override;
-    void traverse(Traverser<TraverseOrder::PreOrder> &) override;
-    void traverse(Traverser<TraverseOrder::PostOrder> &) override;
 
     UnaryOp op() const { return m_op; }
     Node &expr() const { return *m_expr; }
