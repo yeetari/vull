@@ -48,9 +48,14 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    // Ensure source is nul-terminated.
+    if (source_bytes.empty() || source_bytes.last() != 0) {
+        source_bytes.push(0);
+    }
+
     // Interpret raw bytes directly as ASCII.
     auto source_bytes_span = source_bytes.take_all();
-    auto source = String::move_raw(vull::bit_cast<char *>(source_bytes_span.data()), source_bytes_span.size());
+    auto source = String::move_raw(vull::bit_cast<char *>(source_bytes_span.data()), source_bytes_span.size() - 1);
 
     shaderc::Lexer lexer(source_path, source);
     shaderc::Parser parser(lexer);
