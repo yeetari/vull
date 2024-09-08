@@ -48,6 +48,10 @@ public:
 
 template <typename BaseT, DerivedFrom<BaseT> T>
 class NodeHandle {
+    template <typename BaseU, DerivedFrom<BaseU> U>
+    friend class NodeHandle;
+
+private:
     Arena &m_arena;
     T *m_node;
 
@@ -55,12 +59,16 @@ public:
     NodeHandle(Arena &arena, T *node) : m_arena(arena), m_node(node) {}
     NodeHandle(const NodeHandle &) = delete;
     NodeHandle(NodeHandle &&other) : m_arena(other.m_arena), m_node(vull::exchange(other.m_node, nullptr)) {}
+
+    // Allow conversion from derived node type to base node type handle.
+    template <DerivedFrom<BaseT> U>
+    NodeHandle(NodeHandle<BaseT, U> &&other) requires vull::is_same<T, BaseT>
+        : m_arena(other.m_arena), m_node(vull::exchange(other.m_node, nullptr)) {}
+
     ~NodeHandle();
 
     NodeHandle &operator=(const NodeHandle &) = delete;
     NodeHandle &operator=(NodeHandle &&) = delete;
-
-    operator NodeHandle<BaseT, BaseT>() const && { return NodeHandle<BaseT, BaseT>(m_arena, m_node); }
 
     T *disown() { return vull::exchange(m_node, nullptr); }
     T *operator->() const { return m_node; }
