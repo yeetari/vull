@@ -36,7 +36,7 @@ enum class NodeKind {
     UnaryExpr,
 };
 
-class Node {
+class Node : public tree::NodeBase {
     const NodeKind m_kind;
 
 protected:
@@ -214,12 +214,6 @@ class Root final : public Node {
 
 public:
     Root() : Node(NodeKind::Root) {}
-    Root(const Root &) = delete;
-    Root(Root &&) = default;
-    ~Root();
-
-    Root &operator=(const Root &) = delete;
-    Root &operator=(Root &&) = delete;
 
     template <typename T, typename... Args>
     NodeHandle<T> allocate(Args &&...args) {

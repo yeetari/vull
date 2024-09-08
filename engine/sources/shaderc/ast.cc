@@ -204,12 +204,6 @@ void Node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
     }
 }
 
-Root::~Root() {
-    for (const auto &node : m_top_level_nodes) {
-        node->destroy();
-    }
-}
-
 void Root::append_top_level(NodeHandle<Node> &&node) {
     m_top_level_nodes.push(vull::move(node));
 }

@@ -44,9 +44,17 @@ public:
     T *allocate(Args &&...args);
 };
 
+class NodeBase {
+    uint32_t m_ref_count{0};
+
+public:
+    void add_ref();
+    bool sub_ref();
+};
+
 template <typename BaseT, DerivedFrom<BaseT> T>
 class NodeHandle {
-    template <typename BaseU, DerivedFrom<BaseU> U>
+    template <typename BaseU, DerivedFrom<BaseU>>
     friend class NodeHandle;
 
 private:
@@ -54,7 +62,7 @@ private:
     T *m_node;
 
 public:
-    NodeHandle(Arena &arena, T *node) : m_arena(arena), m_node(node) {}
+    NodeHandle(Arena &arena, T *node);
     NodeHandle(const NodeHandle &) = delete;
     NodeHandle(NodeHandle &&other) : m_arena(other.m_arena), m_node(vull::exchange(other.m_node, nullptr)) {}
 
@@ -86,8 +94,13 @@ T *Arena::allocate(Args &&...args) {
 }
 
 template <typename BaseT, DerivedFrom<BaseT> T>
+NodeHandle<BaseT, T>::NodeHandle(Arena &arena, T *node) : m_arena(arena), m_node(node) {
+    node->add_ref();
+}
+
+template <typename BaseT, DerivedFrom<BaseT> T>
 NodeHandle<BaseT, T>::~NodeHandle() {
-    if (m_node != nullptr) {
+    if (m_node != nullptr && m_node->sub_ref()) {
         m_node->destroy();
     }
 }

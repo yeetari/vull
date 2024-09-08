@@ -17,4 +17,14 @@ void *ArenaChunk::allocate(size_t size, size_t alignment) {
     return m_data + vull::exchange(m_head, m_head + size);
 }
 
+void NodeBase::add_ref() {
+    m_ref_count++;
+}
+
+bool NodeBase::sub_ref() {
+    VULL_ASSERT(m_ref_count >= 1);
+    m_ref_count--;
+    return m_ref_count == 0;
+}
+
 } // namespace vull::shaderc::tree
