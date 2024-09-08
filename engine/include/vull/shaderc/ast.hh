@@ -217,7 +217,7 @@ public:
 
     template <typename T, typename... Args>
     NodeHandle<T> allocate(Args &&...args) {
-        return NodeHandle(m_arena, m_arena.allocate<T>(vull::forward<Args>(args)...));
+        return NodeHandle(m_arena.allocate<T>(vull::forward<Args>(args)...));
     }
 
     void append_top_level(NodeHandle<Node> &&node);
