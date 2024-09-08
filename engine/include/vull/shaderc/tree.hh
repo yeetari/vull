@@ -42,8 +42,6 @@ public:
 
     template <typename T, typename... Args>
     T *allocate(Args &&...args);
-    template <typename T>
-    void destroy(T *object);
 };
 
 template <typename BaseT, DerivedFrom<BaseT> T>
@@ -70,7 +68,7 @@ public:
     NodeHandle &operator=(const NodeHandle &) = delete;
     NodeHandle &operator=(NodeHandle &&) = delete;
 
-    T *disown() { return vull::exchange(m_node, nullptr); }
+    T &operator*() const { return *m_node; }
     T *operator->() const { return m_node; }
 };
 
@@ -87,17 +85,10 @@ T *Arena::allocate(Args &&...args) {
     return new (bytes) T(vull::forward<Args>(args)...);
 }
 
-template <typename T>
-void Arena::destroy(T *object) {
-    object->~T();
-}
-
 template <typename BaseT, DerivedFrom<BaseT> T>
 NodeHandle<BaseT, T>::~NodeHandle() {
-    if constexpr (!vull::is_same<BaseT, T>) {
-        if (m_node != nullptr) {
-            m_arena.destroy(m_node);
-        }
+    if (m_node != nullptr) {
+        m_node->destroy();
     }
 }
 
