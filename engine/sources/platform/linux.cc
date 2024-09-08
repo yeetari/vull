@@ -92,6 +92,20 @@ Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes) {
     return {};
 }
 
+Result<String, FileError> read_entire_file_ascii(String path) {
+    Vector<uint8_t> bytes;
+    VULL_TRY(vull::read_entire_file(vull::move(path), bytes));
+
+    // Ensure nul-terminated.
+    if (bytes.empty() || bytes.last() != 0) {
+        bytes.push(0);
+    }
+
+    // Interpret raw bytes directly as ASCII.
+    auto span = bytes.take_all();
+    return String::move_raw(vull::bit_cast<char *>(span.data()), span.size() - 1);
+}
+
 FileStream::~FileStream() {
     if (m_fd >= 0) {
         close(m_fd);

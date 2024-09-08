@@ -6,10 +6,8 @@
 #include <vull/shaderc/parser.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/result.hh>
-#include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
-#include <vull/support/utility.hh>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -42,22 +40,13 @@ int main(int argc, char **argv) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
-    Vector<uint8_t> source_bytes;
-    if (auto result = vull::read_entire_file(source_path, source_bytes); result.is_error()) {
-        vull::println("vslc: '{}': {}", source_path, vull::file_error_string(result.error()));
+    auto source_or_error = vull::read_entire_file_ascii(source_path);
+    if (source_or_error.is_error()) {
+        vull::println("vslc: '{}': {}", source_path, vull::file_error_string(source_or_error.error()));
         return EXIT_FAILURE;
     }
 
-    // Ensure source is nul-terminated.
-    if (source_bytes.empty() || source_bytes.last() != 0) {
-        source_bytes.push(0);
-    }
-
-    // Interpret raw bytes directly as ASCII.
-    auto source_bytes_span = source_bytes.take_all();
-    auto source = String::move_raw(vull::bit_cast<char *>(source_bytes_span.data()), source_bytes_span.size() - 1);
-
-    shaderc::Lexer lexer(source_path, source);
+    shaderc::Lexer lexer(source_path, source_or_error.disown_value());
     shaderc::Parser parser(lexer);
     auto ast_or_error = parser.parse();
     if (ast_or_error.is_error()) {
