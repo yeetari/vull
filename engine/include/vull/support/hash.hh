@@ -3,6 +3,7 @@
 #include <vull/support/enum.hh>
 #include <vull/support/integral.hh>
 #include <vull/support/span.hh>
+#include <vull/support/utility.hh>
 
 #include <stdint.h>
 
@@ -58,6 +59,12 @@ struct Hash<uint64_t> {
         return static_cast<hash_t>(value);
     }
     hash_t operator()(uint64_t value, hash_t seed) const { return hash_combine((*this)(value), seed); }
+};
+
+template <typename T>
+struct Hash<T *> {
+    hash_t operator()(T *value) const { return hash_of(vull::bit_cast<uintptr_t>(value)); }
+    hash_t operator()(T *value, hash_t seed) const { return hash_of(vull::bit_cast<uintptr_t>(value), seed); }
 };
 
 template <Enum T>
