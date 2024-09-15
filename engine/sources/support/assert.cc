@@ -7,9 +7,9 @@
 namespace vull {
 
 [[noreturn]] void fatal_error(const char *error, const char *note) {
-    vull::error("{}", error);
+    vull::println(error);
     if (note != nullptr) {
-        vull::error("=> {}", note);
+        vull::println("=> {}", note);
     }
     vull::close_log();
     abort();

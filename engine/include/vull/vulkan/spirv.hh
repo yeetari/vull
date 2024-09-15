@@ -116,7 +116,6 @@ enum class Capability : uint32_t {
     VulkanMemoryModel = 5345,
     PhysicalStorageBufferAddresses = 5347,
     DemoteToHelperInvocation = 5379,
-
 };
 
 enum class Decoration : uint32_t {
@@ -141,8 +140,6 @@ enum class Decoration : uint32_t {
     Coherent = 23,
     NonWritable = 24,
     NonReadable = 25,
-    Uniform = 26,
-    UniformId = 27,
     Location = 30,
     Component = 31,
     Index = 32,

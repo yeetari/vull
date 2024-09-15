@@ -58,22 +58,27 @@ class NodeHandle {
     friend class NodeHandle;
 
 private:
-    T *m_node;
+    T *m_node{nullptr};
+
+    explicit NodeHandle(T *node);
 
 public:
-    explicit NodeHandle(T *node);
+    static NodeHandle create_new(T *node) { return NodeHandle(node); }
+
+    NodeHandle() = default;
     NodeHandle(const NodeHandle &) = delete;
     NodeHandle(NodeHandle &&other) : m_node(vull::exchange(other.m_node, nullptr)) {}
 
-    // Allow conversion from derived node type to base node type handle.
-    template <DerivedFrom<BaseT> U>
-    NodeHandle(NodeHandle<BaseT, U> &&other) requires vull::is_same<T, BaseT>
-        : m_node(vull::exchange(other.m_node, nullptr)) {}
+    // Allow upcasting from derived node types.
+    template <DerivedFrom<T> U>
+    NodeHandle(NodeHandle<BaseT, U> &&other) : m_node(vull::exchange(other.m_node, nullptr)) {}
 
     ~NodeHandle();
 
     NodeHandle &operator=(const NodeHandle &) = delete;
-    NodeHandle &operator=(NodeHandle &&) = delete;
+    NodeHandle &operator=(NodeHandle &&);
+
+    NodeHandle share() const { return NodeHandle(m_node); }
 
     T &operator*() const { return *m_node; }
     T *operator->() const { return m_node; }
@@ -102,6 +107,13 @@ NodeHandle<BaseT, T>::~NodeHandle() {
     if (m_node != nullptr && m_node->sub_ref()) {
         m_node->destroy();
     }
+}
+
+template <typename BaseT, DerivedFrom<BaseT> T>
+NodeHandle<BaseT, T> &NodeHandle<BaseT, T>::operator=(NodeHandle &&other) {
+    NodeHandle moved(vull::move(other));
+    vull::swap(m_node, moved.m_node);
+    return *this;
 }
 
 } // namespace vull::shaderc::tree

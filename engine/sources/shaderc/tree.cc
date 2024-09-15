@@ -4,13 +4,15 @@
 #include <vull/support/assert.hh>
 #include <vull/support/utility.hh>
 
+#include <vull/core/log.hh>
+
 #include <stddef.h>
 
 namespace vull::shaderc::tree {
 
 void *ArenaChunk::allocate(size_t size, size_t alignment) {
-    size = vull::align_up(size, alignment);
     VULL_ASSERT(size <= k_size);
+    m_head = vull::align_up(m_head, alignment);
     if (m_head + size >= k_size) {
         return nullptr;
     }

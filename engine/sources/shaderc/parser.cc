@@ -533,14 +533,25 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
     return m_root.allocate<ast::FunctionDecl>(name.string(), vull::move(block), return_type, vull::move(parameters));
 }
 
-ParseResult<ast::PipelineDecl> Parser::parse_pipeline_decl() {
+ParseResult<ast::IoDecl> Parser::parse_io_decl(ast::IoKind io_kind) {
+    // Pipeline declaration cannot be a block.
+    if (io_kind == ast::IoKind::Pipeline) {
+    }
+
+    // See if we have a block. Pipeline declarations cannot be a block.
+    if (io_kind != ast::IoKind::Pipeline && consume('{'_tk)) {
+        VULL_ENSURE_NOT_REACHED("TODO");
+    }
+
     auto type = VULL_TRY(parse_type());
     auto name = VULL_TRY(expect(TokenKind::Identifier));
-    VULL_TRY(expect_semi("pipeline declaration"));
-    return m_root.allocate<ast::PipelineDecl>(name.string(), type);
+    auto symbol = m_root.allocate<ast::Symbol>(name.string());
+    symbol->set_type(type);
+    VULL_TRY(expect_semi("IO declaration"));
+    return m_root.allocate<ast::IoDecl>(io_kind, vull::move(symbol));
 }
 
-ParseResult<ast::Aggregate> Parser::parse_uniform_block() {
+/*ParseResult<ast::Aggregate> Parser::parse_uniform_block() {
     VULL_TRY(expect('{'_tk, "to open the uniform block"));
     auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::UniformBlock);
     while (!consume('}'_tk)) {
@@ -554,17 +565,17 @@ ParseResult<ast::Aggregate> Parser::parse_uniform_block() {
     }
     VULL_TRY(expect_semi("uniform block declaration"));
     return vull::move(block);
-}
+}*/
 
 ParseResult<ast::Node> Parser::parse_top_level() {
     if (consume(TokenKind::KW_fn)) {
         return VULL_TRY(parse_function_decl());
     }
     if (consume(TokenKind::KW_pipeline)) {
-        return VULL_TRY(parse_pipeline_decl());
+        return VULL_TRY(parse_io_decl(ast::IoKind::Pipeline));
     }
     if (consume(TokenKind::KW_uniform)) {
-        return VULL_TRY(parse_uniform_block());
+        return VULL_TRY(parse_io_decl(ast::IoKind::Uniform));
     }
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }
