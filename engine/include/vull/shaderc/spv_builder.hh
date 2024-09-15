@@ -144,6 +144,11 @@ public:
     Id scalar_constant(Id type, Word value);
     Id composite_constant(Id type, Vector<Id> &&elements);
 
+    // TODO: These are hacky functions.
+    Optional<const Instruction &> lookup_constant(Id id) const;
+    Optional<const Instruction &> lookup_type(Id id) const;
+
+    Id inner_type(Id type_id) const;
     Id float_type(Word width);
     Id function_type(Id return_type, const Vector<Id> &parameter_types);
     Id int_type(Word width, bool is_signed);
