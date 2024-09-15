@@ -122,6 +122,10 @@ class Builder {
     // Counter for instruction result IDs.
     Id m_next_id{1};
 
+    // Configurable options.
+    AddressingModel m_addressing_model{AddressingModel::Logical};
+    MemoryModel m_memory_model{MemoryModel::Glsl450};
+
     Id ensure_constant(Instruction &&inst);
     Id ensure_type(Instruction &&inst);
 
@@ -149,7 +153,8 @@ public:
     Id vector_type(Id component_type, Word component_count);
     Id void_type();
 
-    void build(Vector<Word> &output) const;
+    void set_memory_model(AddressingModel addressing_model, MemoryModel memory_model);
+    void build(Vector<Word> &output);
     Id make_id() { return m_next_id++; }
 };
 

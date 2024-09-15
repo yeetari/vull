@@ -242,7 +242,32 @@ static Vector<const Instruction &> sorted_set(const auto &set) {
     return vector;
 }
 
-void Builder::build(Vector<Word> &output) const {
+void Builder::set_memory_model(AddressingModel addressing_model, MemoryModel memory_model) {
+    m_addressing_model = addressing_model;
+    m_memory_model = memory_model;
+}
+
+void Builder::build(Vector<Word> &output) {
+    // Add any necessary capabilities.
+    if (m_addressing_model == AddressingModel::PhysicalStorageBuffer64) {
+        ensure_capability(Capability::PhysicalStorageBufferAddresses);
+    }
+    if (m_memory_model == MemoryModel::Vulkan) {
+        ensure_capability(Capability::VulkanMemoryModel);
+    }
+    for (const auto &entry_point : m_entry_points) {
+        switch (entry_point->execution_model()) {
+        case ExecutionModel::Vertex:
+        case ExecutionModel::Fragment:
+            ensure_capability(Capability::Shader);
+            break;
+        case ExecutionModel::TesselationControl:
+        case ExecutionModel::TesselationEvaluation:
+            ensure_capability(Capability::Tessellation);
+            break;
+        }
+    }
+
     // The output will always be at least this big.
     output.ensure_capacity(16);
 
@@ -262,8 +287,8 @@ void Builder::build(Vector<Word> &output) const {
 
     // Emit single memory model instruction.
     Instruction memory_model(Op::MemoryModel);
-    memory_model.append_operand(AddressingModel::Logical);
-    memory_model.append_operand(MemoryModel::Glsl450);
+    memory_model.append_operand(m_addressing_model);
+    memory_model.append_operand(m_memory_model);
     memory_model.build(output);
 
     for (const auto &entry_point : m_entry_points) {
