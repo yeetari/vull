@@ -134,7 +134,7 @@ void Vector<T, SizeT>::clear() {
 template <typename T, typename SizeT>
 SizeT Vector<T, SizeT>::padded_capacity() const {
     // Must always return a value greater than m_capacity.
-    return m_capacity * 2 + 1;
+    return m_capacity + m_capacity / 4 + 4;
 }
 
 template <typename T, typename SizeT>
