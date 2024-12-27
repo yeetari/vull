@@ -55,6 +55,7 @@ if(VULL_ENABLE_COVERAGE)
     add_custom_target(coverage.xml
       COMMAND Gcovr::gcovr
         --cobertura "${CMAKE_CURRENT_BINARY_DIR}/coverage.xml"
+        --gcov-ignore-parse-errors
         --filter "engine/(include|sources)"
         --verbose
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
