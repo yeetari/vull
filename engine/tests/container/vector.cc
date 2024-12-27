@@ -80,6 +80,32 @@ TEST_CASE(VectorTrivial, PushEmplace) {
     EXPECT_THAT(vector[1], is(equal_to(10)));
 }
 
+TEST_CASE(VectorTrivial, PushInternalReference) {
+    Vector<int> vector;
+    vector.push(5);
+    for (uint32_t i = 1; i < vector.capacity(); i++) {
+        vector.push(vector.first());
+    }
+    vector.push(vector.last());
+    for (int elem : vector) {
+        EXPECT_THAT(elem, is(equal_to(5)));
+    }
+    EXPECT_THAT(vector.last(), is(equal_to(5)));
+}
+
+TEST_CASE(VectorTrivial, EmplaceInternalReference) {
+    Vector<int> vector;
+    vector.push(5);
+    for (uint32_t i = 1; i < vector.capacity(); i++) {
+        vector.emplace(vector.first());
+    }
+    vector.emplace(vector.last());
+    for (int elem : vector) {
+        EXPECT_THAT(elem, is(equal_to(5)));
+    }
+    EXPECT_THAT(vector.last(), is(equal_to(5)));
+}
+
 TEST_CASE(VectorTrivial, Extend) {
     Vector<int> vector;
     vector.push(5);
@@ -302,6 +328,57 @@ TEST_CASE(VectorObject, Push) {
         EXPECT_THAT(destruct_count, is(equal_to(0)));
     }
     EXPECT_THAT(destruct_count, is(equal_to(2)));
+}
+
+TEST_CASE(VectorObject, EmplaceInternalReference) {
+    int destruct_count = 0;
+    uint32_t expected_size = 2;
+    {
+        Vector<Foo> vector;
+        vector.emplace(destruct_count);
+        for (uint32_t i = 1; i < vector.capacity(); i++) {
+            vector.emplace(destruct_count);
+            expected_size++;
+        }
+        vector.emplace(vector.last());
+        EXPECT_THAT(vector.size(), is(equal_to(expected_size)));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
+    }
+    EXPECT_THAT(destruct_count, is(equal_to(expected_size)));
+}
+
+TEST_CASE(VectorObject, PushInternalReference) {
+    int destruct_count = 0;
+    uint32_t expected_size = 2;
+    {
+        Vector<Foo> vector;
+        vector.emplace(destruct_count);
+        for (uint32_t i = 1; i < vector.capacity(); i++) {
+            vector.emplace(destruct_count);
+            expected_size++;
+        }
+        vector.push(vector.last());
+        EXPECT_THAT(vector.size(), is(equal_to(expected_size)));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
+    }
+    EXPECT_THAT(destruct_count, is(equal_to(expected_size)));
+}
+
+TEST_CASE(VectorObject, PushMoveInternalReference) {
+    int destruct_count = 0;
+    uint32_t expected_size = 2;
+    {
+        Vector<Foo> vector;
+        vector.emplace(destruct_count);
+        for (uint32_t i = 1; i < vector.capacity(); i++) {
+            vector.emplace(destruct_count);
+            expected_size++;
+        }
+        vector.push(vull::move(vector.last()));
+        EXPECT_THAT(vector.size(), is(equal_to(expected_size)));
+        EXPECT_THAT(destruct_count, is(equal_to(0)));
+    }
+    EXPECT_THAT(destruct_count, is(equal_to(expected_size - 1)));
 }
 
 TEST_CASE(VectorObject, Extend) {

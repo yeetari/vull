@@ -26,6 +26,12 @@ private:
     SizeT m_capacity{0};
     SizeT m_size{0};
 
+    SizeT padded_capacity() const;
+    storage_type *allocate_new(SizeT capacity) const;
+    void move_to(storage_type *new_data, SizeT new_capacity);
+    void reallocate(SizeT capacity);
+    storage_type *grow_with_value(const T &value);
+
 public:
     constexpr Vector() = default;
     template <typename... Args>
@@ -34,7 +40,7 @@ public:
     Vector(It first, It last);
     Vector(const Vector &) = delete;
     Vector(Vector &&);
-    ~Vector();
+    ~Vector() { clear(); }
 
     Vector &operator=(const Vector &) = delete;
     Vector &operator=(Vector &&);
@@ -43,14 +49,13 @@ public:
     void ensure_capacity(SizeT capacity);
     template <typename... Args>
     void ensure_size(SizeT size, Args &&...args);
-    void reallocate(SizeT capacity);
 
     template <typename Container>
     void extend(const Container &container);
     template <typename... Args>
     T &emplace(Args &&...args) requires(!is_ref<T>);
-    void push(const T &elem) requires(!is_ref<T>);
-    void push(T &&elem);
+    void push(const T &value) requires(!is_ref<T>);
+    void push(T &&value);
     void pop();
 
     // TODO: Would it be better to add Span<T &> support?
@@ -104,11 +109,6 @@ Vector<T, SizeT>::Vector(Vector &&other) {
 }
 
 template <typename T, typename SizeT>
-Vector<T, SizeT>::~Vector() {
-    clear();
-}
-
-template <typename T, typename SizeT>
 Vector<T, SizeT> &Vector<T, SizeT>::operator=(Vector &&other) {
     if (this != &other) {
         clear();
@@ -128,13 +128,68 @@ void Vector<T, SizeT>::clear() {
     }
     m_size = 0;
     m_capacity = 0;
-    delete[] reinterpret_cast<uint8_t *>(vull::exchange(m_data, nullptr));
+    delete[] vull::bit_cast<uint8_t *>(vull::exchange(m_data, nullptr));
+}
+
+template <typename T, typename SizeT>
+SizeT Vector<T, SizeT>::padded_capacity() const {
+    // Must always return a value greater than m_capacity.
+    return m_capacity * 2 + 1;
+}
+
+template <typename T, typename SizeT>
+Vector<T, SizeT>::storage_type *Vector<T, SizeT>::allocate_new(SizeT capacity) const {
+    return vull::bit_cast<storage_type *>(new uint8_t[capacity * sizeof(storage_type)]);
+}
+
+template <typename T, typename SizeT>
+void Vector<T, SizeT>::move_to(storage_type *new_data, SizeT new_capacity) {
+    if constexpr (!vull::is_trivially_constructible<storage_type>) {
+        for (auto *pointer = new_data; auto &elem : *this) {
+            new (pointer++) storage_type(vull::move(elem));
+        }
+        for (auto *elem = end(); elem != begin();) {
+            (--elem)->~storage_type();
+        }
+    } else if (m_size != 0) {
+        memcpy(new_data, m_data, size_bytes());
+    }
+    delete[] vull::bit_cast<uint8_t *>(m_data);
+    m_data = new_data;
+    m_capacity = new_capacity;
+}
+
+template <typename T, typename SizeT>
+void Vector<T, SizeT>::reallocate(SizeT capacity) {
+    VULL_ASSERT(capacity >= m_size);
+    move_to(allocate_new(capacity), capacity);
+}
+
+template <typename T, typename SizeT>
+Vector<T, SizeT>::storage_type *Vector<T, SizeT>::grow_with_value(const T &value) {
+    // NOLINTNEXTLINE: Allow const_cast here
+    auto *pointer = const_cast<storage_type *>(&value);
+    if (m_capacity != m_size) [[likely]] {
+        // There is free capacity in the vector.
+        return pointer;
+    }
+
+    if (pointer < m_data || pointer > m_data + m_size) [[likely]] {
+        // New element is not an internal reference, can reallocate safely.
+        reallocate(padded_capacity());
+        return pointer;
+    }
+
+    // Otherwise we have an internal reference.
+    const auto index = static_cast<SizeT>(pointer - m_data);
+    reallocate(padded_capacity());
+    return m_data + index;
 }
 
 template <typename T, typename SizeT>
 void Vector<T, SizeT>::ensure_capacity(SizeT capacity) {
     if (capacity > m_capacity) {
-        reallocate(vull::max(SizeT(m_capacity * 2 + 1), capacity));
+        reallocate(vull::max(padded_capacity(), capacity));
     }
 }
 
@@ -157,26 +212,6 @@ void Vector<T, SizeT>::ensure_size(SizeT size, Args &&...args) {
 }
 
 template <typename T, typename SizeT>
-void Vector<T, SizeT>::reallocate(SizeT capacity) {
-    VULL_ASSERT(capacity >= m_size);
-    auto *new_data = reinterpret_cast<storage_type *>(new uint8_t[capacity * sizeof(storage_type)]);
-    if constexpr (!is_trivially_copyable<storage_type>) {
-        static_assert(!is_ref<T>);
-        for (auto *data = new_data; auto &elem : *this) {
-            new (data++) storage_type(vull::move(elem));
-        }
-        for (auto *elem = end(); elem != begin();) {
-            (--elem)->~storage_type();
-        }
-    } else if (m_size != 0) {
-        memcpy(new_data, m_data, size_bytes());
-    }
-    delete[] reinterpret_cast<uint8_t *>(m_data);
-    m_data = new_data;
-    m_capacity = capacity;
-}
-
-template <typename T, typename SizeT>
 template <typename Container>
 void Vector<T, SizeT>::extend(const Container &container) {
     if (container.empty()) {
@@ -196,29 +231,37 @@ void Vector<T, SizeT>::extend(const Container &container) {
 template <typename T, typename SizeT>
 template <typename... Args>
 T &Vector<T, SizeT>::emplace(Args &&...args) requires(!is_ref<T>) {
-    ensure_capacity(m_size + 1);
-    new (end()) T(vull::forward<Args>(args)...);
+    if (m_capacity == m_size) [[unlikely]] {
+        // Must assume that one of args could be an internal reference.
+        const auto new_capacity = padded_capacity();
+        auto *new_data = allocate_new(new_capacity);
+        new (new_data + m_size) T(vull::forward<Args>(args)...);
+        move_to(new_data, new_capacity);
+    } else {
+        new (end()) T(vull::forward<Args>(args)...);
+    }
     return (*this)[m_size++];
 }
 
 template <typename T, typename SizeT>
-void Vector<T, SizeT>::push(const T &elem) requires(!is_ref<T>) {
-    ensure_capacity(m_size + 1);
+void Vector<T, SizeT>::push(const T &value) requires(!is_ref<T>) {
+    const auto *pointer = grow_with_value(value);
     if constexpr (is_trivially_copyable<T>) {
-        memcpy(end(), &elem, sizeof(T));
+        memcpy(end(), pointer, sizeof(T));
     } else {
-        new (end()) storage_type(elem);
+        new (end()) storage_type(*pointer);
     }
     m_size++;
 }
 
 template <typename T, typename SizeT>
-void Vector<T, SizeT>::push(T &&elem) {
-    ensure_capacity(m_size + 1);
+void Vector<T, SizeT>::push(T &&value) {
     if constexpr (is_ref<T>) {
-        new (end()) storage_type{&elem};
+        reallocate(padded_capacity());
+        new (end()) storage_type{&value};
     } else {
-        new (end()) storage_type(vull::move(elem));
+        auto *pointer = grow_with_value(value);
+        new (end()) storage_type(vull::move(*pointer));
     }
     m_size++;
 }
