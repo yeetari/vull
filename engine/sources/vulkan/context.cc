@@ -276,14 +276,6 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .descriptorBuffer = true,
     };
 
-    vull::trace("[vulkan] maxDescriptorBufferBindings: {}", m_descriptor_buffer_properties.maxDescriptorBufferBindings);
-    vull::trace("[vulkan] maxResourceDescriptorBufferBindings: {}",
-                m_descriptor_buffer_properties.maxResourceDescriptorBufferBindings);
-    vull::trace("[vulkan] maxSamplerDescriptorBufferBindings: {}",
-                m_descriptor_buffer_properties.maxSamplerDescriptorBufferBindings);
-    vull::trace("[vulkan] combinedImageSamplerDescriptorSingleArray: {}",
-                m_descriptor_buffer_properties.combinedImageSamplerDescriptorSingleArray ? "yes" : "no");
-
     Array enabled_device_extensions{
         "VK_EXT_descriptor_buffer",
         "VK_EXT_shader_atomic_float",
