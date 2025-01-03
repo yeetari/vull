@@ -17,6 +17,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <linux/futex.h>
 #include <stdint.h>
 #include <sys/stat.h>
@@ -37,6 +38,10 @@ FileStream File::create_stream() const {
     struct stat stat_buf{};
     fstat(m_fd, &stat_buf);
     return {dup(m_fd), (stat_buf.st_mode & S_IFREG) != 0};
+}
+
+String dir_path(String path) {
+    return dirname(path.data());
 }
 
 Result<File, OpenError> open_file(String path, OpenMode mode) {

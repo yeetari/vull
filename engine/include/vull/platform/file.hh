@@ -55,6 +55,7 @@ public:
     int fd() const { return m_fd; }
 };
 
+String dir_path(String path);
 Result<File, OpenError> open_file(String path, OpenMode mode);
 Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes);
 Result<String, FileError> read_entire_file_ascii(String path);
