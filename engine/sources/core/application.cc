@@ -32,13 +32,7 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
 
     // Default to directory containing the executable.
     if (vpak_directory_path.empty()) {
-        char *last_slash = argv[0];
-        for (char *path = argv[0]; *path != '\0'; path++) {
-            if (*path == '/') {
-                last_slash = path;
-            }
-        }
-        vpak_directory_path = String::copy_raw(argv[0], static_cast<size_t>(last_slash - argv[0]));
+        vpak_directory_path = vull::dir_path(argv[0]);
     }
 
     vull::open_log();
