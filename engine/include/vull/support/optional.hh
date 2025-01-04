@@ -32,7 +32,9 @@ public:
     Optional &operator=(Optional &&);
 
     template <typename U>
-    T value_or(U &&fallback) const;
+    T value_or(U &&fallback) const &;
+    template <typename U>
+    T value_or(U &&fallback) &&;
 
     void clear();
     template <typename... Args>
@@ -117,8 +119,14 @@ Optional<T> &Optional<T>::operator=(Optional &&other) {
 
 template <typename T>
 template <typename U>
-T Optional<T>::value_or(U &&fallback) const {
+T Optional<T>::value_or(U &&fallback) const & {
     return m_present ? **this : static_cast<T>(vull::forward<U>(fallback));
+}
+
+template <typename T>
+template <typename U>
+T Optional<T>::value_or(U &&fallback) && {
+    return m_present ? vull::move(**this) : static_cast<T>(vull::forward<U>(fallback));
 }
 
 template <typename T>
