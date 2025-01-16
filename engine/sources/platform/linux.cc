@@ -52,11 +52,18 @@ Result<File, OpenError> open_file(String path, OpenMode mode) {
         flags = O_WRONLY;
     }
 
+    flags |= O_CLOEXEC;
     if ((mode & OpenMode::Create) != OpenMode::None) {
         flags |= O_CREAT;
     }
+    if ((mode & OpenMode::Directory) != OpenMode::None) {
+        flags |= O_DIRECTORY;
+    }
     if ((mode & OpenMode::Truncate) != OpenMode::None) {
         flags |= O_TRUNC;
+    }
+    if ((mode & OpenMode::TempFile) != OpenMode::None) {
+        flags |= O_TMPFILE;
     }
 
     int rc = open(path.data(), flags, 0664);

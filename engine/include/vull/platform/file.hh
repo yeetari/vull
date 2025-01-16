@@ -29,6 +29,8 @@ enum class OpenMode {
     Write = 1u << 1u,
     Create = 1u << 2u,
     Truncate = 1u << 3u,
+    TempFile = 1u << 4u,
+    Directory = 1u << 5u,
 };
 inline constexpr OpenMode operator&(OpenMode lhs, OpenMode rhs) {
     return static_cast<OpenMode>(vull::to_underlying(lhs) & vull::to_underlying(rhs));
