@@ -67,7 +67,7 @@ public:
     auto error() const;
     auto &value();
     const auto &value() const;
-    Optional<T> to_optional() const;
+    Optional<T> to_optional();
 };
 
 template <typename T, typename... Es>
@@ -95,8 +95,8 @@ const auto &Result<T, Es...>::value() const {
 }
 
 template <typename T, typename... Es>
-Optional<T> Result<T, Es...>::to_optional() const {
-    return is_error() ? vull::nullopt : Optional<T>(value());
+Optional<T> Result<T, Es...>::to_optional() {
+    return is_error() ? vull::nullopt : Optional<T>(vull::move(value()));
 }
 
 } // namespace vull
