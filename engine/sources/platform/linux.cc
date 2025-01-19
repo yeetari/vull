@@ -34,6 +34,12 @@ File::~File() {
     }
 }
 
+File &File::operator=(File &&other) {
+    File moved(vull::move(other));
+    vull::swap(m_fd, moved.m_fd);
+    return *this;
+}
+
 FileStream File::create_stream() const {
     struct stat stat_buf{};
     fstat(m_fd, &stat_buf);

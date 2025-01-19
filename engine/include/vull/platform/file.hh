@@ -40,20 +40,23 @@ inline constexpr OpenMode operator|(OpenMode lhs, OpenMode rhs) {
 }
 
 class File {
-    int m_fd;
+    int m_fd{-1};
 
     explicit File(int fd) : m_fd(fd) {}
 
 public:
     static File from_fd(int fd) { return File(fd); }
+    File() = default;
     File(const File &) = delete;
     File(File &&other) : m_fd(vull::exchange(other.m_fd, -1)) {}
     ~File();
 
     File &operator=(const File &) = delete;
-    File &operator=(File &&) = delete;
+    File &operator=(File &&);
 
     FileStream create_stream() const;
+
+    explicit operator bool() const { return m_fd != -1; }
     int fd() const { return m_fd; }
 };
 

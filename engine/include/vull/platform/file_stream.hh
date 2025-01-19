@@ -24,7 +24,9 @@ private:
 
 public:
     FileStream(const FileStream &) = delete;
-    FileStream(FileStream &&other) : m_fd(vull::exchange(other.m_fd, -1)), m_seekable(other.m_seekable) {}
+    FileStream(FileStream &&other)
+        : m_fd(vull::exchange(other.m_fd, -1)), m_seekable(other.m_seekable), m_head(vull::exchange(other.m_head, 0u)) {
+    }
     ~FileStream() override;
 
     FileStream &operator=(const FileStream &) = delete;
