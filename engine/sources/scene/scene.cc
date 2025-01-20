@@ -2,6 +2,7 @@
 
 #include <vull/core/bounding_box.hh>
 #include <vull/core/bounding_sphere.hh>
+#include <vull/core/log.hh>
 #include <vull/ecs/entity_id.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/material.hh>
@@ -36,7 +37,11 @@ void Scene::load(StringView scene_name) {
     m_world.register_component<BoundingSphere>();
 
     // Load world.
-    VULL_EXPECT(m_world.deserialise(*vpak::open(scene_name))); // TODO
+    if (auto world_entry = vpak::open(scene_name)) {
+        VULL_EXPECT(m_world.deserialise(*world_entry));
+    } else {
+        vull::error("[scene] No scene named {}", scene_name);
+    }
 }
 
 } // namespace vull
