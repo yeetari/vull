@@ -28,11 +28,14 @@ struct Vertex {
     uint normal;
 };
 
-#define DECLARE_DRAW_BUFFER(s, b) \
-layout (set = s, binding = b) restrict buffer DrawBuffer { \
+#define DECLARE_DRAW_BUFFER_1(s, b, qual) \
+layout (set = s, binding = b) restrict qual buffer DrawBuffer { \
     uint g_draw_count; \
     DrawCmd g_draws[]; \
 };
+
+#define DECLARE_DRAW_BUFFER(s, b) DECLARE_DRAW_BUFFER_1(s, b, readonly)
+#define DECLARE_DRAW_BUFFER_WRITABLE(s, b) DECLARE_DRAW_BUFFER_1(s, b,)
 
 #define DECLARE_OBJECT_BUFFER(s, b) \
 layout (set = s, binding = b, scalar) restrict readonly buffer ObjectBuffer { \
