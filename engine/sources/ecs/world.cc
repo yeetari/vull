@@ -8,7 +8,8 @@
 #include <vull/support/result.hh>
 #include <vull/support/stream.hh>
 #include <vull/support/string_view.hh>
-#include <vull/vpak/pack_file.hh>
+#include <vull/vpak/defs.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vpak/writer.hh>
 
 #include <stdint.h>
@@ -41,8 +42,8 @@ Result<void, StreamError, WorldError> World::deserialise(Stream &stream) {
     return {};
 }
 
-Result<float, StreamError> World::serialise(vpak::Writer &pack_writer, StringView name) {
-    auto entry = pack_writer.start_entry(name, vpak::EntryType::World);
+Result<void, StreamError> World::serialise(vpak::Writer &pack_writer, StringView name) {
+    auto entry = pack_writer.add_entry(name, vpak::EntryType::World);
     VULL_TRY(entry.write_varint(m_entities.size()));
     VULL_TRY(entry.write_varint(m_component_sets.size()));
     for (auto &set : m_component_sets) {
@@ -55,7 +56,8 @@ Result<float, StreamError> World::serialise(vpak::Writer &pack_writer, StringVie
             VULL_TRY(entry.write_varint(id));
         }
     }
-    return entry.finish();
+    VULL_TRY(entry.finish());
+    return {};
 }
 
 } // namespace vull

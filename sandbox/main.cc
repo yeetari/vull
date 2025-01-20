@@ -45,7 +45,7 @@
 #include <vull/ui/widget/time_graph.hh>
 #include <vull/ui/window.hh>
 #include <vull/vpak/file_system.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/fence.hh>

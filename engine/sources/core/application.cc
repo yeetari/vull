@@ -5,6 +5,7 @@
 #include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/scheduler.hh>
@@ -12,7 +13,6 @@
 
 #include <dirent.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -45,29 +45,12 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
         return EXIT_FAILURE;
     }
 
-    int dir_fd = open(vpak_directory_path.data(), O_DIRECTORY);
-    if (dir_fd < 0) {
-        vull::error("[main] Failed to open vpak directory '{}': {}", vpak_directory_path, strerror(errno));
-        return EXIT_FAILURE;
-    }
-
     for (int i = 0; i < entry_count; i++) {
-        const dirent *entry = entry_list[i];
-
-        String name(static_cast<const char *>(entry->d_name));
-        vull::info("[main] Found vpak {}", name);
-
-        int fd = openat(dir_fd, name.data(), 0);
-        if (fd < 0) {
-            vull::error("[main] Failed to open vpak '{}': {}", name, strerror(errno));
-            return EXIT_FAILURE;
-        }
-
-        vpak::load_vpak(File::from_fd(fd));
+        StringView name(static_cast<const char *>(entry_list[i]->d_name));
+        vpak::load_vpak(name, vull::format("{}/{}", vpak_directory_path, name));
         free(entry_list[i]);
     }
     free(entry_list);
-    close(dir_fd);
 
     Scheduler scheduler;
     scheduler.start([start_fn = vull::move(start_fn)] {

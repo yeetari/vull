@@ -14,15 +14,15 @@
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
-#include <vull/support/stream.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/tuple.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/vpak/defs.hh>
 #include <vull/vpak/pack_file.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vpak/writer.hh>
 
 #include <bc7enc.hh>
@@ -113,8 +113,8 @@ int add(const Vector<StringView> &args) {
         compression_level = vpak::CompressionLevel::Ultra;
     }
 
-    auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
-    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(vpak_path));
+    auto pack_writer = VULL_EXPECT(pack_file.make_writer(compression_level));
     for (auto [input_path, entry_name] : inputs) {
         auto input_file_or_error = vull::open_file(input_path, OpenMode::Read);
         if (input_file_or_error.is_error()) {
@@ -124,15 +124,15 @@ int add(const Vector<StringView> &args) {
         auto input_file = input_file_or_error.disown_value();
         auto input_stream = input_file.create_stream();
 
-        auto entry_stream = pack_writer.start_entry(entry_name, vpak::EntryType::Blob);
+        auto entry_stream = pack_writer.add_entry(entry_name, vpak::EntryType::Blob);
         Array<uint8_t, 128 * 1024> buffer;
         size_t bytes_read;
         while ((bytes_read = VULL_EXPECT(input_stream.read(buffer.span()))) > 0) {
             VULL_EXPECT(entry_stream.write({buffer.data(), bytes_read}));
         }
-        entry_stream.finish();
+        VULL_EXPECT(entry_stream.finish());
     }
-    pack_writer.finish();
+    VULL_EXPECT(pack_file.finish_writing(vull::move(pack_writer)));
     return EXIT_SUCCESS;
 }
 
@@ -201,13 +201,13 @@ int add_gltf(const Vector<StringView> &args) {
         return EXIT_SUCCESS;
     }
 
-    auto vpak_file = VULL_EXPECT(vull::open_file(vpak_path, OpenMode::Create | OpenMode::Read | OpenMode::Write));
-    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), compression_level);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(vpak_path));
+    auto pack_writer = VULL_EXPECT(pack_file.make_writer(compression_level));
     if (gltf_parser.convert(pack_writer, max_resolution, reproducible).is_error()) {
         return EXIT_FAILURE;
     }
 
-    const auto bytes_written = pack_writer.finish();
+    const auto bytes_written = VULL_EXPECT(pack_file.finish_writing(vull::move(pack_writer)));
     vull::info("[main] Wrote {} bytes to {}", bytes_written, vpak_path);
     return EXIT_SUCCESS;
 }
@@ -226,16 +226,16 @@ int add_png(const Vector<StringView> &args) {
     auto file_stream = file_or_error.value().create_stream();
     auto png_stream = VULL_EXPECT(PngStream::create(file_stream.clone_unique()));
 
-    auto vpak_file = VULL_EXPECT(vull::open_file(args[2], OpenMode::Create | OpenMode::Read | OpenMode::Write));
-    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), vpak::CompressionLevel::Normal);
-    auto entry_stream = pack_writer.start_entry(args[4], vpak::EntryType::Blob);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(args[2]));
+    auto pack_writer = VULL_EXPECT(pack_file.make_writer(vpak::CompressionLevel::Normal));
+    auto entry_stream = pack_writer.add_entry(args[4], vpak::EntryType::Blob);
     for (uint32_t y = 0; y < png_stream.height(); y++) {
         Array<uint8_t, 32768> row_buffer;
         png_stream.read_row(row_buffer.span());
         VULL_EXPECT(entry_stream.write(row_buffer.span().subspan(0, png_stream.row_byte_count())));
     }
-    entry_stream.finish();
-    pack_writer.finish();
+    VULL_EXPECT(entry_stream.finish());
+    VULL_EXPECT(pack_file.finish_writing(vull::move(pack_writer)));
     return EXIT_SUCCESS;
 }
 
@@ -255,9 +255,9 @@ int add_skybox(const Vector<StringView> &args) {
         face_streams.push(file_or_error.disown_value().create_stream());
     }
 
-    auto vpak_file = VULL_EXPECT(vull::open_file(args[2], OpenMode::Create | OpenMode::Read | OpenMode::Write));
-    vpak::Writer pack_writer(vull::make_unique<FileStream>(vpak_file.create_stream()), vpak::CompressionLevel::Normal);
-    auto entry_stream = pack_writer.start_entry(args[3], vpak::EntryType::Blob);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(args[2]));
+    auto pack_writer = VULL_EXPECT(pack_file.make_writer(vpak::CompressionLevel::Normal));
+    auto entry_stream = pack_writer.add_entry(args[3], vpak::EntryType::Blob);
     for (auto &stream : face_streams) {
         auto png_stream = VULL_EXPECT(PngStream::create(stream.clone_unique()));
         for (uint32_t y = 0; y < png_stream.height(); y++) {
@@ -266,8 +266,8 @@ int add_skybox(const Vector<StringView> &args) {
             VULL_EXPECT(entry_stream.write(row_buffer.span().subspan(0, png_stream.row_byte_count())));
         }
     }
-    entry_stream.finish();
-    pack_writer.finish();
+    VULL_EXPECT(entry_stream.finish());
+    VULL_EXPECT(pack_file.finish_writing(vull::move(pack_writer)));
     return EXIT_SUCCESS;
 }
 
@@ -276,8 +276,8 @@ int get(const Vector<StringView> &args) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
-    auto entry_stream = pack_reader.open(args[3]);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(args[2]));
+    auto entry_stream = pack_file.open_entry(args[3]);
     if (!entry_stream) {
         vull::println("fatal: no entry named {}", args[3]);
         return EXIT_FAILURE;
@@ -293,7 +293,7 @@ int get(const Vector<StringView> &args) {
     auto output_stream = output_file.create_stream();
 
     // TODO: Do this in a nicer way.
-    uint32_t size = pack_reader.stat(args[3])->size;
+    uint32_t size = pack_file.stat(args[3])->size;
     while (size > 0) {
         Array<uint8_t, 64 * 1024> buffer;
         const auto to_read = vull::min(buffer.size(), size);
@@ -309,8 +309,8 @@ int ls(const Vector<StringView> &args) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
-    for (const auto &entry : pack_reader.entries()) {
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(args[2]));
+    for (const auto &entry : pack_file.entries()) {
         vull::println("{}", entry.name);
     }
     return EXIT_SUCCESS;
@@ -334,8 +334,8 @@ int stat(const Vector<StringView> &args) {
         vull::println("fatal: invalid usage");
         return EXIT_FAILURE;
     }
-    vpak::Reader pack_reader(VULL_EXPECT(vull::open_file(args[2], OpenMode::Read)));
-    auto entry = pack_reader.stat(args[3]);
+    auto pack_file = VULL_EXPECT(vpak::PackFile::open(args[2]));
+    auto entry = pack_file.stat(args[3]);
     if (!entry) {
         vull::println("fatal: no entry named {}", args[3]);
         return EXIT_FAILURE;

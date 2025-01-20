@@ -23,7 +23,7 @@ enum class WorldError {
 class World : public EntityManager {
 public:
     Result<void, StreamError, WorldError> deserialise(Stream &stream);
-    Result<float, StreamError> serialise(vpak::Writer &pack_writer, StringView name);
+    Result<void, StreamError> serialise(vpak::Writer &pack_writer, StringView name);
 };
 
 } // namespace vull

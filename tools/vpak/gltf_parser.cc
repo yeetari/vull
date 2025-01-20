@@ -30,6 +30,7 @@
 #include <vull/tasklet/scheduler.hh>
 #include <vull/tasklet/tasklet.hh>
 #include <vull/vpak/pack_file.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vpak/writer.hh>
 
 #include <float.h>
@@ -247,7 +248,7 @@ Converter::process_texture(TextureType type, const String &path, Optional<uint64
         float_image.drop_mips(1);
     }
 
-    auto stream = m_pack_writer.start_entry(path, vpak::EntryType::Image);
+    auto stream = m_pack_writer.add_entry(path, vpak::EntryType::Image);
     VULL_TRY(stream.write_byte(vull::to_underlying(vpak_format)));
     VULL_TRY(stream.write_byte(vull::to_underlying(mag_filter)));
     VULL_TRY(stream.write_byte(vull::to_underlying(min_filter)));
@@ -257,7 +258,7 @@ Converter::process_texture(TextureType type, const String &path, Optional<uint64
     VULL_TRY(stream.write_varint(float_image.size().y()));
     VULL_TRY(stream.write_varint(float_image.mip_count()));
     VULL_TRY(float_image.block_compress(stream, vpak_format == vpak::ImageFormat::Bc5Unorm));
-    stream.finish();
+    VULL_TRY(stream.finish());
     return {};
 }
 
@@ -462,13 +463,13 @@ Converter::process_primitive(const json::Object &primitive, String &&name) {
     meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
                                 sizeof(Vertex));
 
-    auto vertex_data_entry = m_pack_writer.start_entry(vull::format("/meshes/{}/vertex", name), vpak::EntryType::Blob);
+    auto vertex_data_entry = m_pack_writer.add_entry(vull::format("/meshes/{}/vertex", name), vpak::EntryType::Blob);
     VULL_TRY(vertex_data_entry.write(vertices.span()));
-    vertex_data_entry.finish();
+    VULL_TRY(vertex_data_entry.finish());
 
-    auto index_data_entry = m_pack_writer.start_entry(vull::format("/meshes/{}/index", name), vpak::EntryType::Blob);
+    auto index_data_entry = m_pack_writer.add_entry(vull::format("/meshes/{}/index", name), vpak::EntryType::Blob);
     VULL_TRY(index_data_entry.write(indices.span()));
-    index_data_entry.finish();
+    VULL_TRY(index_data_entry.finish());
 
     BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
     BoundingSphere bounding_sphere(sphere_center, sphere_radius);

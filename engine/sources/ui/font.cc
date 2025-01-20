@@ -13,9 +13,9 @@
 #include <vull/support/utility.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/ui/units.hh>
+#include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
-#include <vull/vpak/pack_file.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 
 #include <ft2build.h> // IWYU pragma: keep
 

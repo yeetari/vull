@@ -22,7 +22,8 @@ target_sources(vull PRIVATE
     tasklet/mutex.cc
     tasklet/x86_64_sysv.S
     vpak/file_system.cc
-    vpak/reader.cc
+    vpak/pack_file.cc
+    vpak/stream.cc
     vpak/writer.cc)
 
 if(VULL_BUILD_GRAPHICS)

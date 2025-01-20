@@ -19,9 +19,9 @@
 #include <vull/support/utility.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/tasklet/tasklet.hh>
+#include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
-#include <vull/vpak/pack_file.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>

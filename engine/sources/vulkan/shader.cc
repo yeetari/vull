@@ -13,9 +13,9 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
-#include <vull/vpak/pack_file.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/spirv.hh>
 #include <vull/vulkan/vulkan.hh>

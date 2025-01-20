@@ -13,7 +13,7 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/vpak/file_system.hh>
-#include <vull/vpak/reader.hh>
+#include <vull/vpak/stream.hh>
 
 namespace vull {
 

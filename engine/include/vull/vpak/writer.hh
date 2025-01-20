@@ -1,79 +1,51 @@
 #pragma once
 
 #include <vull/container/vector.hh>
+#include <vull/platform/file.hh>
+#include <vull/support/atomic.hh>
 #include <vull/support/result.hh>
-#include <vull/support/span.hh>
 #include <vull/support/stream.hh>
 #include <vull/support/string.hh>
-#include <vull/support/unique_ptr.hh>
+#include <vull/support/utility.hh>
 #include <vull/tasklet/mutex.hh>
-#include <vull/vpak/pack_file.hh>
+#include <vull/vpak/defs.hh>
 
-#include <stddef.h>
 #include <stdint.h>
-
-using ZSTD_CCtx = struct ZSTD_CCtx_s;
 
 namespace vull::vpak {
 
-class Writer;
-
-enum class CompressionLevel {
-    Fast,
-    Normal,
-    Ultra,
-};
-
-class WriteStream final : public Stream {
-    Writer &m_writer;
-    UniquePtr<Stream> m_stream;
-    Entry &m_entry;
-    ZSTD_CCtx *m_cctx{nullptr};
-    uint8_t *m_buffer{nullptr};
-    size_t m_block_link_offset{0};
-    uint32_t m_compress_head{0};
-    uint32_t m_compressed_size{0};
-
-    Result<void, StreamError> flush_block();
-
-public:
-    WriteStream(Writer &writer, UniquePtr<Stream> &&stream, Entry &entry);
-    WriteStream(const WriteStream &) = delete;
-    WriteStream(WriteStream &&) = delete;
-    ~WriteStream() override;
-
-    WriteStream &operator=(const WriteStream &) = delete;
-    WriteStream &operator=(WriteStream &&) = delete;
-
-    float finish();
-    Result<void, StreamError> write(Span<const void> data) override;
-    Result<void, StreamError> write_byte(uint8_t byte) override;
-};
+class PackFile;
+class WriteStream;
 
 class Writer {
+    friend PackFile;
     friend WriteStream;
 
 private:
-    UniquePtr<Stream> m_stream;
-    const CompressionLevel m_clevel;
-    Vector<UniquePtr<Entry>> m_entries;
+    File m_write_file;
+    Atomic<uint64_t> m_head;
+    Vector<Entry> m_new_entries;
     Mutex m_mutex;
+    const CompressionLevel m_compression_level;
 
-    Result<uint64_t, StreamError> allocate(size_t size);
-    Result<void, StreamError> read_existing();
-    void write_entry_table();
+    Writer(File &&write_file, uint64_t head, CompressionLevel compression_level)
+        : m_write_file(vull::move(write_file)), m_head(head), m_compression_level(compression_level) {}
+
+    void add_finished_entry(Entry &&entry);
+    uint64_t allocate_space(uint64_t size);
+    Result<uint64_t, StreamError> finish(Vector<Entry> &entries);
 
 public:
-    Writer(UniquePtr<Stream> &&stream, CompressionLevel clevel);
     Writer(const Writer &) = delete;
-    Writer(Writer &&) = delete;
+    Writer(Writer &&other)
+        : m_write_file(vull::move(other.m_write_file)), m_head(other.m_head.exchange(0)),
+          m_compression_level(other.m_compression_level) {}
     ~Writer() = default;
 
     Writer &operator=(const Writer &) = delete;
     Writer &operator=(Writer &&) = delete;
 
-    uint64_t finish();
-    WriteStream start_entry(String name, EntryType type);
+    WriteStream add_entry(String name, EntryType type);
 };
 
 } // namespace vull::vpak
