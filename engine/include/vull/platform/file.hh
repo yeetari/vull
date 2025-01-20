@@ -55,12 +55,17 @@ public:
     File &operator=(File &&);
 
     FileStream create_stream() const;
+    Result<void, FileError> copy_to(const File &target, int64_t &src_offset, int64_t &dst_offset) const;
+    Result<void, FileError> link_to(String path) const;
+    Result<void, FileError> sync() const;
 
     explicit operator bool() const { return m_fd != -1; }
     int fd() const { return m_fd; }
 };
 
 String dir_path(String path);
+Result<void, FileError> unlink_path(String path);
+
 Result<File, OpenError> open_file(String path, OpenMode mode);
 Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes);
 Result<String, FileError> read_entire_file_ascii(String path);

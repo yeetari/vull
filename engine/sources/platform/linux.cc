@@ -12,6 +12,7 @@
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 
@@ -46,8 +47,48 @@ FileStream File::create_stream() const {
     return {dup(m_fd), (stat_buf.st_mode & S_IFREG) != 0};
 }
 
+Result<void, FileError> File::copy_to(const File &target, int64_t &src_offset, int64_t &dst_offset) const {
+    struct stat stat_buf{};
+    if (fstat(m_fd, &stat_buf) < 0) {
+        return FileError::Unknown;
+    }
+    const auto size = static_cast<size_t>(stat_buf.st_size);
+    if (copy_file_range(m_fd, &src_offset, target.fd(), &dst_offset, size, 0) < 0) {
+        return FileError::Unknown;
+    }
+    return {};
+}
+
+Result<void, FileError> File::link_to(String path) const {
+    // linkat with AT_EMPTY_PATH requires a capability, so use procfs instead.
+    auto fd_path = vull::format("/proc/self/fd/{}", m_fd);
+    int rc = linkat(AT_FDCWD, fd_path.data(), AT_FDCWD, path.data(), AT_SYMLINK_FOLLOW);
+    if (rc < 0) {
+        return FileError::Unknown;
+    }
+    return {};
+}
+
+Result<void, FileError> File::sync() const {
+    if (fsync(m_fd) < 0) {
+        return FileError::Unknown;
+    }
+    return {};
+}
+
 String dir_path(String path) {
     return dirname(path.data());
+}
+
+Result<void, FileError> unlink_path(String path) {
+    int rc = unlink(path.data());
+    if (rc < 0) {
+        if (errno == ENOENT) {
+            return FileError::NonExistent;
+        }
+        return FileError::Unknown;
+    }
+    return {};
 }
 
 Result<File, OpenError> open_file(String path, OpenMode mode) {
