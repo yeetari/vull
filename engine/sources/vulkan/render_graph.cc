@@ -86,7 +86,7 @@ ResourceId RenderGraph::import(String name, const Image &image) {
     if (is_depth_stencil_format(image.format())) {
         flags |= ResourceFlags::DepthStencil;
     }
-    return create_resource(vull::move(name), ResourceFlags::Image | ResourceFlags::Imported, [&image] {
+    return create_resource(vull::move(name), flags, [&image] {
         return &image;
     });
 }
