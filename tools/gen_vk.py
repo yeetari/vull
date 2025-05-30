@@ -179,17 +179,26 @@ for feature in map(lambda path: registry.find(path), enabled_feature_paths):
     extension_number = feature.get('number') if feature.get('type') else None
 
     feature_name = feature.get('name')
+    print(f'- {feature_name}')
     for functionality in feature.findall('require'):
+        comment = functionality.get('comment') or '(no comment)'
+        print(f'  - {comment}')
         if depends := functionality.get('depends'):
             if not evaluate_depends(depends, enabled_feature_names):
-                print('Skipping functionality of {} gated behind {}'.format(feature_name, depends))
+                print(f'    - skipping since gated behind {depends}')
                 continue
-        for command in functionality.findall('command'):
-            desired_command_names.append(command.get('name'))
         for enum_extension in functionality.findall('enum'):
+            enum_name = enum_extension.get('name')
+            print(f'    - {enum_name}')
             desired_enum_extensions.append((enum_extension, extension_number))
         for vk_type in functionality.findall('type'):
-            desired_type_names.append(vk_type.get('name'))
+            type_name = vk_type.get('name')
+            print(f'    - {type_name}')
+            desired_type_names.append(type_name)
+        for command in functionality.findall('command'):
+            command_name = command.get('name')
+            print(f'    - {command_name}')
+            desired_command_names.append(command_name)
 
 # Build a list of desired commands to be emitted.
 desired_commands = []
