@@ -38,10 +38,12 @@ constexpr uint32_t k_max_device_group_size = 32;
 constexpr uint32_t k_max_driver_name_size = 256;
 constexpr uint32_t k_max_driver_info_size = 256;
 constexpr uint32_t k_shader_unused_khr = (~0u);
-constexpr uint32_t k_max_global_priority_size_khr = 16;
+constexpr uint32_t k_max_global_priority_size = 16;
 constexpr uint32_t k_max_shader_module_identifier_size_ext = 32;
+constexpr uint32_t k_max_pipeline_binary_key_size_khr = 32;
 constexpr uint32_t k_max_video_av1_references_per_frame_khr = 7;
 constexpr uint32_t k_shader_index_unused_amdx = (~0u);
+constexpr uint32_t k_partitioned_acceleration_structure_partition_index_global_nv = (~0u);
 
 // Base types.
 using DeviceAddress = uint64_t;
@@ -547,7 +549,8 @@ enum class DriverId {
     MesaDozen = 23,
     MesaNvk = 24,
     ImaginationOpenSourceMESA = 25,
-    MesaAgxv = 26,
+    MesaHoneykrisp = 26,
+    VulkanScEmulationOnVulkan = 27,
 };
 
 enum class DynamicState {
@@ -983,7 +986,6 @@ enum class FormatFeature2 : uint64_t {
     BlitSrc = 1ull << 10ull,
     BlitDst = 1ull << 11ull,
     SampledImageFilterLinear = 1ull << 12ull,
-    SampledImageFilterCubic = 1ull << 13ull,
     TransferSrc = 1ull << 14ull,
     TransferDst = 1ull << 15ull,
     SampledImageFilterMinmax = 1ull << 16ull,
@@ -997,6 +999,7 @@ enum class FormatFeature2 : uint64_t {
     StorageReadWithoutFormat = 1ull << 31ull,
     StorageWriteWithoutFormat = 1ull << 32ull,
     SampledImageDepthComparison = 1ull << 33ull,
+    SampledImageFilterCubic = 1ull << 13ull,
 };
 inline constexpr FormatFeature2 operator&(FormatFeature2 lhs, FormatFeature2 rhs) {
     return static_cast<FormatFeature2>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
@@ -1922,6 +1925,7 @@ enum class StructureType {
     OpaqueCaptureDescriptorDataCreateInfoEXT = 1000316010,
     DescriptorBufferBindingInfoEXT = 1000316011,
     DescriptorBufferBindingPushDescriptorBufferHandleEXT = 1000316012,
+    PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     ValidationFeaturesEXT = 1000247000,
     SwapchainCreateInfoKHR = 1000001000,
@@ -1933,7 +1937,6 @@ enum class StructureType {
     DeviceGroupPresentInfoKHR = 1000060011,
     DeviceGroupSwapchainCreateInfoKHR = 1000060012,
     XcbSurfaceCreateInfoKHR = 1000005000,
-    PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
 };
 
 enum class SubgroupFeature {
@@ -2046,6 +2049,7 @@ enum class ValidationFeatureEnableEXT {
 };
 
 enum class VendorId {
+    Khronos = 0x10000,
     VIV = 0x10001,
     VSI = 0x10002,
     Kazan = 0x10003,
@@ -4858,14 +4862,14 @@ struct PhysicalDeviceDescriptorBufferFeaturesEXT {
 
 struct DescriptorBufferBindingInfoEXT {
     StructureType sType;
-    void *pNext;
+    const void *pNext;
     DeviceAddress address;
     BufferUsage usage;
 };
 
 struct DescriptorBufferBindingPushDescriptorBufferHandleEXT {
     StructureType sType;
-    void *pNext;
+    const void *pNext;
     Buffer buffer;
 };
 
@@ -4925,6 +4929,23 @@ struct OpaqueCaptureDescriptorDataCreateInfoEXT {
     StructureType sType;
     const void *pNext;
     const void *opaqueCaptureDescriptorData;
+};
+
+struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
+    StructureType sType;
+    void *pNext;
+    Bool shaderBufferFloat32Atomics;
+    Bool shaderBufferFloat32AtomicAdd;
+    Bool shaderBufferFloat64Atomics;
+    Bool shaderBufferFloat64AtomicAdd;
+    Bool shaderSharedFloat32Atomics;
+    Bool shaderSharedFloat32AtomicAdd;
+    Bool shaderSharedFloat64Atomics;
+    Bool shaderSharedFloat64AtomicAdd;
+    Bool shaderImageFloat32Atomics;
+    Bool shaderImageFloat32AtomicAdd;
+    Bool sparseImageFloat32Atomics;
+    Bool sparseImageFloat32AtomicAdd;
 };
 
 struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
@@ -5053,23 +5074,6 @@ struct XcbSurfaceCreateInfoKHR {
     XcbSurfaceCreateFlagsKHR flags;
     xcb_connection_t *connection;
     xcb_window_t window;
-};
-
-struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
-    StructureType sType;
-    void *pNext;
-    Bool shaderBufferFloat32Atomics;
-    Bool shaderBufferFloat32AtomicAdd;
-    Bool shaderBufferFloat64Atomics;
-    Bool shaderBufferFloat64AtomicAdd;
-    Bool shaderSharedFloat32Atomics;
-    Bool shaderSharedFloat32AtomicAdd;
-    Bool shaderSharedFloat64Atomics;
-    Bool shaderSharedFloat64AtomicAdd;
-    Bool shaderImageFloat32Atomics;
-    Bool shaderImageFloat32AtomicAdd;
-    Bool sparseImageFloat32Atomics;
-    Bool sparseImageFloat32AtomicAdd;
 };
 
 // Command function pointers.
