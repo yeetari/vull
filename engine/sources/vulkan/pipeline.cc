@@ -48,8 +48,7 @@ PipelineBuilder::add_colour_attachment(vkb::Format format,
         .colorWriteMask =
             vkb::ColorComponent::R | vkb::ColorComponent::G | vkb::ColorComponent::B | vkb::ColorComponent::A,
     };
-    // TODO: Optional::value_or()
-    m_blend_states.push(blend_state ? *blend_state : default_blend_state);
+    m_blend_states.push(blend_state.value_or(default_blend_state));
     m_colour_formats.push(format);
     return *this;
 }
