@@ -56,7 +56,7 @@ def is_parent_of(parent_name, derived_name):
     if parent_name == derived_name:
         return True
     derived = type_dict.get(derived_name)
-    if not derived:
+    if derived is None:
         return False
     parents = derived.get('parent')
     if not parents:
@@ -142,7 +142,7 @@ desired_extension_names = OrderedSet([
 # Make sure any dependency extensions are added.
 for extension_name in desired_extension_names.copy():
     extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
-    assert extension
+    assert extension is not None
     for dependency in filter(lambda x: x not in desired_extension_names, parse_depends(extension)):
         print('Implicitly generating {}, needed by {}'.format(dependency, extension_name))
         desired_extension_names.add(dependency)
@@ -179,7 +179,7 @@ desired_command_names = []
 desired_enum_extensions = []
 desired_type_names = []
 for feature in map(lambda path: registry.find(path), enabled_feature_paths):
-    assert feature and feature.get('supported') != 'disabled'
+    assert feature is not None and feature.get('supported') != 'disabled'
 
     # Presence of type attribute signifies whether this feature is a core feature or an extension.
     extension_number = feature.get('number') if feature.get('type') else None
