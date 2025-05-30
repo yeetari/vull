@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     String script_path;
 
     ArgsParser args_parser("vsi", "Vull Script Interpreter", "0.1.0");
-    args_parser.add_argument(script_path, "script", false);
+    args_parser.add_argument(script_path, "script", true);
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
