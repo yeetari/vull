@@ -110,13 +110,6 @@ def evaluate_depends(attribute, contains_set):
     return stack.pop()
 
 
-def parse_depends(element):
-    if attribute := element.get('depends'):
-        assert all(char not in attribute for char in ['(', ')', ','])
-        return list(attribute.split('+'))
-    return []
-
-
 args_parser = ArgumentParser(description='Parse vk.xml')
 args_parser.add_argument('--download-latest', action='store_true')
 args = args_parser.parse_args()
@@ -128,24 +121,35 @@ if args.download_latest:
 with open('vk.xml', 'rb') as file:
     registry = ElementTree.parse(file)
 
-# OrderedSet to ensure generation is deterministic.
-desired_extension_names = OrderedSet([
+desired_extension_names = [
     'VK_EXT_debug_utils',
     'VK_EXT_descriptor_buffer',
+    'VK_EXT_shader_atomic_float',
     'VK_EXT_shader_atomic_float2',
     'VK_EXT_validation_features',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
     'VK_KHR_xcb_surface',
-])
+]
 
-# Make sure any dependency extensions are added.
-for extension_name in desired_extension_names.copy():
+# Build a list of XML paths from enabled core features and extensions.
+enabled_feature_names = []
+enabled_feature_paths = []
+for core_version in ['1_0', '1_1', '1_2', '1_3']:
+    enabled_feature_names.append('VK_VERSION_{}'.format(core_version))
+    enabled_feature_paths.append('.//feature[@name="VK_VERSION_{}"]'.format(core_version))
+for extension_name in desired_extension_names:
+    enabled_feature_names.append(extension_name)
+    enabled_feature_paths.append('.//extension[@name="{}"]'.format(extension_name))
+
+# Make sure any dependency extensions are present.
+for extension_name in desired_extension_names:
     extension = registry.find('.//extension[@name="{}"]'.format(extension_name))
     assert extension is not None
-    for dependency in filter(lambda x: x not in desired_extension_names, parse_depends(extension)):
-        print('Implicitly generating {}, needed by {}'.format(dependency, extension_name))
-        desired_extension_names.add(dependency)
+    if depends := extension.get('depends'):
+        if not evaluate_depends(depends, enabled_feature_names):
+            print(f'Missing dependencies for {extension_name}: {depends}')
+            sys.exit(0)
 
 # Build a dictionary of command names (e.g. 'vkCreateImage') to command elements, first handling the base commands.
 command_dict = {}
@@ -163,16 +167,6 @@ for vk_type in registry.findall('types/type'):
     name = vk_type.findtext('name') or vk_type.get('name')
     assert name
     type_dict[name] = vk_type
-
-# Build a list of XML paths from enabled core features and extensions.
-enabled_feature_names = []
-enabled_feature_paths = []
-for core_version in ['1_0', '1_1', '1_2', '1_3']:
-    enabled_feature_names.append('VK_VERSION_{}'.format(core_version))
-    enabled_feature_paths.append('.//feature[@name="VK_VERSION_{}"]'.format(core_version))
-for extension_name in desired_extension_names:
-    enabled_feature_names.append(extension_name)
-    enabled_feature_paths.append('.//extension[@name="{}"]'.format(extension_name))
 
 # Build a list of desired commands, enum extensions and types.
 desired_command_names = []
