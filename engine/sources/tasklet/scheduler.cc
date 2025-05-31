@@ -5,6 +5,7 @@
 #include <vull/container/work_stealing_queue.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
+#include <vull/platform/system_semaphore.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/unique_ptr.hh>
@@ -13,7 +14,6 @@
 
 #include <pthread.h>
 #include <sched.h>
-#include <semaphore.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +37,7 @@ VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 VULL_GLOBAL(static thread_local Scheduler *s_scheduler = nullptr);
 VULL_GLOBAL(static thread_local uint32_t s_rng_state = 0);
 VULL_GLOBAL(static Atomic<bool> s_running);
-VULL_GLOBAL(static sem_t s_work_available);
+VULL_GLOBAL(static SystemSemaphore s_work_available);
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
@@ -58,7 +58,6 @@ Scheduler::Scheduler(uint32_t thread_count) {
     if (thread_count == 0) {
         thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
     }
-    sem_init(&s_work_available, 0, 1);
     for (uint32_t i = 0; i < thread_count; i++) {
         auto &worker = m_workers.emplace(new Worker{.scheduler = *this});
         worker->queue = vull::make_unique<TaskletQueue>();
@@ -70,7 +69,6 @@ Scheduler::~Scheduler() {
     for (auto &worker : m_workers) {
         pthread_join(worker->thread, nullptr);
     }
-    sem_destroy(&s_work_available);
 }
 
 bool Scheduler::start(Tasklet *tasklet) {
@@ -100,11 +98,9 @@ bool Scheduler::start(Tasklet *tasklet) {
 }
 
 void Scheduler::stop() {
-    if (!s_running.exchange(false)) {
-        return;
-    }
+    s_running.store(false, vull::memory_order_release);
     for (uint32_t i = 0; i < m_workers.size(); i++) {
-        sem_post(&s_work_available);
+        s_work_available.post();
     }
 }
 
@@ -113,8 +109,8 @@ void Scheduler::stop() {
 static Tasklet *pick_next() {
     auto *next = vull::exchange(s_to_schedule, nullptr);
     while (next == nullptr) {
-        sem_wait(&s_work_available);
-        if (!s_running.load() && s_queue->empty()) {
+        s_work_available.wait();
+        if (!s_running.load(vull::memory_order_acquire) && s_queue->empty()) {
             pthread_exit(nullptr);
         }
 
@@ -126,7 +122,7 @@ static Tasklet *pick_next() {
             }
         }
         if (next == nullptr) {
-            sem_post(&s_work_available);
+            s_work_available.post();
         } else {
             VULL_ASSERT(next->state() != TaskletState::Running);
         }
@@ -218,13 +214,13 @@ void pump_work() {
 
 bool try_schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    sem_post(&s_work_available);
+    s_work_available.post();
     return s_queue->enqueue(tasklet);
 }
 
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    sem_post(&s_work_available);
+    s_work_available.post();
     while (!s_queue->enqueue(tasklet)) {
         pump_work();
     }
