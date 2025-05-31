@@ -2,6 +2,7 @@
 #include <vull/platform/file_stream.hh>
 #include <vull/platform/system_latch.hh>
 #include <vull/platform/system_mutex.hh>
+#include <vull/platform/system_semaphore.hh>
 #include <vull/platform/timer.hh>
 
 #include <vull/container/array.hh>
@@ -16,6 +17,7 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 
+#include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -265,8 +267,49 @@ void SystemMutex::lock() {
 
 void SystemMutex::unlock() {
     if (m_state.exchange(State::Unlocked) == State::LockedWaiters) {
-        // Wake 1 waiter.
+        // Wake one waiter.
         syscall(SYS_futex, m_state.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+    }
+}
+
+void SystemSemaphore::post() {
+    uint64_t data = m_data.fetch_add(1, vull::memory_order_release);
+    if ((data >> 32) > 0) {
+        // Wake one blocked waiter.
+        auto *value = vull::bit_cast<uint32_t *>(m_data.raw_ptr());
+#if BYTE_ORDER == BIG_ENDIAN
+        value++;
+#endif
+        syscall(SYS_futex, value, FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+    }
+}
+
+void SystemSemaphore::wait() {
+    // Try to acquire the semaphore.
+    uint64_t data = m_data.load(vull::memory_order_relaxed);
+    if ((data & 0xffffffffu) != 0 && m_data.compare_exchange_weak(data, data - 1, vull::memory_order_acquire)) {
+        return;
+    }
+
+    // Otherwise add a waiter.
+    m_data.fetch_add(1ul << 32, vull::memory_order_relaxed);
+
+    while (true) {
+        if ((data & 0xffffffffu) == 0) {
+            // Sleep until a post wakes us up.
+            auto *value = vull::bit_cast<uint32_t *>(m_data.raw_ptr());
+#if BYTE_ORDER == BIG_ENDIAN
+            value++;
+#endif
+            syscall(SYS_futex, value, FUTEX_WAIT_PRIVATE, 0, nullptr, nullptr, 0);
+            data = m_data.load(vull::memory_order_relaxed);
+        } else {
+            // Try to acquire the semaphore and stop being a waiter.
+            const auto new_data = data - 1 - (1ul << 32);
+            if (m_data.compare_exchange_weak(data, new_data, vull::memory_order_acquire)) {
+                return;
+            }
+        }
     }
 }
 
