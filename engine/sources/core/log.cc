@@ -1,6 +1,7 @@
 #include <vull/core/log.hh>
 
 #include <vull/container/array.hh>
+#include <vull/platform/system_semaphore.hh>
 #include <vull/platform/timer.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
@@ -8,10 +9,8 @@
 #include <vull/support/utility.hh>
 
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
-#include <errno.h>
 #include <pthread.h>
 #include <sched.h>
-#include <semaphore.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -95,12 +94,12 @@ LogMessage *LogQueue::dequeue() {
 class GlobalState {
     Atomic<LogQueue *> m_queue_head{nullptr};
     Atomic<LogQueue *> m_queue_tail{nullptr};
-    sem_t m_semaphore;
+    SystemSemaphore m_semaphore;
     pthread_t m_sink_thread{};
     Atomic<bool> m_running;
 
 public:
-    GlobalState();
+    GlobalState() = default;
     GlobalState(const GlobalState &) = delete;
     GlobalState(GlobalState &&) = delete;
     ~GlobalState();
@@ -120,13 +119,8 @@ public:
 
 void *sink_loop(void *);
 
-GlobalState::GlobalState() {
-    sem_init(&m_semaphore, 0, 0);
-}
-
 GlobalState::~GlobalState() {
     close_sink();
-    sem_destroy(&m_semaphore);
     for (auto *queue = m_queue_head.load(); queue != nullptr;) {
         delete vull::exchange(queue, queue->next());
     }
@@ -141,7 +135,7 @@ void GlobalState::open_sink() {
 
 void GlobalState::close_sink() {
     if (m_running.exchange(false)) {
-        sem_post(&m_semaphore);
+        m_semaphore.post();
         pthread_join(m_sink_thread, nullptr);
     }
 }
@@ -160,19 +154,15 @@ void GlobalState::add_queue(LogQueue *queue) {
 }
 
 void GlobalState::post() {
-    sem_post(&m_semaphore);
+    m_semaphore.post();
 }
 
 bool GlobalState::wait() {
     if (!m_running.load()) {
-        if (sem_trywait(&m_semaphore) == 0) {
-            // Still messages queued.
-            return true;
-        }
-        VULL_ASSERT(errno == EAGAIN);
-        return false;
+        // Keep running whilst there are still messages queued.
+        return m_semaphore.try_wait();
     }
-    sem_wait(&m_semaphore);
+    m_semaphore.wait();
     return true;
 }
 
