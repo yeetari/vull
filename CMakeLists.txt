@@ -5,9 +5,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(vull VERSION 0.1.0 LANGUAGES ASM CXX)
 
-# Set IPO policy for meshoptimizer.
-set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CMakeDependentOption)
 include(FetchContent)
