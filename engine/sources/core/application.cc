@@ -52,12 +52,11 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     }
     free(entry_list);
 
-    Scheduler scheduler;
-    scheduler.start([start_fn = vull::move(start_fn)] {
-        start_fn();
-        Scheduler::current().stop();
-        vull::close_log();
-    });
+    {
+        Scheduler scheduler;
+        scheduler.start(vull::move(start_fn));
+    }
+    vull::close_log();
     return EXIT_SUCCESS;
 }
 

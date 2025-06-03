@@ -44,7 +44,10 @@ public:
 template <typename F>
 bool Scheduler::start(F &&callable) {
     auto *tasklet = Tasklet::create_large();
-    tasklet->set_callable(vull::forward<F>(callable));
+    tasklet->set_callable([this, callable = vull::move(callable)] {
+        callable();
+        stop();
+    });
     return start(tasklet);
 }
 
