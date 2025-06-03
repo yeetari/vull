@@ -284,8 +284,25 @@ void SystemSemaphore::post() {
     }
 }
 
+bool SystemSemaphore::try_wait() {
+    uint64_t data = m_data.load(vull::memory_order_relaxed);
+    while (true) {
+        // Check whether the semaphore has been signaled and return if it hasn't.
+        if ((data & 0xfffffffu) == 0) {
+            return false;
+        }
+
+        // The semaphore is signaled so try to decrement it. Use a weak compare exchange since we need the loop anyway
+        // to prevent any race from returning a false negative of the semaphore not being signaled.
+        if (m_data.compare_exchange_weak(data, data - 1, vull::memory_order_acquire)) {
+            return true;
+        }
+    }
+}
+
 void SystemSemaphore::wait() {
-    // Try to acquire the semaphore.
+    // Try to acquire the semaphore. Use a single weak compare exchange since a race or spurious failure won't cause
+    // any semantic problems here.
     uint64_t data = m_data.load(vull::memory_order_relaxed);
     if ((data & 0xffffffffu) != 0 && m_data.compare_exchange_weak(data, data - 1, vull::memory_order_acquire)) {
         return;
