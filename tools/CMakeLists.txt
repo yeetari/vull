@@ -5,7 +5,7 @@ endif()
 if(VULL_BUILD_VPAK)
     FetchContent_Declare(meshoptimizer
         GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
-        GIT_TAG v0.17
+        GIT_TAG v0.23
         GIT_SHALLOW TRUE
         SYSTEM)
     FetchContent_MakeAvailable(meshoptimizer)
