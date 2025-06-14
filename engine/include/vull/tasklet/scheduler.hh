@@ -33,6 +33,7 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
     Scheduler &operator=(Scheduler &&) = delete;
 
+    void join();
     TaskletQueue &pick_victim(uint32_t &rng_state);
 
     template <typename F>

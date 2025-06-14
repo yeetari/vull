@@ -66,9 +66,14 @@ Scheduler::Scheduler(uint32_t thread_count) {
 }
 
 Scheduler::~Scheduler() {
+    join();
+}
+
+void Scheduler::join() {
     for (auto &worker : m_workers) {
         pthread_join(worker->thread, nullptr);
     }
+    m_workers.clear();
 }
 
 bool Scheduler::start(Tasklet *tasklet) {
