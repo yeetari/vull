@@ -35,9 +35,8 @@ VULL_GLOBAL(static thread_local Tasklet *s_scheduler_tasklet = nullptr);
 VULL_GLOBAL(static thread_local Tasklet *s_to_schedule = nullptr);
 VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 VULL_GLOBAL(static thread_local Scheduler *s_scheduler = nullptr);
+VULL_GLOBAL(static thread_local SystemSemaphore *s_work_available = nullptr);
 VULL_GLOBAL(static thread_local uint32_t s_rng_state = 0);
-VULL_GLOBAL(static Atomic<bool> s_running);
-VULL_GLOBAL(static SystemSemaphore s_work_available);
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
@@ -83,7 +82,7 @@ bool Scheduler::start(Tasklet *tasklet) {
     if (!m_workers[0]->queue->enqueue(tasklet)) {
         return false;
     }
-    s_running.store(true);
+    m_running.store(true, vull::memory_order_release);
     for (auto &worker : m_workers) {
         if (pthread_create(&worker->thread, nullptr, &worker_entry, worker.ptr()) != 0) {
             return false;
@@ -103,9 +102,9 @@ bool Scheduler::start(Tasklet *tasklet) {
 }
 
 void Scheduler::stop() {
-    s_running.store(false, vull::memory_order_release);
+    m_running.store(false, vull::memory_order_release);
     for (uint32_t i = 0; i < m_workers.size(); i++) {
-        s_work_available.post();
+        m_work_available.post();
     }
 }
 
@@ -114,8 +113,8 @@ void Scheduler::stop() {
 static Tasklet *pick_next() {
     auto *next = vull::exchange(s_to_schedule, nullptr);
     while (next == nullptr) {
-        s_work_available.wait();
-        if (!s_running.load(vull::memory_order_acquire) && s_queue->empty()) {
+        s_work_available->wait();
+        if (!s_scheduler->is_running() && s_queue->empty()) {
             pthread_exit(nullptr);
         }
 
@@ -127,7 +126,7 @@ static Tasklet *pick_next() {
             }
         }
         if (next == nullptr) {
-            s_work_available.post();
+            s_work_available->post();
         } else {
             VULL_ASSERT(next->state() != TaskletState::Running);
         }
@@ -176,6 +175,7 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     auto &[scheduler, queue, _] = *static_cast<Worker *>(worker_ptr);
     s_queue = queue.ptr();
     s_scheduler = &scheduler;
+    s_work_available = &scheduler.m_work_available;
 
     sigset_t sig_set;
     sigfillset(&sig_set);
@@ -219,13 +219,13 @@ void pump_work() {
 
 bool try_schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    s_work_available.post();
+    s_work_available->post();
     return s_queue->enqueue(tasklet);
 }
 
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    s_work_available.post();
+    s_work_available->post();
     while (!s_queue->enqueue(tasklet)) {
         pump_work();
     }

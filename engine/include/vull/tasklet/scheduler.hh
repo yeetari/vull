@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vull/container/vector.hh>
+#include <vull/platform/system_semaphore.hh>
+#include <vull/support/atomic.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/tasklet.hh>
@@ -19,6 +21,8 @@ class Scheduler {
         pthread_t thread;
     };
     Vector<UniquePtr<Worker>> m_workers;
+    SystemSemaphore m_work_available;
+    Atomic<bool> m_running;
 
     static void *worker_entry(void *);
 
@@ -40,6 +44,8 @@ public:
     bool start(F &&callable);
     bool start(Tasklet *tasklet);
     void stop();
+
+    bool is_running() const { return m_running.load(vull::memory_order_acquire); }
 };
 
 template <typename F>
