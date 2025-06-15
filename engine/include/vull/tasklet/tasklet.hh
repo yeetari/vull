@@ -8,6 +8,11 @@
 
 namespace vull {
 
+enum class TaskletSize {
+    Normal,
+    Large,
+};
+
 enum class TaskletState {
     Uninitialised,
     Running,
@@ -33,8 +38,8 @@ class Tasklet {
     }
 
 public:
+    template <TaskletSize Size>
     static Tasklet *create();
-    static Tasklet *create_large();
     static Tasklet *current();
     bool is_guard_page(uintptr_t page) const;
 
@@ -86,9 +91,9 @@ bool try_schedule(Tasklet *tasklet);
 void schedule(Tasklet *tasklet);
 void yield();
 
-template <typename F>
+template <typename F, TaskletSize Size = TaskletSize::Normal>
 bool try_schedule(F &&callable) {
-    auto *tasklet = Tasklet::create();
+    auto *tasklet = Tasklet::create<Size>();
     if (tasklet == nullptr) {
         return false;
     }
@@ -96,33 +101,12 @@ bool try_schedule(F &&callable) {
     return try_schedule(tasklet);
 }
 
-template <typename F>
-bool try_schedule_large(F &&callable) {
-    auto *tasklet = Tasklet::create_large();
-    if (tasklet == nullptr) {
-        return false;
-    }
-    tasklet->set_callable(vull::forward<F>(callable));
-    return try_schedule(tasklet);
-}
-
-template <typename F>
+template <typename F, TaskletSize Size = TaskletSize::Normal>
 void schedule(F &&callable) {
-    auto *tasklet = Tasklet::create();
+    auto *tasklet = Tasklet::create<Size>();
     while (tasklet == nullptr) {
         pump_work();
-        tasklet = Tasklet::create();
-    }
-    tasklet->set_callable(vull::forward<F>(callable));
-    schedule(tasklet);
-}
-
-template <typename F>
-void schedule_large(F &&callable) {
-    auto *tasklet = Tasklet::create_large();
-    while (tasklet == nullptr) {
-        pump_work();
-        tasklet = Tasklet::create_large();
+        tasklet = Tasklet::create<Size>();
     }
     tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);

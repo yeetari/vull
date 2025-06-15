@@ -108,11 +108,13 @@ extern "C" void vull_free_tasklet(Tasklet *tasklet) {
     }
 }
 
-Tasklet *Tasklet::create() {
+template <>
+Tasklet *Tasklet::create<TaskletSize::Normal>() {
     return s_normal_pool.allocate();
 }
 
-Tasklet *Tasklet::create_large() {
+template <>
+Tasklet *Tasklet::create<TaskletSize::Large>() {
     return s_large_pool.allocate();
 }
 
