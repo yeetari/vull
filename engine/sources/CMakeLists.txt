@@ -17,9 +17,9 @@ target_sources(vull PRIVATE
     support/string.cc
     support/string_builder.cc
     tasklet/latch.cc
+    tasklet/mutex.cc
     tasklet/scheduler.cc
     tasklet/tasklet.cc
-    tasklet/mutex.cc
     tasklet/x86_64_sysv.S
     vpak/file_system.cc
     vpak/pack_file.cc

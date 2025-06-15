@@ -23,7 +23,7 @@ class Tasklet {
     void *m_fake_stack{nullptr};
 #endif
     void *m_pool{nullptr};
-    Atomic<Tasklet *> m_linked_tasklet{nullptr};
+    Tasklet *m_linked_tasklet{nullptr};
     Atomic<TaskletState> m_state{TaskletState::Uninitialised};
 
     template <typename F>
@@ -46,15 +46,19 @@ public:
     Tasklet &operator=(const Tasklet &) = delete;
     Tasklet &operator=(Tasklet &&) = delete;
 
+    void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet = tasklet; }
+    Tasklet *pop_linked_tasklet() { return vull::exchange(m_linked_tasklet, nullptr); }
+
+    // TODO: Remove this.
+    Tasklet *linked_tasklet() const { return m_linked_tasklet; }
+
     void invoke();
     template <typename F>
     void set_callable(F &&callable);
-    void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet.store(tasklet); }
     void set_state(TaskletState state) { m_state.store(state); }
 
     void *stack_top() const { return m_stack_top; }
     void *pool() const { return m_pool; }
-    Tasklet *linked_tasklet() const { return m_linked_tasklet.load(); }
     TaskletState state() const { return m_state.load(); }
 };
 

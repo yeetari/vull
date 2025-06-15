@@ -1,52 +1,75 @@
 #include <vull/tasklet/mutex.hh>
 
+#include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/utility.hh>
 #include <vull/tasklet/tasklet.hh>
+
+// TODO: Add locked without waiters optimisation.
+// TODO: Only wake one waiter upon unlock to avoid thundering herd. This is hard as unlocking the mutex would need to
+//       signal the unlock and keep the remaining tasklets in the wait list.
 
 namespace vull {
 
+#define UNLOCKED_SENTINEL vull::bit_cast<Tasklet *>(-1ull)
+
+Mutex::Mutex() {
+    // Start in unlocked state.
+    m_wait_list.store(UNLOCKED_SENTINEL, vull::memory_order_release);
+}
+
+Mutex::~Mutex() {
+    // Verify mutex ends in unlocked state.
+    VULL_ASSERT(m_wait_list.load(vull::memory_order_relaxed) == UNLOCKED_SENTINEL);
+}
+
+bool Mutex::try_lock() {
+    auto *expected = UNLOCKED_SENTINEL;
+    return m_wait_list.compare_exchange(expected, nullptr, vull::memory_order_acquire);
+}
+
 void Mutex::lock() {
-    if (!m_locked.cmpxchg(false, true)) [[likely]] {
-        // Successfully locked without contention.
-        return;
-    }
+    while (true) {
+        auto *tasklet = UNLOCKED_SENTINEL;
+        if (m_wait_list.compare_exchange(tasklet, nullptr, vull::memory_order_acquire)) {
+            // We have successfully locked the mutex.
+            return;
+        }
 
-    do {
-        // Otherwies, increment the number of waiters.
-        m_wait_count.fetch_add(1);
-
-        // Add ourselves to the linked list of waiters.
+        // Otherwise the mutex is locked and we need to add ourselves to the wait list.
         auto *current = Tasklet::current();
-        auto *waiter = m_wait_list.load();
-        do {
-            current->set_linked_tasklet(waiter);
-        } while (!m_wait_list.compare_exchange_weak(waiter, current));
-
-        // And yield to the scheduler.
-        vull::yield();
-    } while (m_locked.cmpxchg_weak(false, true));
+        current->set_linked_tasklet(tasklet);
+        if (m_wait_list.compare_exchange(tasklet, current, vull::memory_order_acq_rel)) {
+            // Successfully added ourselves to the wait list, yield until the mutex is unlocked.
+            vull::yield();
+        } else {
+            // Compare exchange failed - either the mutex was unlocked or we failed a race with another tasklet to enter
+            // the wait list. In either case, go back to the top of the loop.
+            current->set_linked_tasklet(nullptr);
+            vull::atomic_thread_fence(vull::memory_order_release);
+        }
+    }
 }
 
 void Mutex::unlock() {
-    // Clear locked flag.
-    m_locked.store(false);
+    // Atomically swap the list of waiters with the unlocked sentinel.
+    auto *tasklet = m_wait_list.exchange(UNLOCKED_SENTINEL, vull::memory_order_acq_rel);
 
-    // Try to wake one waiter.
-    while (m_wait_count.load() != 0) {
-        Tasklet *to_wake = m_wait_list.load();
-        Tasklet *desired;
-        do {
-            desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
-        } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
+    // Verify that the mutex wasn't already unlocked.
+    VULL_ASSERT(tasklet != UNLOCKED_SENTINEL);
 
-        if (to_wake != nullptr) {
-            m_wait_count.fetch_sub(1);
-            while (to_wake->state() == TaskletState::Running) {
-            }
-            to_wake->set_linked_tasklet(nullptr);
-            vull::schedule(to_wake);
-            break;
+    // Wake all of the waiters.
+    while (tasklet != nullptr) {
+        // Dequeue from the list before rescheduling.
+        auto *next = tasklet->pop_linked_tasklet();
+
+        // The tasklet may still be in the middle of yielding.
+        // TODO: Find a way to avoid this.
+        while (tasklet->state() == TaskletState::Running) {
         }
+
+        // Reschedule the tasklet.
+        vull::schedule(vull::exchange(tasklet, next));
     }
 }
 

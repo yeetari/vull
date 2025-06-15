@@ -3,7 +3,6 @@
 #include <vull/container/fixed_buffer.hh>
 #include <vull/container/vector.hh>
 #include <vull/maths/common.hh>
-#include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/scoped_lock.hh>
@@ -73,7 +72,6 @@ Font::Font(FT_Library library, ByteBuffer &&bytes, FT_Face face)
 }
 
 Font::~Font() {
-    VULL_ASSERT(!m_mutex.locked());
     hb_font_destroy(m_hb_font);
     FT_Done_FreeType(m_library);
 }

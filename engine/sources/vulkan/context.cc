@@ -574,8 +574,7 @@ QueueHandle Context::lock_queue(QueueKind kind) {
     // Try to pick a free queue.
     auto &queue_list = queue_list_for(kind);
     for (Queue &queue : queue_list) {
-        if (!queue.m_mutex.locked()) {
-            queue.m_mutex.lock();
+        if (queue.m_mutex.try_lock()) {
             return QueueHandle(queue);
         }
     }
