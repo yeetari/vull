@@ -2,7 +2,10 @@
 
 #include <vull/maths/common.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/integral.hh>
+#include <vull/support/optional.hh>
 #include <vull/support/span.hh>
+#include <vull/support/utility.hh>
 
 #include <stddef.h>
 
@@ -23,6 +26,9 @@ public:
 
     constexpr bool starts_with(StringView other) const;
     constexpr bool ends_with(StringView other) const;
+
+    template <Integral T>
+    constexpr Optional<T> to_integral() const;
 
     constexpr size_t length() const { return size(); }
 };
@@ -65,6 +71,45 @@ constexpr bool StringView::starts_with(StringView other) const {
 
 constexpr bool StringView::ends_with(StringView other) const {
     return length() >= other.length() && substr(length() - other.length()).compare(other) == 0;
+}
+
+template <Integral T>
+constexpr Optional<T> StringView::to_integral() const {
+    const auto *it = begin();
+    if (it == end()) {
+        return vull::nullopt;
+    }
+
+    // Parse sign.
+    T sign = T(1);
+    if constexpr (vull::is_signed<T>) {
+        if (*it == '+' || *it == '-') {
+            if (*it == '-') {
+                sign = T(-1);
+            }
+            it++;
+        }
+    }
+
+    // Reject a + or - on its own.
+    if (it == end()) {
+        return vull::nullopt;
+    }
+
+    T value = T(0);
+    while (it != end()) {
+        const char ch = *it++;
+        if (ch < '0' || ch > '9') {
+            return vull::nullopt;
+        }
+        if (__builtin_mul_overflow(value, T(10), &value)) {
+            return vull::nullopt;
+        }
+        if (__builtin_add_overflow(value, sign * T(ch - '0'), &value)) {
+            return vull::nullopt;
+        }
+    }
+    return value;
 }
 
 constexpr bool operator==(StringView lhs, type_identity<StringView> rhs) {

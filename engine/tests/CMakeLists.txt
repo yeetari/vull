@@ -12,6 +12,7 @@ target_sources(vull-tests PRIVATE
     shaderc/parse_errors.cc
     shaderc/parser.cc
     support/enum.cc
+    support/string_view.cc
     support/variant.cc
     tasklet/simple.cc
     runner.cc)
