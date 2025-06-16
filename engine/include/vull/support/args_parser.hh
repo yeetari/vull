@@ -2,6 +2,7 @@
 
 #include <vull/container/vector.hh>
 #include <vull/support/function.hh>
+#include <vull/support/integral.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
 
@@ -53,6 +54,8 @@ public:
     void add_argument(T &value, String name, bool required);
     void add_flag(bool &present, String help_string, String long_name, char short_name = '\0');
     template <typename T>
+    void add_option(T &value, String help_string, String long_name, char short_name = '\0');
+    template <Integral T>
     void add_option(T &value, String help_string, String long_name, char short_name = '\0');
     ArgsParseResult parse_args(int argc, const char *const *argv);
 };

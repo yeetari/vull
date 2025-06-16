@@ -4,6 +4,7 @@
 #include <vull/core/log.hh>
 #include <vull/support/algorithm.hh>
 #include <vull/support/function.hh>
+#include <vull/support/integral.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
@@ -91,6 +92,35 @@ void ArgsParser::add_option(String &value, String help_string, String long_name,
             },
     });
 }
+
+template <Integral T>
+void ArgsParser::add_option(T &value, String help_string, String long_name, char short_name) {
+    m_options.push(Option{
+        .help_string = vull::move(help_string),
+        .long_name = long_name,
+        .short_name = short_name,
+        .has_argument = true,
+        .accept_value =
+            [&value, long_name = vull::move(long_name)](StringView program_path, StringView argument) {
+                auto parsed = argument.to_integral<T>();
+                if (!parsed) {
+                    vull::println("{}: option '--{}' expects an integer", program_path, long_name);
+                    return ArgsParseResult::ExitFailure;
+                }
+                value = *parsed;
+                return ArgsParseResult::Continue;
+            },
+    });
+}
+
+template void ArgsParser::add_option(int8_t &, String, String, char);
+template void ArgsParser::add_option(int16_t &, String, String, char);
+template void ArgsParser::add_option(int32_t &, String, String, char);
+template void ArgsParser::add_option(int64_t &, String, String, char);
+template void ArgsParser::add_option(uint8_t &, String, String, char);
+template void ArgsParser::add_option(uint16_t &, String, String, char);
+template void ArgsParser::add_option(uint32_t &, String, String, char);
+template void ArgsParser::add_option(uint64_t &, String, String, char);
 
 String ArgsParser::Argument::to_string() const {
     StringBuilder sb;
