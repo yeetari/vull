@@ -108,8 +108,6 @@ void Scheduler::stop() {
     }
 }
 
-[[noreturn]] static void invoke_trampoline(Tasklet *);
-
 static Tasklet *pick_next() {
     auto *next = vull::exchange(s_to_schedule, nullptr);
     while (next == nullptr) {
@@ -134,19 +132,15 @@ static Tasklet *pick_next() {
 
     VULL_ASSERT(next->state() != TaskletState::Done);
     if (next->state() == TaskletState::Uninitialised) {
-        vull_make_context(next->stack_top(), invoke_trampoline);
+        vull_make_context(next->stack_top(), next->invoker());
     }
     next->set_state(TaskletState::Running);
     return next;
 }
 
-[[noreturn]] static void invoke_trampoline(Tasklet *tasklet) {
-    // TODO: Destruct lambda captures.
-    tasklet->invoke();
-    tasklet->set_state(TaskletState::Done);
-
+[[noreturn]] void tasklet_switch_next(Tasklet *current) {
     auto *next = pick_next();
-    vull_load_context(s_current_tasklet = next, tasklet);
+    vull_load_context(s_current_tasklet = next, current);
 }
 
 [[noreturn]] static void scheduler_fn(Tasklet *) {
