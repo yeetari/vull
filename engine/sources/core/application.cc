@@ -13,6 +13,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -24,7 +25,9 @@ static int vpak_select(const struct dirent *entry) {
 }
 
 int start_application(int argc, char **argv, ArgsParser &args_parser, Function<void()> start_fn) {
+    uint32_t thread_count = 0;
     String vpak_directory_path;
+    args_parser.add_option(thread_count, "Tasklet worker thread count", "threads");
     args_parser.add_option(vpak_directory_path, "Vpak directory path", "vpak-dir");
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -52,10 +55,9 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     }
     free(entry_list);
 
-    {
-        Scheduler scheduler;
-        scheduler.start(vull::move(start_fn));
-    }
+    Scheduler scheduler(thread_count);
+    scheduler.start(vull::move(start_fn));
+    scheduler.join();
     vull::close_log();
     return EXIT_SUCCESS;
 }
