@@ -2,51 +2,31 @@
 
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
-#include <vull/tasklet/tasklet.hh>
+#include <vull/tasklet/promise.hh>
 
 namespace vull {
 
 void Latch::count_down(uint32_t by) {
-    const auto value = m_value.fetch_sub(by);
+    const auto value = m_value.fetch_sub(by, vull::memory_order_acq_rel);
     if (value != by) {
         VULL_ASSERT(value > by);
         return;
     }
 
-    // Wake all waiters.
-    while (auto *to_wake = m_wait_list.load()) {
-        Tasklet *desired;
-        do {
-            desired = to_wake != nullptr ? to_wake->linked_tasklet() : nullptr;
-        } while (!m_wait_list.compare_exchange_weak(to_wake, desired));
-
-        while (to_wake->state() == TaskletState::Running) {
-        }
-        to_wake->set_linked_tasklet(nullptr);
-        vull::schedule(to_wake);
-    }
+    // Wake all of the waiters.
+    m_promise.fulfill();
 }
 
 bool Latch::try_wait() const {
-    return m_value.load() == 0;
+    return m_value.load(vull::memory_order_acquire) == 0;
 }
 
 void Latch::wait() {
-    if (try_wait()) {
-        // Already zero.
-        return;
+    // Wait on the promise if the latch hasn't been set yet.
+    if (!try_wait()) {
+        m_promise.wait();
     }
-
-    // Otherwise add ourselves to the linked list of waiters.
-    auto *current = Tasklet::current();
-    auto *waiter = m_wait_list.load();
-    do {
-        current->set_linked_tasklet(waiter);
-    } while (!m_wait_list.compare_exchange_weak(waiter, current));
-
-    // And yield to the scheduler.
-    vull::yield();
-    VULL_ASSERT(try_wait());
+    VULL_ASSERT(m_value.load(vull::memory_order_relaxed) == 0);
 }
 
 } // namespace vull
