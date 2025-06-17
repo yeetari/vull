@@ -330,15 +330,14 @@ uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
     if (auto index = m_texture_indices.get(name)) {
         return *index != UINT32_MAX ? *index : fallback_index;
     }
+    m_texture_indices.set(name, UINT32_MAX);
+    lock.unlock();
 
-    bool scheduled = vull::try_schedule([this, name = String(name), fallback_index]() mutable {
+    m_in_progress.fetch_add(1);
+    vull::schedule([this, name = String(name), fallback_index]() mutable {
         load_texture(vull::move(name), fallback_index);
         m_in_progress.fetch_sub(1);
     });
-    if (scheduled) {
-        m_in_progress.fetch_add(1);
-        m_texture_indices.set(name, UINT32_MAX);
-    }
     return fallback_index;
 }
 
