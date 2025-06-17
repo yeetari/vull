@@ -116,10 +116,6 @@ void yield();
 template <typename F, TaskletSize Size = TaskletSize::Normal>
 void schedule(F &&callable) {
     auto *tasklet = Tasklet::create<Size>();
-    while (tasklet == nullptr) {
-        pump_work();
-        tasklet = Tasklet::create<Size>();
-    }
     tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);
 }

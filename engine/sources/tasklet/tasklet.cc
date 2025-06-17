@@ -62,6 +62,7 @@ Tasklet *Pool<TaskletCount, StackSize>::allocate() {
         // Since we are the only thread allocating, m_next_free can never become null after this check.
         void *desired;
         do {
+            VULL_ASSERT(next_free != nullptr);
             memcpy(&desired, next_free, sizeof(void *));
         } while (!m_next_free.compare_exchange_weak(next_free, desired));
         return new (next_free) Tasklet(StackSize, this);
@@ -72,7 +73,6 @@ Tasklet *Pool<TaskletCount, StackSize>::allocate() {
         return nullptr;
     }
 
-    // TODO: Remove this and just use next_free.
     size_t head = vull::exchange(m_head, m_head + StackSize);
     return new (m_base + head) Tasklet(StackSize, this);
 }
@@ -97,6 +97,17 @@ bool PoolBase::is_guard_page(uintptr_t page) const {
 VULL_GLOBAL(thread_local Pool<64, 65536> s_normal_pool);
 VULL_GLOBAL(thread_local Pool<4, 262144> s_large_pool);
 
+// These noinline forwarders exist so that the compiler is forced to reload the thread local data.
+// TODO: This is quite hacky and could break in the future.
+
+[[gnu::noinline]] Tasklet *allocate_normal() {
+    return s_normal_pool.allocate();
+}
+
+[[gnu::noinline]] Tasklet *allocate_large() {
+    return s_large_pool.allocate();
+}
+
 } // namespace
 
 extern "C" void vull_free_tasklet(Tasklet *);
@@ -110,12 +121,22 @@ extern "C" void vull_free_tasklet(Tasklet *tasklet) {
 
 template <>
 Tasklet *Tasklet::create<TaskletSize::Normal>() {
-    return s_normal_pool.allocate();
+    auto *tasklet = allocate_normal();
+    while (tasklet == nullptr) {
+        vull::pump_work();
+        tasklet = allocate_normal();
+    }
+    return tasklet;
 }
 
 template <>
 Tasklet *Tasklet::create<TaskletSize::Large>() {
-    return s_large_pool.allocate();
+    auto *tasklet = allocate_large();
+    while (tasklet == nullptr) {
+        vull::pump_work();
+        tasklet = allocate_large();
+    }
+    return tasklet;
 }
 
 bool Tasklet::is_guard_page(uintptr_t page) const {
