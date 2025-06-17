@@ -18,6 +18,7 @@ target_sources(vull PRIVATE
     support/string_builder.cc
     tasklet/latch.cc
     tasklet/mutex.cc
+    tasklet/promise.cc
     tasklet/scheduler.cc
     tasklet/tasklet.cc
     tasklet/x86_64_sysv.S
