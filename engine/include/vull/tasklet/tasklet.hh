@@ -64,9 +64,6 @@ public:
     void set_linked_tasklet(Tasklet *tasklet) { m_linked_tasklet = tasklet; }
     Tasklet *pop_linked_tasklet() { return vull::exchange(m_linked_tasklet, nullptr); }
 
-    // TODO: Remove this.
-    Tasklet *linked_tasklet() const { return m_linked_tasklet; }
-
     template <typename F>
     void set_callable(F &&callable);
     void set_state(TaskletState state) { m_state.store(state); }
