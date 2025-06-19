@@ -4,6 +4,7 @@
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
 
 #include <string.h>
 #include <sys/mman.h>

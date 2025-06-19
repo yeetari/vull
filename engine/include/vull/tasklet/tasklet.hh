@@ -106,15 +106,4 @@ void Tasklet::set_callable(F &&callable) {
 #endif
 }
 
-void pump_work();
-void schedule(Tasklet *tasklet);
-void yield();
-
-template <typename F, TaskletSize Size = TaskletSize::Normal>
-void schedule(F &&callable) {
-    auto *tasklet = Tasklet::create<Size>();
-    tasklet->set_callable(vull::forward<F>(callable));
-    schedule(tasklet);
-}
-
 } // namespace vull

@@ -25,6 +25,7 @@
 #include <vull/support/scoped_lock.hh>
 #include <vull/support/span_stream.hh>
 #include <vull/support/string_builder.hh>
+#include <vull/tasklet/functions.hh>
 #include <vull/tasklet/latch.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/tasklet/scheduler.hh>

@@ -17,8 +17,8 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
 #include <vull/tasklet/mutex.hh>
-#include <vull/tasklet/tasklet.hh>
 #include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
 #include <vull/vpak/stream.hh>

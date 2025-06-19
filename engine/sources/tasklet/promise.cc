@@ -2,6 +2,7 @@
 
 #include <vull/support/atomic.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
 #include <vull/tasklet/tasklet.hh>
 
 namespace vull {

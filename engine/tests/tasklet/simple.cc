@@ -1,7 +1,7 @@
 #include <vull/support/atomic.hh>
+#include <vull/tasklet/functions.hh>
 #include <vull/tasklet/latch.hh>
 #include <vull/tasklet/scheduler.hh>
-#include <vull/tasklet/tasklet.hh>
 #include <vull/test/assertions.hh>
 #include <vull/test/matchers.hh>
 #include <vull/test/test.hh>
