@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/maths/common.hh>
+#include <vull/support/tuple.hh>
 #include <vull/support/utility.hh>
 
 #include <stddef.h>
@@ -9,6 +10,32 @@
 // TODO: Rewrite - currently the exact same version as in umbongo.
 
 namespace vull {
+
+template <typename>
+struct FunctionTraits;
+
+template <typename RetType, typename... ArgTypes>
+struct FunctionTraits<RetType (*)(ArgTypes...)> {
+    static constexpr size_t arity = sizeof...(ArgTypes);
+    using result_type = RetType;
+    using argument_types = vull::Tuple<ArgTypes...>;
+    template <size_t I>
+    using argument_type = std::tuple_element<I, argument_types>::type;
+};
+
+// Forwarding definition for functors.
+template <typename F>
+struct FunctionTraits : FunctionTraits<decltype(&vull::remove_ref<F>::operator())> {};
+
+// Regular (const) functor handling.
+// clang-format off
+template <typename ClassType, typename RetType, typename... ArgTypes>
+struct FunctionTraits<RetType (ClassType::*)(ArgTypes...) const> : FunctionTraits<RetType (*)(ArgTypes...)> {};
+
+// Mutable functor handling.
+template <typename ClassType, typename RetType, typename... ArgTypes>
+struct FunctionTraits<RetType (ClassType::*)(ArgTypes...)> : FunctionTraits<RetType (*)(ArgTypes...)> {};
+// clang-format on
 
 template <typename>
 class Function;
