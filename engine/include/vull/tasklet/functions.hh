@@ -27,6 +27,10 @@ void schedule(F &&callable) {
 }
 
 void pump_work();
-void yield();
+
+/**
+ * Suspends the current tasklet's execution until rescheduled by another tasklet.
+ */
+void suspend();
 
 } // namespace vull

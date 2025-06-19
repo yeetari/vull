@@ -53,7 +53,7 @@ void PromiseBase::wake_on_fulfillment(Tasklet *tasklet) {
 void PromiseBase::wait() {
     if (add_waiter(Tasklet::current())) {
         // Promise not yet fulfilled - suspend ourselves.
-        vull::yield();
+        vull::suspend();
     }
 }
 

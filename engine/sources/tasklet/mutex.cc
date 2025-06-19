@@ -41,8 +41,8 @@ void Mutex::lock() {
         auto *current = Tasklet::current();
         current->set_linked_tasklet(tasklet);
         if (m_wait_list.compare_exchange(tasklet, current, vull::memory_order_acq_rel)) {
-            // Successfully added ourselves to the wait list, yield until the mutex is unlocked.
-            vull::yield();
+            // Successfully added ourselves to the wait list - suspend until the mutex is unlocked.
+            vull::suspend();
         } else {
             // Compare exchange failed - either the mutex was unlocked or we failed a race with another tasklet to enter
             // the wait list. In either case, go back to the top of the loop.

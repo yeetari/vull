@@ -209,7 +209,7 @@ void pump_work() {
 
     VULL_ASSERT(s_to_schedule == nullptr);
     s_to_schedule = dequeued;
-    yield();
+    suspend();
 }
 
 void schedule(Tasklet *tasklet) {
@@ -220,7 +220,7 @@ void schedule(Tasklet *tasklet) {
     }
 }
 
-void yield() {
+void suspend() {
     VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
     vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
 }
