@@ -20,6 +20,7 @@ protected:
 public:
     bool add_waiter(Tasklet *tasklet);
     bool is_fulfilled() const;
+    void wake_on_fulfillment(Tasklet *tasklet);
     void wait();
 };
 

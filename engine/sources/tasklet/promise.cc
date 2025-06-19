@@ -42,8 +42,16 @@ bool PromiseBase::is_fulfilled() const {
     return m_wait_list.load(vull::memory_order_relaxed) == FULFILLED_SENTINEL;
 }
 
+void PromiseBase::wake_on_fulfillment(Tasklet *tasklet) {
+    if (!add_waiter(tasklet)) {
+        // Promise already fulfilled - schedule the tasklet immediately.
+        vull::schedule(tasklet);
+    }
+}
+
 void PromiseBase::wait() {
     if (add_waiter(Tasklet::current())) {
+        // Promise not yet fulfilled - suspend ourselves.
         vull::yield();
     }
 }
