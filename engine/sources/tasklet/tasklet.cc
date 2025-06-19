@@ -123,7 +123,7 @@ template <>
 Tasklet *Tasklet::create<TaskletSize::Normal>() {
     auto *tasklet = allocate_normal();
     while (tasklet == nullptr) {
-        vull::pump_work();
+        vull::yield();
         tasklet = allocate_normal();
     }
     return tasklet;
@@ -133,7 +133,7 @@ template <>
 Tasklet *Tasklet::create<TaskletSize::Large>() {
     auto *tasklet = allocate_large();
     while (tasklet == nullptr) {
-        vull::pump_work();
+        vull::yield();
         tasklet = allocate_large();
     }
     return tasklet;

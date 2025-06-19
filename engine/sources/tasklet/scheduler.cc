@@ -199,7 +199,20 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     vull_load_context(s_current_tasklet = next, nullptr);
 }
 
-void pump_work() {
+void schedule(Tasklet *tasklet) {
+    VULL_ASSERT_PEDANTIC(s_queue != nullptr);
+    s_work_available->post();
+    while (!s_queue->enqueue(tasklet)) {
+        yield();
+    }
+}
+
+void suspend() {
+    VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
+    vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
+}
+
+void yield() {
     auto *dequeued = s_queue->dequeue();
     if (dequeued == nullptr) {
         return;
@@ -210,19 +223,6 @@ void pump_work() {
     VULL_ASSERT(s_to_schedule == nullptr);
     s_to_schedule = dequeued;
     suspend();
-}
-
-void schedule(Tasklet *tasklet) {
-    VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    s_work_available->post();
-    while (!s_queue->enqueue(tasklet)) {
-        pump_work();
-    }
-}
-
-void suspend() {
-    VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
-    vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
 }
 
 } // namespace vull
