@@ -8,7 +8,10 @@
 #include <vull/support/utility.hh>
 #include <vull/test/assertions.hh>
 #include <vull/test/matchers.hh>
+#include <vull/test/move_tester.hh>
 #include <vull/test/test.hh>
+
+#include <stddef.h>
 
 using namespace vull;
 using namespace vull::test::matchers;
@@ -21,24 +24,10 @@ struct Stream;
 
 namespace {
 
-class BaseComp {
-    int *m_destruct_count{nullptr};
-
+class BaseComp : public test::MoveTester {
 public:
     static void serialise(BaseComp &, Stream &) {}
-
-    BaseComp() = default;
-    explicit BaseComp(int &destruct_count) : m_destruct_count(&destruct_count) {}
-    BaseComp(const BaseComp &) = default;
-    BaseComp(BaseComp &&) = delete;
-    ~BaseComp() {
-        if (m_destruct_count != nullptr) {
-            (*m_destruct_count)++;
-        }
-    }
-
-    BaseComp &operator=(const BaseComp &) = default;
-    BaseComp &operator=(BaseComp &&) = delete;
+    using test::MoveTester::MoveTester;
 };
 
 struct Foo : BaseComp {
@@ -85,8 +74,8 @@ TEST_CASE(Entity, AddRemoveComponent) {
     manager.register_component<Foo>();
     manager.register_component<Bar>();
 
-    int foo_destruct_count = 0;
-    int bar_destruct_count = 0;
+    size_t foo_destruct_count = 0;
+    size_t bar_destruct_count = 0;
 
     auto entity = manager.create_entity();
     EXPECT_FALSE(entity.has<Foo>());
@@ -125,7 +114,7 @@ TEST_CASE(Entity, View) {
 
     Vector<EntityId> foo_entities;
     Vector<EntityId> bar_entities;
-    for (int i = 0; i < 500; i++) {
+    for (size_t i = 0; i < 500; i++) {
         auto entity = manager.create_entity();
         if (i % 2 == 0) {
             entity.add<Foo>();

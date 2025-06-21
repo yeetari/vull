@@ -5,31 +5,13 @@
 #include <vull/support/utility.hh>
 #include <vull/test/assertions.hh>
 #include <vull/test/matchers.hh>
+#include <vull/test/move_tester.hh>
 #include <vull/test/test.hh>
+
+#include <stddef.h>
 
 using namespace vull;
 using namespace vull::test::matchers;
-
-namespace {
-
-class Foo {
-    int *m_destruct_count{nullptr};
-
-public:
-    explicit Foo(int &destruct_count) : m_destruct_count(&destruct_count) {}
-    Foo(const Foo &) = default;
-    Foo(Foo &&other) : m_destruct_count(vull::exchange(other.m_destruct_count, nullptr)) {}
-    ~Foo() {
-        if (m_destruct_count != nullptr) {
-            (*m_destruct_count)++;
-        }
-    }
-
-    Foo &operator=(const Foo &) = delete;
-    Foo &operator=(Foo &&) = delete;
-};
-
-} // namespace
 
 // NOLINTBEGIN(readability-container-size-empty)
 
@@ -253,7 +235,7 @@ TEST_CASE(VectorTrivial, MoveAssignSelf) {
 }
 
 TEST_CASE(VectorObject, Empty) {
-    Vector<Foo> vector;
+    Vector<test::MoveTester> vector;
     EXPECT_THAT(vector, is(empty()));
     EXPECT_THAT(vector.capacity(), is(equal_to(0)));
     EXPECT_THAT(vector.size(), is(equal_to(0)));
@@ -262,7 +244,7 @@ TEST_CASE(VectorObject, Empty) {
 }
 
 TEST_CASE(VectorObject, EnsureCapacity) {
-    Vector<Foo> vector;
+    Vector<test::MoveTester> vector;
     vector.ensure_capacity(16);
     EXPECT_THAT(vector, is(empty()));
     EXPECT_THAT(vector.capacity(), is(equal_to(16)));
@@ -272,14 +254,14 @@ TEST_CASE(VectorObject, EnsureCapacity) {
 }
 
 TEST_CASE(VectorObject, EnsureSize) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.ensure_size(16, destruct_count);
         EXPECT_THAT(vector, is(not_(empty())));
         EXPECT_THAT(vector.capacity(), is(equal_to(16)));
         EXPECT_THAT(vector.size(), is(equal_to(16)));
-        EXPECT_THAT(vector.size_bytes(), is(equal_to(16 * sizeof(Foo))));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(16 * sizeof(test::MoveTester))));
         EXPECT_THAT(destruct_count, is(equal_to(0)));
 
         unsigned count = 0;
@@ -300,41 +282,41 @@ TEST_CASE(VectorObject, EnsureSize) {
 }
 
 TEST_CASE(VectorObject, Emplace) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.emplace(destruct_count);
         vector.emplace(destruct_count);
         EXPECT_THAT(vector, is(not_(empty())));
         EXPECT_TRUE(vector.capacity() >= 2); // TODO
         EXPECT_THAT(vector.size(), is(equal_to(2)));
-        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(Foo))));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(test::MoveTester))));
         EXPECT_THAT(destruct_count, is(equal_to(0)));
     }
     EXPECT_THAT(destruct_count, is(equal_to(2)));
 }
 
 TEST_CASE(VectorObject, Push) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     {
-        Foo foo(destruct_count);
-        Vector<Foo> vector;
+        test::MoveTester foo(destruct_count);
+        Vector<test::MoveTester> vector;
         vector.push(foo);
         vector.push(vull::move(foo));
         EXPECT_THAT(vector, is(not_(empty())));
         EXPECT_TRUE(vector.capacity() >= 2); // TODO
         EXPECT_THAT(vector.size(), is(equal_to(2)));
-        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(Foo))));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(2 * sizeof(test::MoveTester))));
         EXPECT_THAT(destruct_count, is(equal_to(0)));
     }
     EXPECT_THAT(destruct_count, is(equal_to(2)));
 }
 
 TEST_CASE(VectorObject, EmplaceInternalReference) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     uint32_t expected_size = 2;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.emplace(destruct_count);
         for (uint32_t i = 1; i < vector.capacity(); i++) {
             vector.emplace(destruct_count);
@@ -348,10 +330,10 @@ TEST_CASE(VectorObject, EmplaceInternalReference) {
 }
 
 TEST_CASE(VectorObject, PushInternalReference) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     uint32_t expected_size = 2;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.emplace(destruct_count);
         for (uint32_t i = 1; i < vector.capacity(); i++) {
             vector.emplace(destruct_count);
@@ -365,10 +347,10 @@ TEST_CASE(VectorObject, PushInternalReference) {
 }
 
 TEST_CASE(VectorObject, PushMoveInternalReference) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     uint32_t expected_size = 2;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.emplace(destruct_count);
         for (uint32_t i = 1; i < vector.capacity(); i++) {
             vector.emplace(destruct_count);
@@ -382,12 +364,12 @@ TEST_CASE(VectorObject, PushMoveInternalReference) {
 }
 
 TEST_CASE(VectorObject, Extend) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.ensure_size(3, destruct_count);
 
-        Vector<Foo> extended;
+        Vector<test::MoveTester> extended;
         extended.extend(vector);
         EXPECT_THAT(extended, is(not_(empty())));
         EXPECT_TRUE(extended.capacity() >= 3); // TODO
@@ -402,15 +384,15 @@ TEST_CASE(VectorObject, Extend) {
 }
 
 TEST_CASE(VectorObject, PopTakeLast) {
-    int destruct_count = 0;
+    size_t destruct_count = 0;
     {
-        Vector<Foo> vector;
+        Vector<test::MoveTester> vector;
         vector.ensure_size(3, destruct_count);
         vector.emplace(destruct_count);
         vector.pop();
         EXPECT_THAT(vector, is(not_(empty())));
         EXPECT_THAT(vector.size(), is(equal_to(3)));
-        EXPECT_THAT(vector.size_bytes(), is(equal_to(3 * sizeof(Foo))));
+        EXPECT_THAT(vector.size_bytes(), is(equal_to(3 * sizeof(test::MoveTester))));
         EXPECT_THAT(destruct_count, is(equal_to(1)));
         vector.take_last();
         vector.pop();
@@ -424,8 +406,8 @@ TEST_CASE(VectorObject, PopTakeLast) {
 }
 
 TEST_CASE(VectorObject, Clear) {
-    int destruct_count = 0;
-    Vector<Foo> vector;
+    size_t destruct_count = 0;
+    Vector<test::MoveTester> vector;
     vector.ensure_size(16, destruct_count);
     vector.clear();
     EXPECT_THAT(vector, is(empty()));
@@ -440,17 +422,17 @@ TEST_CASE(VectorObject, Clear) {
     EXPECT_THAT(vector, is(not_(empty())));
     EXPECT_TRUE(vector.capacity() >= 1); // TODO
     EXPECT_THAT(vector.size(), is(equal_to(1)));
-    EXPECT_THAT(vector.size_bytes(), is(equal_to(sizeof(Foo))));
+    EXPECT_THAT(vector.size_bytes(), is(equal_to(sizeof(test::MoveTester))));
     vector.clear();
     EXPECT_THAT(destruct_count, is(equal_to(17)));
 }
 
 TEST_CASE(VectorObject, MoveConstruct) {
-    int destruct_count = 0;
-    Vector<Foo> vector;
+    size_t destruct_count = 0;
+    Vector<test::MoveTester> vector;
     vector.ensure_size(16, destruct_count);
 
-    Vector<Foo> moved(vull::move(vector));
+    Vector<test::MoveTester> moved(vull::move(vector));
     EXPECT_THAT(vector, is(empty()));
     EXPECT_THAT(vector.size(), is(equal_to(0)));
     EXPECT_THAT(vector.begin(), is(equal_to(vector.end())));
@@ -465,11 +447,11 @@ TEST_CASE(VectorObject, MoveConstruct) {
 }
 
 TEST_CASE(VectorObject, MoveAssign) {
-    int destruct_count = 0;
-    Vector<Foo> vector;
+    size_t destruct_count = 0;
+    Vector<test::MoveTester> vector;
     vector.ensure_size(16, destruct_count);
 
-    Vector<Foo> moved;
+    Vector<test::MoveTester> moved;
     moved = vull::move(vector);
     EXPECT_THAT(vector, is(empty()));
     EXPECT_THAT(vector.size(), is(equal_to(0)));
@@ -485,8 +467,8 @@ TEST_CASE(VectorObject, MoveAssign) {
 }
 
 TEST_CASE(VectorObject, MoveAssignSelf) {
-    int destruct_count = 0;
-    Vector<Foo> vector;
+    size_t destruct_count = 0;
+    Vector<test::MoveTester> vector;
     vector.ensure_size(16, destruct_count);
     vector = vull::move(vector);
     EXPECT_THAT(vector, is(not_(empty())));
