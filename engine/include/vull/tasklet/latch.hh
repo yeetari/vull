@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::tasklet {
 
 class Latch {
     Promise<void> m_promise;
@@ -25,4 +25,4 @@ public:
     void wait();
 };
 
-} // namespace vull
+} // namespace vull::tasklet

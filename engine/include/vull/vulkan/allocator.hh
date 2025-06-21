@@ -27,7 +27,7 @@ private:
     const uint32_t m_memory_type_index;
     Vector<UniquePtr<Heap>> m_heaps;
     vkb::DeviceSize m_heap_size;
-    mutable Mutex m_mutex;
+    mutable tasklet::Mutex m_mutex;
     bool m_mappable{false};
 
     Allocation allocate_dedicated(uint32_t size);

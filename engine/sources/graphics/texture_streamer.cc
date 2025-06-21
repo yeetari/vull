@@ -334,7 +334,7 @@ uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
     lock.unlock();
 
     m_in_progress.fetch_add(1);
-    vull::schedule([this, name = String(name), fallback_index]() mutable {
+    tasklet::schedule([this, name = String(name), fallback_index]() mutable {
         load_texture(vull::move(name), fallback_index);
         m_in_progress.fetch_sub(1);
     });

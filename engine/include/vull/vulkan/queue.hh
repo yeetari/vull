@@ -32,7 +32,7 @@ private:
     vkb::CommandPool m_cmd_pool;
     vkb::Queue m_queue;
     Vector<CommandBuffer> m_cmd_bufs;
-    Mutex m_mutex;
+    tasklet::Mutex m_mutex;
 
     Queue(const Context &context, uint32_t family_index, uint32_t index);
 

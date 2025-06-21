@@ -10,7 +10,7 @@
 // TODO: Only wake one waiter upon unlock to avoid thundering herd. This is hard as unlocking the mutex would need to
 //       signal the unlock and keep the remaining tasklets in the wait list.
 
-namespace vull {
+namespace vull::tasklet {
 
 #define UNLOCKED_SENTINEL vull::bit_cast<Tasklet *>(-1ull)
 
@@ -42,7 +42,7 @@ void Mutex::lock() {
         current->set_linked_tasklet(tasklet);
         if (m_wait_list.compare_exchange(tasklet, current, vull::memory_order_acq_rel)) {
             // Successfully added ourselves to the wait list - suspend until the mutex is unlocked.
-            vull::suspend();
+            tasklet::suspend();
         } else {
             // Compare exchange failed - either the mutex was unlocked or we failed a race with another tasklet to enter
             // the wait list. In either case, go back to the top of the loop.
@@ -70,8 +70,8 @@ void Mutex::unlock() {
         }
 
         // Reschedule the tasklet.
-        vull::schedule(vull::exchange(tasklet, next));
+        tasklet::schedule(vull::exchange(tasklet, next));
     }
 }
 
-} // namespace vull
+} // namespace vull::tasklet

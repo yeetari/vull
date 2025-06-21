@@ -2,7 +2,7 @@
 
 #include <vull/support/atomic.hh>
 
-namespace vull {
+namespace vull::tasklet {
 
 class Tasklet;
 
@@ -37,4 +37,4 @@ public:
     void unlock();
 };
 
-} // namespace vull
+} // namespace vull::tasklet

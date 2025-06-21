@@ -13,10 +13,10 @@ using namespace vull::test::matchers;
 
 TEST_CASE(Tasklet, Counter) {
     Atomic<size_t> counter;
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([&] {
         for (size_t i = 0; i < 256; i++) {
-            vull::schedule([&] {
+            tasklet::schedule([&] {
                 counter.fetch_add(1);
             });
         }
@@ -26,12 +26,12 @@ TEST_CASE(Tasklet, Counter) {
 }
 
 TEST_CASE(Tasklet, Latch) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         Atomic<size_t> counter;
-        Latch latch(256);
+        tasklet::Latch latch(256);
         for (size_t i = 0; i < 256; i++) {
-            vull::schedule([&] {
+            tasklet::schedule([&] {
                 counter.fetch_add(1);
                 latch.count_down(1);
             });

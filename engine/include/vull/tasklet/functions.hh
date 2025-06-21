@@ -3,7 +3,7 @@
 #include <vull/tasklet/future.hh>
 #include <vull/tasklet/tasklet.hh>
 
-namespace vull {
+namespace vull::tasklet {
 
 /**
  * Adds the given tasklet to the scheduling queue. Blocks if the queue is full.
@@ -39,4 +39,4 @@ void suspend();
  */
 void yield();
 
-} // namespace vull
+} // namespace vull::tasklet

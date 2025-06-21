@@ -5,7 +5,7 @@
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/tasklet.hh>
 
-namespace vull {
+namespace vull::tasklet {
 
 #define FULFILLED_SENTINEL vull::bit_cast<Tasklet *>(-1ull)
 
@@ -22,7 +22,7 @@ void PromiseBase::wake_all() {
         }
 
         // Reschedule the tasklet.
-        vull::schedule(vull::exchange(tasklet, next));
+        tasklet::schedule(vull::exchange(tasklet, next));
     }
 }
 
@@ -46,15 +46,15 @@ bool PromiseBase::is_fulfilled() const {
 void PromiseBase::wake_on_fulfillment(Tasklet *tasklet) {
     if (!add_waiter(tasklet)) {
         // Promise already fulfilled - schedule the tasklet immediately.
-        vull::schedule(tasklet);
+        tasklet::schedule(tasklet);
     }
 }
 
 void PromiseBase::wait() {
     if (add_waiter(Tasklet::current())) {
         // Promise not yet fulfilled - suspend ourselves.
-        vull::suspend();
+        tasklet::suspend();
     }
 }
 
-} // namespace vull
+} // namespace vull::tasklet

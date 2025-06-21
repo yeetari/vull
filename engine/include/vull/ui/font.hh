@@ -85,7 +85,7 @@ class Font {
     ByteBuffer m_bytes;
     hb_font_t *m_hb_font;
     mutable Vector<Optional<GlyphInfo>> m_glyph_cache;
-    mutable Mutex m_mutex;
+    mutable tasklet::Mutex m_mutex;
 
 public:
     static Result<Font, FontLoadError> load(StringView name, long size);

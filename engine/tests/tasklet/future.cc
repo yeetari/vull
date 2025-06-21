@@ -13,10 +13,10 @@ using namespace vull;
 using namespace vull::test::matchers;
 
 TEST_CASE(TaskletFuture, AwaitVoid) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         Atomic<size_t> counter;
-        auto future = vull::schedule([&] {
+        auto future = tasklet::schedule([&] {
             counter.fetch_add(1);
         });
         future.await();
@@ -25,9 +25,9 @@ TEST_CASE(TaskletFuture, AwaitVoid) {
 }
 
 TEST_CASE(TaskletFuture, AwaitTrivial) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
-        auto future = vull::schedule([] {
+        auto future = tasklet::schedule([] {
             return 5;
         });
         EXPECT_THAT(future.await(), is(equal_to(5)));
@@ -35,11 +35,11 @@ TEST_CASE(TaskletFuture, AwaitTrivial) {
 }
 
 TEST_CASE(TaskletFuture, AwaitMove) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         size_t destruct_count = 0;
         {
-            auto future = vull::schedule([&] {
+            auto future = tasklet::schedule([&] {
                 return test::MoveTester(destruct_count);
             });
             {
@@ -58,10 +58,10 @@ TEST_CASE(TaskletFuture, AwaitMove) {
 }
 
 TEST_CASE(TaskletFuture, AndThenVoid) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         Atomic<size_t> counter;
-        auto future = vull::schedule([&] {
+        auto future = tasklet::schedule([&] {
             counter.fetch_add(1);
         }).and_then([&] {
             EXPECT_THAT(counter.fetch_add(1), is(equal_to(1)));
@@ -76,10 +76,10 @@ static int mult(int value) {
 }
 
 TEST_CASE(TaskletFuture, AndThenTrivial) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         // clang-format off
-        auto future = vull::schedule([] {
+        auto future = tasklet::schedule([] {
             return 5;
         }).and_then([](int value) {
             return value + 1;
@@ -90,9 +90,9 @@ TEST_CASE(TaskletFuture, AndThenTrivial) {
 }
 
 TEST_CASE(TaskletFuture, AndThenToVoid) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
-        vull::schedule([] {
+        tasklet::schedule([] {
             return 10;
         }).and_then([](int value) {
             EXPECT_THAT(value, is(equal_to(10)));
@@ -101,9 +101,9 @@ TEST_CASE(TaskletFuture, AndThenToVoid) {
 }
 
 TEST_CASE(TaskletFuture, AndThenToOther) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
-        vull::schedule([] {
+        tasklet::schedule([] {
             return 10;
             // clang-format off
         }).and_then([](int value) {
@@ -116,10 +116,10 @@ TEST_CASE(TaskletFuture, AndThenToOther) {
 }
 
 TEST_CASE(TaskletFuture, AndThenMove) {
-    Scheduler scheduler;
+    tasklet::Scheduler scheduler;
     scheduler.start([] {
         size_t destruct_count = 0;
-        vull::schedule([&] {
+        tasklet::schedule([&] {
             return test::MoveTester(destruct_count);
             // clang-format off
         }).and_then([](test::MoveTester &&tester) {

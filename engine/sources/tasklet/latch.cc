@@ -4,7 +4,7 @@
 #include <vull/support/atomic.hh>
 #include <vull/tasklet/promise.hh>
 
-namespace vull {
+namespace vull::tasklet {
 
 void Latch::count_down(uint32_t by) {
     const auto value = m_value.fetch_sub(by, vull::memory_order_acq_rel);
@@ -29,4 +29,4 @@ void Latch::wait() {
     VULL_ASSERT(m_value.load(vull::memory_order_relaxed) == 0);
 }
 
-} // namespace vull
+} // namespace vull::tasklet

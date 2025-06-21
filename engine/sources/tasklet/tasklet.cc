@@ -15,7 +15,7 @@
 //       another 4 KiB used for the guard page. Maybe tasklet object could go after the stack?
 // TODO: Investigate on-demand growable stacks? (with MAP_GROWSDOWN | MAP_STACK)
 
-namespace vull {
+namespace vull::tasklet {
 namespace {
 
 class PoolBase {
@@ -123,7 +123,7 @@ template <>
 Tasklet *Tasklet::create<TaskletSize::Normal>() {
     auto *tasklet = allocate_normal();
     while (tasklet == nullptr) {
-        vull::yield();
+        tasklet::yield();
         tasklet = allocate_normal();
     }
     return tasklet;
@@ -133,7 +133,7 @@ template <>
 Tasklet *Tasklet::create<TaskletSize::Large>() {
     auto *tasklet = allocate_large();
     while (tasklet == nullptr) {
-        vull::yield();
+        tasklet::yield();
         tasklet = allocate_large();
     }
     return tasklet;
@@ -143,4 +143,4 @@ bool Tasklet::is_guard_page(uintptr_t page) const {
     return static_cast<PoolBase *>(m_pool)->is_guard_page(page);
 }
 
-} // namespace vull
+} // namespace vull::tasklet

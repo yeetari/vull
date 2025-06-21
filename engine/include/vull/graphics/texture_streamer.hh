@@ -35,10 +35,10 @@ class TextureStreamer {
     vk::Context &m_context;
     HashMap<String, uint32_t> m_texture_indices;
     // TODO(rw-mutex)
-    Mutex m_mutex;
+    tasklet::Mutex m_mutex;
 
     Vector<vk::Image> m_images;
-    Mutex m_images_mutex;
+    tasklet::Mutex m_images_mutex;
 
     vkb::DescriptorSetLayout m_set_layout{nullptr};
     vk::Buffer m_descriptor_buffer;

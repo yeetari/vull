@@ -9,6 +9,11 @@ namespace vull {
 
 template <typename>
 class SharedPtr;
+
+} // namespace vull
+
+namespace vull::tasklet {
+
 class Tasklet;
 
 class PromiseBase {
@@ -93,4 +98,4 @@ void SharedPromise<T>::sub_ref() const {
     }
 }
 
-} // namespace vull
+} // namespace vull::tasklet

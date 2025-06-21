@@ -55,7 +55,7 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     }
     free(entry_list);
 
-    Scheduler scheduler(thread_count);
+    tasklet::Scheduler scheduler(thread_count);
     scheduler.start(vull::move(start_fn));
     scheduler.join();
     vull::close_log();

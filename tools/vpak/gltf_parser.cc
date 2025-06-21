@@ -56,14 +56,14 @@ class Converter {
 
     HashMap<uint64_t, String> m_albedo_paths;
     HashMap<uint64_t, String> m_normal_paths;
-    Mutex m_material_map_mutex;
+    tasklet::Mutex m_material_map_mutex;
 
     struct MeshBounds {
         BoundingBox box;
         BoundingSphere sphere;
     };
     HashMap<String, MeshBounds> m_mesh_bounds;
-    Mutex m_mesh_bounds_mutex;
+    tasklet::Mutex m_mesh_bounds_mutex;
 
 public:
     Converter(Span<uint8_t> binary_blob, vpak::Writer &pack_writer, json::Value &document, bool max_resolution)
@@ -589,10 +589,10 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::process
 
 Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::convert() {
     const auto &material_array = VULL_TRY(m_document["materials"].get<json::Array>());
-    Latch material_latch(material_array.size());
+    tasklet::Latch material_latch(material_array.size());
     for (uint32_t i = 0; i < material_array.size(); i++) {
         const auto &material = VULL_TRY(material_array[i].get<json::Object>());
-        vull::schedule([this, &material_latch, &material, index = i] {
+        tasklet::schedule([this, &material_latch, &material, index = i] {
             // TODO(tasklet): Need a future system to propagate errors.
             VULL_EXPECT(process_material(material, index));
             material_latch.count_down();
@@ -606,7 +606,7 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::convert
         total_primitive_count += primitive_array.size();
     }
 
-    Latch mesh_latch(total_primitive_count);
+    tasklet::Latch mesh_latch(total_primitive_count);
     for (uint64_t i = 0; i < mesh_array.size(); i++) {
         // TODO: Spec doesn't require meshes to have a name (do what process_material does).
         const auto &mesh = VULL_TRY(mesh_array[i].get<json::Object>());
@@ -614,7 +614,7 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::convert
         const auto &primitive_array = VULL_TRY(mesh["primitives"].get<json::Array>());
         for (uint64_t j = 0; j < primitive_array.size(); j++) {
             const auto &primitive = VULL_TRY(primitive_array[j].get<json::Object>());
-            vull::schedule([this, &mesh_latch, &primitive, name = vull::format("{}.{}", mesh_name, j)]() mutable {
+            tasklet::schedule([this, &mesh_latch, &primitive, name = vull::format("{}.{}", mesh_name, j)]() mutable {
                 // TODO(tasklet): Need a future system to propagate errors.
                 VULL_EXPECT(process_primitive(primitive, vull::move(name)));
                 mesh_latch.count_down();
@@ -681,7 +681,7 @@ GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reprodu
 
     // Use only one thread if reproducible, otherwise let scheduler decide.
     {
-        Scheduler scheduler(reproducible ? 1 : 0);
+        tasklet::Scheduler scheduler(reproducible ? 1 : 0);
         scheduler.start([&] {
             // TODO(tasklet): Need a future system to propagate errors.
             VULL_EXPECT(converter.convert());

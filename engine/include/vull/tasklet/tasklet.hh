@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace vull {
+namespace vull::tasklet {
 
 enum class TaskletSize {
     Normal,
@@ -132,4 +132,4 @@ auto Tasklet::set_callable(F &&callable) {
     return promised->promise();
 }
 
-} // namespace vull
+} // namespace vull::tasklet

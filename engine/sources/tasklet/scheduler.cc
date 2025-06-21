@@ -24,7 +24,7 @@
 // TODO(tasklet-perf): Investigate different scheduling, e.g. steal many instead of just one when empty (could help with
 //                     gltf convert), or a global MPMC queue.
 
-namespace vull {
+namespace vull::tasklet {
 
 extern "C" void vull_make_context(void *stack_top, void (*entry_point)(Tasklet *));
 extern "C" [[noreturn]] void vull_load_context(Tasklet *tasklet, Tasklet *to_free);
@@ -225,4 +225,4 @@ void yield() {
     suspend();
 }
 
-} // namespace vull
+} // namespace vull::tasklet

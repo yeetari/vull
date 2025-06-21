@@ -6,7 +6,7 @@
 #include <vull/tasklet/promise.hh>
 #include <vull/tasklet/tasklet.hh>
 
-namespace vull {
+namespace vull::tasklet {
 
 /**
  * A class which represents the result of an asynchronous tasklet execution. Another tasklet can wait on a tasklet's
@@ -66,4 +66,4 @@ auto Future<T>::and_then(F &&callable) {
     return Future<R>(vull::move(promise));
 }
 
-} // namespace vull
+} // namespace vull::tasklet

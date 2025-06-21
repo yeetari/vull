@@ -25,7 +25,7 @@ private:
     File m_write_file;
     Atomic<uint64_t> m_head;
     Vector<Entry> m_new_entries;
-    Mutex m_mutex;
+    tasklet::Mutex m_mutex;
     const CompressionLevel m_compression_level;
 
     Writer(File &&write_file, uint64_t head, CompressionLevel compression_level)

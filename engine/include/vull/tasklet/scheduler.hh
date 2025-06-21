@@ -10,7 +10,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
-namespace vull {
+namespace vull::tasklet {
 
 class TaskletQueue;
 
@@ -58,4 +58,4 @@ bool Scheduler::start(F &&callable) {
     return start(tasklet);
 }
 
-} // namespace vull
+} // namespace vull::tasklet
