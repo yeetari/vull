@@ -118,11 +118,11 @@ ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription 
 ResourceId RenderGraph::new_buffer(String name, const BufferDescription &description) {
     return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Uninitialised,
                            [description, &context = m_context, buffer = vk::Buffer()]() mutable {
-                               const auto memory_usage = description.host_accessible ? vk::MemoryUsage::HostToDevice
-                                                                                     : vk::MemoryUsage::DeviceOnly;
-                               buffer = context.create_buffer(description.size, description.usage, memory_usage);
-                               return &buffer;
-                           });
+        const auto memory_usage =
+            description.host_accessible ? vk::MemoryUsage::HostToDevice : vk::MemoryUsage::DeviceOnly;
+        buffer = context.create_buffer(description.size, description.usage, memory_usage);
+        return &buffer;
+    });
 }
 
 const Buffer &RenderGraph::get_buffer(ResourceId id) {

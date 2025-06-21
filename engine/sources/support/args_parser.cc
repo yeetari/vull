@@ -17,80 +17,62 @@ namespace vull {
 
 ArgsParser::ArgsParser(String name, String description, String version)
     : m_name(vull::move(name)), m_description(vull::move(description)), m_version(vull::move(version)) {
-    m_options.push(Option{
-        .help_string = "Print this help information",
-        .long_name = "help",
-        .accept_value =
-            [this](StringView program_path, StringView) {
-                print_help(program_path);
-                return ArgsParseResult::ExitSuccess;
-            },
-    });
-    m_options.push(Option{
-        .help_string = "Print version information",
-        .long_name = "version",
-        .accept_value =
-            [this](StringView, StringView) {
-                vull::println("{} {}", m_name, m_version);
-                return ArgsParseResult::ExitSuccess;
-            },
-    });
+    m_options.push(Option{.help_string = "Print this help information",
+                          .long_name = "help",
+                          .accept_value = [this](StringView program_path, StringView) {
+        print_help(program_path);
+        return ArgsParseResult::ExitSuccess;
+    }});
+    m_options.push(Option{.help_string = "Print version information",
+                          .long_name = "version",
+                          .accept_value = [this](StringView, StringView) {
+        vull::println("{} {}", m_name, m_version);
+        return ArgsParseResult::ExitSuccess;
+    }});
 }
 
 template <>
 void ArgsParser::add_argument(String &value, String name, bool required) {
-    m_arguments.push(Argument{
-        .name = vull::move(name),
-        .min_values = required ? 1u : 0u,
-        .max_values = 1,
-        .accept_value =
-            [&value](StringView, StringView argument) {
-                value = argument;
-                return ArgsParseResult::Continue;
-            },
-    });
+    m_arguments.push(Argument{.name = vull::move(name),
+                              .min_values = required ? 1u : 0u,
+                              .max_values = 1,
+                              .accept_value = [&value](StringView, StringView argument) {
+        value = argument;
+        return ArgsParseResult::Continue;
+    }});
 }
 
 template <>
 void ArgsParser::add_argument(Vector<String> &value, String name, bool required) {
-    m_arguments.push(Argument{
-        .name = vull::move(name),
-        .min_values = required ? 1u : 0u,
-        .max_values = UINT32_MAX,
-        .accept_value =
-            [&value](StringView, StringView argument) {
-                value.push(argument);
-                return ArgsParseResult::Continue;
-            },
-    });
+    m_arguments.push(Argument{.name = vull::move(name),
+                              .min_values = required ? 1u : 0u,
+                              .max_values = UINT32_MAX,
+                              .accept_value = [&value](StringView, StringView argument) {
+        value.push(argument);
+        return ArgsParseResult::Continue;
+    }});
 }
 
 void ArgsParser::add_flag(bool &present, String help_string, String long_name, char short_name) {
-    m_options.push(Option{
-        .help_string = vull::move(help_string),
-        .long_name = vull::move(long_name),
-        .short_name = short_name,
-        .accept_value =
-            [&present](StringView, StringView) {
-                present = true;
-                return ArgsParseResult::Continue;
-            },
-    });
+    m_options.push(Option{.help_string = vull::move(help_string),
+                          .long_name = vull::move(long_name),
+                          .short_name = short_name,
+                          .accept_value = [&present](StringView, StringView) {
+        present = true;
+        return ArgsParseResult::Continue;
+    }});
 }
 
 template <>
 void ArgsParser::add_option(String &value, String help_string, String long_name, char short_name) {
-    m_options.push(Option{
-        .help_string = vull::move(help_string),
-        .long_name = vull::move(long_name),
-        .short_name = short_name,
-        .has_argument = true,
-        .accept_value =
-            [&value](StringView, StringView argument) {
-                value = argument;
-                return ArgsParseResult::Continue;
-            },
-    });
+    m_options.push(Option{.help_string = vull::move(help_string),
+                          .long_name = vull::move(long_name),
+                          .short_name = short_name,
+                          .has_argument = true,
+                          .accept_value = [&value](StringView, StringView argument) {
+        value = argument;
+        return ArgsParseResult::Continue;
+    }});
 }
 
 template <Integral T>
@@ -100,17 +82,15 @@ void ArgsParser::add_option(T &value, String help_string, String long_name, char
         .long_name = long_name,
         .short_name = short_name,
         .has_argument = true,
-        .accept_value =
-            [&value, long_name = vull::move(long_name)](StringView program_path, StringView argument) {
-                auto parsed = argument.to_integral<T>();
-                if (!parsed) {
-                    vull::println("{}: option '--{}' expects an integer", program_path, long_name);
-                    return ArgsParseResult::ExitFailure;
-                }
-                value = *parsed;
-                return ArgsParseResult::Continue;
-            },
-    });
+        .accept_value = [&value, long_name = vull::move(long_name)](StringView program_path, StringView argument) {
+        auto parsed = argument.to_integral<T>();
+        if (!parsed) {
+            vull::println("{}: option '--{}' expects an integer", program_path, long_name);
+            return ArgsParseResult::ExitFailure;
+        }
+        value = *parsed;
+        return ArgsParseResult::Continue;
+    }});
 }
 
 template void ArgsParser::add_option(int8_t &, String, String, char);

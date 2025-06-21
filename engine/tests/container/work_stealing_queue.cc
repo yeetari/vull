@@ -88,22 +88,20 @@ TEST_CASE(WorkStealingQueue, Threaded) {
     }
 
     for (uint32_t i = 0; i < consumer_threads.size(); i++) {
-        ASSERT_THAT(pthread_create(
-                        &consumer_threads[i], nullptr,
-                        +[](void *ptr) {
-                            auto *data = static_cast<ConsumerData *>(ptr);
-                            auto seed = static_cast<unsigned>(time(nullptr));
-                            while (data->popped_count.load() != 1024) {
-                                if (rand_r(&seed) % 3 == 0) {
-                                    if (auto elem = data->wsq.steal()) {
-                                        data->consumer_popped.push(*elem);
-                                        data->popped_count.fetch_add(1);
-                                    }
-                                }
-                            }
-                            return static_cast<void *>(nullptr);
-                        },
-                        &consumer_data[i]),
+        ASSERT_THAT(pthread_create(&consumer_threads[i], nullptr,
+                                   +[](void *ptr) {
+            auto *data = static_cast<ConsumerData *>(ptr);
+            auto seed = static_cast<unsigned>(time(nullptr));
+            while (data->popped_count.load() != 1024) {
+                if (rand_r(&seed) % 3 == 0) {
+                    if (auto elem = data->wsq.steal()) {
+                        data->consumer_popped.push(*elem);
+                        data->popped_count.fetch_add(1);
+                    }
+                }
+            }
+            return static_cast<void *>(nullptr);
+        }, &consumer_data[i]),
                     is(equal_to(0)));
     }
 
