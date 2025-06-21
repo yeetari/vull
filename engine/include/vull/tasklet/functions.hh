@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/tasklet.hh>
 
 namespace vull {
@@ -12,18 +13,20 @@ namespace vull {
 void schedule(Tasklet *tasklet);
 
 /**
- * Adds the given callable to the scheduling queue. Blocks if the  queue is full. The callable can have an arbitrary
- * capture list but no parameters.
+ * Adds the given callable to the scheduling queue and returns a Future associated with its completion. Blocks if the
+ * queue is full. The callable can have an arbitrary capture list but no parameters.
  *
  * @tparam F the callable type
  * @tparam Size the tasklet stack size to use
  * @param callable the callable to schedule
+ * @return a Future which stores the result of the callable's invocation
  */
 template <typename F, TaskletSize Size = TaskletSize::Normal>
-void schedule(F &&callable) {
+auto schedule(F &&callable) {
     auto *tasklet = Tasklet::create<Size>();
-    tasklet->set_callable(vull::forward<F>(callable));
+    auto promise = tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);
+    return Future(vull::move(promise));
 }
 
 /**
