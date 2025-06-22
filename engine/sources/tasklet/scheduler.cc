@@ -1,8 +1,8 @@
 #include <vull/tasklet/scheduler.hh>
 
 #include <vull/container/array.hh>
+#include <vull/container/mpmc_queue.hh>
 #include <vull/container/vector.hh>
-#include <vull/container/work_stealing_queue.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
 #include <vull/platform/system_semaphore.hh>
@@ -18,11 +18,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/random.h>
 #include <unistd.h>
-
-// TODO(tasklet-perf): Investigate different scheduling, e.g. steal many instead of just one when empty (could help with
-//                     gltf convert), or a global MPMC queue.
 
 namespace vull::tasklet {
 
@@ -30,14 +26,14 @@ extern "C" void vull_make_context(void *stack_top, void (*entry_point)(Tasklet *
 extern "C" [[noreturn]] void vull_load_context(Tasklet *tasklet, Tasklet *to_free);
 extern "C" void vull_swap_context(Tasklet *from, Tasklet *to);
 
-class TaskletQueue : public WorkStealingQueue<Tasklet *> {};
+class TaskletQueue : public MpmcQueue<Tasklet *, 11> {};
+
 VULL_GLOBAL(static thread_local Tasklet *s_current_tasklet = nullptr);
 VULL_GLOBAL(static thread_local Tasklet *s_scheduler_tasklet = nullptr);
 VULL_GLOBAL(static thread_local Tasklet *s_to_schedule = nullptr);
 VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 VULL_GLOBAL(static thread_local Scheduler *s_scheduler = nullptr);
 VULL_GLOBAL(static thread_local SystemSemaphore *s_work_available = nullptr);
-VULL_GLOBAL(static thread_local uint32_t s_rng_state = 0);
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
@@ -47,22 +43,12 @@ Scheduler &Scheduler::current() {
     return *s_scheduler;
 }
 
-TaskletQueue &Scheduler::pick_victim(uint32_t &rng_state) {
-    rng_state ^= rng_state << 13u;
-    rng_state ^= rng_state >> 17u;
-    rng_state ^= rng_state << 5u;
-    return *m_workers[rng_state % m_workers.size()]->queue;
-}
-
 Scheduler::Scheduler(uint32_t thread_count) {
     if (thread_count == 0) {
         thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
     }
-    for (uint32_t i = 0; i < thread_count; i++) {
-        auto &worker = m_workers.emplace(new Worker{.scheduler = *this});
-        worker->queue = vull::make_unique<TaskletQueue>();
-    }
-    vull::info("[tasklet] Created {} threads", thread_count);
+    m_workers.ensure_size(thread_count);
+    m_queue = vull::make_unique<TaskletQueue>();
 }
 
 Scheduler::~Scheduler() {
@@ -71,7 +57,7 @@ Scheduler::~Scheduler() {
 
 void Scheduler::join() {
     for (auto &worker : m_workers) {
-        pthread_join(worker->thread, nullptr);
+        pthread_join(worker, nullptr);
     }
     m_workers.clear();
 }
@@ -80,12 +66,12 @@ bool Scheduler::start(Tasklet *tasklet) {
     if (m_workers.empty()) {
         return false;
     }
-    if (!m_workers[0]->queue->enqueue(tasklet)) {
+    if (!m_queue->enqueue(tasklet)) {
         return false;
     }
     m_running.store(true, vull::memory_order_release);
     for (auto &worker : m_workers) {
-        if (pthread_create(&worker->thread, nullptr, &worker_entry, worker.ptr()) != 0) {
+        if (pthread_create(&worker, nullptr, &worker_entry, this) != 0) {
             return false;
         }
     }
@@ -96,9 +82,10 @@ bool Scheduler::start(Tasklet *tasklet) {
             cpu_set_t set;
             CPU_ZERO(&set);
             CPU_SET(i, &set);
-            pthread_setaffinity_np(m_workers[i]->thread, sizeof(cpu_set_t), &set);
+            pthread_setaffinity_np(m_workers[i], sizeof(cpu_set_t), &set);
         }
     }
+    vull::info("[tasklet] Created {} threads", m_workers.size());
     return true;
 }
 
@@ -107,6 +94,10 @@ void Scheduler::stop() {
     for (uint32_t i = 0; i < m_workers.size(); i++) {
         m_work_available.post();
     }
+}
+
+uint32_t Scheduler::tasklet_count() const {
+    return m_queue->size();
 }
 
 static Tasklet *pick_next() {
@@ -119,21 +110,14 @@ static Tasklet *pick_next() {
 
         next = s_queue->dequeue();
         if (next == nullptr) {
-            auto &victim_queue = s_scheduler->pick_victim(s_rng_state);
-            if (&victim_queue != s_queue) {
-                next = victim_queue.steal();
-            }
-        }
-        if (next == nullptr) {
             s_work_available->post();
-        } else {
-            VULL_ASSERT(next->state() != TaskletState::Running);
         }
     }
 
-    VULL_ASSERT(next->state() != TaskletState::Done);
     if (next->state() == TaskletState::Uninitialised) {
         vull_make_context(next->stack_top(), next->invoker());
+    } else {
+        VULL_ASSERT(next->state() == TaskletState::Waiting);
     }
     next->set_state(TaskletState::Running);
     return next;
@@ -166,10 +150,10 @@ static Tasklet *pick_next() {
     abort();
 }
 
-void *Scheduler::worker_entry(void *worker_ptr) {
-    auto &[scheduler, queue, _] = *static_cast<Worker *>(worker_ptr);
-    s_queue = queue.ptr();
+void *Scheduler::worker_entry(void *scheduler_ptr) {
+    auto &scheduler = *static_cast<Scheduler *>(scheduler_ptr);
     s_scheduler = &scheduler;
+    s_queue = scheduler.m_queue.ptr();
     s_work_available = &scheduler.m_work_available;
 
     sigset_t sig_set;
@@ -185,10 +169,6 @@ void *Scheduler::worker_entry(void *worker_ptr) {
     sigemptyset(&sa.sa_mask);
     sa.sa_sigaction = &segfault_handler;
     sigaction(SIGSEGV, &sa, nullptr);
-
-    while (s_rng_state == 0) {
-        VULL_ENSURE(getrandom(&s_rng_state, sizeof(uint32_t), 0) == sizeof(uint32_t));
-    }
 
     // Use thread stack for scheduler tasklet.
     Array<uint8_t, 131072> tasklet_data{};

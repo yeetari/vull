@@ -15,12 +15,8 @@ namespace vull::tasklet {
 class TaskletQueue;
 
 class Scheduler {
-    struct Worker {
-        Scheduler &scheduler;
-        UniquePtr<TaskletQueue> queue;
-        pthread_t thread;
-    };
-    Vector<UniquePtr<Worker>> m_workers;
+    Vector<pthread_t> m_workers;
+    UniquePtr<TaskletQueue> m_queue;
     SystemSemaphore m_work_available;
     Atomic<bool> m_running;
 
@@ -38,13 +34,12 @@ public:
     Scheduler &operator=(Scheduler &&) = delete;
 
     void join();
-    TaskletQueue &pick_victim(uint32_t &rng_state);
-
     template <typename F>
     bool start(F &&callable);
     bool start(Tasklet *tasklet);
     void stop();
 
+    uint32_t tasklet_count() const;
     bool is_running() const { return m_running.load(vull::memory_order_acquire); }
 };
 
