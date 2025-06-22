@@ -1,6 +1,7 @@
 # General options.
 PROJECT_NAME      = vull
 PROJECT_NUMBER    = @CMAKE_PROJECT_VERSION@
+PROJECT_BRIEF     = A vulkan game engine
 OUTPUT_DIRECTORY  = @CMAKE_CURRENT_BINARY_DIR@
 INPUT             = @CMAKE_SOURCE_DIR@/engine/include @CMAKE_SOURCE_DIR@/engine/sources
 JAVADOC_AUTOBRIEF = YES
@@ -13,6 +14,12 @@ WARNINGS = YES
 EXTRACT_ALL         = YES
 RECURSIVE           = YES
 STRIP_FROM_INC_PATH = @CMAKE_SOURCE_DIR@/engine/include
+EXCLUDE_SYMBOLS     = vull::detail
 
 # Output options.
-GENERATE_TREEVIEW = YES
+GENERATE_LATEX        = NO
+GENERATE_TREEVIEW     = YES
+DISABLE_INDEX         = NO
+FULL_SIDEBAR          = NO
+HTML_EXTRA_STYLESHEET = @AWESOME_CSS_DIR@/doxygen-awesome.css
+HTML_COLORSTYLE       = LIGHT
