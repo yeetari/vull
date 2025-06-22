@@ -13,15 +13,8 @@ void PromiseBase::wake_all() {
     // Atomically swap list with the fulfilled sentinel.
     auto *tasklet = m_wait_list.exchange(FULFILLED_SENTINEL, vull::memory_order_acquire);
     while (tasklet != nullptr) {
-        // Dequeue from the list before rescheduling.
+        // Dequeue from the list before rescheduling the tasklet.
         auto *next = tasklet->pop_linked_tasklet();
-
-        // The tasklet may still be in the middle of yielding.
-        // TODO: Find a way to avoid this.
-        while (tasklet->state() == TaskletState::Running) {
-        }
-
-        // Reschedule the tasklet.
         tasklet::schedule(vull::exchange(tasklet, next));
     }
 }

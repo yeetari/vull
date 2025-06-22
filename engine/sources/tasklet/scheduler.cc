@@ -117,6 +117,10 @@ static Tasklet *pick_next() {
     if (next->state() == TaskletState::Uninitialised) {
         vull_make_context(next->stack_top(), next->invoker());
     } else {
+        // The tasklet may still be in the running state if it is in the middle yielding, spin whilst that's the case.
+        // TODO: Can we do something better here?
+        while (next->state() == TaskletState::Running) {
+        }
         VULL_ASSERT(next->state() == TaskletState::Waiting);
     }
     next->set_state(TaskletState::Running);
