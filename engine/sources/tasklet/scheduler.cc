@@ -179,6 +179,7 @@ void *Scheduler::worker_entry(void *scheduler_ptr) {
     s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
     vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
+    s_work_available->post();
     auto *next = pick_next();
     vull_load_context(s_current_tasklet = next, nullptr);
 }

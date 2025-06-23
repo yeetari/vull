@@ -7,7 +7,7 @@
 namespace vull {
 
 class SystemSemaphore {
-    Atomic<uint64_t> m_data{1};
+    Atomic<uint64_t> m_data{0};
 
 public:
     SystemSemaphore() = default;
