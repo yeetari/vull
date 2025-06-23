@@ -9,6 +9,29 @@
 
 namespace vull {
 
+enum class PngError;
+
+enum class GlbError {
+    BadBinaryChunk,
+    BadJsonChunk,
+    InvalidMagic,
+    SizeMismatch,
+    UnsupportedVersion,
+};
+
+enum class GltfError {
+    BadVectorArrayLength,
+    OffsetOutOfBounds,
+    UnsupportedImageMimeType,
+    UnsupportedNodeMatrix,
+    UnsupportedNormalisedAccessor,
+    UnsupportedPrimitiveMode,
+    UnsupportedSparseAccessor,
+};
+
+template <typename T = void>
+using GltfResult = Result<T, GltfError, StreamError, json::ParseError, json::TreeError, PngError>;
+
 class GltfParser {
     FileStream m_stream;
     String m_json;
@@ -17,25 +40,8 @@ class GltfParser {
 public:
     explicit GltfParser(FileStream &&stream) : m_stream(vull::move(stream)) {}
 
-    // TODO: Split errors.
-    enum class Error {
-        BadBinaryChunk,
-        BadJsonChunk,
-        InvalidMagic,
-        SizeMismatch,
-        UnsupportedVersion,
-
-        BadVectorArrayLength,
-        OffsetOutOfBounds,
-        UnsupportedImageMimeType,
-        UnsupportedNodeMatrix,
-        UnsupportedNormalisedAccessor,
-        UnsupportedPrimitiveMode,
-        UnsupportedSparseAccessor,
-    };
-    Result<void, Error, StreamError> parse_glb();
-    Result<void, Error, StreamError, json::ParseError, json::TreeError> convert(vpak::Writer &pack_writer,
-                                                                                bool max_resolution, bool reproducible);
+    Result<void, GlbError, StreamError> parse_glb();
+    GltfResult<> convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible);
 
     const String &json() const { return m_json; }
 };

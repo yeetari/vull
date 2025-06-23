@@ -26,6 +26,7 @@
 #include <vull/support/span_stream.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/tasklet/functions.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/latch.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/tasklet/scheduler.hh>
@@ -70,28 +71,23 @@ public:
         : m_binary_blob(binary_blob), m_pack_writer(pack_writer), m_document(document),
           m_max_resolution(max_resolution) {}
 
-    Result<Tuple<uint64_t, uint64_t>, GltfParser::Error, json::TreeError> get_blob_info(const json::Object &accessor);
-    Result<uint64_t, GltfParser::Error, json::TreeError> get_blob_offset(const json::Object &accessor);
+    GltfResult<Tuple<uint64_t, uint64_t>> get_blob_info(const json::Object &accessor);
+    GltfResult<uint64_t> get_blob_offset(const json::Object &accessor);
 
-    Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-    process_texture(TextureType type, const String &path, Optional<uint64_t> index, Optional<Vec4f> colour_factor);
-    Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-    process_material(const json::Object &material, uint64_t index);
+    GltfResult<> process_texture(TextureType type, const String &path, Optional<uint64_t> index,
+                                 Optional<Vec4f> colour_factor);
+    GltfResult<> process_material(const json::Object &material, uint64_t index);
 
-    Result<void, GltfParser::Error, StreamError, json::TreeError> process_primitive(const json::Object &primitive,
-                                                                                    String &&name);
+    GltfResult<> process_primitive(const json::Object &primitive, String &&name);
 
-    Result<Optional<Material>, json::TreeError> make_material(const json::Object &primitive);
-    Result<void, GltfParser::Error, StreamError, json::TreeError> visit_node(World &world, EntityId parent_id,
-                                                                             uint64_t index);
-    Result<void, GltfParser::Error, StreamError, json::TreeError> process_scene(const json::Object &scene,
-                                                                                StringView name);
+    GltfResult<Optional<Material>> make_material(const json::Object &primitive);
+    GltfResult<> visit_node(World &world, EntityId parent_id, uint64_t index);
+    GltfResult<> process_scene(const json::Object &scene, StringView name);
 
-    Result<void, GltfParser::Error, StreamError, json::TreeError> convert();
+    GltfResult<> convert();
 };
 
-Result<Tuple<uint64_t, uint64_t>, GltfParser::Error, json::TreeError>
-Converter::get_blob_info(const json::Object &accessor) {
+GltfResult<Tuple<uint64_t, uint64_t>> Converter::get_blob_info(const json::Object &accessor) {
     uint64_t accessor_offset = 0;
     if (accessor["byteOffset"].has<int64_t>()) {
         accessor_offset = static_cast<uint64_t>(VULL_ASSUME(accessor["byteOffset"].get<int64_t>()));
@@ -109,22 +105,22 @@ Converter::get_blob_info(const json::Object &accessor) {
     // TODO: Assuming buffer == 0 here; support external blobs.
     const auto combined_offset = accessor_offset + view_offset;
     if (combined_offset + view_length > m_binary_blob.size()) {
-        return GltfParser::Error::OffsetOutOfBounds;
+        return GltfError::OffsetOutOfBounds;
     }
     return vull::make_tuple(combined_offset, static_cast<uint64_t>(view_length));
 }
 
-Result<uint64_t, GltfParser::Error, json::TreeError> Converter::get_blob_offset(const json::Object &accessor) {
+GltfResult<uint64_t> Converter::get_blob_offset(const json::Object &accessor) {
     return vull::get<0>(VULL_TRY(get_blob_info(accessor)));
 }
 
-Result<void, GltfParser::Error> validate_accessor(const json::Object &accessor) {
+GltfResult<> validate_accessor(const json::Object &accessor) {
     // TODO: Should probably check componentType and type as well.
     if (accessor["normalized"].has<bool>() && VULL_ASSUME(accessor["normalized"].get<bool>())) {
-        return GltfParser::Error::UnsupportedNormalisedAccessor;
+        return GltfError::UnsupportedNormalisedAccessor;
     }
     if (accessor["sparse"].has<bool>() && VULL_ASSUME(accessor["sparse"].get<bool>())) {
-        return GltfParser::Error::UnsupportedSparseAccessor;
+        return GltfError::UnsupportedSparseAccessor;
     }
     return {};
 }
@@ -157,9 +153,8 @@ vpak::ImageWrapMode convert_wrap_mode(int64_t type) {
     }
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-Converter::process_texture(TextureType type, const String &path, Optional<uint64_t> index,
-                           Optional<Vec4f> colour_factor) {
+GltfResult<> Converter::process_texture(TextureType type, const String &path, Optional<uint64_t> index,
+                                        Optional<Vec4f> colour_factor) {
     Filter mipmap_filter;
     vpak::ImageFormat vpak_format;
     switch (type) {
@@ -188,7 +183,7 @@ Converter::process_texture(TextureType type, const String &path, Optional<uint64
         const auto &mime_type = VULL_TRY(image["mimeType"].get<String>());
         if (mime_type != "image/png") {
             // TODO: Don't error, just fallback to error texture?
-            return GltfParser::Error::UnsupportedImageMimeType;
+            return GltfError::UnsupportedImageMimeType;
         }
 
         auto blob_info = VULL_TRY(get_blob_info(image));
@@ -263,8 +258,7 @@ Converter::process_texture(TextureType type, const String &path, Optional<uint64
     return {};
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError, PngError>
-Converter::process_material(const json::Object &material, uint64_t index) {
+GltfResult<> Converter::process_material(const json::Object &material, uint64_t index) {
     String name;
     if (material["name"].has<String>()) {
         name = String(VULL_ASSUME(material["name"].get<String>()));
@@ -359,13 +353,12 @@ size_t convert_index_type(int64_t index_type) {
     return mapped != 0 ? mapped : 1;
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError>
-Converter::process_primitive(const json::Object &primitive, String &&name) {
+GltfResult<> Converter::process_primitive(const json::Object &primitive, String &&name) {
     if (primitive["mode"].has<int64_t>()) {
         const auto mode = VULL_ASSUME(primitive["mode"].get<int64_t>());
         if (mode != 4) {
             // Not triangles.
-            return GltfParser::Error::UnsupportedPrimitiveMode;
+            return GltfError::UnsupportedPrimitiveMode;
         }
     }
 
@@ -479,9 +472,9 @@ Converter::process_primitive(const json::Object &primitive, String &&name) {
     return {};
 }
 
-Result<void, GltfParser::Error, json::TreeError> array_to_vec(const json::Array &array, auto &vec) {
+GltfResult<> array_to_vec(const json::Array &array, auto &vec) {
     if (array.size() != vull::remove_ref<decltype(vec)>::length) {
-        return GltfParser::Error::BadVectorArrayLength;
+        return GltfError::BadVectorArrayLength;
     }
     for (uint64_t i = 0; i < array.size(); i++) {
         auto value = VULL_TRY(array[i].get<double>());
@@ -490,7 +483,7 @@ Result<void, GltfParser::Error, json::TreeError> array_to_vec(const json::Array 
     return {};
 }
 
-Result<Optional<Material>, json::TreeError> Converter::make_material(const json::Object &primitive) {
+GltfResult<Optional<Material>> Converter::make_material(const json::Object &primitive) {
     if (!primitive["material"]) {
         return Optional<Material>();
     }
@@ -501,11 +494,10 @@ Result<Optional<Material>, json::TreeError> Converter::make_material(const json:
     return Optional<Material>(Material(vull::move(albedo_path), vull::move(normal_path)));
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::visit_node(World &world, EntityId parent_id,
-                                                                                    uint64_t index) {
+GltfResult<> Converter::visit_node(World &world, EntityId parent_id, uint64_t index) {
     const auto &node = VULL_TRY(m_document["nodes"][index].get<json::Object>());
     if (node["matrix"]) {
-        return GltfParser::Error::UnsupportedNodeMatrix;
+        return GltfError::UnsupportedNodeMatrix;
     }
 
     Vec3f position;
@@ -532,7 +524,7 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::visit_n
         const auto &mesh_name = VULL_TRY(mesh["name"].get<String>());
         const auto &primitive_array = VULL_TRY(mesh["primitives"].get<json::Array>());
 
-        auto build_entity = [&](Entity &sub_entity, uint64_t primitive_index) -> Result<void, json::TreeError> {
+        auto build_entity = [&](Entity &sub_entity, uint64_t primitive_index) -> GltfResult<> {
             const auto &primitive = VULL_TRY(primitive_array[primitive_index].get<json::Object>());
             if (auto material = VULL_TRY(make_material(primitive))) {
                 sub_entity.add<Material>(*material);
@@ -566,8 +558,7 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::visit_n
     return {};
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::process_scene(const json::Object &scene,
-                                                                                       StringView name) {
+GltfResult<> Converter::process_scene(const json::Object &scene, StringView name) {
     World world;
     world.register_component<Transform>();
     world.register_component<Mesh>();
@@ -587,57 +578,65 @@ Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::process
     return {};
 }
 
-Result<void, GltfParser::Error, StreamError, json::TreeError> Converter::convert() {
+GltfResult<> Converter::convert() {
+    Vector<tasklet::Future<GltfResult<>>> futures;
+
     const auto &material_array = VULL_TRY(m_document["materials"].get<json::Array>());
-    tasklet::Latch material_latch(material_array.size());
-    for (uint32_t i = 0; i < material_array.size(); i++) {
-        const auto &material = VULL_TRY(material_array[i].get<json::Object>());
-        tasklet::schedule([this, &material_latch, &material, index = i] {
-            // TODO(tasklet): Need a future system to propagate errors.
-            VULL_EXPECT(process_material(material, index));
-            material_latch.count_down();
-        });
+    futures.ensure_capacity(material_array.size());
+    for (uint32_t index = 0; index < material_array.size(); index++) {
+        const auto &material = VULL_TRY(material_array[index].get<json::Object>());
+        futures.push(tasklet::schedule([this, &material, index]() -> GltfResult<> {
+            VULL_TRY(process_material(material, index));
+            return {};
+        }));
     }
 
     const auto &mesh_array = VULL_TRY(m_document["meshes"].get<json::Array>());
-    uint32_t total_primitive_count = 0;
-    for (uint32_t i = 0; i < mesh_array.size(); i++) {
-        const auto &primitive_array = VULL_TRY(mesh_array[i]["primitives"].get<json::Array>());
-        total_primitive_count += primitive_array.size();
-    }
-
-    tasklet::Latch mesh_latch(total_primitive_count);
-    for (uint64_t i = 0; i < mesh_array.size(); i++) {
+    for (uint32_t mesh_index = 0; mesh_index < mesh_array.size(); mesh_index++) {
         // TODO: Spec doesn't require meshes to have a name (do what process_material does).
-        const auto &mesh = VULL_TRY(mesh_array[i].get<json::Object>());
+        const auto &mesh = VULL_TRY(mesh_array[mesh_index].get<json::Object>());
         const auto &mesh_name = VULL_TRY(mesh["name"].get<String>());
         const auto &primitive_array = VULL_TRY(mesh["primitives"].get<json::Array>());
-        for (uint64_t j = 0; j < primitive_array.size(); j++) {
-            const auto &primitive = VULL_TRY(primitive_array[j].get<json::Object>());
-            tasklet::schedule([this, &mesh_latch, &primitive, name = vull::format("{}.{}", mesh_name, j)]() mutable {
-                // TODO(tasklet): Need a future system to propagate errors.
-                VULL_EXPECT(process_primitive(primitive, vull::move(name)));
-                mesh_latch.count_down();
-            });
+        for (uint32_t primitive_index = 0; primitive_index < primitive_array.size(); primitive_index++) {
+            const auto &primitive = VULL_TRY(primitive_array[primitive_index].get<json::Object>());
+            auto name = vull::format("{}.{}", mesh_name, primitive_index);
+            futures.push(tasklet::schedule([this, &primitive, name = vull::move(name)]() mutable -> GltfResult<> {
+                VULL_TRY(process_primitive(primitive, vull::move(name)));
+                return {};
+            }));
         }
     }
 
-    material_latch.wait();
-    mesh_latch.wait();
+    if (m_document["scenes"]) {
+        const auto &scene_array = VULL_TRY(m_document["scenes"].get<json::Array>());
+        for (uint32_t scene_index = 0; scene_index < scene_array.size(); scene_index++) {
+            const auto &scene = VULL_TRY(scene_array[scene_index].get<json::Object>());
+            const auto &name = VULL_TRY(scene["name"].get<String>());
+            vull::info("[gltf] Creating scene '{}'", name);
+            futures.push(tasklet::schedule([this, &scene, &name]() -> GltfResult<> {
+                VULL_TRY(process_scene(scene, name));
+                return {};
+            }));
+        }
+    }
+
+    for (auto &future : futures) {
+        VULL_TRY(future.await());
+    }
     return {};
 }
 
 } // namespace
 
-Result<void, GltfParser::Error, StreamError> GltfParser::parse_glb() {
+Result<void, GlbError, StreamError> GltfParser::parse_glb() {
     if (const auto magic = VULL_TRY(m_stream.read_le<uint32_t>()); magic != 0x46546c67u) {
         vull::error("[gltf] Invalid magic number: {h}", magic);
-        return Error::InvalidMagic;
+        return GlbError::InvalidMagic;
     }
 
     if (const auto version = VULL_TRY(m_stream.read_le<uint32_t>()); version != 2u) {
         vull::error("[gltf] Unsupported version: {}", version);
-        return Error::UnsupportedVersion;
+        return GlbError::UnsupportedVersion;
     }
 
     // Ignore header size.
@@ -647,7 +646,7 @@ Result<void, GltfParser::Error, StreamError> GltfParser::parse_glb() {
     const auto json_length = VULL_TRY(m_stream.read_le<uint32_t>());
     if (VULL_TRY(m_stream.read_le<uint32_t>()) != 0x4e4f534au) {
         vull::error("[gltf] Missing or invalid JSON chunk");
-        return Error::BadJsonChunk;
+        return GlbError::BadJsonChunk;
     }
     m_json = String(json_length);
     VULL_TRY(m_stream.read({m_json.data(), json_length}));
@@ -656,15 +655,14 @@ Result<void, GltfParser::Error, StreamError> GltfParser::parse_glb() {
     const auto binary_length = VULL_TRY(m_stream.read_le<uint32_t>());
     if (VULL_TRY(m_stream.read_le<uint32_t>()) != 0x004e4942u) {
         vull::error("[gltf] Missing or invalid binary chunk");
-        return Error::BadBinaryChunk;
+        return GlbError::BadBinaryChunk;
     }
     m_binary_blob = ByteBuffer::create_uninitialised(binary_length);
     VULL_TRY(m_stream.read(m_binary_blob.span()));
     return {};
 }
 
-Result<void, GltfParser::Error, StreamError, json::ParseError, json::TreeError>
-GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible) {
+GltfResult<> GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible) {
     auto document = VULL_TRY(json::parse(m_json));
     if (auto generator = document["asset"]["generator"].get<String>()) {
         vull::info("[gltf] Generator: {}", generator.value());
@@ -677,27 +675,13 @@ GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reprodu
         }
     }
 
-    Converter converter(m_binary_blob.span(), pack_writer, document, max_resolution);
-
     // Use only one thread if reproducible, otherwise let scheduler decide.
     tasklet::Scheduler scheduler(reproducible ? 1 : 0);
-    scheduler.run([&] {
-        // TODO(tasklet): Need a future system to propagate errors.
-        VULL_EXPECT(converter.convert());
-    });
-
-    if (!document["scenes"]) {
+    VULL_TRY(scheduler.run([&]() -> GltfResult<> {
+        Converter converter(m_binary_blob.span(), pack_writer, document, max_resolution);
+        VULL_TRY(converter.convert());
         return {};
-    }
-
-    const auto &scene_array = VULL_TRY(document["scenes"].get<json::Array>());
-    for (uint64_t i = 0; i < scene_array.size(); i++) {
-        const auto &scene = VULL_TRY(scene_array[i].get<json::Object>());
-        const auto &name = VULL_TRY(scene["name"].get<String>());
-
-        vull::info("[gltf] Creating scene '{}'", name);
-        VULL_TRY(converter.process_scene(scene, name));
-    }
+    }));
     return {};
 }
 
