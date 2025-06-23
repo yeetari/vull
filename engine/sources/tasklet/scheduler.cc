@@ -6,18 +6,16 @@
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
 #include <vull/platform/system_semaphore.hh>
+#include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/result.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/tasklet.hh>
 
-#include <pthread.h>
-#include <sched.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdint.h>
 #include <unistd.h>
 
 namespace vull::tasklet {
@@ -47,7 +45,7 @@ Scheduler::Scheduler(uint32_t thread_count) {
     if (thread_count == 0) {
         thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
     }
-    m_workers.ensure_size(thread_count);
+    m_worker_threads.ensure_size(thread_count);
     m_queue = vull::make_unique<TaskletQueue>();
 }
 
@@ -58,37 +56,7 @@ Scheduler::~Scheduler() {
 void Scheduler::join() {
     m_running.store(false, vull::memory_order_release);
     m_work_available.release();
-    for (auto &worker : m_workers) {
-        pthread_join(worker, nullptr);
-    }
-    m_workers.clear();
-}
-
-bool Scheduler::start(Tasklet *tasklet) {
-    if (m_workers.empty()) {
-        return false;
-    }
-    if (!m_queue->enqueue(tasklet)) {
-        return false;
-    }
-    m_running.store(true, vull::memory_order_release);
-    for (auto &worker : m_workers) {
-        if (pthread_create(&worker, nullptr, &worker_entry, this) != 0) {
-            return false;
-        }
-    }
-
-    const auto core_count = static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
-    if (m_workers.size() <= core_count) {
-        for (uint32_t i = 0; i < m_workers.size(); i++) {
-            cpu_set_t set;
-            CPU_ZERO(&set);
-            CPU_SET(i, &set);
-            pthread_setaffinity_np(m_workers[i], sizeof(cpu_set_t), &set);
-        }
-    }
-    vull::info("[tasklet] Created {} threads", m_workers.size());
-    return true;
+    m_worker_threads.clear();
 }
 
 uint32_t Scheduler::tasklet_count() const {
@@ -100,7 +68,7 @@ static Tasklet *pick_next() {
     while (next == nullptr) {
         s_work_available->wait();
         if (!s_scheduler->is_running() && s_queue->empty()) {
-            pthread_exit(nullptr);
+            Thread::exit();
         }
 
         next = s_queue->dequeue();
@@ -138,45 +106,38 @@ static Tasklet *pick_next() {
     vull_load_context(s_current_tasklet = next, nullptr);
 }
 
-[[noreturn]] static void segfault_handler(int, siginfo_t *info, void *) {
-    const auto address = reinterpret_cast<uintptr_t>(info->si_addr);
-    const auto *tasklet = static_cast<void *>(Tasklet::current());
-    if (Tasklet::current()->is_guard_page(address)) {
-        fprintf(stderr, "Stack overflow in tasklet %p\n", tasklet);
-    } else {
-        fprintf(stderr, "Segfault at address 0x%lx in tasklet %p\n", address, tasklet);
+bool Scheduler::start(Tasklet *tasklet) {
+    if (m_worker_threads.empty()) {
+        return false;
     }
-    abort();
-}
-
-void *Scheduler::worker_entry(void *scheduler_ptr) {
-    auto &scheduler = *static_cast<Scheduler *>(scheduler_ptr);
-    s_scheduler = &scheduler;
-    s_queue = scheduler.m_queue.ptr();
-    s_work_available = &scheduler.m_work_available;
-
-    sigset_t sig_set;
-    sigfillset(&sig_set);
-    sigdelset(&sig_set, SIGSEGV);
-    if (pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0) {
-        vull::error("[tasklet] Failed to mask signals");
+    if (!m_queue->enqueue(tasklet)) {
+        return false;
     }
+    m_running.store(true, vull::memory_order_release);
+    for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
+        auto &thread = m_worker_threads[i];
+        thread = VULL_EXPECT(Thread::create([this] {
+            // Setup per-thread data.
+            s_scheduler = this;
+            s_queue = m_queue.ptr();
+            s_work_available = &m_work_available;
+            VULL_EXPECT(Thread::setup_signal_stack());
 
-    struct sigaction sa{
-        .sa_flags = SA_SIGINFO,
-    };
-    sigemptyset(&sa.sa_mask);
-    sa.sa_sigaction = &segfault_handler;
-    sigaction(SIGSEGV, &sa, nullptr);
+            // Use thread stack for scheduler tasklet.
+            Array<uint8_t, 131072> tasklet_data{};
+            s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
+            vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
-    // Use thread stack for scheduler tasklet.
-    Array<uint8_t, 131072> tasklet_data{};
-    s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
-    vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
-
-    s_work_available->post();
-    auto *next = pick_next();
-    vull_load_context(s_current_tasklet = next, nullptr);
+            s_work_available->post();
+            auto *next = pick_next();
+            vull_load_context(s_current_tasklet = next, nullptr);
+        }));
+        if (thread.pin_to_core(i).is_error()) {
+            vull::error("[tasklet] Failed to pin worker thread {}", i);
+        }
+    }
+    vull::info("[tasklet] Started {} threads", m_worker_threads.size());
+    return true;
 }
 
 void schedule(Tasklet *tasklet) {

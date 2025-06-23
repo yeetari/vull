@@ -2,8 +2,10 @@
 
 #include <vull/core/log.hh>
 #include <vull/platform/file.hh>
+#include <vull/platform/thread.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
+#include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
@@ -32,6 +34,13 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     args_parser.add_option(vpak_directory_path, "Vpak directory path", "vpak-dir");
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
+
+    // Install fault handler and block conventional signal handlers for the whole process.
+    // TODO: Use signalfd to handle SIGINT, SIGQUIT, etc.
+    vull::install_fault_handler();
+    if (Thread::block_signals().is_error()) {
+        vull::error("[main] Failed to mask signals");
     }
 
     // Default to directory containing the executable.

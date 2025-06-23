@@ -10,20 +10,23 @@
 #include <vull/tasklet/promise.hh>
 #include <vull/tasklet/tasklet.hh>
 
-#include <pthread.h>
 #include <stdint.h>
+
+namespace vull {
+
+class Thread;
+
+} // namespace vull
 
 namespace vull::tasklet {
 
 class TaskletQueue;
 
 class Scheduler {
-    Vector<pthread_t> m_workers;
+    Vector<Thread> m_worker_threads;
     UniquePtr<TaskletQueue> m_queue;
     SystemSemaphore m_work_available;
     Atomic<bool> m_running;
-
-    static void *worker_entry(void *);
 
 public:
     static Scheduler &current();
