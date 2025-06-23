@@ -2,15 +2,14 @@
 
 #include <vull/container/array.hh>
 #include <vull/platform/system_semaphore.hh>
+#include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/result.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 
-// IWYU pragma: no_include <bits/types/struct_sched_param.h>
-#include <pthread.h>
-#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -95,7 +94,7 @@ class GlobalState {
     Atomic<LogQueue *> m_queue_head{nullptr};
     Atomic<LogQueue *> m_queue_tail{nullptr};
     SystemSemaphore m_semaphore;
-    pthread_t m_sink_thread{};
+    Thread m_sink_thread;
     Atomic<bool> m_running;
 
 public:
@@ -117,7 +116,7 @@ public:
     LogQueue *queue_head() const { return m_queue_head.load(); }
 };
 
-void *sink_loop(void *);
+void sink_loop();
 
 GlobalState::~GlobalState() {
     close_sink();
@@ -127,16 +126,15 @@ GlobalState::~GlobalState() {
 }
 
 void GlobalState::open_sink() {
-    sched_param param{};
     m_running.store(true);
-    pthread_create(&m_sink_thread, nullptr, &sink_loop, nullptr);
-    pthread_setschedparam(m_sink_thread, SCHED_IDLE, &param);
+    m_sink_thread = VULL_EXPECT(Thread::create(&sink_loop));
+    VULL_IGNORE(m_sink_thread.set_idle());
 }
 
 void GlobalState::close_sink() {
     if (m_running.exchange(false)) {
         m_semaphore.post();
-        pthread_join(m_sink_thread, nullptr);
+        VULL_EXPECT(m_sink_thread.join());
     }
 }
 
@@ -170,7 +168,7 @@ VULL_GLOBAL(thread_local LogQueue *s_queue = nullptr);
 VULL_GLOBAL(GlobalState s_state);
 VULL_GLOBAL(bool s_log_colours_enabled = false);
 
-void *sink_loop(void *) {
+void sink_loop() {
     while (s_state.wait()) {
         // TODO: Sort messages by timestamp.
         for (auto *queue = s_state.queue_head(); queue != nullptr; queue = queue->next()) {
@@ -186,7 +184,6 @@ void *sink_loop(void *) {
             }
         }
     }
-    return nullptr;
 }
 
 } // namespace
