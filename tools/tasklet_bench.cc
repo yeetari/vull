@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     vull::set_log_colours_enabled(true);
 
     tasklet::Scheduler scheduler(thread_count);
-    scheduler.start([] {
+    scheduler.run([] {
         // Warmup scheduler.
         tasklet::Latch latch(512);
         for (size_t i = 0; i < 512; i++) {

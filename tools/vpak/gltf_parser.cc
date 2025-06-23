@@ -680,14 +680,11 @@ GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reprodu
     Converter converter(m_binary_blob.span(), pack_writer, document, max_resolution);
 
     // Use only one thread if reproducible, otherwise let scheduler decide.
-    {
-        tasklet::Scheduler scheduler(reproducible ? 1 : 0);
-        scheduler.start([&] {
-            // TODO(tasklet): Need a future system to propagate errors.
-            VULL_EXPECT(converter.convert());
-            scheduler.stop();
-        });
-    }
+    tasklet::Scheduler scheduler(reproducible ? 1 : 0);
+    scheduler.run([&] {
+        // TODO(tasklet): Need a future system to propagate errors.
+        VULL_EXPECT(converter.convert());
+    });
 
     if (!document["scenes"]) {
         return {};

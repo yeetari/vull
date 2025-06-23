@@ -14,7 +14,7 @@ using namespace vull::test::matchers;
 
 TEST_CASE(TaskletFuture, AwaitVoid) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         Atomic<size_t> counter;
         auto future = tasklet::schedule([&] {
             counter.fetch_add(1);
@@ -26,7 +26,7 @@ TEST_CASE(TaskletFuture, AwaitVoid) {
 
 TEST_CASE(TaskletFuture, AwaitTrivial) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         auto future = tasklet::schedule([] {
             return 5;
         });
@@ -36,7 +36,7 @@ TEST_CASE(TaskletFuture, AwaitTrivial) {
 
 TEST_CASE(TaskletFuture, AwaitMove) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         size_t destruct_count = 0;
         {
             auto future = tasklet::schedule([&] {
@@ -59,7 +59,7 @@ TEST_CASE(TaskletFuture, AwaitMove) {
 
 TEST_CASE(TaskletFuture, AndThenVoid) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         Atomic<size_t> counter;
         auto future = tasklet::schedule([&] {
             counter.fetch_add(1);
@@ -77,7 +77,7 @@ static int mult(int value) {
 
 TEST_CASE(TaskletFuture, AndThenTrivial) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         // clang-format off
         auto future = tasklet::schedule([] {
             return 5;
@@ -91,7 +91,7 @@ TEST_CASE(TaskletFuture, AndThenTrivial) {
 
 TEST_CASE(TaskletFuture, AndThenToVoid) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         tasklet::schedule([] {
             return 10;
         }).and_then([](int value) {
@@ -102,7 +102,7 @@ TEST_CASE(TaskletFuture, AndThenToVoid) {
 
 TEST_CASE(TaskletFuture, AndThenToOther) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         tasklet::schedule([] {
             return 10;
             // clang-format off
@@ -117,7 +117,7 @@ TEST_CASE(TaskletFuture, AndThenToOther) {
 
 TEST_CASE(TaskletFuture, AndThenMove) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         size_t destruct_count = 0;
         tasklet::schedule([&] {
             return test::MoveTester(destruct_count);

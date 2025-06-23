@@ -9,6 +9,7 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/scheduler.hh>
+#include <vull/tasklet/tasklet.hh>
 #include <vull/vpak/file_system.hh>
 
 #include <dirent.h>
@@ -56,7 +57,7 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     free(entry_list);
 
     tasklet::Scheduler scheduler(thread_count);
-    scheduler.start(vull::move(start_fn));
+    scheduler.run<tasklet::TaskletSize::Large>(vull::move(start_fn));
     scheduler.join();
     vull::close_log();
     return EXIT_SUCCESS;

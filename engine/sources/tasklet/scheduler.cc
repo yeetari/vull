@@ -56,6 +56,8 @@ Scheduler::~Scheduler() {
 }
 
 void Scheduler::join() {
+    m_running.store(false, vull::memory_order_release);
+    m_work_available.release();
     for (auto &worker : m_workers) {
         pthread_join(worker, nullptr);
     }
@@ -87,13 +89,6 @@ bool Scheduler::start(Tasklet *tasklet) {
     }
     vull::info("[tasklet] Created {} threads", m_workers.size());
     return true;
-}
-
-void Scheduler::stop() {
-    m_running.store(false, vull::memory_order_release);
-    for (uint32_t i = 0; i < m_workers.size(); i++) {
-        m_work_available.post();
-    }
 }
 
 uint32_t Scheduler::tasklet_count() const {

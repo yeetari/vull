@@ -14,20 +14,19 @@ using namespace vull::test::matchers;
 TEST_CASE(Tasklet, Counter) {
     Atomic<size_t> counter;
     tasklet::Scheduler scheduler;
-    scheduler.start([&] {
+    scheduler.run([&] {
         for (size_t i = 0; i < 256; i++) {
             tasklet::schedule([&] {
                 counter.fetch_add(1);
             });
         }
     });
-    scheduler.join();
     EXPECT_THAT(counter.load(), is(equal_to(256)));
 }
 
 TEST_CASE(Tasklet, Latch) {
     tasklet::Scheduler scheduler;
-    scheduler.start([] {
+    scheduler.run([] {
         Atomic<size_t> counter;
         tasklet::Latch latch(256);
         for (size_t i = 0; i < 256; i++) {
@@ -39,4 +38,12 @@ TEST_CASE(Tasklet, Latch) {
         latch.wait();
         EXPECT_THAT(counter.load(), is(equal_to(256)));
     });
+}
+
+TEST_CASE(Tasklet, SchedulerRun) {
+    tasklet::Scheduler scheduler;
+    auto value = scheduler.run([] {
+        return 5;
+    });
+    EXPECT_THAT(value, is(equal_to(5)));
 }
