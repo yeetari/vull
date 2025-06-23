@@ -19,6 +19,7 @@ public:
     SystemSemaphore &operator=(SystemSemaphore &&) = delete;
 
     void post();
+    void release();
     bool try_wait();
     void wait();
 };
