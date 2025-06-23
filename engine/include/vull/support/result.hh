@@ -42,7 +42,7 @@ public:
     Result() requires(is_void) : m_value(storage_t{}) {}
 
     template <typename U>
-    Result(U &&value) : m_value(vull::forward<U>(value)) {}
+    Result(U &&value) requires(!is_same<U, Result>) : m_value(vull::forward<U>(value)) {}
 
     // Error variant upcast.
     template <ContainsType<Es...>... Fs>
@@ -54,11 +54,11 @@ public:
     Result(const U &ref) requires(is_ref<T> && !is_void) : m_value(vull::cref(ref)) {}
 
     Result(const Result &) = delete;
-    Result(Result &&) = delete;
+    Result(Result &&) = default;
     ~Result() = default;
 
     Result &operator=(const Result &) = delete;
-    Result &operator=(Result &&) = delete;
+    Result &operator=(Result &&) = default;
 
     explicit operator bool() const { return !is_error(); }
     bool is_error() const { return m_value.index() > 0; }
