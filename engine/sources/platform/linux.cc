@@ -3,11 +3,13 @@
 #include <vull/platform/system_latch.hh>
 #include <vull/platform/system_mutex.hh>
 #include <vull/platform/system_semaphore.hh>
+#include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 
 #include <vull/container/array.hh>
 #include <vull/container/vector.hh>
 #include <vull/support/algorithm.hh>
+#include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
@@ -16,13 +18,22 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/tasklet.hh>
 
+// IWYU pragma: no_include <bits/types/stack_t.h>
+// IWYU pragma: no_include <bits/types/struct_sched_param.h>
 #include <endian.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
 #include <linux/futex.h>
+#include <pthread.h>
+#include <sched.h>
+#include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -30,6 +41,14 @@
 #include <unistd.h>
 
 namespace vull {
+
+#if VULL_ASAN_ENABLED
+// NOLINTNEXTLINE
+extern "C" const char *__asan_default_options() {
+    // Prevent asan from messing with our alternate signal stacks.
+    return "use_sigaltstack=0";
+}
+#endif
 
 File::~File() {
     if (m_fd >= 0) {
@@ -336,6 +355,126 @@ void SystemSemaphore::wait() {
                 return;
             }
         }
+    }
+}
+
+Result<pthread_t, ThreadError> Thread::create(void *(*function)(void *), void *argument) {
+    pthread_t thread;
+    const int rc = pthread_create(&thread, nullptr, function, argument);
+    switch (rc) {
+    case 0:
+        return thread;
+    case EAGAIN:
+        return ThreadError::InsufficientResources;
+    case EPERM:
+        return ThreadError::InsufficientPermission;
+    default:
+        return ThreadError::Unknown;
+    }
+}
+
+Thread::~Thread() {
+    VULL_EXPECT(join());
+}
+
+Thread &Thread::operator=(Thread &&other) {
+    VULL_ASSERT(m_thread == 0);
+    m_thread = vull::exchange(other.m_thread, {});
+    return *this;
+}
+
+static constexpr Array k_fault_signals{SIGBUS, SIGFPE, SIGILL, SIGSEGV, SIGTRAP};
+
+Result<void, ThreadError> Thread::block_signals() {
+    sigset_t sig_set;
+    if (sigfillset(&sig_set) != 0) {
+        return ThreadError::Unknown;
+    }
+    for (auto signal : k_fault_signals) {
+        if (sigdelset(&sig_set, signal) != 0) {
+            return ThreadError::Unknown;
+        }
+    }
+    if (pthread_sigmask(SIG_BLOCK, &sig_set, nullptr) != 0) {
+        return ThreadError::Unknown;
+    }
+    return {};
+}
+
+VULL_GLOBAL(static thread_local uint8_t *s_signal_stack = nullptr);
+
+Result<void, ThreadError> Thread::setup_signal_stack() {
+    const auto size = static_cast<size_t>(SIGSTKSZ);
+    s_signal_stack = new uint8_t[size];
+    stack_t new_stack{
+        .ss_sp = s_signal_stack,
+        .ss_size = size,
+    };
+    if (sigaltstack(&new_stack, nullptr) != 0) {
+        return ThreadError::Unknown;
+    }
+    return {};
+}
+
+[[noreturn]] void Thread::exit() {
+    delete[] s_signal_stack;
+    pthread_exit(nullptr);
+}
+
+Result<void, ThreadError> Thread::join() {
+    if (m_thread != 0 && pthread_join(m_thread, nullptr) != 0) {
+        return ThreadError::Unknown;
+    }
+    m_thread = 0;
+    return {};
+}
+
+Result<void, ThreadError> Thread::pin_to_core(size_t core) const {
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(core, &set);
+    if (pthread_setaffinity_np(m_thread, sizeof(cpu_set_t), &set) != 0) {
+        return ThreadError::Unknown;
+    }
+    return {};
+}
+
+Result<void, ThreadError> Thread::set_idle() const {
+    sched_param param{};
+    int rc = pthread_setschedparam(m_thread, SCHED_IDLE, &param);
+    switch (rc) {
+    case 0:
+        return {};
+    case EPERM:
+        return ThreadError::InsufficientPermission;
+    default:
+        return ThreadError::Unknown;
+    }
+}
+
+[[noreturn]] static void fault_handler(int signal, siginfo_t *info, void *) {
+    const auto address = vull::bit_cast<uintptr_t>(info->si_addr);
+    const auto *tasklet = tasklet::Tasklet::current();
+    const char *signal_name = sigabbrev_np(signal);
+    if (tasklet != nullptr && tasklet->is_guard_page(address)) {
+        fprintf(stderr, "Stack overflow at address 0x%lx in tasklet %p\n", address, static_cast<const void *>(tasklet));
+    } else if (tasklet != nullptr) {
+        fprintf(stderr, "SIG%s at address 0x%lx in tasklet %p\n", signal_name, address,
+                static_cast<const void *>(tasklet));
+    } else {
+        fprintf(stderr, "SIG%s at address 0x%lx\n", signal_name, address);
+    }
+    _Exit(EXIT_FAILURE);
+}
+
+void install_fault_handler() {
+    struct sigaction action{
+        .sa_flags = SA_SIGINFO | SA_ONSTACK,
+    };
+    sigemptyset(&action.sa_mask);
+    action.sa_sigaction = &fault_handler;
+    for (auto signal : k_fault_signals) {
+        sigaction(signal, &action, nullptr);
     }
 }
 
