@@ -69,6 +69,9 @@ public:
     T exchange(T desired, int order = memory_order_relaxed) volatile;
     T fetch_add(T value, int order = memory_order_relaxed) volatile;
     T fetch_sub(T value, int order = memory_order_relaxed) volatile;
+    T fetch_and(T value, int order = memory_order_relaxed) volatile;
+    T fetch_or(T value, int order = memory_order_relaxed) volatile;
+    T fetch_xor(T value, int order = memory_order_relaxed) volatile;
     T load(int order = memory_order_relaxed) const volatile;
     void store(T value, int order = memory_order_relaxed) volatile;
     storage_t *raw_ptr() { return &m_value; }
@@ -117,6 +120,21 @@ T Atomic<T>::fetch_add(T value, int order) volatile {
 template <SimpleAtomic T>
 T Atomic<T>::fetch_sub(T value, int order) volatile {
     return __atomic_fetch_sub(&m_value, value, order);
+}
+
+template <SimpleAtomic T>
+T Atomic<T>::fetch_and(T value, int order) volatile {
+    return __atomic_fetch_and(&m_value, value, order);
+}
+
+template <SimpleAtomic T>
+T Atomic<T>::fetch_or(T value, int order) volatile {
+    return __atomic_fetch_or(&m_value, value, order);
+}
+
+template <SimpleAtomic T>
+T Atomic<T>::fetch_xor(T value, int order) volatile {
+    return __atomic_fetch_xor(&m_value, value, order);
 }
 
 template <SimpleAtomic T>
