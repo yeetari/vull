@@ -42,6 +42,8 @@ RUN apt-get update \
       libxcb-randr0-dev \
       libxcb-util-dev \
       libxcb-xkb-dev \
+      libxkbcommon-dev \
+      libxkbcommon-x11-dev \
       libxxhash-dev \
       libzstd-dev \
       llvm-19-dev \
