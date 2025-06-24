@@ -64,6 +64,9 @@ void BoxLayout::pre_layout(LayoutSize available_space) {
     LayoutUnit main_axis = 0;
     LayoutUnit cross_axis = 0;
     for (const auto &child : children()) {
+        if (!child->is_visible()) {
+            continue;
+        }
         if (child->is_pane()) {
             static_cast<Pane &>(*child).pre_layout({});
         }
@@ -102,7 +105,9 @@ void BoxLayout::layout(LayoutSize available_space) {
     Vector<LayoutItem> items;
     items.ensure_capacity(children().size());
     for (const auto &child : children()) {
-        items.emplace(*child);
+        if (child->is_visible()) {
+            items.emplace(*child);
+        }
     }
 
     if (items.empty()) {

@@ -22,8 +22,10 @@ void ScreenPane::bring_to_front(Element &element) {
 
 Optional<HitResult> ScreenPane::hit_test(LayoutPoint point) {
     for (const auto &child : vull::reverse_view(children())) {
-        if (auto result = child->hit_test(point - child->offset_in_parent())) {
-            return result;
+        if (child->is_visible()) {
+            if (auto result = child->hit_test(point - child->offset_in_parent())) {
+                return result;
+            }
         }
     }
     return {};
@@ -31,7 +33,7 @@ Optional<HitResult> ScreenPane::hit_test(LayoutPoint point) {
 
 void ScreenPane::pre_layout(LayoutSize) {
     for (const auto &child : children()) {
-        if (child->is_pane()) {
+        if (child->is_visible() && child->is_pane()) {
             static_cast<Pane &>(*child).pre_layout({});
         }
     }
@@ -39,7 +41,7 @@ void ScreenPane::pre_layout(LayoutSize) {
 
 void ScreenPane::layout(LayoutSize) {
     for (const auto &child : children()) {
-        if (child->is_pane()) {
+        if (child->is_visible() && child->is_pane()) {
             static_cast<Pane &>(*child).layout({});
         }
     }

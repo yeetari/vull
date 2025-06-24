@@ -29,6 +29,7 @@ enum class Align : uint8_t {
 
 enum class ElementFlags : uint8_t {
     None = 0,
+    Visible = 1u << 0u,
 };
 
 class Element {
@@ -41,7 +42,7 @@ class Element {
 
     LayoutPoint m_offset_in_parent;
     LayoutSize m_computed_size;
-    ElementFlags m_flags{};
+    ElementFlags m_flags{ElementFlags::Visible};
 
 public:
     Element(Tree &tree, Optional<Element &> parent) : m_tree(tree), m_parent(parent) {}
@@ -80,7 +81,9 @@ public:
     virtual bool is_pane() const { return false; }
     virtual bool is_screen_pane() const { return false; }
 
+    void set_visible(bool visible);
     bool is_active_element() const;
+    bool is_visible() const;
     bool is_hovered() const;
 
     LayoutSize computed_size() const { return m_computed_size; }

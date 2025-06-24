@@ -28,12 +28,26 @@ Optional<HitResult> Element::hit_test(LayoutPoint point) {
     return {};
 }
 
+void Element::set_visible(bool visible) {
+    if (visible) {
+        m_flags |= ElementFlags::Visible;
+        m_tree.handle_element_show(*this);
+    } else {
+        m_flags &= ~ElementFlags::Visible;
+        m_tree.handle_element_hide(*this);
+    }
+}
+
 bool Element::is_active_element() const {
     return m_tree.active_element() == this;
 }
 
 bool Element::is_hovered() const {
     return m_tree.hovered_element() == this;
+}
+
+bool Element::is_visible() const {
+    return (m_flags & ElementFlags::Visible) != ElementFlags::None;
 }
 
 Style &Element::style() const {

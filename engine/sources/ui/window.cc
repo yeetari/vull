@@ -37,12 +37,16 @@ void Window::paint(Painter &painter, LayoutPoint position) const {
     }
 
     // Title pane background.
-    painter.paint_rect(position, {computed_width(), m_title_pane->computed_height()},
-                       Colour::from_rgb(0.0f, 0.0f, 0.0f, 0.99f));
+    if (m_title_pane->is_visible()) {
+        painter.paint_rect(position, {computed_width(), m_title_pane->computed_height()},
+                           Colour::from_rgb(0.0f, 0.0f, 0.0f, 0.99f));
+    }
 
     // Content pane background.
-    painter.paint_rect(position + m_content_pane->offset_in_parent(),
-                       {computed_width(), computed_height() - m_title_pane->computed_height()}, colour);
+    if (m_content_pane->is_visible()) {
+        painter.paint_rect(position + m_content_pane->offset_in_parent(),
+                           {computed_width(), computed_height() - m_title_pane->computed_height()}, colour);
+    }
 
     // Paint children.
     Pane::paint(painter, position);

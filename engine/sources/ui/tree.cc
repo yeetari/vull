@@ -66,6 +66,27 @@ void Tree::handle_element_destruct(Element &element) {
     }
 }
 
+void Tree::handle_element_hide(Element &element) {
+    // Unset the active and/or hovered elements if their parents have been hidden.
+    for (auto parent = m_active_element; parent; parent = parent->parent()) {
+        if (parent == &element) {
+            unset_active_element();
+            break;
+        }
+    }
+    for (auto parent = m_hovered_element; parent; parent = parent->parent()) {
+        if (parent == &element) {
+            unset_hovered_element();
+            break;
+        }
+    }
+}
+
+void Tree::handle_element_show(Element &) {
+    // Dirty the current hover in case something new has become visible under the cursor.
+    m_need_hover_update = true;
+}
+
 void Tree::set_active_element(Element &element) {
     VULL_ASSERT(!m_active_element);
     m_active_element = element;

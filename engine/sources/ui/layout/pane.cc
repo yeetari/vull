@@ -47,8 +47,10 @@ Optional<HitResult> Pane::hit_test(LayoutPoint point) {
         return {};
     }
     for (const auto &child : m_children) {
-        if (auto result = child->hit_test(point - child->offset_in_parent())) {
-            return result;
+        if (child->is_visible()) {
+            if (auto result = child->hit_test(point - child->offset_in_parent())) {
+                return result;
+            }
         }
     }
     return HitResult{*this, point};
@@ -56,7 +58,9 @@ Optional<HitResult> Pane::hit_test(LayoutPoint point) {
 
 void Pane::paint(Painter &painter, LayoutPoint position) const {
     for (const auto &child : m_children) {
-        child->paint(painter, position + child->offset_in_parent());
+        if (child->is_visible()) {
+            child->paint(painter, position + child->offset_in_parent());
+        }
     }
 }
 

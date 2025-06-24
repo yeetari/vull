@@ -37,6 +37,9 @@ public:
     void render(Painter &painter);
 
     void handle_element_destruct(Element &element);
+    void handle_element_hide(Element &element);
+    void handle_element_show(Element &element);
+
     void set_active_element(Element &element);
     void unset_active_element();
 
