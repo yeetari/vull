@@ -9,6 +9,7 @@
 #include <vull/ui/element.hh>
 #include <vull/ui/event.hh>
 #include <vull/ui/layout/pane.hh>
+#include <vull/ui/layout/screen_pane.hh>
 #include <vull/ui/units.hh>
 
 namespace vull::ui {
@@ -82,7 +83,12 @@ void Tree::handle_element_hide(Element &element) {
     }
 }
 
-void Tree::handle_element_show(Element &) {
+void Tree::handle_element_show(Element &element) {
+    // Bring element to front if it's in a screen pane.
+    if (element.parent() && element.parent()->is_screen_pane()) {
+        static_cast<ScreenPane &>(*element.parent()).bring_to_front(element);
+    }
+
     // Dirty the current hover in case something new has become visible under the cursor.
     m_need_hover_update = true;
 }
