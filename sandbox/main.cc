@@ -133,16 +133,24 @@ Sandbox::Sandbox(bool enable_validation)
 
     auto &screen_pane = m_ui_tree.set_root<ui::ScreenPane>();
     auto &main_window = screen_pane.add_child<ui::Window>("Main");
-    m_cpu_time_graph =
-        &main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
-    m_gpu_time_graph =
-        &main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+    main_window.content_pane().add_child<ui::Label>("F1 to show/hide");
+    main_window.content_pane().add_child<ui::Label>("F2 for time graphs");
+    main_window.content_pane().add_child<ui::Label>("F3 for pipeline statistics");
+    main_window.content_pane().add_child<ui::Label>("F4 for camera settings");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([this] {
         m_window.close();
     });
 
+    auto &graphs_window = screen_pane.add_child<ui::Window>("Graphs");
+    graphs_window.set_visible(false);
+    m_cpu_time_graph =
+        &graphs_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
+    m_gpu_time_graph =
+        &graphs_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+
     auto &pipeline_statistics_window = screen_pane.add_child<ui::Window>("Pipeline statistics");
+    pipeline_statistics_window.set_visible(false);
     for (uint32_t i = 0; i < 5; i++) {
         auto &label = pipeline_statistics_window.content_pane().add_child<ui::Label>();
         label.set_align(ui::Align::Right);
@@ -151,12 +159,26 @@ Sandbox::Sandbox(bool enable_validation)
     }
 
     auto &camera_window = screen_pane.add_child<ui::Window>("Camera settings");
+    camera_window.set_visible(false);
     camera_window.content_pane().add_child<ui::Label>("Exposure");
     m_exposure_slider = &camera_window.content_pane().add_child<ui::Slider>(0.0f, 20.0f);
     camera_window.content_pane().add_child<ui::Label>("FOV");
     m_fov_slider = &camera_window.content_pane().add_child<ui::Slider>(0.0f, 180.0f);
     m_exposure_slider->set_value(5.0f);
     m_fov_slider->set_value(90.0f);
+
+    m_window.on_key_release(Key::F1, [&](ModifierMask) {
+        main_window.set_visible(!main_window.is_visible());
+    });
+    m_window.on_key_release(Key::F2, [&](ModifierMask) {
+        graphs_window.set_visible(!graphs_window.is_visible());
+    });
+    m_window.on_key_release(Key::F3, [&](ModifierMask) {
+        pipeline_statistics_window.set_visible(!pipeline_statistics_window.is_visible());
+    });
+    m_window.on_key_release(Key::F4, [&](ModifierMask) {
+        camera_window.set_visible(!camera_window.is_visible());
+    });
 
     m_cpu_time_graph->new_bar();
 }
