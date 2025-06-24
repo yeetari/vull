@@ -13,6 +13,7 @@
 
 // IWYU pragma: no_include <xcb/xproto.h>
 using xcb_intern_atom_reply_t = struct xcb_intern_atom_reply_t;
+struct xkb_state;
 
 namespace vull::vk {
 
@@ -27,9 +28,9 @@ class Window {
     uint16_t m_height;
     xcb_connection_t *m_connection;
     xcb_intern_atom_reply_t *m_delete_window_atom{nullptr};
+    xkb_state *m_xkb_state{nullptr};
     uint32_t m_id{0};
     Vec2f m_ppcm;
-    Array<Key, 256> m_keycode_map{};
 
     uint32_t m_hidden_cursor{0};
     int16_t m_mouse_x{0};
@@ -46,8 +47,7 @@ class Window {
     Array<bool, static_cast<uint8_t>(Key::Count)> m_keys{};
     bool m_should_close{false};
 
-    void map_keycodes();
-    Key translate_keycode(uint8_t keycode);
+    void setup_xkb();
 
 public:
     /**

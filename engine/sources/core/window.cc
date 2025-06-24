@@ -14,18 +14,13 @@
 #include <vull/vulkan/vulkan.hh>
 
 #include <stdlib.h>
-#include <string.h>
 #include <xcb/randr.h>
 #include <xcb/xcb.h>
 #include <xcb/xcb_aux.h>
 #include <xcb/xproto.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wkeyword-macro"
-#define explicit _explicit
-#include <xcb/xkb.h>
-#undef explicit
-#pragma clang diagnostic pop
+#include <xkbcommon/xkbcommon-keysyms.h>
+#include <xkbcommon/xkbcommon-x11.h>
+#include <xkbcommon/xkbcommon.h>
 
 namespace vull {
 
@@ -77,9 +72,9 @@ Window::Window(Optional<uint16_t> width, Optional<uint16_t> height, bool fullscr
     xcb_free_pixmap(m_connection, cursor_pixmap);
     xcb_change_window_attributes(m_connection, m_id, XCB_CW_CURSOR, &m_hidden_cursor);
 
-    auto use_xkb_request = xcb_xkb_use_extension(m_connection, XCB_XKB_MAJOR_VERSION, XCB_XKB_MINOR_VERSION);
-    free(xcb_xkb_use_extension_reply(m_connection, use_xkb_request, nullptr));
-    map_keycodes();
+    xkb_x11_setup_xkb_extension(m_connection, XKB_X11_MIN_MAJOR_XKB_VERSION, XKB_X11_MIN_MINOR_XKB_VERSION,
+                                XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS, nullptr, nullptr, nullptr, nullptr);
+    setup_xkb();
 
     // TODO: Disable auto repeat.
 
@@ -112,46 +107,11 @@ Window::~Window() {
     xcb_disconnect(m_connection);
 }
 
-void Window::map_keycodes() {
-    struct KeyPair {
-        const char *name;
-        Key key;
-    };
-    const Array key_pairs{
-        KeyPair{"AD01", Key::Q}, KeyPair{"AD02", Key::W}, KeyPair{"AD03", Key::E},     KeyPair{"AD04", Key::R},
-        KeyPair{"AD05", Key::T}, KeyPair{"AD06", Key::Y}, KeyPair{"AD07", Key::U},     KeyPair{"AD08", Key::I},
-        KeyPair{"AD09", Key::O}, KeyPair{"AD10", Key::P}, KeyPair{"AC01", Key::A},     KeyPair{"AC02", Key::S},
-        KeyPair{"AC03", Key::D}, KeyPair{"AC04", Key::F}, KeyPair{"AC05", Key::G},     KeyPair{"AC06", Key::H},
-        KeyPair{"AC07", Key::J}, KeyPair{"AC08", Key::K}, KeyPair{"AC09", Key::L},     KeyPair{"AB01", Key::Z},
-        KeyPair{"AB02", Key::X}, KeyPair{"AB03", Key::C}, KeyPair{"AB04", Key::V},     KeyPair{"AB05", Key::B},
-        KeyPair{"AB06", Key::N}, KeyPair{"AB07", Key::M}, KeyPair{"SPCE", Key::Space}, KeyPair{"LFSH", Key::Shift},
-    };
-
-    auto get_names_request = xcb_xkb_get_names(m_connection, XCB_XKB_ID_USE_CORE_KBD, XCB_XKB_NAME_DETAIL_KEY_NAMES);
-    auto *get_names_reply = xcb_xkb_get_names_reply(m_connection, get_names_request, nullptr);
-    VULL_ENSURE(get_names_reply != nullptr);
-
-    auto *names_value_buffer = xcb_xkb_get_names_value_list(get_names_reply);
-    xcb_xkb_get_names_value_list_t names_value_list;
-    xcb_xkb_get_names_value_list_unpack(names_value_buffer, get_names_reply->nTypes, get_names_reply->indicators,
-                                        get_names_reply->virtualMods, get_names_reply->groupNames,
-                                        get_names_reply->nKeys, get_names_reply->nKeyAliases,
-                                        get_names_reply->nRadioGroups, get_names_reply->which, &names_value_list);
-
-    auto key_name_it = xcb_xkb_get_names_value_list_key_names_iterator(get_names_reply, &names_value_list);
-    for (uint32_t keycode = get_names_reply->minKeyCode; key_name_it.rem > 0; keycode++) {
-        for (const auto &pair : key_pairs) {
-            if (strncmp(static_cast<const char *>(key_name_it.data->name), pair.name, 4) == 0) {
-                m_keycode_map[keycode] = pair.key;
-            }
-        }
-        xcb_xkb_key_name_next(&key_name_it);
-    }
-    free(get_names_reply);
-}
-
-Key Window::translate_keycode(uint8_t keycode) {
-    return keycode < m_keycode_map.size() ? m_keycode_map[keycode] : Key::Unknown;
+void Window::setup_xkb() {
+    auto *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    int32_t device_id = xkb_x11_get_core_keyboard_device_id(m_connection);
+    auto *keymap = xkb_x11_keymap_new_from_device(context, m_connection, device_id, XKB_KEYMAP_COMPILE_NO_FLAGS);
+    m_xkb_state = xkb_x11_state_new_from_device(keymap, m_connection, device_id);
 }
 
 vk::Swapchain Window::create_swapchain(vk::Context &context, vk::SwapchainMode mode) {
@@ -195,6 +155,69 @@ static MouseButtonMask translate_button(uint8_t button) {
     }
 }
 
+static Key translate_key(xkb_keysym_t keysym) {
+    switch (keysym) {
+    case XKB_KEY_a:
+        return Key::A;
+    case XKB_KEY_b:
+        return Key::B;
+    case XKB_KEY_c:
+        return Key::C;
+    case XKB_KEY_d:
+        return Key::D;
+    case XKB_KEY_e:
+        return Key::E;
+    case XKB_KEY_f:
+        return Key::F;
+    case XKB_KEY_g:
+        return Key::G;
+    case XKB_KEY_h:
+        return Key::H;
+    case XKB_KEY_i:
+        return Key::I;
+    case XKB_KEY_j:
+        return Key::J;
+    case XKB_KEY_k:
+        return Key::K;
+    case XKB_KEY_l:
+        return Key::L;
+    case XKB_KEY_m:
+        return Key::M;
+    case XKB_KEY_n:
+        return Key::N;
+    case XKB_KEY_o:
+        return Key::O;
+    case XKB_KEY_p:
+        return Key::P;
+    case XKB_KEY_q:
+        return Key::Q;
+    case XKB_KEY_r:
+        return Key::R;
+    case XKB_KEY_s:
+        return Key::S;
+    case XKB_KEY_t:
+        return Key::T;
+    case XKB_KEY_u:
+        return Key::U;
+    case XKB_KEY_v:
+        return Key::V;
+    case XKB_KEY_w:
+        return Key::W;
+    case XKB_KEY_x:
+        return Key::X;
+    case XKB_KEY_y:
+        return Key::Y;
+    case XKB_KEY_z:
+        return Key::Z;
+    case XKB_KEY_space:
+        return Key::Space;
+    case XKB_KEY_Shift_L:
+        return Key::Shift;
+    default:
+        return Key::Unknown;
+    }
+}
+
 static ModifierMask translate_mods(uint16_t state) {
     auto mask = static_cast<ModifierMask>(0);
     if ((state & XCB_MOD_MASK_SHIFT) != 0u) {
@@ -227,7 +250,9 @@ void Window::poll_events() {
         case XCB_KEY_PRESS:
         case XCB_KEY_RELEASE: {
             const auto *key_event = reinterpret_cast<xcb_key_press_event_t *>(event);
-            const auto key = translate_keycode(key_event->detail);
+            const auto keysym = xkb_state_key_get_one_sym(m_xkb_state, key_event->detail);
+            const auto key = translate_key(keysym);
+
             m_keys[static_cast<uint8_t>(key)] = event_id == XCB_KEY_PRESS;
 
             const auto mods = translate_mods(key_event->state);
