@@ -29,7 +29,6 @@ enum class Align : uint8_t {
 
 enum class ElementFlags : uint8_t {
     None = 0,
-    Hovered = 1u << 0u,
 };
 
 class Element {
@@ -75,8 +74,8 @@ public:
     virtual bool handle_mouse_press(const MouseButtonEvent &) { return false; }
     virtual bool handle_mouse_release(const MouseButtonEvent &) { return false; }
     virtual void handle_mouse_move(const MouseMoveEvent &) {}
-    virtual void handle_mouse_enter(const MouseEvent &);
-    virtual void handle_mouse_exit(const MouseEvent &);
+    virtual void handle_mouse_enter(const MouseEvent &) {}
+    virtual void handle_mouse_exit(const MouseEvent &) {}
 
     virtual bool is_pane() const { return false; }
     virtual bool is_screen_pane() const { return false; }

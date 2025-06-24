@@ -28,24 +28,16 @@ Optional<HitResult> Element::hit_test(LayoutPoint point) {
     return {};
 }
 
-void Element::handle_mouse_enter(const MouseEvent &) {
-    m_flags |= ElementFlags::Hovered;
-}
-
-void Element::handle_mouse_exit(const MouseEvent &) {
-    m_flags &= ~ElementFlags::Hovered;
-}
-
 bool Element::is_active_element() const {
-    return m_tree.active_element() && m_tree.active_element().ptr() == this;
+    return m_tree.active_element().ptr() == this;
 }
 
 bool Element::is_hovered() const {
-    return (m_flags & ElementFlags::Hovered) != ElementFlags::None;
+    return m_tree.hovered_element().ptr() == this;
 }
 
 Style &Element::style() const {
-    return tree().style();
+    return m_tree.style();
 }
 
 } // namespace vull::ui

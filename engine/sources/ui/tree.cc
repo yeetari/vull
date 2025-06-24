@@ -59,12 +59,10 @@ void Tree::update_hover() {
 
 void Tree::handle_element_destruct(Element &element) {
     if (m_active_element.ptr() == &element) {
-        m_active_element = {};
-        m_need_hover_update = true;
+        unset_active_element();
     }
     if (m_hovered_element.ptr() == &element) {
-        m_hovered_element = {};
-        m_need_hover_update = true;
+        unset_hovered_element();
     }
 }
 
@@ -75,6 +73,11 @@ void Tree::set_active_element(Element &element) {
 
 void Tree::unset_active_element() {
     m_active_element = {};
+    m_need_hover_update = true;
+}
+
+void Tree::unset_hovered_element() {
+    m_hovered_element = {};
     m_need_hover_update = true;
 }
 

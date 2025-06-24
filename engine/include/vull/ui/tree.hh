@@ -27,6 +27,7 @@ class Tree {
     void update_hover();
     template <auto>
     void handle_mouse_press_release(MouseButton button);
+    void unset_hovered_element();
 
 public:
     Tree(Style &style, Vec2f ppcm) : m_style(style), m_ppcm(ppcm) {}
@@ -46,6 +47,7 @@ public:
     Style &style() const { return m_style; }
     Vec2f ppcm() const { return m_ppcm; }
     Optional<Element &> active_element() const { return m_active_element; }
+    Optional<Element &> hovered_element() const { return m_hovered_element; }
 };
 
 template <typename T, typename... Args>
