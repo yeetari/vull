@@ -607,17 +607,24 @@ GltfResult<> Converter::convert() {
         }
     }
 
-    if (m_document["scenes"]) {
-        const auto &scene_array = VULL_TRY(m_document["scenes"].get<json::Array>());
-        for (uint32_t scene_index = 0; scene_index < scene_array.size(); scene_index++) {
-            const auto &scene = VULL_TRY(scene_array[scene_index].get<json::Object>());
-            const auto &name = VULL_TRY(scene["name"].get<String>());
-            vull::info("[gltf] Creating scene '{}'", name);
-            futures.push(tasklet::schedule([this, &scene, &name]() -> GltfResult<> {
-                VULL_TRY(process_scene(scene, name));
-                return {};
-            }));
-        }
+    for (auto &future : futures) {
+        VULL_TRY(future.await());
+    }
+    futures.clear();
+
+    if (!m_document["scenes"]) {
+        return {};
+    }
+
+    const auto &scene_array = VULL_TRY(m_document["scenes"].get<json::Array>());
+    for (uint32_t scene_index = 0; scene_index < scene_array.size(); scene_index++) {
+        const auto &scene = VULL_TRY(scene_array[scene_index].get<json::Object>());
+        const auto &name = VULL_TRY(scene["name"].get<String>());
+        vull::info("[gltf] Creating scene '{}'", name);
+        futures.push(tasklet::schedule([this, &scene, &name]() -> GltfResult<> {
+            VULL_TRY(process_scene(scene, name));
+            return {};
+        }));
     }
 
     for (auto &future : futures) {
