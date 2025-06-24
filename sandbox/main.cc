@@ -14,7 +14,6 @@
 #include <vull/graphics/skybox_renderer.hh>
 #include <vull/maths/colour.hh>
 #include <vull/maths/common.hh>
-#include <vull/maths/random.hh>
 #include <vull/maths/vec.hh>
 #include <vull/physics/collider.hh>
 #include <vull/physics/physics_engine.hh>
@@ -60,202 +59,228 @@
 
 using namespace vull;
 
-static void sandbox_main(bool enable_validation, StringView scene_name) {
-    Window window({}, {}, true);
-    vk::Context context(enable_validation);
-    auto swapchain = window.create_swapchain(context, vk::SwapchainMode::LowPower);
+namespace {
 
-    Scene scene;
-    scene.load(scene_name);
+class Sandbox {
+    Window m_window;
+    vk::Context m_context;
+    vk::Swapchain m_swapchain;
+    FramePacer m_frame_pacer;
+    vk::QueryPool m_pipeline_statistics_pool;
+    DeferredRenderer m_deferred_renderer;
+    DefaultRenderer m_default_renderer;
+    SkyboxRenderer m_skybox_renderer;
+    ui::Style m_ui_style;
+    ui::Tree m_ui_tree;
+    ui::Renderer m_ui_renderer;
+    ui::FontAtlas m_font_atlas;
 
-    DeferredRenderer deferred_renderer(context, swapchain.extent_3D());
-    DefaultRenderer default_renderer(context, swapchain.extent_3D());
-    default_renderer.load_scene(scene);
+    ui::TimeGraph *m_cpu_time_graph;
+    ui::TimeGraph *m_gpu_time_graph;
+    ui::Slider *m_exposure_slider;
+    ui::Slider *m_fov_slider;
+    Vector<ui::Label &> m_pipeline_statistics_labels;
 
-    SkyboxRenderer skybox_renderer(context);
-    if (auto stream = vpak::open("/skybox")) {
-        skybox_renderer.load(*stream);
-    }
+    FreeCamera m_free_camera;
+    Timer m_frame_timer;
+    PhysicsEngine m_physics_engine;
+    Scene m_scene;
 
-    auto main_font = VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18));
-    auto monospace_font = VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18));
-    ui::Style ui_style(vull::move(main_font), vull::move(monospace_font));
-    ui::Tree ui_tree(ui_style, window.ppcm());
-    ui::Renderer ui_renderer(context);
-    ui::FontAtlas atlas(context, Vec2u(512, 512));
+public:
+    Sandbox(bool enable_validation);
 
-    auto &world = scene.world();
-    world.register_component<RigidBody>();
-    world.register_component<Collider>();
+    void load_scene(StringView scene_name);
+    void render_frame();
+    void start_loop();
+};
 
-    FreeCamera free_camera(window.aspect_ratio());
-    free_camera.set_position(50.0f);
-    free_camera.set_pitch(-0.2f);
-    free_camera.set_yaw(-2.0f);
-    free_camera.handle_mouse_move({});
-
-    bool mouse_visible = false;
-    window.on_mouse_release(MouseButton::Middle, [&](Vec2f) {
-        mouse_visible = !mouse_visible;
-        mouse_visible ? window.show_cursor() : window.hide_cursor();
+Sandbox::Sandbox(bool enable_validation)
+    : m_window({}, {}, true), m_context(enable_validation),
+      m_swapchain(m_window.create_swapchain(m_context, vk::SwapchainMode::LowPower)), m_frame_pacer(m_swapchain, 2),
+      m_pipeline_statistics_pool(m_context, m_frame_pacer.queue_length(),
+                                 vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
+                                     vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
+                                     vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
+                                     vkb::QueryPipelineStatisticFlags::FragmentShaderInvocations |
+                                     vkb::QueryPipelineStatisticFlags::ComputeShaderInvocations),
+      m_deferred_renderer(m_context, m_swapchain.extent_3D()), m_default_renderer(m_context, m_swapchain.extent_3D()),
+      m_skybox_renderer(m_context), m_ui_style(VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18)),
+                                               VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18))),
+      m_ui_tree(m_ui_style, m_window.ppcm()), m_ui_renderer(m_context), m_font_atlas(m_context, Vec2u(512, 512)),
+      m_free_camera(m_window.aspect_ratio()) {
+    m_window.on_mouse_release(MouseButton::Middle, [this](Vec2f) {
+        m_window.cursor_hidden() ? m_window.show_cursor() : m_window.hide_cursor();
     });
 
     // TODO: Delta and position shouldn't be floats.
-    window.on_mouse_move([&](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
-        if (!window.cursor_hidden()) {
-            ui_tree.handle_mouse_move(delta, position, buttons);
+    m_window.on_mouse_move([this](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
+        if (!m_window.cursor_hidden()) {
+            m_ui_tree.handle_mouse_move(delta, position, buttons);
             return;
         }
-        free_camera.handle_mouse_move(delta);
+        m_free_camera.handle_mouse_move(delta);
     });
-    window.on_mouse_press(MouseButton::Left, [&](Vec2f) {
-        if (!window.cursor_hidden()) {
-            ui_tree.handle_mouse_press(MouseButton::Left);
+    m_window.on_mouse_press(MouseButton::Left, [this](Vec2f) {
+        if (!m_window.cursor_hidden()) {
+            m_ui_tree.handle_mouse_press(MouseButton::Left);
         }
     });
-    window.on_mouse_release(MouseButton::Left, [&](Vec2f) {
-        if (!window.cursor_hidden()) {
-            ui_tree.handle_mouse_release(MouseButton::Left);
+    m_window.on_mouse_release(MouseButton::Left, [this](Vec2f) {
+        if (!m_window.cursor_hidden()) {
+            m_ui_tree.handle_mouse_release(MouseButton::Left);
         }
     });
 
-    FramePacer frame_pacer(swapchain, 2);
-    PhysicsEngine physics_engine;
-    vull::seed_rand(5);
-
-    auto &screen_pane = ui_tree.set_root<ui::ScreenPane>();
+    auto &screen_pane = m_ui_tree.set_root<ui::ScreenPane>();
     auto &main_window = screen_pane.add_child<ui::Window>("Main");
-    auto &cpu_time_graph =
-        main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
-    auto &gpu_time_graph =
-        main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
+    m_cpu_time_graph =
+        &main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.4f, 0.6f, 0.5f), "CPU time");
+    m_gpu_time_graph =
+        &main_window.content_pane().add_child<ui::TimeGraph>(Colour::from_rgb(0.8f, 0.5f, 0.7f), "GPU time");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
-    quit_button.set_on_release([&] {
-        window.close();
+    quit_button.set_on_release([this] {
+        m_window.close();
     });
 
     auto &pipeline_statistics_window = screen_pane.add_child<ui::Window>("Pipeline statistics");
-    Vector<ui::Label &> pipeline_statistics_labels;
     for (uint32_t i = 0; i < 5; i++) {
         auto &label = pipeline_statistics_window.content_pane().add_child<ui::Label>();
         label.set_align(ui::Align::Right);
-        label.set_font(ui_style.monospace_font());
-        pipeline_statistics_labels.push(label);
+        label.set_font(m_ui_style.monospace_font());
+        m_pipeline_statistics_labels.push(label);
     }
 
     auto &camera_window = screen_pane.add_child<ui::Window>("Camera settings");
     camera_window.content_pane().add_child<ui::Label>("Exposure");
-    auto &exposure_slider = camera_window.content_pane().add_child<ui::Slider>(0.0f, 20.0f);
+    m_exposure_slider = &camera_window.content_pane().add_child<ui::Slider>(0.0f, 20.0f);
     camera_window.content_pane().add_child<ui::Label>("FOV");
-    auto &fov_slider = camera_window.content_pane().add_child<ui::Slider>(0.0f, 180.0f);
-    exposure_slider.set_value(5.0f);
-    fov_slider.set_value(90.0f);
+    m_fov_slider = &camera_window.content_pane().add_child<ui::Slider>(0.0f, 180.0f);
+    m_exposure_slider->set_value(5.0f);
+    m_fov_slider->set_value(90.0f);
 
-    vk::QueryPool pipeline_statistics_pool(context, frame_pacer.queue_length(),
-                                           vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
-                                               vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
-                                               vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
-                                               vkb::QueryPipelineStatisticFlags::FragmentShaderInvocations |
-                                               vkb::QueryPipelineStatisticFlags::ComputeShaderInvocations);
-
-    Timer frame_timer;
-    cpu_time_graph.new_bar();
-    while (!window.should_close()) {
-        Timer acquire_frame_timer;
-        auto &frame = frame_pacer.request_frame();
-        cpu_time_graph.push_section("acquire-frame", acquire_frame_timer.elapsed());
-
-        float dt = frame_timer.elapsed();
-        frame_timer.reset();
-
-        // Poll input.
-        window.poll_events();
-
-        // Collect previous frame N's timestamp data.
-        const auto pass_times = frame.pass_times();
-        gpu_time_graph.new_bar();
-        for (const auto &[name, time] : pass_times) {
-            if (name != "submit") {
-                gpu_time_graph.push_section(name, time);
-            }
-        }
-
-        // Collect pipeline statistics.
-        constexpr Array pipeline_statistics_strings{
-            "Assembled vertices: {d8 }", "Assembled primitives: {d8 }", "VS invocations: {d8 }",
-            "FS invocations: {d8 }",     "CS invocations: {d8 }",
-        };
-        Array<uint64_t, 5> pipeline_statistics{};
-        pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1, frame_pacer.frame_index());
-        for (uint32_t i = 0; i < pipeline_statistics.size(); i++) {
-            static_cast<ui::Label &>(pipeline_statistics_labels[i])
-                .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
-        }
-
-        // Step physics.
-        Timer physics_timer;
-        physics_engine.step(world, dt);
-        cpu_time_graph.push_section("step-physics", physics_timer.elapsed());
-
-        // Update camera.
-        free_camera.update(window, dt);
-
-        Timer ui_timer;
-        ui::Painter ui_painter;
-        ui_painter.bind_atlas(atlas);
-        ui_tree.render(ui_painter);
-        cpu_time_graph.new_bar();
-        cpu_time_graph.push_section("render-ui", ui_timer.elapsed());
-
-        deferred_renderer.set_exposure(exposure_slider.value());
-        default_renderer.set_cull_view_locked(window.is_key_pressed(Key::H));
-        default_renderer.set_camera(free_camera);
-        free_camera.set_fov(fov_slider.value() * (vull::pi<float> / 180.0f));
-
-        Timer build_rg_timer;
-        auto &graph = frame.new_graph(context);
-        auto output_id = graph.import("output-image", swapchain.image(frame_pacer.image_index()));
-
-        auto gbuffer = deferred_renderer.create_gbuffer(graph);
-        auto frame_ubo = default_renderer.build_pass(graph, gbuffer);
-        deferred_renderer.build_pass(graph, gbuffer, frame_ubo, output_id);
-        skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
-        ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
-
-        graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
-        cpu_time_graph.push_section("build-rg", build_rg_timer.elapsed());
-
-        Timer compile_rg_timer;
-        graph.compile(output_id);
-        cpu_time_graph.push_section("compile-rg", compile_rg_timer.elapsed());
-
-        Timer execute_rg_timer;
-        auto queue = context.lock_queue(vk::QueueKind::Graphics);
-        auto &cmd_buf = queue->request_cmd_buf();
-        cmd_buf.reset_query(pipeline_statistics_pool, frame_pacer.frame_index());
-        cmd_buf.begin_query(pipeline_statistics_pool, frame_pacer.frame_index());
-        graph.execute(cmd_buf, true);
-        cmd_buf.end_query(pipeline_statistics_pool, frame_pacer.frame_index());
-
-        Array signal_semaphores{
-            vkb::SemaphoreSubmitInfo{
-                .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = *frame.present_semaphore(),
-                .stageMask = vkb::PipelineStage2::AllCommands,
-            },
-        };
-        Array wait_semaphores{
-            vkb::SemaphoreSubmitInfo{
-                .sType = vkb::StructureType::SemaphoreSubmitInfo,
-                .semaphore = *frame.acquire_semaphore(),
-                .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
-            },
-        };
-        queue->submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
-        cpu_time_graph.push_section("execute-rg", execute_rg_timer.elapsed());
-    }
-    context.vkDeviceWaitIdle();
+    m_cpu_time_graph->new_bar();
 }
+
+void Sandbox::load_scene(StringView scene_name) {
+    m_scene.load(scene_name);
+    m_default_renderer.load_scene(m_scene);
+    if (auto skybox = vpak::open("/skybox")) {
+        m_skybox_renderer.load(*skybox);
+    }
+
+    m_free_camera.set_position(50.0f);
+    m_free_camera.set_pitch(-0.2f);
+    m_free_camera.set_yaw(-2.0f);
+    m_free_camera.handle_mouse_move({});
+
+    auto &world = m_scene.world();
+    world.register_component<RigidBody>();
+    world.register_component<Collider>();
+}
+
+void Sandbox::render_frame() {
+    Timer acquire_frame_timer;
+    auto &frame = m_frame_pacer.request_frame();
+    m_cpu_time_graph->push_section("acquire-frame", acquire_frame_timer.elapsed());
+
+    float dt = m_frame_timer.elapsed();
+    m_frame_timer.reset();
+
+    // Poll input.
+    m_window.poll_events();
+
+    // Collect previous frame N's timestamp data.
+    const auto pass_times = frame.pass_times();
+    m_gpu_time_graph->new_bar();
+    for (const auto &[name, time] : pass_times) {
+        if (name != "submit") {
+            m_gpu_time_graph->push_section(name, time);
+        }
+    }
+
+    // Collect pipeline statistics.
+    constexpr Array pipeline_statistics_strings{
+        "Assembled vertices: {d8 }", "Assembled primitives: {d8 }", "VS invocations: {d8 }",
+        "FS invocations: {d8 }",     "CS invocations: {d8 }",
+    };
+    Array<uint64_t, 5> pipeline_statistics{};
+    m_pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1, m_frame_pacer.frame_index());
+    for (uint32_t i = 0; i < pipeline_statistics.size(); i++) {
+        static_cast<ui::Label &>(m_pipeline_statistics_labels[i])
+            .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
+    }
+
+    // Step physics.
+    Timer physics_timer;
+    m_physics_engine.step(m_scene.world(), dt);
+    m_cpu_time_graph->push_section("step-physics", physics_timer.elapsed());
+
+    // Update camera.
+    m_free_camera.update(m_window, dt);
+
+    Timer ui_timer;
+    ui::Painter ui_painter;
+    ui_painter.bind_atlas(m_font_atlas);
+    m_ui_tree.render(ui_painter);
+    m_cpu_time_graph->new_bar();
+    m_cpu_time_graph->push_section("render-ui", ui_timer.elapsed());
+
+    m_deferred_renderer.set_exposure(m_exposure_slider->value());
+    m_default_renderer.set_cull_view_locked(m_window.is_key_pressed(Key::H));
+    m_default_renderer.set_camera(m_free_camera);
+    m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
+
+    Timer build_rg_timer;
+    auto &graph = frame.new_graph(m_context);
+    auto output_id = graph.import("output-image", m_swapchain.image(m_frame_pacer.image_index()));
+
+    auto gbuffer = m_deferred_renderer.create_gbuffer(graph);
+    auto frame_ubo = m_default_renderer.build_pass(graph, gbuffer);
+    m_deferred_renderer.build_pass(graph, gbuffer, frame_ubo, output_id);
+    m_skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
+    m_ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
+
+    graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
+    m_cpu_time_graph->push_section("build-rg", build_rg_timer.elapsed());
+
+    Timer compile_rg_timer;
+    graph.compile(output_id);
+    m_cpu_time_graph->push_section("compile-rg", compile_rg_timer.elapsed());
+
+    Timer execute_rg_timer;
+    auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
+    auto &cmd_buf = queue->request_cmd_buf();
+    cmd_buf.reset_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
+    cmd_buf.begin_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
+    graph.execute(cmd_buf, true);
+    cmd_buf.end_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
+
+    Array signal_semaphores{
+        vkb::SemaphoreSubmitInfo{
+            .sType = vkb::StructureType::SemaphoreSubmitInfo,
+            .semaphore = *frame.present_semaphore(),
+            .stageMask = vkb::PipelineStage2::AllCommands,
+        },
+    };
+    Array wait_semaphores{
+        vkb::SemaphoreSubmitInfo{
+            .sType = vkb::StructureType::SemaphoreSubmitInfo,
+            .semaphore = *frame.acquire_semaphore(),
+            .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
+        },
+    };
+    queue->submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
+    m_cpu_time_graph->push_section("execute-rg", execute_rg_timer.elapsed());
+}
+
+void Sandbox::start_loop() {
+    while (!m_window.should_close()) {
+        render_frame();
+    }
+    m_context.vkDeviceWaitIdle();
+}
+
+} // namespace
 
 int main(int argc, char **argv) {
     bool enable_validation = false;
@@ -265,6 +290,8 @@ int main(int argc, char **argv) {
     args_parser.add_flag(enable_validation, "Enable vulkan validation layer", "enable-vvl");
     args_parser.add_argument(scene_name, "scene-name", true);
     return vull::start_application(argc, argv, args_parser, [&] {
-        sandbox_main(enable_validation, scene_name);
+        Sandbox sandbox(enable_validation);
+        sandbox.load_scene(scene_name);
+        sandbox.start_loop();
     });
 }
