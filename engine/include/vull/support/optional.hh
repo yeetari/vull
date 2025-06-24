@@ -64,6 +64,7 @@ public:
     Optional &operator=(const Optional &) = default;
     Optional &operator=(Optional &&);
 
+    bool operator==(const T *ptr) const { return m_ptr == ptr; }
     T value_or(T fallback) const;
 
     explicit operator bool() const { return m_ptr != nullptr; }
