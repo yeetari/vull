@@ -29,11 +29,11 @@ Optional<HitResult> Element::hit_test(LayoutPoint point) {
 }
 
 bool Element::is_active_element() const {
-    return m_tree.active_element().ptr() == this;
+    return m_tree.active_element() == this;
 }
 
 bool Element::is_hovered() const {
-    return m_tree.hovered_element().ptr() == this;
+    return m_tree.hovered_element() == this;
 }
 
 Style &Element::style() const {

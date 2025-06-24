@@ -40,7 +40,7 @@ void Tree::update_hover() {
     m_hovered_relative_position = hit_result->relative_position;
 
     auto &hovered_element = hit_result->element;
-    if (&hovered_element == m_hovered_element.ptr()) {
+    if (&hovered_element == m_hovered_element) {
         // Same element hovered.
         return;
     }
@@ -58,10 +58,10 @@ void Tree::update_hover() {
 }
 
 void Tree::handle_element_destruct(Element &element) {
-    if (m_active_element.ptr() == &element) {
+    if (m_active_element == &element) {
         unset_active_element();
     }
-    if (m_hovered_element.ptr() == &element) {
+    if (m_hovered_element == &element) {
         unset_hovered_element();
     }
 }
