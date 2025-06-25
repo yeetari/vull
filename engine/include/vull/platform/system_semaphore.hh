@@ -7,10 +7,10 @@
 namespace vull {
 
 class SystemSemaphore {
-    Atomic<uint64_t> m_data{0};
+    Atomic<uint64_t> m_data;
 
 public:
-    SystemSemaphore() = default;
+    SystemSemaphore(uint32_t value = 0) : m_data(value) {}
     SystemSemaphore(const SystemSemaphore &) = delete;
     SystemSemaphore(SystemSemaphore &&) = delete;
     ~SystemSemaphore() = default;
