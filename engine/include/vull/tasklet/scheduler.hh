@@ -25,7 +25,7 @@ class TaskletQueue;
 class Scheduler {
     Vector<Thread> m_worker_threads;
     UniquePtr<TaskletQueue> m_queue;
-    SystemSemaphore m_work_available;
+    SystemSemaphore m_work_available{1};
     Atomic<bool> m_running;
 
 public:

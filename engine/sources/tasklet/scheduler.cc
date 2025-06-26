@@ -55,7 +55,9 @@ Scheduler::~Scheduler() {
 
 void Scheduler::join() {
     m_running.store(false, vull::memory_order_release);
-    m_work_available.release();
+    for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
+        m_work_available.post();
+    }
     m_worker_threads.clear();
 }
 
@@ -70,11 +72,7 @@ static Tasklet *pick_next() {
         if (!s_scheduler->is_running() && s_queue->empty()) {
             Thread::exit();
         }
-
         next = s_queue->dequeue();
-        if (next == nullptr) {
-            s_work_available->post();
-        }
     }
 
     if (next->state() == TaskletState::Uninitialised) {
@@ -128,7 +126,6 @@ bool Scheduler::start(Tasklet *tasklet) {
             s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
             vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
-            s_work_available->post();
             auto *next = pick_next();
             vull_load_context(s_current_tasklet = next, nullptr);
         }));
@@ -142,10 +139,10 @@ bool Scheduler::start(Tasklet *tasklet) {
 
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT_PEDANTIC(s_queue != nullptr);
-    s_work_available->post();
     while (!s_queue->enqueue(tasklet)) {
         yield();
     }
+    s_work_available->post();
 }
 
 void suspend() {
@@ -160,6 +157,7 @@ void yield() {
     }
     [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
     VULL_ASSERT(success);
+    s_work_available->post();
 
     VULL_ASSERT(s_to_schedule == nullptr);
     s_to_schedule = dequeued;
