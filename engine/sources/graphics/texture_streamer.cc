@@ -141,6 +141,7 @@ TextureStreamer::~TextureStreamer() {
     // Wait for any in progress uploads to complete.
     // TODO: A more sophisticated way of doing this.
     while (m_in_progress.load() != 0) {
+        tasklet::yield();
     }
 }
 
