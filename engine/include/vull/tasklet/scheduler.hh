@@ -26,6 +26,7 @@ class Scheduler {
     Vector<Thread> m_worker_threads;
     UniquePtr<TaskletQueue> m_queue;
     SystemSemaphore m_work_available{1};
+    Atomic<uint32_t> m_alive_worker_count;
     Atomic<bool> m_running;
 
 public:
@@ -39,6 +40,7 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
     Scheduler &operator=(Scheduler &&) = delete;
 
+    void decrease_worker_count() { m_alive_worker_count.fetch_sub(1); }
     void join();
     template <TaskletSize Size = TaskletSize::Normal, typename F>
     auto run(F &&callable);

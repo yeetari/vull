@@ -55,7 +55,7 @@ Scheduler::~Scheduler() {
 
 void Scheduler::join() {
     m_running.store(false, vull::memory_order_release);
-    for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
+    while (m_alive_worker_count.load() != 0) {
         m_work_available.post();
     }
     m_worker_threads.clear();
@@ -70,6 +70,7 @@ static Tasklet *pick_next() {
     while (next == nullptr) {
         s_work_available->wait();
         if (!s_scheduler->is_running() && s_queue->empty()) {
+            s_scheduler->decrease_worker_count();
             Thread::exit();
         }
         next = s_queue->dequeue();
@@ -126,6 +127,7 @@ bool Scheduler::start(Tasklet *tasklet) {
             s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
             vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
 
+            m_alive_worker_count.fetch_add(1);
             auto *next = pick_next();
             vull_load_context(s_current_tasklet = next, nullptr);
         }));
