@@ -74,6 +74,9 @@ using MouseMoveCallback = void(Vec2f delta, Vec2f position, MouseButtonMask butt
 inline constexpr MouseButtonMask operator-(MouseButtonMask mask) {
     return static_cast<MouseButtonMask>(-static_cast<uint32_t>(mask));
 }
+inline constexpr MouseButtonMask operator~(MouseButtonMask mask) {
+    return static_cast<MouseButtonMask>(~static_cast<uint32_t>(mask));
+}
 inline constexpr MouseButtonMask operator&(MouseButtonMask lhs, MouseButtonMask rhs) {
     return static_cast<MouseButtonMask>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }

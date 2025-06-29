@@ -8,6 +8,7 @@ target_sources(vull PRIVATE
     json/tree.cc
     maths/colour.cc
     maths/random.cc
+    platform/common.cc
     platform/linux.cc
     scene/scene.cc
     scene/transform.cc
@@ -104,5 +105,5 @@ endif()
 
 if(VULL_BUILD_X11_WINDOW)
     target_sources(vull PRIVATE
-        core/window.cc)
+        platform/x11.cc)
 endif()

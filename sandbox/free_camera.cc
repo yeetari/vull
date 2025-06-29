@@ -1,15 +1,15 @@
 #include "free_camera.hh"
 
 #include <vull/core/input.hh>
-#include <vull/core/window.hh>
 #include <vull/maths/common.hh>
 #include <vull/maths/mat.hh>
 #include <vull/maths/projection.hh>
 #include <vull/maths/vec.hh>
+#include <vull/platform/window.hh>
 
 namespace {
 
-constexpr float k_mouse_sensitivity = 0.0008f;
+constexpr float k_mouse_sensitivity = 0.001f;
 constexpr vull::Vec3f k_world_up(0.0f, 1.0f, 0.0f);
 
 } // namespace

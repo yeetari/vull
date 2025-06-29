@@ -10,7 +10,8 @@ if(VULL_BUILD_UI)
 endif()
 
 if(VULL_BUILD_X11_WINDOW)
-    target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_util X11::xkbcommon X11::xkbcommon_X11)
+    target_compile_definitions(vull PUBLIC VULL_BUILD_X11_WINDOW)
+    target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_xinput X11::xkbcommon X11::xkbcommon_X11)
 endif()
 
 # Separate shaderc library. This is a separate library rather than a component since you'd likely want the shader

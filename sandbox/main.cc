@@ -5,7 +5,6 @@
 #include <vull/container/vector.hh>
 #include <vull/core/application.hh>
 #include <vull/core/input.hh>
-#include <vull/core/window.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/default_renderer.hh>
 #include <vull/graphics/deferred_renderer.hh>
@@ -19,6 +18,7 @@
 #include <vull/physics/physics_engine.hh>
 #include <vull/physics/rigid_body.hh>
 #include <vull/platform/timer.hh>
+#include <vull/platform/window.hh>
 #include <vull/scene/scene.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
@@ -62,7 +62,7 @@ using namespace vull;
 namespace {
 
 class Sandbox {
-    Window m_window;
+    UniquePtr<Window> m_window;
     vk::Context m_context;
     vk::Swapchain m_swapchain;
     FramePacer m_frame_pacer;
@@ -85,6 +85,7 @@ class Sandbox {
     Timer m_frame_timer;
     PhysicsEngine m_physics_engine;
     Scene m_scene;
+    bool m_should_close{false};
 
 public:
     Sandbox(bool enable_validation);
@@ -95,8 +96,9 @@ public:
 };
 
 Sandbox::Sandbox(bool enable_validation)
-    : m_window({}, {}, true), m_context(enable_validation),
-      m_swapchain(m_window.create_swapchain(m_context, vk::SwapchainMode::LowPower)), m_frame_pacer(m_swapchain, 2),
+    : m_window(VULL_EXPECT(Window::create(vull::nullopt, vull::nullopt, true))), m_context(enable_validation),
+      m_swapchain(VULL_EXPECT(m_window->create_swapchain(m_context, vk::SwapchainMode::LowPower))),
+      m_frame_pacer(m_swapchain, 2),
       m_pipeline_statistics_pool(m_context, m_frame_pacer.queue_length(),
                                  vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                      vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
@@ -106,27 +108,31 @@ Sandbox::Sandbox(bool enable_validation)
       m_deferred_renderer(m_context, m_swapchain.extent_3D()), m_default_renderer(m_context, m_swapchain.extent_3D()),
       m_skybox_renderer(m_context), m_ui_style(VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18)),
                                                VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18))),
-      m_ui_tree(m_ui_style, m_window.ppcm()), m_ui_renderer(m_context), m_font_atlas(m_context, Vec2u(512, 512)),
-      m_free_camera(m_window.aspect_ratio()) {
-    m_window.on_mouse_release(MouseButton::Middle, [this](Vec2f) {
-        m_window.cursor_hidden() ? m_window.show_cursor() : m_window.hide_cursor();
+      m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(m_context), m_font_atlas(m_context, Vec2u(512, 512)),
+      m_free_camera(m_window->aspect_ratio()) {
+    m_window->grab_cursor();
+    m_window->on_close([this] {
+        m_should_close = true;
+    });
+    m_window->on_mouse_release(MouseButton::Middle, [this](Vec2f) {
+        m_window->cursor_grabbed() ? m_window->ungrab_cursor() : m_window->grab_cursor();
     });
 
     // TODO: Delta and position shouldn't be floats.
-    m_window.on_mouse_move([this](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
-        if (!m_window.cursor_hidden()) {
+    m_window->on_mouse_move([this](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
+        if (!m_window->cursor_grabbed()) {
             m_ui_tree.handle_mouse_move(delta, position, buttons);
             return;
         }
         m_free_camera.handle_mouse_move(delta);
     });
-    m_window.on_mouse_press(MouseButton::Left, [this](Vec2f) {
-        if (!m_window.cursor_hidden()) {
+    m_window->on_mouse_press(MouseButton::Left, [this](Vec2f) {
+        if (!m_window->cursor_grabbed()) {
             m_ui_tree.handle_mouse_press(MouseButton::Left);
         }
     });
-    m_window.on_mouse_release(MouseButton::Left, [this](Vec2f) {
-        if (!m_window.cursor_hidden()) {
+    m_window->on_mouse_release(MouseButton::Left, [this](Vec2f) {
+        if (!m_window->cursor_grabbed()) {
             m_ui_tree.handle_mouse_release(MouseButton::Left);
         }
     });
@@ -139,7 +145,7 @@ Sandbox::Sandbox(bool enable_validation)
     main_window.content_pane().add_child<ui::Label>("F4 for camera settings");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([this] {
-        m_window.close();
+        m_should_close = true;
     });
 
     auto &graphs_window = screen_pane.add_child<ui::Window>("Graphs");
@@ -167,16 +173,16 @@ Sandbox::Sandbox(bool enable_validation)
     m_exposure_slider->set_value(5.0f);
     m_fov_slider->set_value(90.0f);
 
-    m_window.on_key_release(Key::F1, [&](ModifierMask) {
+    m_window->on_key_release(Key::F1, [&](ModifierMask) {
         main_window.set_visible(!main_window.is_visible());
     });
-    m_window.on_key_release(Key::F2, [&](ModifierMask) {
+    m_window->on_key_release(Key::F2, [&](ModifierMask) {
         graphs_window.set_visible(!graphs_window.is_visible());
     });
-    m_window.on_key_release(Key::F3, [&](ModifierMask) {
+    m_window->on_key_release(Key::F3, [&](ModifierMask) {
         pipeline_statistics_window.set_visible(!pipeline_statistics_window.is_visible());
     });
-    m_window.on_key_release(Key::F4, [&](ModifierMask) {
+    m_window->on_key_release(Key::F4, [&](ModifierMask) {
         camera_window.set_visible(!camera_window.is_visible());
     });
 
@@ -209,7 +215,7 @@ void Sandbox::render_frame() {
     m_frame_timer.reset();
 
     // Poll input.
-    m_window.poll_events();
+    m_window->poll_events();
 
     // Collect previous frame N's timestamp data.
     const auto pass_times = frame.pass_times();
@@ -238,7 +244,7 @@ void Sandbox::render_frame() {
     m_cpu_time_graph->push_section("step-physics", physics_timer.elapsed());
 
     // Update camera.
-    m_free_camera.update(m_window, dt);
+    m_free_camera.update(*m_window, dt);
 
     Timer ui_timer;
     ui::Painter ui_painter;
@@ -248,7 +254,7 @@ void Sandbox::render_frame() {
     m_cpu_time_graph->push_section("render-ui", ui_timer.elapsed());
 
     m_deferred_renderer.set_exposure(m_exposure_slider->value());
-    m_default_renderer.set_cull_view_locked(m_window.is_key_pressed(Key::H));
+    m_default_renderer.set_cull_view_locked(m_window->is_key_pressed(Key::H));
     m_default_renderer.set_camera(m_free_camera);
     m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
 
@@ -296,7 +302,7 @@ void Sandbox::render_frame() {
 }
 
 void Sandbox::start_loop() {
-    while (!m_window.should_close()) {
+    while (!m_should_close) {
         render_frame();
     }
     m_context.vkDeviceWaitIdle();
