@@ -42,6 +42,7 @@ RUN apt-get update \
       libxcb-randr0-dev \
       libxcb-util-dev \
       libxcb-xkb-dev \
+      libxcb-xinput-dev \
       libxkbcommon-dev \
       libxkbcommon-x11-dev \
       libxxhash-dev \
