@@ -69,11 +69,13 @@ static Tasklet *pick_next() {
     auto *next = vull::exchange(s_to_schedule, nullptr);
     while (next == nullptr) {
         s_work_available->wait();
-        if (!s_scheduler->is_running() && s_queue->empty()) {
-            s_scheduler->decrease_worker_count();
-            Thread::exit();
-        }
-        next = s_queue->dequeue();
+        do {
+            if (!s_scheduler->is_running() && s_queue->empty()) {
+                s_scheduler->decrease_worker_count();
+                Thread::exit();
+            }
+            next = s_queue->dequeue();
+        } while (next == nullptr && !s_queue->empty());
     }
 
     if (next->state() == TaskletState::Uninitialised) {
