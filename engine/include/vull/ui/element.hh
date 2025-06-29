@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vull/support/enum.hh>
+#include <vull/support/flag_bitset.hh>
 #include <vull/support/optional.hh>
 #include <vull/ui/units.hh>
 
@@ -27,10 +27,12 @@ enum class Align : uint8_t {
     Right,
 };
 
-enum class ElementFlags : uint8_t {
+enum class ElementFlag : uint8_t {
     None = 0,
-    Visible = 1u << 0u,
+    Visible,
 };
+
+using ElementFlags = FlagBitset<ElementFlag>;
 
 class Element {
     Tree &m_tree;
@@ -42,7 +44,7 @@ class Element {
 
     LayoutPoint m_offset_in_parent;
     LayoutSize m_computed_size;
-    ElementFlags m_flags{ElementFlags::Visible};
+    ElementFlags m_flags{ElementFlag::Visible};
 
 public:
     Element(Tree &tree, Optional<Element &> parent) : m_tree(tree), m_parent(parent) {}
@@ -99,7 +101,5 @@ public:
     LayoutPoint offset_in_parent() const { return m_offset_in_parent; }
     ElementFlags flags() const { return m_flags; }
 };
-
-VULL_DEFINE_FLAG_ENUM_OPS(ElementFlags)
 
 } // namespace vull::ui

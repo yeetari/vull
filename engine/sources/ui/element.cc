@@ -1,7 +1,6 @@
 #include <vull/ui/element.hh>
 
 #include <vull/support/optional.hh>
-#include <vull/support/utility.hh>
 #include <vull/ui/tree.hh>
 #include <vull/ui/units.hh>
 
@@ -30,10 +29,10 @@ Optional<HitResult> Element::hit_test(LayoutPoint point) {
 
 void Element::set_visible(bool visible) {
     if (visible) {
-        m_flags |= ElementFlags::Visible;
+        m_flags.set(ElementFlag::Visible);
         m_tree.handle_element_show(*this);
     } else {
-        m_flags &= ~ElementFlags::Visible;
+        m_flags.unset(ElementFlag::Visible);
         m_tree.handle_element_hide(*this);
     }
 }
@@ -47,7 +46,7 @@ bool Element::is_hovered() const {
 }
 
 bool Element::is_visible() const {
-    return (m_flags & ElementFlags::Visible) != ElementFlags::None;
+    return m_flags.is_set(ElementFlag::Visible);
 }
 
 Style &Element::style() const {
