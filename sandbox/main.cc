@@ -268,7 +268,7 @@ void Sandbox::render_frame() {
     m_skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
     m_ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));
 
-    graph.add_pass("submit", vk::PassFlags::None).read(output_id, vk::ReadFlags::Present);
+    graph.add_pass("submit", vk::PassFlag::None).read(output_id, vk::ReadFlag::Present);
     m_cpu_time_graph->push_section("build-rg", build_rg_timer.elapsed());
 
     Timer compile_rg_timer;

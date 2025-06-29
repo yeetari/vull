@@ -4,6 +4,7 @@
 #include <vull/container/vector.hh>
 #include <vull/maths/common.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/flag_bitset.hh>
 #include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/string.hh>
@@ -41,7 +42,7 @@ void Pass::add_transition(const Transition &transition) {
 
 Pass &Pass::read(ResourceId &id, ReadFlags flags) {
     m_reads.push(vull::make_tuple(id, flags));
-    if ((flags & ReadFlags::Present) != ReadFlags::None) {
+    if (flags.is_set(ReadFlag::Present)) {
         // Create a new handle so that a present pass can be the target pass for compilation.
         id = m_graph.clone_resource(id, *this);
     }
@@ -49,9 +50,9 @@ Pass &Pass::read(ResourceId &id, ReadFlags flags) {
 }
 
 Pass &Pass::write(ResourceId &id, WriteFlags flags) {
-    if ((flags & WriteFlags::Additive) != WriteFlags::None) {
+    if (flags.is_set(WriteFlag::Additive)) {
         // This pass doesn't fully overwrite the resource.
-        m_reads.push(vull::make_tuple(id, ReadFlags::Additive));
+        m_reads.push(vull::make_tuple(id, ReadFlags(ReadFlag::Additive)));
     }
     id = m_graph.clone_resource(id, *this);
     m_writes.push(vull::make_tuple(id, flags));
@@ -63,7 +64,7 @@ Pass &RenderGraph::add_pass(String name, PassFlags flags) {
 }
 
 ResourceId RenderGraph::import(String name, const Buffer &buffer) {
-    return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Imported, [&buffer] {
+    return create_resource(vull::move(name), ResourceFlags(ResourceFlag::Buffer, ResourceFlag::Imported), [&buffer] {
         return &buffer;
     });
 }
@@ -82,9 +83,9 @@ static bool is_depth_stencil_format(vkb::Format format) {
 }
 
 ResourceId RenderGraph::import(String name, const Image &image) {
-    auto flags = ResourceFlags::Image | ResourceFlags::Imported;
+    ResourceFlags flags(ResourceFlag::Image, ResourceFlag::Imported);
     if (is_depth_stencil_format(image.format())) {
-        flags |= ResourceFlags::DepthStencil;
+        flags.set(ResourceFlag::DepthStencil);
     }
     return create_resource(vull::move(name), flags, [&image] {
         return &image;
@@ -92,9 +93,9 @@ ResourceId RenderGraph::import(String name, const Image &image) {
 }
 
 ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription &description) {
-    auto flags = ResourceFlags::Image | ResourceFlags::Uninitialised;
+    ResourceFlags flags(ResourceFlag::Image, ResourceFlag::Uninitialised);
     if (is_depth_stencil_format(description.format)) {
-        flags |= ResourceFlags::DepthStencil;
+        flags.set(ResourceFlag::DepthStencil);
     }
     return create_resource(vull::move(name), flags, [description, &context = m_context, image = vk::Image()]() mutable {
         vkb::ImageCreateInfo image_ci{
@@ -116,7 +117,7 @@ ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription 
 }
 
 ResourceId RenderGraph::new_buffer(String name, const BufferDescription &description) {
-    return create_resource(vull::move(name), ResourceFlags::Buffer | ResourceFlags::Uninitialised,
+    return create_resource(vull::move(name), ResourceFlags(ResourceFlag::Buffer, ResourceFlag::Uninitialised),
                            [description, &context = m_context, buffer = vk::Buffer()]() mutable {
         const auto memory_usage =
             description.host_accessible ? vk::MemoryUsage::HostToDevice : vk::MemoryUsage::DeviceOnly;
@@ -126,12 +127,12 @@ ResourceId RenderGraph::new_buffer(String name, const BufferDescription &descrip
 }
 
 const Buffer &RenderGraph::get_buffer(ResourceId id) {
-    VULL_ASSERT((virtual_resource(id).flags() & ResourceFlags::Kind) == ResourceFlags::Buffer);
+    VULL_ASSERT(virtual_resource(id).flags().is_set(ResourceFlag::Buffer));
     return *static_cast<const Buffer *>(physical_resource(id).materialised());
 }
 
 const Image &RenderGraph::get_image(ResourceId id) {
-    VULL_ASSERT((virtual_resource(id).flags() & ResourceFlags::Kind) == ResourceFlags::Image);
+    VULL_ASSERT(virtual_resource(id).flags().is_set(ResourceFlag::Image));
     return *static_cast<const Image *>(physical_resource(id).materialised());
 }
 
@@ -150,7 +151,9 @@ ResourceId RenderGraph::create_resource(String &&name, ResourceFlags flags, Func
 }
 
 ResourceId RenderGraph::clone_resource(ResourceId id, Pass &producer) {
-    const auto new_flags = virtual_resource(id).flags() & ~(ResourceFlags::Imported | ResourceFlags::Uninitialised);
+    auto new_flags = virtual_resource(id).flags();
+    new_flags.unset(ResourceFlag::Imported);
+    new_flags.unset(ResourceFlag::Uninitialised);
     m_resources.emplace(&producer, new_flags);
     return ResourceId(id.physical_index(), m_resources.size() - 1); // NOLINT
 }
@@ -165,8 +168,8 @@ void RenderGraph::build_order(ResourceId target) {
         // Traverse dependant passes (those that produce a resource we read from).
         for (auto [id, flags] : pass.reads()) {
             const auto &resource = virtual_resource(id);
-            VULL_ASSERT((resource.flags() & ResourceFlags::Uninitialised) == ResourceFlags::None);
-            if ((resource.flags() & ResourceFlags::Imported) != ResourceFlags::None) {
+            VULL_ASSERT(!resource.flags().is_set(ResourceFlag::Uninitialised));
+            if (resource.flags().is_set(ResourceFlag::Imported)) {
                 // Imported resources have no producer.
                 continue;
             }
@@ -180,20 +183,19 @@ void RenderGraph::build_order(ResourceId target) {
 void RenderGraph::build_sync() {
     // Build resource write info.
     for (auto &resource : m_resources) {
-        if ((resource.flags() & (ResourceFlags::Imported | ResourceFlags::Uninitialised)) != ResourceFlags::None) {
+        if (resource.flags().is_set(ResourceFlag::Imported) || resource.flags().is_set(ResourceFlag::Uninitialised)) {
             continue;
         }
 
         const auto &producer = resource.producer();
-        const auto pass_kind = producer.flags() & PassFlags::Kind;
-        if (pass_kind == PassFlags::Transfer) {
+        if (producer.flags().is_set(PassFlag::Transfer)) {
             resource.set_write_stage(vkb::PipelineStage2::AllTransfer);
             resource.set_write_access(vkb::Access2::TransferWrite);
             resource.set_write_layout(vkb::ImageLayout::TransferDstOptimal);
             continue;
         }
 
-        if (pass_kind == PassFlags::Compute) {
+        if (producer.flags().is_set(PassFlag::Compute)) {
             resource.set_write_stage(vkb::PipelineStage2::ComputeShader);
             resource.set_write_access(vkb::Access2::ShaderStorageWrite);
 
@@ -202,8 +204,7 @@ void RenderGraph::build_sync() {
             continue;
         }
 
-        const auto resource_kind = resource.flags() & ResourceFlags::Kind;
-        if (resource_kind == ResourceFlags::Buffer) {
+        if (resource.flags().is_set(ResourceFlag::Buffer)) {
             // A write to a buffer from a graphics pass could be from either shader type.
             // TODO: Gather more information to be more granular here.
             resource.set_write_stage(vkb::PipelineStage2::VertexShader | vkb::PipelineStage2::FragmentShader);
@@ -214,7 +215,7 @@ void RenderGraph::build_sync() {
         // Otherwise we have a write to an image from a graphics pass, which must be the output of a fragment shader.
         resource.set_write_layout(vkb::ImageLayout::AttachmentOptimal);
 
-        if ((resource.flags() & ResourceFlags::DepthStencil) != ResourceFlags::None) {
+        if (resource.flags().is_set(ResourceFlag::DepthStencil)) {
             resource.set_write_stage(vkb::PipelineStage2::EarlyFragmentTests | vkb::PipelineStage2::LateFragmentTests);
             resource.set_write_access(vkb::Access2::DepthStencilAttachmentRead |
                                       vkb::Access2::DepthStencilAttachmentWrite);
@@ -226,28 +227,28 @@ void RenderGraph::build_sync() {
 
     HashMap<uint16_t, vkb::ImageLayout> layout_map;
     for (Pass &pass : m_pass_order) {
-        if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
+        if (pass.flags().is_set(PassFlag::Transfer)) {
             pass.m_dst_stage |= vkb::PipelineStage2::AllTransfer;
             pass.m_dst_access |= vkb::Access2::TransferRead;
         }
 
         for (auto [id, flags] : pass.reads()) {
-            if ((flags & ReadFlags::Additive) != ReadFlags::None) {
+            if (flags.is_set(ReadFlag::Additive)) {
                 continue;
             }
             const auto &resource = virtual_resource(id);
-            if ((flags & ReadFlags::Indirect) != ReadFlags::None) {
+            if (flags.is_set(ReadFlag::Indirect)) {
                 pass.m_dst_stage |= vkb::PipelineStage2::DrawIndirect;
                 pass.m_dst_access |= vkb::Access2::IndirectCommandRead;
             }
-            if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
+            if (resource.flags().is_set(ResourceFlag::Image)) {
                 const auto current_layout = *layout_map.get(id.physical_index());
                 auto read_layout = vkb::ImageLayout::ReadOnlyOptimal;
                 auto dst_access = vkb::Access2::MemoryRead;
-                if ((flags & ReadFlags::Present) != ReadFlags::None) {
+                if (flags.is_set(ReadFlag::Present)) {
                     read_layout = vkb::ImageLayout::PresentSrcKHR;
                     dst_access = vkb::Access2::None;
-                } else if ((pass.flags() & PassFlags::Kind) == PassFlags::Transfer) {
+                } else if (pass.flags().is_set(PassFlag::Transfer)) {
                     read_layout = vkb::ImageLayout::TransferSrcOptimal;
                     dst_access = vkb::Access2::TransferRead;
                 }
@@ -272,7 +273,7 @@ void RenderGraph::build_sync() {
         for (auto [id, flags] : pass.writes()) {
             const auto &resource = virtual_resource(id);
             VULL_ASSERT(&resource.producer() == &pass);
-            if ((resource.flags() & ResourceFlags::Kind) == ResourceFlags::Image) {
+            if (resource.flags().is_set(ResourceFlag::Image)) {
                 const auto current_layout = layout_map.get(id.physical_index()).value_or(vkb::ImageLayout::Undefined);
                 if (current_layout == resource.write_layout()) {
                     continue;
@@ -374,13 +375,13 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
     }
 
     // Begin dynamic rendering state.
-    if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
+    if (pass.flags().is_set(PassFlag::Graphics)) {
         Vector<vkb::RenderingAttachmentInfo> colour_attachments;
         Optional<vkb::RenderingAttachmentInfo> depth_attachment;
         vkb::Extent2D extent{};
 
         auto consider_resource = [&](ResourceId id, vkb::AttachmentLoadOp load_op, vkb::AttachmentStoreOp store_op) {
-            if ((virtual_resource(id).flags() & ResourceFlags::Kind) != ResourceFlags::Image) {
+            if (!virtual_resource(id).flags().is_set(ResourceFlag::Image)) {
                 return;
             }
 
@@ -411,7 +412,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
         };
 
         for (auto [id, flags] : pass.reads()) {
-            if ((flags & (ReadFlags::Additive | ReadFlags::Sampled)) != ReadFlags::None) {
+            if (flags.is_set(ReadFlag::Additive) || flags.is_set(ReadFlag::Sampled)) {
                 // Ignore Additive reads as they are handled by vkb::AttachmentLoadOp::Load on the write side. Ignore
                 // non-attachment Sampled reads.
                 continue;
@@ -420,8 +421,8 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
         }
         for (auto [id, flags] : pass.writes()) {
             // TODO: How to choose Clear vs DontCare for load op?
-            const bool additive = (flags & WriteFlags::Additive) != WriteFlags::None;
-            consider_resource(id, additive ? vkb::AttachmentLoadOp::Load : vkb::AttachmentLoadOp::Clear,
+            const bool is_additive = flags.is_set(WriteFlag::Additive);
+            consider_resource(id, is_additive ? vkb::AttachmentLoadOp::Load : vkb::AttachmentLoadOp::Clear,
                               vkb::AttachmentStoreOp::Store);
         }
 
@@ -454,7 +455,7 @@ void RenderGraph::record_pass(CommandBuffer &cmd_buf, Pass &pass) {
         pass.m_on_execute(cmd_buf);
     }
 
-    if ((pass.flags() & PassFlags::Kind) == PassFlags::Graphics) {
+    if (pass.flags().is_set(PassFlag::Graphics)) {
         cmd_buf.end_rendering();
     }
 
@@ -489,7 +490,7 @@ void RenderGraph::execute(CommandBuffer &cmd_buf, bool record_timestamps) {
     for (uint32_t i = 0; i < m_pass_order.size(); i++) {
         Pass &pass = m_pass_order[i];
         record_pass(cmd_buf, pass);
-        if (record_timestamps && (pass.flags() & PassFlags::Kind) != PassFlags::None) {
+        if (record_timestamps && pass.flags().is_non_trivial()) {
             // TODO(best-practices): Don't use AllCommands.
             cmd_buf.write_timestamp(vkb::PipelineStage2::AllCommands, m_timestamp_pool, i + 1);
         }

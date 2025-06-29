@@ -210,7 +210,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
     auto light_buffer_id = graph.new_buffer("light-buffer", light_buffer_description);
     auto visibility_buffer_id = graph.new_buffer("light-visibility", visibility_buffer_description);
 
-    auto &light_cull_pass = graph.add_pass("light-cull", vk::PassFlags::Compute)
+    auto &light_cull_pass = graph.add_pass("light-cull", vk::PassFlag::Compute)
                                 .read(gbuffer.depth)
                                 .write(descriptor_buffer_id)
                                 .write(light_buffer_id)
@@ -245,7 +245,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::TransferSrc,
     };
     auto hdr_image_id = graph.new_attachment("hdr-image", hdr_image_description);
-    auto &deferred_pass = graph.add_pass("deferred", vk::PassFlags::Compute)
+    auto &deferred_pass = graph.add_pass("deferred", vk::PassFlag::Compute)
                               .read(gbuffer.albedo)
                               .read(gbuffer.normal)
                               .read(gbuffer.depth)
@@ -261,9 +261,8 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8), vull::ceil_div(m_viewport_extent.height, 8));
     });
 
-    auto &blit_tonemap_pass = graph.add_pass("blit-tonemap", vk::PassFlags::Graphics)
-                                  .read(hdr_image_id, vk::ReadFlags::Sampled)
-                                  .write(target);
+    auto &blit_tonemap_pass =
+        graph.add_pass("blit-tonemap", vk::PassFlag::Graphics).read(hdr_image_id, vk::ReadFlag::Sampled).write(target);
     blit_tonemap_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);

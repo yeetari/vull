@@ -93,8 +93,8 @@ void SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_im
     };
     auto descriptor_buffer_id = graph.new_buffer("skybox-descriptor-buffer", descriptor_buffer_description);
 
-    auto &pass = graph.add_pass("skybox", vk::PassFlags::Graphics)
-                     .write(target, vk::WriteFlags::Additive)
+    auto &pass = graph.add_pass("skybox", vk::PassFlag::Graphics)
+                     .write(target, vk::WriteFlag::Additive)
                      .read(depth_image)
                      .read(frame_ubo);
 

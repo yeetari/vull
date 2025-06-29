@@ -50,7 +50,7 @@ void ObjectRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target) 
         .usage = vkb::ImageUsage::DepthStencilAttachment,
     };
     auto depth_image_id = graph.new_attachment("single-object-depth-image", depth_description);
-    auto &pass = graph.add_pass("single-object", vk::PassFlags::Graphics).write(target).write(depth_image_id);
+    auto &pass = graph.add_pass("single-object", vk::PassFlag::Graphics).write(target).write(depth_image_id);
     pass.set_on_execute([=, this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.bind_pipeline(m_pipeline);
         cmd_buf.push_constants(vkb::ShaderStage::Vertex,

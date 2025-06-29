@@ -110,7 +110,7 @@ Renderer::~Renderer() {
 }
 
 void Renderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target, Painter &&painter) {
-    auto &pass = graph.add_pass("ui-pass", vk::PassFlags::Graphics).write(target, vk::WriteFlags::Additive);
+    auto &pass = graph.add_pass("ui-pass", vk::PassFlag::Graphics).write(target, vk::WriteFlag::Additive);
     pass.set_on_execute([=, this, &graph, painter = vull::move(painter)](vk::CommandBuffer &cmd_buf) mutable {
         const auto output_extent = graph.get_image(target).extent();
         cmd_buf.bind_pipeline(m_pipeline);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vull/container/vector.hh>
-#include <vull/support/enum.hh>
+#include <vull/support/flag_bitset.hh>
 #include <vull/support/function.hh>
 #include <vull/support/string.hh>
 #include <vull/support/tuple.hh>
@@ -37,15 +37,16 @@ struct BufferDescription {
     bool host_accessible{false};
 };
 
-enum class ResourceFlags {
-    None = 0u,
-    Buffer = 1u << 0u,
-    Image = 1u << 1u,
-    Imported = 1u << 2u,
-    Uninitialised = 1u << 3u,
-    DepthStencil = 1u << 4u,
-    Kind = Buffer | Image,
+enum class ResourceFlag : uint32_t {
+    None = 0,
+    Buffer,
+    Image,
+    Imported,
+    Uninitialised,
+    DepthStencil,
 };
+
+using ResourceFlags = FlagBitset<ResourceFlag>;
 
 class PhysicalResource {
     String m_name;
@@ -81,39 +82,51 @@ public:
     vkb::ImageLayout write_layout() const { return m_write_layout; }
 };
 
-enum class PassFlags {
-    None = 0u,
-    Compute = 1u << 0u,
-    Graphics = 1u << 1u,
-    Transfer = 1u << 2u,
-    Kind = Compute | Graphics | Transfer,
+enum class PassFlag : uint32_t {
+    None = 0,
+    Compute,
+    Graphics,
+    Transfer,
 };
 
-enum class ReadFlags {
-    None = 0u,
+class PassFlags : public FlagBitset<PassFlag> {
+public:
+    using FlagBitset::FlagBitset;
+
+    constexpr bool is_non_trivial() const {
+        return is_set(PassFlag::Compute) || is_set(PassFlag::Graphics) || is_set(PassFlag::Transfer);
+    }
+};
+
+enum class ReadFlag : uint32_t {
+    None = 0,
 
     /// Automatically applied when a write is specified as Additive. Used for render graph dependency tracking.
-    Additive = 1u << 0u,
+    Additive,
 
     /// Specifies that this read is via vkQueuePresent. This ensures that the image layout is correct. Only valid for an
     /// image resource.
-    Present = 1u << 1u,
+    Present,
 
     /// Specifies that this read is via vkCmdDrawIndirect. Only valid for a buffer resource in a graphics pass.
-    Indirect = 1u << 2u,
+    Indirect,
 
     /// Specifies that the image is sampled via a uniform rather than as an attachment. Only valid for an image resource
     /// in a graphics pass.
-    Sampled = 1u << 3u,
+    Sampled,
 };
 
-enum class WriteFlags {
-    None = 0u,
+using ReadFlags = FlagBitset<ReadFlag>;
+
+enum class WriteFlag : uint32_t {
+    None = 0,
 
     /// Specifies that this write doesn't overwrite the resource. Ensures that previous writer(s) aren't culled, and
     /// uses vkb::AttachmentLoadOp::Load rather than DontCare or Clear.
-    Additive = 1u << 0u,
+    Additive,
 };
+
+using WriteFlags = FlagBitset<WriteFlag>;
 
 class Pass {
     friend class PassBuilder;
@@ -154,8 +167,8 @@ public:
     Pass &operator=(const Pass &) = delete;
     Pass &operator=(Pass &&) = delete;
 
-    Pass &read(ResourceId &id, ReadFlags flags = ReadFlags::None);
-    Pass &write(ResourceId &id, WriteFlags flags = WriteFlags::None);
+    Pass &read(ResourceId &id, ReadFlags flags = ReadFlag::None);
+    Pass &write(ResourceId &id, WriteFlags flags = WriteFlag::None);
     void set_on_execute(Function<void(CommandBuffer &)> &&on_execute) { m_on_execute = vull::move(on_execute); }
 
     const String &name() const { return m_name; }
@@ -212,10 +225,5 @@ public:
     const Vector<Pass &> &pass_order() const { return m_pass_order; }
     vk::QueryPool &timestamp_pool() { return m_timestamp_pool; }
 };
-
-VULL_DEFINE_FLAG_ENUM_OPS(ResourceFlags)
-VULL_DEFINE_FLAG_ENUM_OPS(PassFlags)
-VULL_DEFINE_FLAG_ENUM_OPS(ReadFlags)
-VULL_DEFINE_FLAG_ENUM_OPS(WriteFlags)
 
 } // namespace vull::vk

@@ -407,7 +407,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     auto frame_ubo_id = graph.new_buffer("frame-ubo", frame_ubo_description);
     auto object_buffer_id = graph.new_buffer("object-buffer", object_buffer_description);
 
-    auto &setup_pass = graph.add_pass("setup-frame", vk::PassFlags::Transfer)
+    auto &setup_pass = graph.add_pass("setup-frame", vk::PassFlag::Transfer)
                            .write(descriptor_buffer_id)
                            .write(frame_ubo_id)
                            .write(object_buffer_id);
@@ -431,7 +431,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     };
     auto draw_buffer_id = graph.new_buffer("draw-buffer", draw_buffer_description);
     auto &early_cull_pass =
-        graph.add_pass("early-cull", vk::PassFlags::Compute).read(frame_ubo_id).write(draw_buffer_id);
+        graph.add_pass("early-cull", vk::PassFlag::Compute).read(frame_ubo_id).write(draw_buffer_id);
     early_cull_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
@@ -454,8 +454,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     });
 
     // TODO: Make GBuffer writes additive.
-    auto &early_draw_pass = graph.add_pass("early-draw", vk::PassFlags::Graphics)
-                                .read(draw_buffer_id, vk::ReadFlags::Indirect)
+    auto &early_draw_pass = graph.add_pass("early-draw", vk::PassFlag::Graphics)
+                                .read(draw_buffer_id, vk::ReadFlag::Indirect)
                                 .write(gbuffer.albedo)
                                 .write(gbuffer.normal)
                                 .write(gbuffer.depth);
@@ -482,7 +482,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     auto depth_pyramid_id = graph.new_attachment("depth-pyramid", depth_pyramid_description);
     // TODO: This should be part of DeferredRenderer.
     auto &depth_reduce_pass =
-        graph.add_pass("depth-reduce", vk::PassFlags::Compute).read(gbuffer.depth).write(depth_pyramid_id);
+        graph.add_pass("depth-reduce", vk::PassFlag::Compute).read(gbuffer.depth).write(depth_pyramid_id);
     depth_reduce_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &depth_image = graph.get_image(gbuffer.depth);
         const auto &depth_pyramid = graph.get_image(depth_pyramid_id);
@@ -554,7 +554,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
     });
 
     auto &late_cull_pass =
-        graph.add_pass("late-cull", vk::PassFlags::Compute).read(depth_pyramid_id).write(draw_buffer_id);
+        graph.add_pass("late-cull", vk::PassFlag::Compute).read(depth_pyramid_id).write(draw_buffer_id);
     late_cull_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
@@ -584,11 +584,11 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 32));
     });
 
-    auto &late_draw_pass = graph.add_pass("late-draw", vk::PassFlags::Graphics)
-                               .read(draw_buffer_id, vk::ReadFlags::Indirect)
-                               .write(gbuffer.albedo, vk::WriteFlags::Additive)
-                               .write(gbuffer.normal, vk::WriteFlags::Additive)
-                               .write(gbuffer.depth, vk::WriteFlags::Additive);
+    auto &late_draw_pass = graph.add_pass("late-draw", vk::PassFlag::Graphics)
+                               .read(draw_buffer_id, vk::ReadFlag::Indirect)
+                               .write(gbuffer.albedo, vk::WriteFlag::Additive)
+                               .write(gbuffer.normal, vk::WriteFlag::Additive)
+                               .write(gbuffer.depth, vk::WriteFlag::Additive);
     late_draw_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &draw_buffer = graph.get_buffer(draw_buffer_id);
