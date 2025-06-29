@@ -118,6 +118,12 @@ Swapchain::~Swapchain() {
     m_context.vkDestroySurfaceKHR(m_surface);
 }
 
+Swapchain::Swapchain(Swapchain &&other)
+    : m_context(other.m_context), m_extent(vull::exchange(other.m_extent, {})),
+      m_surface(vull::exchange(other.m_surface, nullptr)),
+      m_surface_capabilities(vull::exchange(other.m_surface_capabilities, {})),
+      m_swapchain(vull::exchange(other.m_swapchain, nullptr)), m_images(vull::move(other.m_images)) {}
+
 uint32_t Swapchain::acquire_image(vkb::Semaphore semaphore) const {
     uint32_t image_index = 0;
     m_context.vkAcquireNextImageKHR(m_swapchain, ~0ull, semaphore, nullptr, &image_index);

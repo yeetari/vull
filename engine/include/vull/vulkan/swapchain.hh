@@ -20,8 +20,8 @@ enum class SwapchainMode {
 
 class Swapchain {
     Context &m_context;
-    const vkb::Extent2D m_extent;
-    const vkb::SurfaceKHR m_surface;
+    vkb::Extent2D m_extent;
+    vkb::SurfaceKHR m_surface;
     vkb::SurfaceCapabilitiesKHR m_surface_capabilities{};
     vkb::SwapchainKHR m_swapchain{nullptr};
     Vector<Image> m_images;
@@ -29,7 +29,7 @@ class Swapchain {
 public:
     Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode);
     Swapchain(const Swapchain &) = delete;
-    Swapchain(Swapchain &&) = delete;
+    Swapchain(Swapchain &&);
     ~Swapchain();
 
     Swapchain &operator=(const Swapchain &) = delete;
