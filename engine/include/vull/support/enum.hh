@@ -63,16 +63,3 @@ constexpr auto enum_name(E value) {
 }
 
 } // namespace vull
-
-// NOLINTBEGIN(bugprone-macro-parentheses)
-#define VULL_DEFINE_FLAG_ENUM_OPS(type)                                                                                \
-    inline constexpr type operator&(type lhs, type rhs) {                                                              \
-        return static_cast<type>(vull::to_underlying(lhs) & vull::to_underlying(rhs));                                 \
-    }                                                                                                                  \
-    inline constexpr type operator|(type lhs, type rhs) {                                                              \
-        return static_cast<type>(vull::to_underlying(lhs) | vull::to_underlying(rhs));                                 \
-    }                                                                                                                  \
-    inline constexpr type operator~(type flags) {                                                                      \
-        return static_cast<type>(~vull::to_underlying(flags));                                                         \
-    }
-// NOLINTEND(bugprone-macro-parentheses)
