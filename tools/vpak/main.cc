@@ -283,7 +283,8 @@ int get(const Vector<StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    auto output_file_or_error = vull::open_file(args[4], OpenMode::Create | OpenMode::Truncate | OpenMode::Write);
+    auto output_file_or_error =
+        vull::open_file(args[4], OpenModes(OpenMode::Create, OpenMode::Truncate, OpenMode::Write));
     if (output_file_or_error.is_error()) {
         vull::println("fatal: failed to create output file {}", args[4]);
         return EXIT_FAILURE;

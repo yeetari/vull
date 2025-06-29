@@ -97,7 +97,7 @@ Optional<Entry> PackFile::stat(StringView name) const {
 }
 
 Result<Writer, FileError, OpenError> PackFile::make_writer(CompressionLevel compression_level) {
-    auto write_file = VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenMode::TempFile | OpenMode::Write));
+    auto write_file = VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenModes(OpenMode::TempFile, OpenMode::Write)));
     int64_t dst_offset = k_header_size;
     if (m_file) {
         // Copy existing entry data to write file, skipping the old header.
@@ -118,7 +118,8 @@ Result<uint64_t, FileError, OpenError, StreamError> PackFile::finish_writing(Wri
     VULL_TRY(m_file.sync());
 
     // Open parent directory now.
-    auto parent_directory = VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenMode::Read | OpenMode::Directory));
+    auto parent_directory =
+        VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenModes(OpenMode::Read, OpenMode::Directory)));
 
     // Can't use renameat with an O_TMPFILE, so this isn't truly atomic :(.
     if (auto result = vull::unlink_path(m_path); result.is_error() && result.error() != FileError::NonExistent) {

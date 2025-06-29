@@ -112,25 +112,25 @@ Result<void, FileError> unlink_path(String path) {
     return {};
 }
 
-Result<File, OpenError> open_file(String path, OpenMode mode) {
+Result<File, OpenError> open_file(String path, OpenModes modes) {
     int flags = O_RDONLY;
-    if ((mode & OpenMode::Read) != OpenMode::None && (mode & OpenMode::Write) != OpenMode::None) {
+    if (modes.is_set(OpenMode::Read) && modes.is_set(OpenMode::Write)) {
         flags = O_RDWR;
-    } else if ((mode & OpenMode::Write) != OpenMode::None) {
+    } else if (modes.is_set(OpenMode::Write)) {
         flags = O_WRONLY;
     }
 
     flags |= O_CLOEXEC;
-    if ((mode & OpenMode::Create) != OpenMode::None) {
+    if (modes.is_set(OpenMode::Create)) {
         flags |= O_CREAT;
     }
-    if ((mode & OpenMode::Directory) != OpenMode::None) {
+    if (modes.is_set(OpenMode::Directory)) {
         flags |= O_DIRECTORY;
     }
-    if ((mode & OpenMode::Truncate) != OpenMode::None) {
+    if (modes.is_set(OpenMode::Truncate)) {
         flags |= O_TRUNC;
     }
-    if ((mode & OpenMode::TempFile) != OpenMode::None) {
+    if (modes.is_set(OpenMode::TempFile)) {
         flags |= O_TMPFILE;
     }
 

@@ -51,8 +51,8 @@ int main(int argc, char **argv) {
     spv::Backend backend;
     ast.traverse(backend);
 
-    auto output_file = VULL_EXPECT(
-        vull::open_file(output_path, vull::OpenMode::Create | vull::OpenMode::Truncate | vull::OpenMode::Write));
+    auto output_file = VULL_EXPECT(vull::open_file(
+        output_path, vull::OpenModes(vull::OpenMode::Create, vull::OpenMode::Truncate, vull::OpenMode::Write)));
     auto output_stream = output_file.create_stream();
     backend.builder().write([&](spv::Word word) {
         VULL_EXPECT(output_stream.write_le(word));

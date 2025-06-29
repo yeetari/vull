@@ -3,6 +3,7 @@
 #include <vull/container/vector.hh>
 #include <vull/platform/file_stream.hh>
 #include <vull/support/enum.hh>
+#include <vull/support/flag_bitset.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
@@ -23,21 +24,17 @@ enum class OpenError {
     Unknown,
 };
 
-enum class OpenMode {
+enum class OpenMode : uint32_t {
     None = 0,
-    Read = 1u << 0u,
-    Write = 1u << 1u,
-    Create = 1u << 2u,
-    Truncate = 1u << 3u,
-    TempFile = 1u << 4u,
-    Directory = 1u << 5u,
+    Read,
+    Write,
+    Create,
+    Truncate,
+    TempFile,
+    Directory,
 };
-inline constexpr OpenMode operator&(OpenMode lhs, OpenMode rhs) {
-    return static_cast<OpenMode>(vull::to_underlying(lhs) & vull::to_underlying(rhs));
-}
-inline constexpr OpenMode operator|(OpenMode lhs, OpenMode rhs) {
-    return static_cast<OpenMode>(vull::to_underlying(lhs) | vull::to_underlying(rhs));
-}
+
+using OpenModes = FlagBitset<OpenMode>;
 
 class File {
     int m_fd{-1};
@@ -66,7 +63,7 @@ public:
 String dir_path(String path);
 Result<void, FileError> unlink_path(String path);
 
-Result<File, OpenError> open_file(String path, OpenMode mode);
+Result<File, OpenError> open_file(String path, OpenModes modes);
 Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes);
 Result<String, FileError> read_entire_file_ascii(String path);
 
