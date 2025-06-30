@@ -3,6 +3,7 @@
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
 #include <vull/core/input.hh>
+#include <vull/core/log.hh> // IWYU pragma: keep
 #include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
@@ -15,11 +16,19 @@ namespace vull::platform {
 
 Result<UniquePtr<Window>, WindowError> Window::create(Optional<uint16_t> width, Optional<uint16_t> height,
                                                       bool fullscreen) {
-#ifdef VULL_BUILD_X11_WINDOW
-    return create_x11(width, height, fullscreen);
-#else
-    return WindowError::Unsupported;
+#ifdef VULL_BUILD_WAYLAND_WINDOW
+    vull::trace("[window] Attempting to create Wayland window");
+    if (auto wayland = create_wayland(width, height, fullscreen); !wayland.is_error()) {
+        return wayland;
+    }
 #endif
+#ifdef VULL_BUILD_X11_WINDOW
+    vull::trace("[window] Attempting to create X11 window");
+    if (auto x11 = create_x11(width, height, fullscreen); !x11.is_error()) {
+        return x11;
+    }
+#endif
+    return WindowError::Unsupported;
 }
 
 bool Window::is_button_pressed(MouseButton button) const {

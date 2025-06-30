@@ -82,16 +82,16 @@ To configure vull, use one of the available presets:
 
 #### Available options
 
-| Option                    | Description                   | Default Value                           |
-|---------------------------|-------------------------------|-----------------------------------------|
-| `VULL_ENABLED_COMPONENTS` | List of components to build   | `GRAPHICS;PHYSICS;SCRIPT;UI;X11_WINDOW` |
-| `VULL_BUILD_VPAK`         | Build the vpak tool           | `ON`¹                                   |
-| `VULL_BUILD_SANDBOX`      | Build the sandbox application | `PROJECT_IS_TOP_LEVEL`²                 |
-| `VULL_BUILD_TESTS`        | Build tests                   | `PROJECT_IS_TOP_LEVEL`                  |
+| Option                    | Description                   | Default Value                                          |
+|---------------------------|-------------------------------|--------------------------------------------------------|
+| `VULL_ENABLED_COMPONENTS` | List of components to build   | `GRAPHICS;PHYSICS;SCRIPT;UI;WAYLAND-WINDOW;X11-WINDOW` |
+| `VULL_BUILD_VPAK`         | Build the vpak tool           | `ON`¹                                                  |
+| `VULL_BUILD_SANDBOX`      | Build the sandbox application | `PROJECT_IS_TOP_LEVEL`²                                |
+| `VULL_BUILD_TESTS`        | Build tests                   | `PROJECT_IS_TOP_LEVEL`                                 |
 
 ¹: Requires the `graphics` component to be enabled
 
-²: Requires the vpak tool to be enabled, as well as the `graphics`, `physics`, `ui`, and `x11-window` components
+²: Requires the vpak tool to be enabled, as well as the `graphics`, `physics`, `ui` components, and at least one window component.
 
 ### Building
 

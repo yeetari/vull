@@ -14,6 +14,26 @@ if(VULL_BUILD_UI)
     target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
 endif()
 
+if(VULL_BUILD_WAYLAND_WINDOW)
+    add_library(vull-wl-protocols OBJECT)
+    wayland_client_protocol_add(vull-wl-protocols
+        PROTOCOL "${Wayland_protocols_dir}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+        BASENAME xdg-decoration)
+    wayland_client_protocol_add(vull-wl-protocols
+        PROTOCOL "${Wayland_protocols_dir}/stable/xdg-shell/xdg-shell.xml"
+        BASENAME xdg-shell)
+    wayland_client_protocol_add(vull-wl-protocols
+        PROTOCOL "${Wayland_protocols_dir}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml"
+        BASENAME pointer-constraints)
+    wayland_client_protocol_add(vull-wl-protocols
+        PROTOCOL "${Wayland_protocols_dir}/unstable/relative-pointer/relative-pointer-unstable-v1.xml"
+        BASENAME relative-pointer)
+
+    # VULL_BUILD_WAYLAND_WINDOW preprocessor definition added automatically.
+    
+    target_link_libraries(vull PRIVATE Wayland::client Wayland::cursor X11::xkbcommon vull-wl-protocols)
+endif()
+
 if(VULL_BUILD_X11_WINDOW)
     target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_xinput X11::xkbcommon X11::xkbcommon_X11)
 endif()

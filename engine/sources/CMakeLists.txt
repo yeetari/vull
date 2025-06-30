@@ -104,7 +104,17 @@ if(VULL_BUILD_UI)
         ui/window.cc)
 endif()
 
+if(VULL_BUILD_WAYLAND_WINDOW)
+    target_sources(vull PRIVATE
+        platform/wayland.cc)
+endif()
+
 if(VULL_BUILD_X11_WINDOW)
     target_sources(vull PRIVATE
         platform/x11.cc)
+endif()
+
+if(VULL_BUILD_WAYLAND_WINDOW OR VULL_BUILD_X11_WINDOW)
+    target_sources(vull PRIVATE
+        platform/xkb.cc)
 endif()

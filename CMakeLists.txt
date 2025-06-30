@@ -12,7 +12,7 @@ include(VullAddExecutable)
 include(VullAddShader)
 include(VullVpak)
 
-set(VULL_ALL_COMPONENTS "GRAPHICS;PHYSICS;SCRIPT;UI;X11_WINDOW")
+set(VULL_ALL_COMPONENTS "GRAPHICS;PHYSICS;SCRIPT;UI;WAYLAND_WINDOW;X11_WINDOW")
 set(VULL_ENABLED_COMPONENTS "${VULL_ALL_COMPONENTS}" CACHE STRING "")
 
 # Ensure enabled components are valid.
@@ -65,6 +65,12 @@ find_program(GLSLC glslc REQUIRED)
 if(VULL_BUILD_UI)
     find_package(Freetype REQUIRED)
     find_package(harfbuzz REQUIRED)
+endif()
+
+if(VULL_BUILD_WAYLAND_WINDOW)
+    enable_language(C)
+    find_package(X11 REQUIRED COMPONENTS xkbcommon)
+    find_package(Wayland REQUIRED COMPONENTS client cursor egl protocols scanner)
 endif()
 
 if(VULL_BUILD_X11_WINDOW)

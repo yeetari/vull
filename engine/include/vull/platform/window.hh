@@ -16,6 +16,8 @@ namespace vull::platform {
 enum class WindowError {
     Unsupported,
     ConnectionFailed,
+    WaylandError,
+    WaylandMissingProtocol,
     XkbError,
     XkbUnsupported,
     XInputError,
@@ -23,6 +25,7 @@ enum class WindowError {
 };
 
 using WindowCloseCallback = void();
+using WindowResizeCallback = void(Vec2u);
 
 class Window {
 protected:
@@ -48,6 +51,8 @@ protected:
 public:
     static Result<UniquePtr<Window>, WindowError> create(Optional<uint16_t> width, Optional<uint16_t> height,
                                                          bool fullscreen);
+    static Result<UniquePtr<Window>, WindowError> create_wayland(Optional<uint16_t> width, Optional<uint16_t> height,
+                                                                 bool fullscreen);
     static Result<UniquePtr<Window>, WindowError> create_x11(Optional<uint16_t> width, Optional<uint16_t> height,
                                                              bool fullscreen);
 
