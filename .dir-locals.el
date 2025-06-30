@@ -6,4 +6,5 @@
  (c++-mode . ((c-basic-offset . 4)
               (c-file-offsets . ((arglist-intro . ++)
                                  (innamespace . 0)
-                                 (member-init-intro . 0))))))
+                                 (member-init-intro . 0)))))
+ (cmake-mode . ((cmake-tab-width . 4))))
