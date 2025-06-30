@@ -22,13 +22,13 @@ class Writer {
     friend WriteStream;
 
 private:
-    File m_write_file;
+    platform::File m_write_file;
     Atomic<uint64_t> m_head;
     Vector<Entry> m_new_entries;
     tasklet::Mutex m_mutex;
     const CompressionLevel m_compression_level;
 
-    Writer(File &&write_file, uint64_t head, CompressionLevel compression_level)
+    Writer(platform::File &&write_file, uint64_t head, CompressionLevel compression_level)
         : m_write_file(vull::move(write_file)), m_head(head), m_compression_level(compression_level) {}
 
     void add_finished_entry(Entry &&entry);

@@ -5,11 +5,11 @@
 #include <vull/maths/vec.hh>
 #include <vull/scene/camera.hh>
 
-namespace vull {
+namespace vull::platform {
 
 class Window;
 
-} // namespace vull
+} // namespace vull::platform
 
 class FreeCamera final : public vull::Camera {
     const float m_aspect_ratio;
@@ -24,7 +24,7 @@ public:
     explicit FreeCamera(float aspect_ratio) : m_aspect_ratio(aspect_ratio) {}
 
     void handle_mouse_move(vull::Vec2f delta);
-    void update(const vull::Window &window, float dt);
+    void update(const vull::platform::Window &window, float dt);
 
     void set_position(const vull::Vec3f &position) { m_position = position; }
     void set_pitch(float pitch) { m_pitch = pitch; }

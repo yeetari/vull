@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace vull {
+namespace vull::platform {
 
 enum class ThreadError {
     InsufficientPermission,
@@ -64,4 +64,4 @@ Result<Thread, ThreadError> Thread::create(F &&callable) {
 
 void install_fault_handler();
 
-} // namespace vull
+} // namespace vull::platform

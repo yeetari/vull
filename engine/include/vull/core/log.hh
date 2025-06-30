@@ -31,7 +31,7 @@ void println(StringView fmt, Args &&...args) {
 #define DEFINE_LOG_LEVEL(fn, LEVEL_STRING, LEVEL_COLOUR)                                                               \
     template <typename... Args>                                                                                        \
     void fn(StringView fmt, Args &&...args) {                                                                          \
-        extern Timer g_log_timer;                                                                                      \
+        extern platform::Timer g_log_timer;                                                                            \
                                                                                                                        \
         StringBuilder sb;                                                                                              \
         const uint64_t time = g_log_timer.elapsed_ns() / 1000000u;                                                     \

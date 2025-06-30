@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::platform {
 
 enum class FileError {
     BadAccess,
@@ -78,4 +78,4 @@ inline StringView file_error_string(FileError error) {
     }
 }
 
-} // namespace vull
+} // namespace vull::platform

@@ -116,7 +116,7 @@ int add(const Vector<StringView> &args) {
     auto pack_file = VULL_EXPECT(vpak::PackFile::open(vpak_path));
     auto pack_writer = VULL_EXPECT(pack_file.make_writer(compression_level));
     for (auto [input_path, entry_name] : inputs) {
-        auto input_file_or_error = vull::open_file(input_path, OpenMode::Read);
+        auto input_file_or_error = platform::open_file(input_path, platform::OpenMode::Read);
         if (input_file_or_error.is_error()) {
             vull::println("fatal: failed to open input file {}", input_path);
             return EXIT_FAILURE;
@@ -190,7 +190,7 @@ int add_gltf(const Vector<StringView> &args) {
         compression_level = vpak::CompressionLevel::Ultra;
     }
 
-    auto glb_file = VULL_EXPECT(vull::open_file(gltf_path, OpenMode::Read));
+    auto glb_file = VULL_EXPECT(platform::open_file(gltf_path, platform::OpenMode::Read));
     GltfParser gltf_parser(glb_file.create_stream());
     if (gltf_parser.parse_glb().is_error()) {
         return EXIT_FAILURE;
@@ -218,7 +218,7 @@ int add_png(const Vector<StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    auto file_or_error = vull::open_file(args[3], OpenMode::Read);
+    auto file_or_error = platform::open_file(args[3], platform::OpenMode::Read);
     if (file_or_error.is_error()) {
         vull::println("fatal: failed to open file {}", args[3]);
         return EXIT_FAILURE;
@@ -245,9 +245,9 @@ int add_skybox(const Vector<StringView> &args) {
         return EXIT_FAILURE;
     }
 
-    Vector<FileStream> face_streams;
+    Vector<platform::FileStream> face_streams;
     for (const auto face_path : vull::slice(args, 4u)) {
-        auto file_or_error = vull::open_file(face_path, OpenMode::Read);
+        auto file_or_error = platform::open_file(face_path, platform::OpenMode::Read);
         if (file_or_error.is_error()) {
             vull::println("fatal: failed to open file {}", face_path);
             return EXIT_FAILURE;
@@ -284,7 +284,8 @@ int get(const Vector<StringView> &args) {
     }
 
     auto output_file_or_error =
-        vull::open_file(args[4], OpenModes(OpenMode::Create, OpenMode::Truncate, OpenMode::Write));
+        platform::open_file(args[4], platform::OpenModes(platform::OpenMode::Create, platform::OpenMode::Truncate,
+                                                         platform::OpenMode::Write));
     if (output_file_or_error.is_error()) {
         vull::println("fatal: failed to create output file {}", args[4]);
         return EXIT_FAILURE;
@@ -354,7 +355,8 @@ MadLut load_lut(char *executable_path) {
         }
     }
     auto parent_path = String::copy_raw(executable_path, static_cast<size_t>(last_slash - executable_path));
-    auto file = VULL_EXPECT(vull::open_file(vull::format("{}/mad_lut.bin.zst", parent_path), OpenMode::Read));
+    auto file =
+        VULL_EXPECT(platform::open_file(vull::format("{}/mad_lut.bin.zst", parent_path), platform::OpenMode::Read));
 
     struct stat stat{};
     fstat(file.fd(), &stat);

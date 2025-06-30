@@ -11,7 +11,7 @@
 #include <vull/vulkan/swapchain.hh>
 #include <vull/vulkan/vulkan.hh>
 
-namespace vull {
+namespace vull::platform {
 
 enum class WindowError {
     Unsupported,
@@ -83,4 +83,4 @@ inline float Window::aspect_ratio() const {
     return static_cast<float>(m_resolution.x()) / static_cast<float>(m_resolution.y());
 }
 
-} // namespace vull
+} // namespace vull::platform

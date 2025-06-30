@@ -5,7 +5,7 @@
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
-#include <vull/platform/system_semaphore.hh>
+#include <vull/platform/semaphore.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
@@ -31,7 +31,7 @@ VULL_GLOBAL(static thread_local Tasklet *s_scheduler_tasklet = nullptr);
 VULL_GLOBAL(static thread_local Tasklet *s_to_schedule = nullptr);
 VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
 VULL_GLOBAL(static thread_local Scheduler *s_scheduler = nullptr);
-VULL_GLOBAL(static thread_local SystemSemaphore *s_work_available = nullptr);
+VULL_GLOBAL(static thread_local platform::Semaphore *s_work_available = nullptr);
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
@@ -72,7 +72,7 @@ static Tasklet *pick_next() {
         while (true) {
             if (!s_scheduler->is_running() && s_queue->empty()) {
                 s_scheduler->decrease_worker_count();
-                Thread::exit();
+                platform::Thread::exit();
             }
             if ((next = s_queue->dequeue()) != nullptr) {
                 break;
@@ -80,7 +80,7 @@ static Tasklet *pick_next() {
 
             // The dequeue has failed, likely due to heavy contention. Yield to the OS scheduler to try to lift some of
             // it. This seems to improve performance in the event of very heavy mutex contention.
-            Thread::yield();
+            platform::Thread::yield();
         }
     }
 
@@ -123,12 +123,12 @@ bool Scheduler::start(Tasklet *tasklet) {
     m_running.store(true, vull::memory_order_release);
     for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
         auto &thread = m_worker_threads[i];
-        thread = VULL_EXPECT(Thread::create([this] {
+        thread = VULL_EXPECT(platform::Thread::create([this] {
             // Setup per-thread data.
             s_scheduler = this;
             s_queue = m_queue.ptr();
             s_work_available = &m_work_available;
-            VULL_EXPECT(Thread::setup_signal_stack());
+            VULL_EXPECT(platform::Thread::setup_signal_stack());
 
             // Use thread stack for scheduler tasklet.
             Array<uint8_t, 131072> tasklet_data{};

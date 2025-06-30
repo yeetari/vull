@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vull/container/vector.hh>
-#include <vull/platform/system_semaphore.hh>
+#include <vull/platform/semaphore.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
@@ -12,20 +12,20 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::platform {
 
 class Thread;
 
-} // namespace vull
+} // namespace vull::platform
 
 namespace vull::tasklet {
 
 class TaskletQueue;
 
 class Scheduler {
-    Vector<Thread> m_worker_threads;
+    Vector<platform::Thread> m_worker_threads;
     UniquePtr<TaskletQueue> m_queue;
-    SystemSemaphore m_work_available{1};
+    platform::Semaphore m_work_available{1};
     Atomic<uint32_t> m_alive_worker_count;
     Atomic<bool> m_running;
 
@@ -54,7 +54,7 @@ template <TaskletSize Size, typename F>
 auto Scheduler::run(F &&callable) {
     using R = FunctionTraits<F>::result_type;
     Promise<R> promise;
-    SystemSemaphore semaphore;
+    platform::Semaphore semaphore;
     auto *tasklet = Tasklet::create<Size>();
     tasklet->set_callable([&, callable = vull::move(callable)] {
         if constexpr (vull::is_same<R, void>) {

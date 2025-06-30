@@ -19,11 +19,13 @@
 using namespace vull;
 
 int main() {
-    auto binary =
-        VULL_EXPECT(vull::open_file("mad_lut.bin", OpenModes(OpenMode::Create, OpenMode::Truncate, OpenMode::Write)));
+    auto binary = VULL_EXPECT(
+        platform::open_file("mad_lut.bin", platform::OpenModes(platform::OpenMode::Create, platform::OpenMode::Truncate,
+                                                               platform::OpenMode::Write)));
     auto binary_stream = binary.create_stream();
-    auto source = VULL_EXPECT(
-        vull::open_file("../tools/vpak/MadLut.in", OpenModes(OpenMode::Create, OpenMode::Truncate, OpenMode::Write)));
+    auto source = VULL_EXPECT(platform::open_file(
+        "../tools/vpak/MadLut.in",
+        platform::OpenModes(platform::OpenMode::Create, platform::OpenMode::Truncate, platform::OpenMode::Write)));
     auto source_stream = source.create_stream();
 
     size_t offset = 0;

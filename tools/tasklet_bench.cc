@@ -147,21 +147,21 @@ int main(int argc, char **argv) {
 
         // Monte Carlo pi estimation.
         {
-            Timer timer;
+            platform::Timer timer;
             double pi_estimate = estimate_pi(512);
             vull::info("[bench] Estimated pi={} in {} ms", pi_estimate, timer.elapsed() * 1000.0f);
         }
 
         // Ping pong mutex test.
         {
-            Timer timer;
+            platform::Timer timer;
             ping_pong(100'000);
             vull::info("[bench] Mutex ping pong completed in {} ms", timer.elapsed() * 1000.0f);
         }
 
         // Prime search.
         {
-            Timer timer;
+            platform::Timer timer;
             uint32_t prime_count = find_primes(256);
             vull::info("[bench] Found {} primes in {} ms", prime_count, timer.elapsed() * 1000.0f);
         }

@@ -33,12 +33,12 @@ template <typename T = void>
 using GltfResult = Result<T, GltfError, StreamError, json::ParseError, json::TreeError, PngError>;
 
 class GltfParser {
-    FileStream m_stream;
+    platform::FileStream m_stream;
     String m_json;
     ByteBuffer m_binary_blob;
 
 public:
-    explicit GltfParser(FileStream &&stream) : m_stream(vull::move(stream)) {}
+    explicit GltfParser(platform::FileStream &&stream) : m_stream(vull::move(stream)) {}
 
     Result<void, GlbError, StreamError> parse_glb();
     GltfResult<> convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible);

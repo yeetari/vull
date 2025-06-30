@@ -1,6 +1,6 @@
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
-#include <vull/platform/system_semaphore.hh>
+#include <vull/platform/semaphore.hh>
 #include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 
@@ -38,7 +38,7 @@
 #include <time.h>
 #include <unistd.h>
 
-namespace vull {
+namespace vull::platform {
 
 #if VULL_ASAN_ENABLED
 // NOLINTNEXTLINE
@@ -172,7 +172,7 @@ Result<void, FileError> read_entire_file(String path, Vector<uint8_t> &bytes) {
 
 Result<String, FileError> read_entire_file_ascii(String path) {
     Vector<uint8_t> bytes;
-    VULL_TRY(vull::read_entire_file(vull::move(path), bytes));
+    VULL_TRY(platform::read_entire_file(vull::move(path), bytes));
 
     // Ensure nul-terminated.
     if (bytes.empty() || bytes.last() != 0) {
@@ -253,7 +253,7 @@ Result<void, StreamError> FileStream::write(Span<const void> data) {
     return {};
 }
 
-void SystemSemaphore::post() {
+void Semaphore::post() {
     uint64_t data = m_data.fetch_add(1, vull::memory_order_release);
     if ((data >> 32) > 0) {
         // Wake one blocked waiter.
@@ -265,7 +265,7 @@ void SystemSemaphore::post() {
     }
 }
 
-void SystemSemaphore::release() {
+void Semaphore::release() {
     m_data.fetch_or(0xffffffu, vull::memory_order_release);
     auto *value = vull::bit_cast<uint32_t *>(m_data.raw_ptr());
 #if BYTE_ORDER == BIG_ENDIAN
@@ -274,7 +274,7 @@ void SystemSemaphore::release() {
     syscall(SYS_futex, value, FUTEX_WAKE_PRIVATE, UINT32_MAX, nullptr, nullptr, 0);
 }
 
-bool SystemSemaphore::try_wait() {
+bool Semaphore::try_wait() {
     uint64_t data = m_data.load(vull::memory_order_relaxed);
     while (true) {
         // Check whether the semaphore has been signaled and return if it hasn't.
@@ -290,7 +290,7 @@ bool SystemSemaphore::try_wait() {
     }
 }
 
-void SystemSemaphore::wait() {
+void Semaphore::wait() {
     // Try to acquire the semaphore. Use a single weak compare exchange since a race or spurious failure won't cause
     // any semantic problems here.
     uint64_t data = m_data.load(vull::memory_order_relaxed);
@@ -464,4 +464,4 @@ void Timer::reset() {
     m_epoch = monotonic_time();
 }
 
-} // namespace vull
+} // namespace vull::platform

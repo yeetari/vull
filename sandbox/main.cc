@@ -62,7 +62,7 @@ using namespace vull;
 namespace {
 
 class Sandbox {
-    UniquePtr<Window> m_window;
+    UniquePtr<platform::Window> m_window;
     vk::Context m_context;
     vk::Swapchain m_swapchain;
     FramePacer m_frame_pacer;
@@ -82,7 +82,7 @@ class Sandbox {
     Vector<ui::Label &> m_pipeline_statistics_labels;
 
     FreeCamera m_free_camera;
-    Timer m_frame_timer;
+    platform::Timer m_frame_timer;
     PhysicsEngine m_physics_engine;
     Scene m_scene;
     bool m_should_close{false};
@@ -96,7 +96,7 @@ public:
 };
 
 Sandbox::Sandbox(bool enable_validation)
-    : m_window(VULL_EXPECT(Window::create(vull::nullopt, vull::nullopt, true))), m_context(enable_validation),
+    : m_window(VULL_EXPECT(platform::Window::create(vull::nullopt, vull::nullopt, true))), m_context(enable_validation),
       m_swapchain(VULL_EXPECT(m_window->create_swapchain(m_context, vk::SwapchainMode::LowPower))),
       m_frame_pacer(m_swapchain, 2),
       m_pipeline_statistics_pool(m_context, m_frame_pacer.queue_length(),
@@ -207,7 +207,7 @@ void Sandbox::load_scene(StringView scene_name) {
 }
 
 void Sandbox::render_frame() {
-    Timer acquire_frame_timer;
+    platform::Timer acquire_frame_timer;
     auto &frame = m_frame_pacer.request_frame();
     m_cpu_time_graph->push_section("acquire-frame", acquire_frame_timer.elapsed());
 
@@ -239,14 +239,14 @@ void Sandbox::render_frame() {
     }
 
     // Step physics.
-    Timer physics_timer;
+    platform::Timer physics_timer;
     m_physics_engine.step(m_scene.world(), dt);
     m_cpu_time_graph->push_section("step-physics", physics_timer.elapsed());
 
     // Update camera.
     m_free_camera.update(*m_window, dt);
 
-    Timer ui_timer;
+    platform::Timer ui_timer;
     ui::Painter ui_painter;
     ui_painter.bind_atlas(m_font_atlas);
     m_ui_tree.render(ui_painter);
@@ -258,7 +258,7 @@ void Sandbox::render_frame() {
     m_default_renderer.set_camera(m_free_camera);
     m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
 
-    Timer build_rg_timer;
+    platform::Timer build_rg_timer;
     auto &graph = frame.new_graph(m_context);
     auto output_id = graph.import("output-image", m_swapchain.image(m_frame_pacer.image_index()));
 
@@ -271,11 +271,11 @@ void Sandbox::render_frame() {
     graph.add_pass("submit", vk::PassFlag::None).read(output_id, vk::ReadFlag::Present);
     m_cpu_time_graph->push_section("build-rg", build_rg_timer.elapsed());
 
-    Timer compile_rg_timer;
+    platform::Timer compile_rg_timer;
     graph.compile(output_id);
     m_cpu_time_graph->push_section("compile-rg", compile_rg_timer.elapsed());
 
-    Timer execute_rg_timer;
+    platform::Timer execute_rg_timer;
     auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
     auto &cmd_buf = queue->request_cmd_buf();
     cmd_buf.reset_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());

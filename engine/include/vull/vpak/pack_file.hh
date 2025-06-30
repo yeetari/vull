@@ -78,16 +78,16 @@ class Writer;
 
 class PackFile {
     String m_path;
-    File m_file;
+    platform::File m_file;
     Vector<Entry> m_entries;
     PerfectHasher m_phf;
 
-    PackFile(String &&path, File &&file) : m_path(vull::move(path)), m_file(vull::move(file)) {}
+    PackFile(String &&path, platform::File &&file) : m_path(vull::move(path)), m_file(vull::move(file)) {}
 
     Result<void, StreamError, VpakError> read_existing();
 
 public:
-    static Result<PackFile, OpenError, StreamError, VpakError> open(String path);
+    static Result<PackFile, platform::OpenError, StreamError, VpakError> open(String path);
 
     PackFile(const PackFile &) = delete;
     PackFile(PackFile &&) = default;
@@ -108,7 +108,7 @@ public:
      * @return FileError if copying existing entry data to a new file failed
      * @return OpenError if creating a temporary file failed
      */
-    Result<Writer, FileError, OpenError> make_writer(CompressionLevel compression_level);
+    Result<Writer, platform::FileError, platform::OpenError> make_writer(CompressionLevel compression_level);
 
     /**
      * Commits the changes made by the given writer to this PackFile object, and writes out a new vpak to disk\. In the
@@ -120,7 +120,7 @@ public:
      * @return OpenError if opening the parent directory failed
      * @return StreamError if writing the header or entry table to disk failed
      */
-    Result<uint64_t, FileError, OpenError, StreamError> finish_writing(Writer &&writer);
+    Result<uint64_t, platform::FileError, platform::OpenError, StreamError> finish_writing(Writer &&writer);
 
     const Vector<Entry> &entries() const { return m_entries; }
 };

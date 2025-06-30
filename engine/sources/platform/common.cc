@@ -11,7 +11,7 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::platform {
 
 Result<UniquePtr<Window>, WindowError> Window::create(Optional<uint16_t> width, Optional<uint16_t> height,
                                                       bool fullscreen) {
@@ -54,4 +54,4 @@ void Window::on_mouse_move(Function<MouseMoveCallback> &&callback) {
     m_mouse_move_callback = vull::move(callback);
 }
 
-} // namespace vull
+} // namespace vull::platform

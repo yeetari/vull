@@ -43,10 +43,10 @@ int main(int argc, char **argv) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
-    Timer timer;
-    auto source_or_error = vull::read_entire_file_ascii(script_path);
+    platform::Timer timer;
+    auto source_or_error = platform::read_entire_file_ascii(script_path);
     if (source_or_error.is_error()) {
-        vull::println("vsi: '{}': {}", script_path, vull::file_error_string(source_or_error.error()));
+        vull::println("vsi: '{}': {}", script_path, platform::file_error_string(source_or_error.error()));
         return EXIT_FAILURE;
     }
 

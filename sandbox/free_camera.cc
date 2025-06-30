@@ -28,7 +28,7 @@ void FreeCamera::handle_mouse_move(vull::Vec2f delta) {
     m_right = vull::normalise(vull::cross(m_forward, k_world_up));
 }
 
-void FreeCamera::update(const vull::Window &window, float dt) {
+void FreeCamera::update(const vull::platform::Window &window, float dt) {
     // Handle any keyboard input.
     const float speed = (window.is_key_pressed(vull::Key::Shift) ? 50.0f : 10.0f) * dt;
     if (window.is_key_pressed(vull::Key::W)) {

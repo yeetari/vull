@@ -9,8 +9,13 @@
 
 namespace vull {
 
-class File;
 enum class StreamError;
+
+} // namespace vull
+
+namespace vull::platform {
+
+class File;
 
 class FileStream final : public Stream {
     friend File;
@@ -38,4 +43,4 @@ public:
     Result<void, StreamError> write(Span<const void> data) override;
 };
 
-} // namespace vull
+} // namespace vull::platform

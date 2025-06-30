@@ -40,9 +40,9 @@ int main(int argc, char **argv) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
-    auto source_or_error = vull::read_entire_file_ascii(source_path);
+    auto source_or_error = platform::read_entire_file_ascii(source_path);
     if (source_or_error.is_error()) {
-        vull::println("vslc: '{}': {}", source_path, vull::file_error_string(source_or_error.error()));
+        vull::println("vslc: '{}': {}", source_path, platform::file_error_string(source_or_error.error()));
         return EXIT_FAILURE;
     }
 

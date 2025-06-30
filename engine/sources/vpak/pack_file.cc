@@ -19,10 +19,10 @@
 
 namespace vull::vpak {
 
-Result<PackFile, OpenError, StreamError, VpakError> PackFile::open(String path) {
-    auto file_or_error = vull::open_file(path, OpenMode::Read);
-    auto file = file_or_error.to_optional().value_or(File());
-    if (!file && file_or_error.error() != OpenError::NonExistent) {
+Result<PackFile, platform::OpenError, StreamError, VpakError> PackFile::open(String path) {
+    auto file_or_error = platform::open_file(path, platform::OpenMode::Read);
+    auto file = file_or_error.to_optional().value_or(platform::File());
+    if (!file && file_or_error.error() != platform::OpenError::NonExistent) {
         return file_or_error.error();
     }
 
@@ -96,8 +96,9 @@ Optional<Entry> PackFile::stat(StringView name) const {
     return entry.name.view() == name ? entry : Optional<Entry>();
 }
 
-Result<Writer, FileError, OpenError> PackFile::make_writer(CompressionLevel compression_level) {
-    auto write_file = VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenModes(OpenMode::TempFile, OpenMode::Write)));
+Result<Writer, platform::FileError, platform::OpenError> PackFile::make_writer(CompressionLevel compression_level) {
+    auto write_file = VULL_TRY(platform::open_file(
+        platform::dir_path(m_path), platform::OpenModes(platform::OpenMode::TempFile, platform::OpenMode::Write)));
     int64_t dst_offset = k_header_size;
     if (m_file) {
         // Copy existing entry data to write file, skipping the old header.
@@ -109,7 +110,7 @@ Result<Writer, FileError, OpenError> PackFile::make_writer(CompressionLevel comp
     return Writer(vull::move(write_file), static_cast<uint64_t>(dst_offset), compression_level);
 }
 
-Result<uint64_t, FileError, OpenError, StreamError> PackFile::finish_writing(Writer &&writer) {
+Result<uint64_t, platform::FileError, platform::OpenError, StreamError> PackFile::finish_writing(Writer &&writer) {
     // TODO: Re-assign to m_entries after write to disk is successful.
     const auto bytes_written = VULL_TRY(writer.finish(m_entries));
     m_file = vull::move(writer.m_write_file);
@@ -118,11 +119,12 @@ Result<uint64_t, FileError, OpenError, StreamError> PackFile::finish_writing(Wri
     VULL_TRY(m_file.sync());
 
     // Open parent directory now.
-    auto parent_directory =
-        VULL_TRY(vull::open_file(vull::dir_path(m_path), OpenModes(OpenMode::Read, OpenMode::Directory)));
+    auto parent_directory = VULL_TRY(platform::open_file(
+        platform::dir_path(m_path), platform::OpenModes(platform::OpenMode::Read, platform::OpenMode::Directory)));
 
     // Can't use renameat with an O_TMPFILE, so this isn't truly atomic :(.
-    if (auto result = vull::unlink_path(m_path); result.is_error() && result.error() != FileError::NonExistent) {
+    if (auto result = platform::unlink_path(m_path);
+        result.is_error() && result.error() != platform::FileError::NonExistent) {
         return result.error();
     }
     VULL_TRY(m_file.link_to(m_path));

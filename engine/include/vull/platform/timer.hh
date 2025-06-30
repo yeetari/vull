@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-namespace vull {
+namespace vull::platform {
 
 class Timer {
     uint64_t m_epoch{0};
@@ -15,4 +15,4 @@ public:
     void reset();
 };
 
-} // namespace vull
+} // namespace vull::platform

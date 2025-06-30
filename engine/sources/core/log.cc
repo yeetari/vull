@@ -1,7 +1,7 @@
 #include <vull/core/log.hh>
 
 #include <vull/container/array.hh>
-#include <vull/platform/system_semaphore.hh>
+#include <vull/platform/semaphore.hh>
 #include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 #include <vull/support/assert.hh>
@@ -93,8 +93,8 @@ LogMessage *LogQueue::dequeue() {
 class GlobalState {
     Atomic<LogQueue *> m_queue_head{nullptr};
     Atomic<LogQueue *> m_queue_tail{nullptr};
-    SystemSemaphore m_semaphore;
-    Thread m_sink_thread;
+    platform::Semaphore m_semaphore;
+    platform::Thread m_sink_thread;
     Atomic<bool> m_running;
 
 public:
@@ -127,7 +127,7 @@ GlobalState::~GlobalState() {
 
 void GlobalState::open_sink() {
     m_running.store(true);
-    m_sink_thread = VULL_EXPECT(Thread::create(&sink_loop));
+    m_sink_thread = VULL_EXPECT(platform::Thread::create(&sink_loop));
     VULL_IGNORE(m_sink_thread.set_idle());
 }
 
@@ -188,8 +188,8 @@ void sink_loop() {
 
 } // namespace
 
-extern Timer g_log_timer;
-VULL_GLOBAL(Timer g_log_timer);
+extern platform::Timer g_log_timer;
+VULL_GLOBAL(platform::Timer g_log_timer);
 
 bool log_colours_enabled() {
     return s_log_colours_enabled;

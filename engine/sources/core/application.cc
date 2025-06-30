@@ -38,14 +38,14 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
 
     // Install fault handler and block conventional signal handlers for the whole process.
     // TODO: Use signalfd to handle SIGINT, SIGQUIT, etc.
-    vull::install_fault_handler();
-    if (Thread::block_signals().is_error()) {
+    platform::install_fault_handler();
+    if (platform::Thread::block_signals().is_error()) {
         vull::error("[main] Failed to mask signals");
     }
 
     // Default to directory containing the executable.
     if (vpak_directory_path.empty()) {
-        vpak_directory_path = vull::dir_path(argv[0]);
+        vpak_directory_path = platform::dir_path(argv[0]);
     }
 
     vull::open_log();

@@ -30,7 +30,7 @@
 
 // IWYU pragma: no_forward_declare xkb_state
 
-namespace vull {
+namespace vull::platform {
 namespace {
 
 class WindowX11 : public Window {
@@ -467,4 +467,4 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
                                         hidden_cursor_id, xinput->major_opcode);
 }
 
-} // namespace vull
+} // namespace vull::platform

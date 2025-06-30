@@ -11,7 +11,7 @@ constexpr vull::Vec3f k_world_up(0.0f, 1.0f, 0.0f);
 
 } // namespace
 
-void OrbitCamera::handle_mouse_move(vull::Vec2f delta, const vull::Window &window) {
+void OrbitCamera::handle_mouse_move(vull::Vec2f delta, const vull::platform::Window &window) {
     // Handle any mouse movement.
     delta *= 0.3f;
     m_yaw -= delta.x() * (2.0f * vull::pi<float> / static_cast<float>(window.resolution().x()));

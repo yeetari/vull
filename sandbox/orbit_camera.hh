@@ -3,11 +3,11 @@
 #include <vull/maths/mat.hh>
 #include <vull/maths/vec.hh>
 
-namespace vull {
+namespace vull::platform {
 
 class Window;
 
-} // namespace vull
+} // namespace vull::platform
 
 class OrbitCamera {
     vull::Vec3f m_position;
@@ -17,7 +17,7 @@ class OrbitCamera {
     float m_yaw{0.0f};
 
 public:
-    void handle_mouse_move(vull::Vec2f delta, const vull::Window &window);
+    void handle_mouse_move(vull::Vec2f delta, const vull::platform::Window &window);
     void update();
     vull::Mat4f view_matrix();
 
