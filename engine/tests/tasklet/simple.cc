@@ -1,5 +1,6 @@
 #include <vull/support/atomic.hh>
 #include <vull/tasklet/functions.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/latch.hh>
 #include <vull/tasklet/scheduler.hh>
 #include <vull/test/assertions.hh>
@@ -46,4 +47,15 @@ TEST_CASE(Tasklet, SchedulerRun) {
         return 5;
     });
     EXPECT_THAT(value, is(equal_to(5)));
+}
+
+TEST_CASE(Tasklet, InTaskletContext) {
+    EXPECT_FALSE(tasklet::in_tasklet_context());
+    tasklet::Scheduler scheduler;
+    scheduler.run([] {
+        tasklet::schedule([] {
+            EXPECT_TRUE(tasklet::in_tasklet_context());
+        }).await();
+        EXPECT_TRUE(tasklet::in_tasklet_context());
+    });
 }

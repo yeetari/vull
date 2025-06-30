@@ -147,8 +147,12 @@ bool Scheduler::start(Tasklet *tasklet) {
     return true;
 }
 
+bool in_tasklet_context() {
+    return s_current_tasklet != nullptr;
+}
+
 void schedule(Tasklet *tasklet) {
-    VULL_ASSERT_PEDANTIC(s_queue != nullptr);
+    VULL_ASSERT(in_tasklet_context());
     while (!s_queue->enqueue(tasklet)) {
         yield();
     }

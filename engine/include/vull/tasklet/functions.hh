@@ -6,6 +6,11 @@
 namespace vull::tasklet {
 
 /**
+ * Returns true if the calling thread is in a tasklet context.
+ */
+bool in_tasklet_context();
+
+/**
  * Adds the given tasklet to the scheduling queue. Blocks if the queue is full.
  *
  * @param tasklet the tasklet to schedule
