@@ -67,15 +67,21 @@ uint32_t Scheduler::tasklet_count() const {
 
 static Tasklet *pick_next() {
     auto *next = vull::exchange(s_to_schedule, nullptr);
-    while (next == nullptr) {
+    if (next == nullptr) {
         s_work_available->wait();
-        do {
+        while (true) {
             if (!s_scheduler->is_running() && s_queue->empty()) {
                 s_scheduler->decrease_worker_count();
                 Thread::exit();
             }
-            next = s_queue->dequeue();
-        } while (next == nullptr && !s_queue->empty());
+            if ((next = s_queue->dequeue()) != nullptr) {
+                break;
+            }
+
+            // The dequeue has failed, likely due to heavy contention. Yield to the OS scheduler to try to lift some of
+            // it. This seems to improve performance in the event of very heavy mutex contention.
+            Thread::yield();
+        }
     }
 
     if (next->state() == TaskletState::Uninitialised) {
@@ -161,7 +167,6 @@ void yield() {
     }
     [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
     VULL_ASSERT(success);
-    s_work_available->post();
 
     VULL_ASSERT(s_to_schedule == nullptr);
     s_to_schedule = dequeued;
