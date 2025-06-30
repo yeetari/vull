@@ -38,6 +38,7 @@ RUN apt-get update \
       libharfbuzz-dev \
       libllvmlibc-19-dev \
       libstdc++-13-dev \
+      liburing-dev \
       libx11-dev \
       libxcb-randr0-dev \
       libxcb-util-dev \
