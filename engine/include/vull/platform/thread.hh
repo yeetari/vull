@@ -42,6 +42,7 @@ public:
     static Result<void, ThreadError> block_signals();
     static Result<void, ThreadError> setup_signal_stack();
     [[noreturn]] static void exit();
+    static void yield();
     Result<void, ThreadError> join();
     Result<void, ThreadError> pin_to_core(size_t core) const;
     Result<void, ThreadError> set_idle() const;

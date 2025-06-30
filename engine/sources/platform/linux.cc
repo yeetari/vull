@@ -421,6 +421,10 @@ Result<void, ThreadError> Thread::setup_signal_stack() {
     pthread_exit(nullptr);
 }
 
+void Thread::yield() {
+    sched_yield();
+}
+
 Result<void, ThreadError> Thread::join() {
     if (m_thread != 0 && pthread_join(m_thread, nullptr) != 0) {
         return ThreadError::Unknown;
