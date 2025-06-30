@@ -1,7 +1,5 @@
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
-#include <vull/platform/system_latch.hh>
-#include <vull/platform/system_mutex.hh>
 #include <vull/platform/system_semaphore.hh>
 #include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
@@ -253,42 +251,6 @@ Result<void, StreamError> FileStream::write(Span<const void> data) {
         return StreamError::Truncated;
     }
     return {};
-}
-
-void SystemLatch::count_down() {
-    if (m_value.fetch_sub(1) == 1) {
-        syscall(SYS_futex, m_value.raw_ptr(), FUTEX_WAKE_PRIVATE, UINT32_MAX, nullptr, nullptr, 0);
-    }
-}
-
-void SystemLatch::wait() {
-    uint32_t value;
-    while ((value = m_value.load()) != 0) {
-        syscall(SYS_futex, m_value.raw_ptr(), FUTEX_WAIT_PRIVATE, value, nullptr, nullptr, 0);
-    }
-}
-
-void SystemMutex::lock() {
-    auto state = State::Unlocked;
-    if (m_state.compare_exchange(state, State::Locked)) [[likely]] {
-        // Successfully locked the mutex.
-        return;
-    }
-
-    do {
-        // Signal that the mutex now has waiters (first check avoids the cmpxchg if unnecessary).
-        if (state == State::LockedWaiters || m_state.cmpxchg(State::Locked, State::LockedWaiters) != State::Unlocked) {
-            // Wait on the mutex to unlock. A spurious wakeup is fine here since the loop will just reiterate.
-            syscall(SYS_futex, m_state.raw_ptr(), FUTEX_WAIT_PRIVATE, State::LockedWaiters, nullptr, nullptr, 0);
-        }
-    } while ((state = m_state.cmpxchg(State::Unlocked, State::LockedWaiters)) != State::Unlocked);
-}
-
-void SystemMutex::unlock() {
-    if (m_state.exchange(State::Unlocked) == State::LockedWaiters) {
-        // Wake one waiter.
-        syscall(SYS_futex, m_state.raw_ptr(), FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
-    }
 }
 
 void SystemSemaphore::post() {

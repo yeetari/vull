@@ -17,7 +17,6 @@
 #include <vull/json/parser.hh>
 #include <vull/json/tree.hh>
 #include <vull/maths/vec.hh>
-#include <vull/platform/system_latch.hh>
 #include <vull/platform/timer.hh>
 #include <vull/scene/transform.hh>
 #include <vull/support/assert.hh>
