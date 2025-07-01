@@ -1,3 +1,4 @@
+#include <vull/platform/event.hh>
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
 #include <vull/platform/semaphore.hh>
@@ -25,6 +26,7 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include <linux/futex.h>
+#include <poll.h>
 #include <pthread.h>
 #include <sched.h>
 #include <signal.h>
@@ -32,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/eventfd.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -251,6 +254,33 @@ Result<void, StreamError> FileStream::write(Span<const void> data) {
         return StreamError::Truncated;
     }
     return {};
+}
+
+Event::Event() {
+    m_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+}
+
+Event::~Event() {
+    close(m_fd);
+}
+
+void Event::set() const {
+    eventfd_t value = 1;
+    VULL_IGNORE(write(m_fd, &value, sizeof(eventfd_t)));
+}
+
+void Event::reset() const {
+    eventfd_t value;
+    VULL_IGNORE(read(m_fd, &value, sizeof(eventfd_t)));
+}
+
+void Event::wait() const {
+    pollfd poll_fd{
+        .fd = m_fd,
+        .events = POLLIN,
+    };
+    poll(&poll_fd, 1, -1);
+    reset();
 }
 
 void Semaphore::post() {
