@@ -27,6 +27,8 @@ public:
 
     template <typename F>
     auto and_then(F &&callable);
+
+    bool is_complete() const;
 };
 
 template <typename T>
@@ -64,6 +66,11 @@ auto Future<T>::and_then(F &&callable) {
     });
     m_promise->wake_on_fulfillment(tasklet);
     return Future<R>(vull::move(promise));
+}
+
+template <typename T>
+bool Future<T>::is_complete() const {
+    return m_promise->is_fulfilled();
 }
 
 } // namespace vull::tasklet
