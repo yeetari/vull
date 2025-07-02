@@ -6,7 +6,6 @@
 #include <vull/core/log.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
@@ -18,6 +17,7 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
@@ -130,18 +130,14 @@ TextureStreamer::TextureStreamer(vk::Context &context) : m_context(context) {
     // Transfer ownership of images.
     m_images.push(vull::move(albedo_error_image));
     m_images.push(vull::move(normal_error_image));
-
-    // Mark empty string as error texture.
-    m_texture_indices.set({}, UINT32_MAX);
 }
 
 TextureStreamer::~TextureStreamer() {
     m_context.vkDestroyDescriptorSetLayout(m_set_layout);
 
     // Wait for any in progress uploads to complete.
-    // TODO: A more sophisticated way of doing this.
-    while (m_in_progress.load() != 0) {
-        tasklet::yield();
+    for (auto &[_, future] : m_futures) {
+        future.await();
     }
 }
 
@@ -305,40 +301,43 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     return next_index;
 }
 
-void TextureStreamer::load_texture(String &&name, uint32_t fallback_index) {
+uint32_t TextureStreamer::load_texture(String &&name, uint32_t fallback_index) {
     auto stream = vpak::open(name);
     if (!stream) {
         vull::error("[graphics] Failed to find texture {}", name);
-        ScopedLock lock(m_mutex);
-        m_texture_indices.set(vull::move(name), fallback_index);
-        return;
+        return fallback_index;
     }
 
     if (auto index = load_texture(*stream).to_optional()) {
-        ScopedLock lock(m_mutex);
-        m_texture_indices.set(vull::move(name), *index);
-    } else {
-        vull::error("[graphics] Failed to load texture {}", name);
-        ScopedLock lock(m_mutex);
-        m_texture_indices.set(vull::move(name), fallback_index);
+        return *index;
     }
+    vull::error("[graphics] Failed to load texture {}", name);
+    return fallback_index;
 }
 
 uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
-    const uint32_t fallback_index = kind == TextureKind::Normal ? 1 : 0;
-
-    ScopedLock lock(m_mutex);
-    if (auto index = m_texture_indices.get(name)) {
-        return *index != UINT32_MAX ? *index : fallback_index;
+    // First check if the texture is already loaded.
+    if (auto index = m_loaded_indices.get(name)) {
+        return *index;
     }
-    m_texture_indices.set(name, UINT32_MAX);
-    lock.unlock();
 
-    m_in_progress.fetch_add(1);
-    tasklet::schedule([this, name = String(name), fallback_index]() mutable {
-        load_texture(vull::move(name), fallback_index);
-        m_in_progress.fetch_sub(1);
+    // Otherwise check if there is a pending future.
+    const uint32_t fallback_index = kind == TextureKind::Normal ? 1 : 0;
+    if (auto future = m_futures.get(name)) {
+        if (!future->is_complete()) {
+            return fallback_index;
+        }
+        uint32_t index = future->await();
+        m_loaded_indices.set(name, index);
+        m_futures.remove(name);
+        return index;
+    }
+
+    // There is no pending future so we need to schedule the load.
+    auto future = tasklet::schedule([this, name = String(name), fallback_index]() mutable {
+        return load_texture(vull::move(name), fallback_index);
     });
+    m_futures.set(name, vull::move(future));
     return fallback_index;
 }
 
