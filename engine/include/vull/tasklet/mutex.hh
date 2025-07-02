@@ -19,19 +19,21 @@ public:
     Mutex &operator=(Mutex &&) = delete;
 
     /**
-     * Attempts to lock the mutex in a non-blocking way.
+     * @brief Attempts to lock the mutex in a non-blocking way.
      *
      * @return true if the mutex was successfully locked; false otherwise
      */
     bool try_lock();
 
     /**
-     * Attempts to lock the mutex and blocks until ownership of the mutex is taken.
+     * @brief Attempts to lock the mutex and blocks until ownership of the mutex is taken.
      */
     void lock();
 
     /**
-     * Unlocks the mutex. The behaviour is undefined if the mutex is not locked or if the mutex is not owned by the
+     * @brief Unlocks the mutex.
+     *
+     * The behaviour of this function is undefined if the mutex is not locked or if the mutex is not owned by the
      * current tasklet.
      */
     void unlock();

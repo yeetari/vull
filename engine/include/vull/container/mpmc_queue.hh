@@ -10,8 +10,9 @@
 namespace vull {
 
 /**
- * A lock-free multi-producer multi-consumer queue with FIFO ordering. Algorithm from:
- * https://github.com/rigtorp/MPMCQueue
+ * @brief A lock-free multi-producer multi-consumer queue with FIFO ordering.
+ *
+ * Algorithm from: https://github.com/rigtorp/MPMCQueue
  */
 template <TriviallyCopyable T, uint32_t SlotCountShift = 10>
 class MpmcQueue {

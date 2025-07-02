@@ -14,33 +14,38 @@ enum class Orientation : uint8_t {
     Vertical,
 };
 
-/// A class for representing device (screen) pixels in subpixels for use in layout.
+/**
+ * @brief A class for representing device (screen) pixels in subpixels for use in layout.
+ */
 class LayoutUnit {
     int32_t m_value{0};
 
 public:
     /**
-     * Returns the smallest representable LayoutUnit as a fraction of a whole pixel.
+     * @brief Returns the smallest representable LayoutUnit as a fraction of a whole pixel.
+     *
      * @return a float representing a fractional pixel
      */
     static constexpr float epsilon() { return 1.0f / 64.0f; }
 
     /**
-     * Returns the precision of a LayoutUnit, i.e.\ the number of layout units in a whole pixel.
+     * @brief Returns the precision of a LayoutUnit, i.e. the number of layout units in a whole pixel.
      */
     static constexpr int32_t precision() { return 64; }
 
     /**
-     * Creates a LayoutUnit from a rational number of pixels.
+     * @brief Creates a LayoutUnit from a rational number of pixels.
+     *
      * @param value floating-point number of pixels
-     * @return      a LayoutUnit representing subpixels
+     * @return a LayoutUnit representing subpixels
      */
     static LayoutUnit from_float_pixels(float value) { return static_cast<int32_t>(value * 64.0f); }
 
     /**
-     * Creates a LayoutUnit from an integer number of whole pixels.
+     * @brief Creates a LayoutUnit from an integer number of whole pixels.
+     *
      * @param value integer number of whole pixels
-     * @return      a LayoutUnit representing subpixels
+     * @return a LayoutUnit representing subpixels
      */
     static LayoutUnit from_int_pixels(int32_t value) { return value * 64; }
 
@@ -69,39 +74,47 @@ public:
     bool operator==(LayoutUnit rhs) const { return m_value == rhs.m_value; }
 
     /**
-     * Scales the layout unit by a rational ratio.
+     * @brief Scales the layout unit by a rational ratio.
+     *
      * @param scale a floating-point ratio
-     * @return      the scaled LayoutUnit
+     * @return the scaled LayoutUnit
      */
     LayoutUnit scale_by(float scale) const;
 
     /**
-     * Returns the fractional part of the layout unit.
+     * @brief Returns the fractional part of the layout unit.
+     *
      * @return an integer in the range [0, precision)
      * @see precision
      */
     int32_t fraction() const;
 
     /**
-     * Rounds the layout unit down to the nearest whole pixel.
+     * @brief Rounds the layout unit down to the nearest whole pixel.
+     *
      * @return a whole number of integer pixels
      */
     int32_t floor() const;
 
     /**
-     * Rounds the layout unit to the nearest whole pixel, with ties rounding away from zero.
+     * @brief Rounds the layout unit to the nearest whole pixel, with ties rounding away from zero.
+     *
      * @return a whole number of integer pixels
      */
     int32_t round() const;
 
     /**
-     * Rounds the layout unit up to the nearest whole pixel.
+     * @brief Rounds the layout unit up to the nearest whole pixel.
+     *
      * @return a whole number of integer pixels
      */
     int32_t ceil() const;
 
     /**
-     * Truncates the layout unit towards zero. Equivalent to floor when positive, and ceil when negative.
+     * @brief Truncates the layout unit towards zero.
+     *
+     * This function is equivalent to floor() when positive, and ceil() when negative.
+     *
      * @return a whole number of integer pixels
      * @see floor
      * @see ceil
@@ -109,13 +122,14 @@ public:
     int32_t to_int() const { return m_value / 64; }
 
     /**
-     * Converts the integer subpixels of the layout unit to a float.
+     * @brief Converts the integer subpixels of the layout unit to a float.
+     *
      * @return a rational number of floating-point pixels
      */
     float to_float() const { return static_cast<float>(m_value) / 64.0f; }
 
     /**
-     * Returns the raw value in integer subpixels.
+     * @brief Returns the raw value in integer subpixels.
      */
     int32_t raw_value() const { return m_value; }
 };

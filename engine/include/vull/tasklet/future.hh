@@ -9,8 +9,8 @@
 namespace vull::tasklet {
 
 /**
- * A class which represents the result of an asynchronous tasklet execution. Another tasklet can wait on a tasklet's
- * completion and retrieve its result when ready.
+ * @brief A class which represents the result of an asynchronous tasklet execution. Another tasklet can wait on a
+ * tasklet's completion and retrieve its result when ready.
  */
 template <typename T>
 class Future {

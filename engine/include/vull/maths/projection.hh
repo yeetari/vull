@@ -5,12 +5,13 @@
 namespace vull {
 
 /**
- * Creates a matrix for a symmetric perspective view frustum with an infinite far plane and reverse depth.
- * @tparam T            a floating point scalar type
- * @param  aspect_ratio aspect ratio of the viewport (width over height)
- * @param  fovx         horizontal fov in radians
- * @param  near         the distance from the viewer to the near plane
- * @return              a Mat4x4 of type T
+ * @brief Creates a matrix for a symmetric perspective view frustum with an infinite far plane and reverse depth.
+ *
+ * @tparam T a floating point scalar type
+ * @param aspect_ratio aspect ratio of the viewport (width over height)
+ * @param fovx horizontal fov in radians
+ * @param near the distance from the viewer to the near plane
+ * @return a Mat4x4 of type T
  */
 template <typename T>
 Mat<T, 4, 4> infinite_perspective(T aspect_ratio, T fovx, T near) {
@@ -24,13 +25,14 @@ Mat<T, 4, 4> infinite_perspective(T aspect_ratio, T fovx, T near) {
 }
 
 /**
- * Creates a matrix for a symmetric perspective view frustum.
- * @tparam T            a floating point scalar type
- * @param  aspect_ratio aspect ratio of the viewport (width over height)
- * @param  fovx         horizontal fov in radians
- * @param  near         the distance from the viewer to the near plane
- * @param  far          the distance from the viewer to the far plane
- * @return              a Mat4x4 of type T
+ * @brief Creates a matrix for a symmetric perspective view frustum.
+ *
+ * @tparam T a floating point scalar type
+ * @param aspect_ratio aspect ratio of the viewport (width over height)
+ * @param fovx horizontal fov in radians
+ * @param near the distance from the viewer to the near plane
+ * @param far the distance from the viewer to the far plane
+ * @return a Mat4x4 of type T
  */
 template <typename T>
 Mat<T, 4, 4> perspective(T aspect_ratio, T fovx, T near, T far) {
@@ -45,15 +47,16 @@ Mat<T, 4, 4> perspective(T aspect_ratio, T fovx, T near, T far) {
 }
 
 /**
- * Creates a matrix for an orthographic view volume.
- * @tparam T      a floating point scalar type
- * @param  left   left plane
- * @param  right  right plane
- * @param  bottom bottom plane
- * @param  top    top plane
- * @param  near   near plane
- * @param  far    far plane
- * @return        a Mat4x4 of type T
+ * @brief Creates a matrix for an orthographic view volume.
+ *
+ * @tparam T a floating point scalar type
+ * @param left left plane
+ * @param right right plane
+ * @param bottom bottom plane
+ * @param top top plane
+ * @param near near plane
+ * @param far far plane
+ * @return a Mat4x4 of type T
  */
 template <typename T>
 Mat<T, 4, 4> ortho(T left, T right, T bottom, T top, T near, T far) {

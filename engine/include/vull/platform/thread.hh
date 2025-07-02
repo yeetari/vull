@@ -37,7 +37,7 @@ public:
     Thread &operator=(Thread &&);
 
     /**
-     * Blocks all non-fault signal handlers on the current thread and any child threads.
+     * @brief Blocks all non-fault signal handlers on the current thread and any child threads.
      */
     static Result<void, ThreadError> block_signals();
     static Result<void, ThreadError> setup_signal_stack();

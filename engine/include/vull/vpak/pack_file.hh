@@ -101,7 +101,7 @@ public:
     Optional<Entry> stat(StringView name) const;
 
     /**
-     * Makes and returns a new Writer for this pack file with the given compression level.
+     * @brief Makes and returns a new Writer for this pack file with the given compression level.
      *
      * @param compression_level the compression level to use
      * @return Writer if successful
@@ -111,8 +111,8 @@ public:
     Result<Writer, platform::FileError, platform::OpenError> make_writer(CompressionLevel compression_level);
 
     /**
-     * Commits the changes made by the given writer to this PackFile object, and writes out a new vpak to disk\. In the
-     * event of an error, the existing file on disk is not touched.
+     * @brief Commits the changes made by the given writer to this PackFile object, and writes out a new vpak to disk.
+     * In the event of an error, the existing file on disk is not touched.
      *
      * @param writer a moved reference to a writer
      * @return uint64_t the number of bytes written to disk, if successful
