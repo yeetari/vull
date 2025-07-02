@@ -5,13 +5,6 @@
 
 #include <stdint.h>
 
-namespace vull {
-
-template <typename>
-class SharedPtr;
-
-} // namespace vull
-
 namespace vull::tasklet {
 
 class Tasklet;
@@ -56,11 +49,10 @@ public:
 };
 
 template <typename T>
-class SharedPromise final : public Promise<T> {
-    friend SharedPtr<SharedPromise<T>>;
-
-private:
+class SharedPromise : public Promise<T> {
     mutable Atomic<uint32_t> m_ref_count{0};
+
+public:
     void add_ref() const;
     void sub_ref() const;
 };
