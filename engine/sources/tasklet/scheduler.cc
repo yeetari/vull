@@ -19,19 +19,22 @@
 #include <unistd.h>
 
 namespace vull::tasklet {
+namespace {
 
 extern "C" void vull_make_context(void *stack_top, void (*entry_point)(Tasklet *));
 extern "C" [[noreturn]] void vull_load_context(Tasklet *tasklet, Tasklet *to_free);
 extern "C" void vull_swap_context(Tasklet *from, Tasklet *to);
 
-class TaskletQueue : public MpmcQueue<Tasklet *, 11> {};
+VULL_GLOBAL(thread_local Tasklet *s_current_tasklet = nullptr);
+VULL_GLOBAL(thread_local Tasklet *s_scheduler_tasklet = nullptr);
+VULL_GLOBAL(thread_local Tasklet *s_to_schedule = nullptr);
+VULL_GLOBAL(thread_local TaskletQueue *s_queue = nullptr);
+VULL_GLOBAL(thread_local Scheduler *s_scheduler = nullptr);
+VULL_GLOBAL(thread_local platform::Semaphore *s_work_available = nullptr);
 
-VULL_GLOBAL(static thread_local Tasklet *s_current_tasklet = nullptr);
-VULL_GLOBAL(static thread_local Tasklet *s_scheduler_tasklet = nullptr);
-VULL_GLOBAL(static thread_local Tasklet *s_to_schedule = nullptr);
-VULL_GLOBAL(static thread_local TaskletQueue *s_queue = nullptr);
-VULL_GLOBAL(static thread_local Scheduler *s_scheduler = nullptr);
-VULL_GLOBAL(static thread_local platform::Semaphore *s_work_available = nullptr);
+} // namespace
+
+class TaskletQueue : public MpmcQueue<Tasklet *, 11> {};
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
