@@ -110,6 +110,9 @@ public:
     bool contains(const T &elem) const;
     template <typename EqualFn>
     Optional<T &> find_hash(hash_t hash, EqualFn equal_fn) const;
+    void remove(const T &elem);
+    template <typename EqualFn>
+    void remove_hash(hash_t hash, EqualFn equal_fn);
 
     iterator begin() { return ++iterator(m_buckets, m_buckets + m_capacity); }
     iterator end() { return {m_buckets + m_capacity, nullptr}; }
@@ -228,6 +231,30 @@ Optional<T &> HashSet<T, HashFn, EqualityFn>::find_hash(hash_t hash, EqualFn equ
         }
     }
     return {};
+}
+
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+void HashSet<T, HashFn, EqualityFn>::remove(const T &elem) {
+    remove_hash(HashFn(elem), [&](const T &other) {
+        return EqualityFn(elem, other);
+    });
+}
+
+template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
+template <typename EqualFn>
+void HashSet<T, HashFn, EqualityFn>::remove_hash(hash_t hash, EqualFn equal_fn) {
+    if (empty()) {
+        return;
+    }
+    auto &root_bucket = m_buckets[hash % m_capacity];
+    for (auto *bucket = &root_bucket; bucket->next != nullptr; bucket = bucket->next) {
+        if (equal_fn(bucket->next->storage.get())) {
+            auto *new_next = vull::exchange(bucket->next->next, nullptr);
+            delete vull::exchange(bucket->next, new_next);
+            m_size--;
+            return;
+        }
+    }
 }
 
 } // namespace vull

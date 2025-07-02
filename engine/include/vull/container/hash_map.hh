@@ -18,6 +18,7 @@ public:
     bool contains(const K &key) const;
     Optional<V &> get(const K &key);
     Optional<const V &> get(const K &key) const;
+    void remove(const K &key);
     bool set(const K &key, const V &value);
     bool set(const K &key, V &&value);
     bool set(K &&key, const V &value);
@@ -68,6 +69,13 @@ Optional<const V &> HashMap<K, V>::get(const K &key) const {
         return key == other.key;
     });
     return entry ? Optional<const V &>(entry->value) : vull::nullopt;
+}
+
+template <typename K, typename V>
+void HashMap<K, V>::remove(const K &key) {
+    m_set.remove_hash(hash_of(key), [&](const Entry &other) {
+        return key == other.key;
+    });
 }
 
 template <typename K, typename V>
