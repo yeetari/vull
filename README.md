@@ -19,9 +19,11 @@ A vulkan rendering engine written in C++ 20.
 * [freetype](https://freetype.org)
 * [harfbuzz](https://github.com/harfbuzz/harfbuzz)
 * [libpng](https://github.com/glennrp/libpng) (for vpak tool)
+* [liburing](https://github.com/axboe/liburing)
 * [meshoptimizer](https://github.com/zeux/meshoptimizer) (for vpak tool)
 * [shaderc](https://github.com/google/shaderc) (for offline shader compilation step)
 * [xcb](https://xcb.freedesktop.org)
+* [xkbcommon](https://github.com/xkbcommon/libxkbcommon)
 * [xxHash](https://github.com/Cyan4973/xxHash)
 * [zstd](https://github.com/facebook/zstd)
 
@@ -53,8 +55,9 @@ is not currently supported. Alternatively, vull can be built in a reproducible d
      media-libs/shaderc \
      media-libs/vulkan-layers \
      media-libs/vulkan-loader \
+     sys-libs/liburing \
      x11-libs/libxcb \
-     x11-libs/xcb-util
+     x11-libs/libxkbcommon
 
 Note that `meshoptimizer` is always linked to via `FetchContent`, and that `bc7enc_rdo` is vendored. The vulkan
 validation layers (`vulkan-layers`) are not required but are extremely useful for development and testing.
