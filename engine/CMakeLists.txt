@@ -3,7 +3,7 @@ add_library(vull)
 target_compile_features(vull PRIVATE cxx_std_20)
 target_compile_options(vull PRIVATE ${VULL_COMPILER_FLAGS_LIST})
 target_include_directories(vull PUBLIC include)
-target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd)
+target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd liburing::liburing)
 
 if(VULL_BUILD_UI)
     target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz)

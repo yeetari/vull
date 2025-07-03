@@ -59,6 +59,7 @@ if(VULL_ENABLE_COVERAGE)
       VERBATIM)
 endif()
 
+find_package(liburing REQUIRED)
 find_package(xxHash REQUIRED)
 find_package(Zstd REQUIRED)
 find_program(GLSLC glslc REQUIRED)
