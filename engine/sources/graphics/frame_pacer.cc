@@ -152,6 +152,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             m_event.wait();
         }
     }));
+    VULL_IGNORE(m_thread.set_name("Frame pacer"));
 }
 
 FramePacer::~FramePacer() {

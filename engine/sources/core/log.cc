@@ -129,6 +129,7 @@ void GlobalState::open_sink() {
     m_running.store(true);
     m_sink_thread = VULL_EXPECT(platform::Thread::create(&sink_loop));
     VULL_IGNORE(m_sink_thread.set_idle());
+    VULL_IGNORE(m_sink_thread.set_name("Log sink"));
 }
 
 void GlobalState::close_sink() {

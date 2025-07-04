@@ -10,6 +10,7 @@
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/result.hh>
+#include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
@@ -145,6 +146,7 @@ bool Scheduler::start(Tasklet *tasklet) {
         if (thread.pin_to_core(i).is_error()) {
             vull::error("[tasklet] Failed to pin worker thread {}", i);
         }
+        VULL_IGNORE(thread.set_name(vull::format("Worker #{}", i)));
     }
     vull::info("[tasklet] Started {} threads", m_worker_threads.size());
     return true;
