@@ -2,67 +2,63 @@
 
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
-#include <vull/support/unique_ptr.hh>
-#include <vull/vulkan/fence.hh>
-#include <vull/vulkan/semaphore.hh>
+#include <vull/platform/event.hh>
+#include <vull/platform/thread.hh>
+#include <vull/support/atomic.hh>
+#include <vull/support/string.hh>
+#include <vull/support/string_view.hh>
+#include <vull/support/unique_ptr.hh> // IWYU pragma: keep
+#include <vull/tasklet/promise.hh>
 
 #include <stdint.h>
 
 namespace vull::vk {
 
 class Context;
+class Fence;
+class Image;
 class RenderGraph;
+class Semaphore;
 class Swapchain;
 
 } // namespace vull::vk
 
 namespace vull {
 
-class StringView;
-
-class Frame {
-    vk::Fence m_fence;
-    vk::Semaphore m_acquire_semaphore;
-    vk::Semaphore m_present_semaphore;
-    UniquePtr<vk::RenderGraph> m_render_graph;
-
-public:
-    explicit Frame(const vk::Context &context);
-    Frame(const Frame &) = delete;
-    Frame(Frame &&) = default;
-    ~Frame();
-
-    Frame &operator=(const Frame &) = delete;
-    Frame &operator=(Frame &&) = delete;
-
-    HashMap<StringView, float> pass_times();
-    vk::RenderGraph &new_graph(vk::Context &context);
-
-    const vk::Fence &fence() const { return m_fence; }
-    const vk::Semaphore &acquire_semaphore() const { return m_acquire_semaphore; }
-    const vk::Semaphore &present_semaphore() const { return m_present_semaphore; }
+struct FrameInfo {
+    const vk::Fence &fence;
+    const vk::Semaphore &acquire_semaphore;
+    const vk::Semaphore &present_semaphore;
+    const vk::Image &swapchain_image;
+    vk::RenderGraph &graph;
+    HashMap<String, float> pass_times;
+    uint32_t frame_index;
 };
 
 class FramePacer {
-    const vk::Swapchain &m_swapchain;
-    Vector<Frame> m_frames;
-    uint32_t m_frame_index{0};
-    uint32_t m_image_index{0};
+    vk::Context &m_context;
+    vk::Swapchain &m_swapchain;
+    Vector<vk::Fence> m_fences;
+    Vector<vk::Semaphore> m_acquire_semaphores;
+    Vector<vk::Semaphore> m_present_semaphores;
+    Vector<UniquePtr<vk::RenderGraph>> m_render_graphs;
+    platform::Event m_event;
+    platform::Thread m_thread;
+    tasklet::Promise<FrameInfo> m_promise;
+    Atomic<bool> m_running{true};
 
 public:
-    FramePacer(const vk::Swapchain &swapchain, uint32_t queue_length);
+    FramePacer(vk::Swapchain &swapchain, uint32_t queue_length);
     FramePacer(const FramePacer &) = delete;
     FramePacer(FramePacer &&) = delete;
-    ~FramePacer() = default;
+    ~FramePacer();
 
     FramePacer &operator=(const FramePacer &) = delete;
     FramePacer &operator=(FramePacer &&) = delete;
 
-    Frame &request_frame();
-
-    uint32_t queue_length() const { return m_frames.size(); }
-    uint32_t frame_index() const { return m_frame_index; }
-    uint32_t image_index() const { return m_image_index; }
+    FrameInfo acquire_frame();
+    void submit_frame();
+    uint32_t queue_length() const { return m_fences.size(); }
 };
 
 } // namespace vull

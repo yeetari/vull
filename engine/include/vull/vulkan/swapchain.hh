@@ -44,6 +44,7 @@ public:
     vkb::Extent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
     Image &image(uint32_t index);
     const Image &image(uint32_t index) const;
+    uint32_t image_count() const { return m_images.size(); }
 };
 
 } // namespace vull::vk

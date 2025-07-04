@@ -65,7 +65,6 @@ class Sandbox {
     UniquePtr<platform::Window> m_window;
     vk::Context m_context;
     vk::Swapchain m_swapchain;
-    FramePacer m_frame_pacer;
     vk::QueryPool m_pipeline_statistics_pool;
     DeferredRenderer m_deferred_renderer;
     DefaultRenderer m_default_renderer;
@@ -91,15 +90,14 @@ public:
     Sandbox(bool enable_validation);
 
     void load_scene(StringView scene_name);
-    void render_frame();
+    void render_frame(FramePacer &frame_pacer);
     void start_loop();
 };
 
 Sandbox::Sandbox(bool enable_validation)
     : m_window(VULL_EXPECT(platform::Window::create(vull::nullopt, vull::nullopt, true))), m_context(enable_validation),
       m_swapchain(VULL_EXPECT(m_window->create_swapchain(m_context, vk::SwapchainMode::LowPower))),
-      m_frame_pacer(m_swapchain, 2),
-      m_pipeline_statistics_pool(m_context, m_frame_pacer.queue_length(),
+      m_pipeline_statistics_pool(m_context, 2,
                                  vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                      vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
                                      vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
@@ -206,9 +204,9 @@ void Sandbox::load_scene(StringView scene_name) {
     world.register_component<Collider>();
 }
 
-void Sandbox::render_frame() {
+void Sandbox::render_frame(FramePacer &frame_pacer) {
     platform::Timer acquire_frame_timer;
-    auto &frame = m_frame_pacer.request_frame();
+    auto frame_info = frame_pacer.acquire_frame();
     m_cpu_time_graph->push_section("acquire-frame", acquire_frame_timer.elapsed());
 
     float dt = m_frame_timer.elapsed();
@@ -218,9 +216,8 @@ void Sandbox::render_frame() {
     m_window->poll_events();
 
     // Collect previous frame N's timestamp data.
-    const auto pass_times = frame.pass_times();
     m_gpu_time_graph->new_bar();
-    for (const auto &[name, time] : pass_times) {
+    for (const auto &[name, time] : frame_info.pass_times) {
         if (name != "submit") {
             m_gpu_time_graph->push_section(name, time);
         }
@@ -232,7 +229,7 @@ void Sandbox::render_frame() {
         "FS invocations: {d8 }",     "CS invocations: {d8 }",
     };
     Array<uint64_t, 5> pipeline_statistics{};
-    m_pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1, m_frame_pacer.frame_index());
+    m_pipeline_statistics_pool.read_host(pipeline_statistics.span(), 1, frame_info.frame_index);
     for (uint32_t i = 0; i < pipeline_statistics.size(); i++) {
         static_cast<ui::Label &>(m_pipeline_statistics_labels[i])
             .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
@@ -259,8 +256,8 @@ void Sandbox::render_frame() {
     m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
 
     platform::Timer build_rg_timer;
-    auto &graph = frame.new_graph(m_context);
-    auto output_id = graph.import("output-image", m_swapchain.image(m_frame_pacer.image_index()));
+    auto &graph = frame_info.graph;
+    auto output_id = graph.import("output-image", frame_info.swapchain_image);
 
     auto gbuffer = m_deferred_renderer.create_gbuffer(graph);
     auto frame_ubo = m_default_renderer.build_pass(graph, gbuffer);
@@ -278,34 +275,35 @@ void Sandbox::render_frame() {
     platform::Timer execute_rg_timer;
     auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
     auto &cmd_buf = queue->request_cmd_buf();
-    cmd_buf.reset_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
-    cmd_buf.begin_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
+    cmd_buf.reset_query(m_pipeline_statistics_pool, frame_info.frame_index);
+    cmd_buf.begin_query(m_pipeline_statistics_pool, frame_info.frame_index);
     graph.execute(cmd_buf, true);
-    cmd_buf.end_query(m_pipeline_statistics_pool, m_frame_pacer.frame_index());
+    cmd_buf.end_query(m_pipeline_statistics_pool, frame_info.frame_index);
 
     Array signal_semaphores{
         vkb::SemaphoreSubmitInfo{
             .sType = vkb::StructureType::SemaphoreSubmitInfo,
-            .semaphore = *frame.present_semaphore(),
+            .semaphore = *frame_info.present_semaphore,
             .stageMask = vkb::PipelineStage2::AllCommands,
         },
     };
     Array wait_semaphores{
         vkb::SemaphoreSubmitInfo{
             .sType = vkb::StructureType::SemaphoreSubmitInfo,
-            .semaphore = *frame.acquire_semaphore(),
+            .semaphore = *frame_info.acquire_semaphore,
             .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
         },
     };
-    queue->submit(cmd_buf, *frame.fence(), signal_semaphores.span(), wait_semaphores.span());
+    queue->submit(cmd_buf, *frame_info.fence, signal_semaphores.span(), wait_semaphores.span());
     m_cpu_time_graph->push_section("execute-rg", execute_rg_timer.elapsed());
 }
 
 void Sandbox::start_loop() {
+    FramePacer frame_pacer(m_swapchain, 2);
     while (!m_should_close) {
-        render_frame();
+        render_frame(frame_pacer);
+        frame_pacer.submit_frame();
     }
-    m_context.vkDeviceWaitIdle();
 }
 
 } // namespace
