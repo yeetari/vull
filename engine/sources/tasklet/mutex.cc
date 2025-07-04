@@ -37,6 +37,11 @@ void Mutex::lock() {
             return;
         }
 
+        // TODO: Implement locking for normal threads via futex.
+        if (!tasklet::in_tasklet_context()) {
+            continue;
+        }
+
         // Otherwise the mutex is locked and we need to add ourselves to the wait list.
         auto *current = Tasklet::current();
         current->set_linked_tasklet(tasklet);
