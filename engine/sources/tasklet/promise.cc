@@ -1,5 +1,6 @@
 #include <vull/tasklet/promise.hh>
 
+#include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
@@ -34,6 +35,11 @@ bool PromiseBase::add_waiter(Tasklet *tasklet) {
 
 bool PromiseBase::is_fulfilled() const {
     return m_wait_list.load(vull::memory_order_relaxed) == FULFILLED_SENTINEL;
+}
+
+void PromiseBase::reset() {
+    VULL_ASSERT(is_fulfilled());
+    m_wait_list.store(nullptr, vull::memory_order_release);
 }
 
 void PromiseBase::wake_on_fulfillment(Tasklet *tasklet) {

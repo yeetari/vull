@@ -18,6 +18,7 @@ protected:
 public:
     bool add_waiter(Tasklet *tasklet);
     bool is_fulfilled() const;
+    void reset();
     void wake_on_fulfillment(Tasklet *tasklet);
     void wait();
 };
