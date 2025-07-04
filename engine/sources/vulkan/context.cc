@@ -202,14 +202,19 @@ Context::Context(bool enable_validation) : ContextTable{} {
     vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, queue_families.data());
     vull::debug("[vulkan] Device has {} queue families", queue_families.size());
 
+    uint32_t max_queue_count = 0;
+    for (const auto &family : queue_families) {
+        max_queue_count = vull::max(max_queue_count, family.queueCount);
+    }
+
     Vector<vkb::DeviceQueueCreateInfo> queue_cis;
-    const float queue_priority = 1.0f;
+    Vector<float> queue_priorities(max_queue_count, 1.0f);
     for (uint32_t i = 0; i < queue_families.size(); i++) {
         queue_cis.push({
             .sType = vkb::StructureType::DeviceQueueCreateInfo,
             .queueFamilyIndex = i,
             .queueCount = queue_families[i].queueCount,
-            .pQueuePriorities = &queue_priority,
+            .pQueuePriorities = queue_priorities.data(),
         });
 
         StringBuilder flags_string;
