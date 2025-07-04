@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/result.hh>
+#include <vull/support/string.hh>
 #include <vull/support/utility.hh>
 
 #include <pthread.h>
@@ -27,6 +28,7 @@ class Thread {
 public:
     template <typename F>
     static Result<Thread, ThreadError> create(F &&callable);
+    static Thread current();
 
     Thread() = default;
     Thread(const Thread &) = delete;
@@ -46,6 +48,7 @@ public:
     Result<void, ThreadError> join();
     Result<void, ThreadError> pin_to_core(size_t core) const;
     Result<void, ThreadError> set_idle() const;
+    Result<void, ThreadError> set_name(String name) const;
 };
 
 template <typename F>

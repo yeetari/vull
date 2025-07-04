@@ -365,8 +365,14 @@ Result<pthread_t, ThreadError> Thread::create(void *(*function)(void *), void *a
     }
 }
 
+Thread Thread::current() {
+    return Thread(pthread_self());
+}
+
 Thread::~Thread() {
-    VULL_EXPECT(join());
+    if (m_thread != pthread_self()) {
+        VULL_EXPECT(join());
+    }
 }
 
 Thread &Thread::operator=(Thread &&other) {
@@ -446,6 +452,13 @@ Result<void, ThreadError> Thread::set_idle() const {
     default:
         return ThreadError::Unknown;
     }
+}
+
+Result<void, ThreadError> Thread::set_name(String name) const {
+    if (pthread_setname_np(m_thread, name.data()) != 0) {
+        return ThreadError::Unknown;
+    }
+    return {};
 }
 
 [[noreturn]] static void fault_handler(int signal, siginfo_t *info, void *) {
