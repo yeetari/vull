@@ -329,7 +329,9 @@ void WindowX11::poll_events() {
             vull::warn("[platform] Received unknown X event {}", event_id);
             break;
         }
+        free(event);
     }
+    xcb_flush(m_connection);
 }
 
 void WindowX11::grab_cursor() {
