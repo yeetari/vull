@@ -45,6 +45,7 @@ public:
     template <TaskletSize Size = TaskletSize::Normal, typename F>
     auto run(F &&callable);
     bool start(Tasklet *tasklet);
+    void setup_thread();
 
     uint32_t tasklet_count() const;
     bool is_running() const { return m_running.load(vull::memory_order_acquire); }

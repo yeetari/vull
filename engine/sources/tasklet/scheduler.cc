@@ -150,12 +150,17 @@ bool Scheduler::start(Tasklet *tasklet) {
     return true;
 }
 
+void Scheduler::setup_thread() {
+    s_queue = m_queue.ptr();
+    s_work_available = &m_work_available;
+}
+
 bool in_tasklet_context() {
     return s_current_tasklet != nullptr;
 }
 
 void schedule(Tasklet *tasklet) {
-    VULL_ASSERT(in_tasklet_context());
+    VULL_ASSERT(s_queue != nullptr && s_work_available != nullptr);
     while (!s_queue->enqueue(tasklet)) {
         yield();
     }
