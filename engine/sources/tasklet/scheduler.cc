@@ -78,7 +78,7 @@ static Tasklet *pick_next() {
                 s_scheduler->decrease_worker_count();
                 platform::Thread::exit();
             }
-            if ((next = s_queue->dequeue()) != nullptr) {
+            if ((next = s_queue->try_dequeue()) != nullptr) {
                 break;
             }
 
@@ -121,7 +121,7 @@ bool Scheduler::start(Tasklet *tasklet) {
     if (m_worker_threads.empty()) {
         return false;
     }
-    if (!m_queue->enqueue(tasklet)) {
+    if (!m_queue->try_enqueue(tasklet)) {
         return false;
     }
     m_running.store(true, vull::memory_order_release);
@@ -163,7 +163,7 @@ bool in_tasklet_context() {
 
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT(s_queue != nullptr && s_work_available != nullptr);
-    while (!s_queue->enqueue(tasklet)) {
+    while (!s_queue->try_enqueue(tasklet)) {
         yield();
     }
     s_work_available->post();
@@ -175,11 +175,11 @@ void suspend() {
 }
 
 void yield() {
-    auto *dequeued = s_queue->dequeue();
+    auto *dequeued = s_queue->try_dequeue();
     if (dequeued == nullptr) {
         return;
     }
-    [[maybe_unused]] bool success = s_queue->enqueue(s_current_tasklet);
+    [[maybe_unused]] bool success = s_queue->try_enqueue(s_current_tasklet);
     VULL_ASSERT(success);
 
     VULL_ASSERT(s_to_schedule == nullptr);

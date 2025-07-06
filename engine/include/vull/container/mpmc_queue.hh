@@ -30,15 +30,15 @@ private:
     Atomic<uint32_t> m_tail;
 
 public:
-    [[nodiscard]] bool enqueue(T value);
-    dequeued_type dequeue();
+    [[nodiscard]] bool try_enqueue(T value);
+    dequeued_type try_dequeue();
 
     [[nodiscard]] bool empty() const;
     uint32_t size() const;
 };
 
 template <TriviallyCopyable T, uint32_t SlotCountShift>
-bool MpmcQueue<T, SlotCountShift>::enqueue(T value) {
+bool MpmcQueue<T, SlotCountShift>::try_enqueue(T value) {
     uint32_t head = m_head.load(vull::memory_order_acquire);
     while (true) {
         auto &slot = m_slots[head % k_slot_count];
@@ -59,7 +59,7 @@ bool MpmcQueue<T, SlotCountShift>::enqueue(T value) {
 }
 
 template <TriviallyCopyable T, uint32_t SlotCountShift>
-MpmcQueue<T, SlotCountShift>::dequeued_type MpmcQueue<T, SlotCountShift>::dequeue() {
+MpmcQueue<T, SlotCountShift>::dequeued_type MpmcQueue<T, SlotCountShift>::try_dequeue() {
     uint32_t tail = m_tail.load(vull::memory_order_acquire);
     while (true) {
         auto &slot = m_slots[tail % k_slot_count];
