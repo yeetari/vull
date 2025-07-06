@@ -16,6 +16,7 @@ void ContextTable::load_instance(Instance instance, PFN_vkGetInstanceProcAddr vk
     m_instance = instance;
     m_vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
     m_vkCreateDevice = reinterpret_cast<PFN_vkCreateDevice>(vkGetInstanceProcAddr(m_instance, "vkCreateDevice"));
+    m_vkCreateWaylandSurfaceKHR = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(m_instance, "vkCreateWaylandSurfaceKHR"));
     m_vkCreateXcbSurfaceKHR = reinterpret_cast<PFN_vkCreateXcbSurfaceKHR>(vkGetInstanceProcAddr(m_instance, "vkCreateXcbSurfaceKHR"));
     m_vkDestroyDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
     m_vkDestroyInstance = reinterpret_cast<PFN_vkDestroyInstance>(vkGetInstanceProcAddr(m_instance, "vkDestroyInstance"));
@@ -48,6 +49,7 @@ void ContextTable::load_instance(Instance instance, PFN_vkGetInstanceProcAddr vk
     m_vkGetPhysicalDeviceSurfacePresentModesKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfacePresentModesKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfacePresentModesKHR"));
     m_vkGetPhysicalDeviceSurfaceSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceSurfaceSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceSurfaceSupportKHR"));
     m_vkGetPhysicalDeviceToolProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceToolProperties>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceToolProperties"));
+    m_vkGetPhysicalDeviceWaylandPresentationSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceWaylandPresentationSupportKHR"));
     m_vkGetPhysicalDeviceXcbPresentationSupportKHR = reinterpret_cast<PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR>(vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceXcbPresentationSupportKHR"));
     m_vkSubmitDebugUtilsMessageEXT = reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(vkGetInstanceProcAddr(m_instance, "vkSubmitDebugUtilsMessageEXT"));
 }
@@ -757,6 +759,10 @@ Result ContextTable::vkCreateSwapchainKHR(const SwapchainCreateInfoKHR *pCreateI
     return m_vkCreateSwapchainKHR(m_device, pCreateInfo, nullptr, pSwapchain);
 }
 
+Result ContextTable::vkCreateWaylandSurfaceKHR(const WaylandSurfaceCreateInfoKHR *pCreateInfo, SurfaceKHR *pSurface) const {
+    return m_vkCreateWaylandSurfaceKHR(m_instance, pCreateInfo, nullptr, pSurface);
+}
+
 Result ContextTable::vkCreateXcbSurfaceKHR(const XcbSurfaceCreateInfoKHR *pCreateInfo, SurfaceKHR *pSurface) const {
     return m_vkCreateXcbSurfaceKHR(m_instance, pCreateInfo, nullptr, pSurface);
 }
@@ -1127,6 +1133,10 @@ Result ContextTable::vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIn
 
 Result ContextTable::vkGetPhysicalDeviceToolProperties(uint32_t *pToolCount, PhysicalDeviceToolProperties *pToolProperties) const {
     return m_vkGetPhysicalDeviceToolProperties(m_physical_device, pToolCount, pToolProperties);
+}
+
+Bool ContextTable::vkGetPhysicalDeviceWaylandPresentationSupportKHR(uint32_t queueFamilyIndex, struct wl_display *display) const {
+    return m_vkGetPhysicalDeviceWaylandPresentationSupportKHR(m_physical_device, queueFamilyIndex, display);
 }
 
 Bool ContextTable::vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const {

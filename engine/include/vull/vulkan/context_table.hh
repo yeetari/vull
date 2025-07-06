@@ -141,6 +141,7 @@ private:
     PFN_vkCreateSemaphore m_vkCreateSemaphore;
     PFN_vkCreateShaderModule m_vkCreateShaderModule;
     PFN_vkCreateSwapchainKHR m_vkCreateSwapchainKHR;
+    PFN_vkCreateWaylandSurfaceKHR m_vkCreateWaylandSurfaceKHR;
     PFN_vkCreateXcbSurfaceKHR m_vkCreateXcbSurfaceKHR;
     PFN_vkDestroyBuffer m_vkDestroyBuffer;
     PFN_vkDestroyBufferView m_vkDestroyBufferView;
@@ -234,6 +235,7 @@ private:
     PFN_vkGetPhysicalDeviceSurfacePresentModesKHR m_vkGetPhysicalDeviceSurfacePresentModesKHR;
     PFN_vkGetPhysicalDeviceSurfaceSupportKHR m_vkGetPhysicalDeviceSurfaceSupportKHR;
     PFN_vkGetPhysicalDeviceToolProperties m_vkGetPhysicalDeviceToolProperties;
+    PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR m_vkGetPhysicalDeviceWaylandPresentationSupportKHR;
     PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR m_vkGetPhysicalDeviceXcbPresentationSupportKHR;
     PFN_vkGetPipelineCacheData m_vkGetPipelineCacheData;
     PFN_vkGetPrivateData m_vkGetPrivateData;
@@ -396,6 +398,7 @@ public:
     Result vkCreateSemaphore(const SemaphoreCreateInfo *pCreateInfo, Semaphore *pSemaphore) const;
     Result vkCreateShaderModule(const ShaderModuleCreateInfo *pCreateInfo, ShaderModule *pShaderModule) const;
     Result vkCreateSwapchainKHR(const SwapchainCreateInfoKHR *pCreateInfo, SwapchainKHR *pSwapchain) const;
+    Result vkCreateWaylandSurfaceKHR(const WaylandSurfaceCreateInfoKHR *pCreateInfo, SurfaceKHR *pSurface) const;
     Result vkCreateXcbSurfaceKHR(const XcbSurfaceCreateInfoKHR *pCreateInfo, SurfaceKHR *pSurface) const;
     void vkDestroyBuffer(Buffer buffer) const;
     void vkDestroyBufferView(BufferView bufferView) const;
@@ -489,6 +492,7 @@ public:
     Result vkGetPhysicalDeviceSurfacePresentModesKHR(SurfaceKHR surface, uint32_t *pPresentModeCount, PresentModeKHR *pPresentModes) const;
     Result vkGetPhysicalDeviceSurfaceSupportKHR(uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported) const;
     Result vkGetPhysicalDeviceToolProperties(uint32_t *pToolCount, PhysicalDeviceToolProperties *pToolProperties) const;
+    Bool vkGetPhysicalDeviceWaylandPresentationSupportKHR(uint32_t queueFamilyIndex, struct wl_display *display) const;
     Bool vkGetPhysicalDeviceXcbPresentationSupportKHR(uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id) const;
     Result vkGetPipelineCacheData(PipelineCache pipelineCache, size_t *pDataSize, void *pData) const;
     void vkGetPrivateData(ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData) const;

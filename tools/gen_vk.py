@@ -130,6 +130,7 @@ desired_extension_names = [
     'VK_KHR_external_fence_fd',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
+    'VK_KHR_wayland_surface',
     'VK_KHR_xcb_surface',
 ]
 
@@ -437,6 +438,9 @@ with open('../engine/include/vull/vulkan/vulkan.hh', 'w') as file:
 
 #include <stddef.h>
 #include <stdint.h>
+
+struct wl_display;
+struct wl_surface;
 
 using xcb_connection_t = struct xcb_connection_t;
 using xcb_window_t = uint32_t;

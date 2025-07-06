@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct wl_display;
+struct wl_surface;
+
 using xcb_connection_t = struct xcb_connection_t;
 using xcb_window_t = uint32_t;
 using xcb_visualid_t = uint32_t;
@@ -42,8 +45,10 @@ constexpr uint32_t k_max_global_priority_size = 16;
 constexpr uint32_t k_max_shader_module_identifier_size_ext = 32;
 constexpr uint32_t k_max_pipeline_binary_key_size_khr = 32;
 constexpr uint32_t k_max_video_av1_references_per_frame_khr = 7;
+constexpr uint32_t k_max_video_vp9_references_per_frame_khr = 3;
 constexpr uint32_t k_shader_index_unused_amdx = (~0u);
 constexpr uint32_t k_partitioned_acceleration_structure_partition_index_global_nv = (~0u);
+constexpr uint32_t k_max_physical_device_data_graph_operation_set_name_size_arm = 128;
 
 // Base types.
 using DeviceAddress = uint64_t;
@@ -88,6 +93,7 @@ using RenderPassCreateFlags = Flags;
 using SemaphoreCreateFlags = Flags;
 using ShaderModuleCreateFlags = Flags;
 using SubpassDescriptionFlags = Flags;
+using WaylandSurfaceCreateFlagsKHR = Flags;
 using XcbSurfaceCreateFlagsKHR = Flags;
 
 // Handles.
@@ -1938,6 +1944,7 @@ enum class StructureType {
     AcquireNextImageInfoKHR = 1000060010,
     DeviceGroupPresentInfoKHR = 1000060011,
     DeviceGroupSwapchainCreateInfoKHR = 1000060012,
+    WaylandSurfaceCreateInfoKHR = 1000006000,
     XcbSurfaceCreateInfoKHR = 1000005000,
 };
 
@@ -5086,6 +5093,14 @@ struct DeviceGroupSwapchainCreateInfoKHR {
     DeviceGroupPresentModeKHR modes;
 };
 
+struct WaylandSurfaceCreateInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    WaylandSurfaceCreateFlagsKHR flags;
+    struct wl_display *display;
+    struct wl_surface *surface;
+};
+
 struct XcbSurfaceCreateInfoKHR {
     StructureType sType;
     const void *pNext;
@@ -5217,6 +5232,7 @@ using PFN_vkCreateSamplerYcbcrConversion = Result (*)(Device device, const Sampl
 using PFN_vkCreateSemaphore = Result (*)(Device device, const SemaphoreCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, Semaphore *pSemaphore);
 using PFN_vkCreateShaderModule = Result (*)(Device device, const ShaderModuleCreateInfo *pCreateInfo, const AllocationCallbacks *pAllocator, ShaderModule *pShaderModule);
 using PFN_vkCreateSwapchainKHR = Result (*)(Device device, const SwapchainCreateInfoKHR *pCreateInfo, const AllocationCallbacks *pAllocator, SwapchainKHR *pSwapchain);
+using PFN_vkCreateWaylandSurfaceKHR = Result (*)(Instance instance, const WaylandSurfaceCreateInfoKHR *pCreateInfo, const AllocationCallbacks *pAllocator, SurfaceKHR *pSurface);
 using PFN_vkCreateXcbSurfaceKHR = Result (*)(Instance instance, const XcbSurfaceCreateInfoKHR *pCreateInfo, const AllocationCallbacks *pAllocator, SurfaceKHR *pSurface);
 using PFN_vkDestroyBuffer = void (*)(Device device, Buffer buffer, const AllocationCallbacks *pAllocator);
 using PFN_vkDestroyBufferView = void (*)(Device device, BufferView bufferView, const AllocationCallbacks *pAllocator);
@@ -5311,6 +5327,7 @@ using PFN_vkGetPhysicalDeviceSurfaceFormatsKHR = Result (*)(PhysicalDevice physi
 using PFN_vkGetPhysicalDeviceSurfacePresentModesKHR = Result (*)(PhysicalDevice physicalDevice, SurfaceKHR surface, uint32_t *pPresentModeCount, PresentModeKHR *pPresentModes);
 using PFN_vkGetPhysicalDeviceSurfaceSupportKHR = Result (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, SurfaceKHR surface, Bool *pSupported);
 using PFN_vkGetPhysicalDeviceToolProperties = Result (*)(PhysicalDevice physicalDevice, uint32_t *pToolCount, PhysicalDeviceToolProperties *pToolProperties);
+using PFN_vkGetPhysicalDeviceWaylandPresentationSupportKHR = Bool (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, struct wl_display *display);
 using PFN_vkGetPhysicalDeviceXcbPresentationSupportKHR = Bool (*)(PhysicalDevice physicalDevice, uint32_t queueFamilyIndex, xcb_connection_t *connection, xcb_visualid_t visual_id);
 using PFN_vkGetPipelineCacheData = Result (*)(Device device, PipelineCache pipelineCache, size_t *pDataSize, void *pData);
 using PFN_vkGetPrivateData = void (*)(Device device, ObjectType objectType, uint64_t objectHandle, PrivateDataSlot privateDataSlot, uint64_t *pData);
