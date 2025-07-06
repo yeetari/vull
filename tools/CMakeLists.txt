@@ -2,6 +2,7 @@ if(CMAKE_CXX_COMPILER MATCHES "(afl-clang-lto)+")
     add_subdirectory(fuzz)
 endif()
 
+vull_add_executable(mpmc-bench mpmc_bench.cc)
 vull_add_executable(tasklet-bench tasklet_bench.cc)
 
 if(VULL_BUILD_VPAK)
