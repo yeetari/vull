@@ -23,15 +23,15 @@ class MpmcQueue {
     static constexpr uint32_t k_slot_shift = SlotCountShift;
     static constexpr uint32_t k_slot_count = 1u << k_slot_shift;
 
-    struct Slot {
+    struct alignas(32) Slot {
         Atomic<T> value;
         Atomic<uint32_t> turn;
     };
 
 private:
     Array<Slot, k_slot_count> m_slots{};
-    Atomic<uint32_t> m_head;
-    Atomic<uint32_t> m_tail;
+    alignas(64) Atomic<uint32_t> m_head;
+    alignas(64) Atomic<uint32_t> m_tail;
 
 public:
     template <typename YieldFn>
