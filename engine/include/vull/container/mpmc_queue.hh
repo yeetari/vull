@@ -30,12 +30,42 @@ private:
     Atomic<uint32_t> m_tail;
 
 public:
+    template <typename YieldFn>
+    void enqueue(T value, YieldFn yield_fn);
+    template <typename YieldFn>
+    T dequeue(YieldFn yield_fn);
+
     [[nodiscard]] bool try_enqueue(T value);
     dequeued_type try_dequeue();
 
     [[nodiscard]] bool empty() const;
     uint32_t size() const;
 };
+
+template <TriviallyCopyable T, uint32_t SlotCountShift>
+template <typename YieldFn>
+void MpmcQueue<T, SlotCountShift>::enqueue(T value, YieldFn yield_fn) {
+    uint32_t head = m_head.fetch_add(1, vull::memory_order_acquire);
+    auto &turn = m_turns[head % k_slot_count];
+    while ((head / k_slot_count) * 2 != turn.load(vull::memory_order_acquire)) {
+        yield_fn();
+    }
+    m_slots[head % k_slot_count].store(value, vull::memory_order_relaxed);
+    turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
+}
+
+template <TriviallyCopyable T, uint32_t SlotCountShift>
+template <typename YieldFn>
+T MpmcQueue<T, SlotCountShift>::dequeue(YieldFn yield_fn) {
+    uint32_t tail = m_tail.fetch_add(1, vull::memory_order_acquire);
+    auto &turn = m_turns[tail % k_slot_count];
+    while ((tail / k_slot_count) * 2 + 1 != turn.load(vull::memory_order_acquire)) {
+        yield_fn();
+    }
+    auto value = m_slots[tail % k_slot_count].load(vull::memory_order_relaxed);
+    turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
+    return value;
+}
 
 template <TriviallyCopyable T, uint32_t SlotCountShift>
 bool MpmcQueue<T, SlotCountShift>::try_enqueue(T value) {
