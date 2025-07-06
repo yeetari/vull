@@ -163,9 +163,7 @@ bool in_tasklet_context() {
 
 void schedule(Tasklet *tasklet) {
     VULL_ASSERT(s_queue != nullptr && s_work_available != nullptr);
-    while (!s_queue->try_enqueue(tasklet)) {
-        yield();
-    }
+    s_queue->enqueue(tasklet, yield);
     s_work_available->post();
 }
 
