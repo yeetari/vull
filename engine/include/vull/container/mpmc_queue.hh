@@ -23,9 +23,13 @@ class MpmcQueue {
     static constexpr uint32_t k_slot_shift = SlotCountShift;
     static constexpr uint32_t k_slot_count = 1u << k_slot_shift;
 
+    struct Slot {
+        Atomic<T> value;
+        Atomic<uint32_t> turn;
+    };
+
 private:
-    Array<Atomic<T>, k_slot_count> m_slots{};
-    Array<Atomic<uint32_t>, k_slot_count> m_turns{};
+    Array<Slot, k_slot_count> m_slots{};
     Atomic<uint32_t> m_head;
     Atomic<uint32_t> m_tail;
 
@@ -46,24 +50,24 @@ template <TriviallyCopyable T, uint32_t SlotCountShift>
 template <typename YieldFn>
 void MpmcQueue<T, SlotCountShift>::enqueue(T value, YieldFn yield_fn) {
     uint32_t head = m_head.fetch_add(1, vull::memory_order_acquire);
-    auto &turn = m_turns[head % k_slot_count];
-    while ((head / k_slot_count) * 2 != turn.load(vull::memory_order_acquire)) {
+    auto &slot = m_slots[head % k_slot_count];
+    while ((head / k_slot_count) * 2 != slot.turn.load(vull::memory_order_acquire)) {
         yield_fn();
     }
-    m_slots[head % k_slot_count].store(value, vull::memory_order_relaxed);
-    turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
+    slot.value.store(value, vull::memory_order_relaxed);
+    slot.turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
 }
 
 template <TriviallyCopyable T, uint32_t SlotCountShift>
 template <typename YieldFn>
 T MpmcQueue<T, SlotCountShift>::dequeue(YieldFn yield_fn) {
     uint32_t tail = m_tail.fetch_add(1, vull::memory_order_acquire);
-    auto &turn = m_turns[tail % k_slot_count];
-    while ((tail / k_slot_count) * 2 + 1 != turn.load(vull::memory_order_acquire)) {
+    auto &slot = m_slots[tail % k_slot_count];
+    while ((tail / k_slot_count) * 2 + 1 != slot.turn.load(vull::memory_order_acquire)) {
         yield_fn();
     }
-    auto value = m_slots[tail % k_slot_count].load(vull::memory_order_relaxed);
-    turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
+    auto value = slot.value.load(vull::memory_order_relaxed);
+    slot.turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
     return value;
 }
 
@@ -72,11 +76,10 @@ bool MpmcQueue<T, SlotCountShift>::try_enqueue(T value) {
     uint32_t head = m_head.load(vull::memory_order_acquire);
     while (true) {
         auto &slot = m_slots[head % k_slot_count];
-        auto &turn = m_turns[head % k_slot_count];
-        if ((head / k_slot_count) * 2 == turn.load(vull::memory_order_acquire)) {
+        if ((head / k_slot_count) * 2 == slot.turn.load(vull::memory_order_acquire)) {
             if (m_head.compare_exchange_weak(head, head + 1, vull::memory_order_relaxed)) {
-                slot.store(value, vull::memory_order_relaxed);
-                turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
+                slot.value.store(value, vull::memory_order_relaxed);
+                slot.turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
                 return true;
             }
         } else {
@@ -93,11 +96,10 @@ MpmcQueue<T, SlotCountShift>::dequeued_type MpmcQueue<T, SlotCountShift>::try_de
     uint32_t tail = m_tail.load(vull::memory_order_acquire);
     while (true) {
         auto &slot = m_slots[tail % k_slot_count];
-        auto &turn = m_turns[tail % k_slot_count];
-        if ((tail / k_slot_count) * 2 + 1 == turn.load(vull::memory_order_acquire)) {
+        if ((tail / k_slot_count) * 2 + 1 == slot.turn.load(vull::memory_order_acquire)) {
             if (m_tail.compare_exchange_weak(tail, tail + 1, vull::memory_order_relaxed)) {
-                auto value = slot.load(vull::memory_order_relaxed);
-                turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
+                auto value = slot.value.load(vull::memory_order_relaxed);
+                slot.turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
                 return value;
             }
         } else {
