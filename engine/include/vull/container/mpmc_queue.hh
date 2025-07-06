@@ -10,9 +10,10 @@
 namespace vull {
 
 /**
- * @brief A lock-free multi-producer multi-consumer queue with FIFO ordering.
+ * @brief A bounded lock-free multi-producer multi-consumer queue with FIFO ordering.
  *
- * Algorithm from: https://github.com/rigtorp/MPMCQueue
+ * Algorithm from https://github.com/rigtorp/MPMCQueue with improvements from
+ * https://blog.bearcats.nl/simple-message-queue
  */
 template <TriviallyCopyable T, uint32_t SlotCountShift = 10>
 class MpmcQueue {
@@ -43,8 +44,8 @@ bool MpmcQueue<T, SlotCountShift>::enqueue(T value) {
         auto &slot = m_slots[head % k_slot_count];
         auto &turn = m_turns[head % k_slot_count];
         if ((head / k_slot_count) * 2 == turn.load(vull::memory_order_acquire)) {
-            if (m_head.compare_exchange(head, head + 1)) {
-                slot.store(value);
+            if (m_head.compare_exchange_weak(head, head + 1, vull::memory_order_relaxed)) {
+                slot.store(value, vull::memory_order_relaxed);
                 turn.store((head / k_slot_count) * 2 + 1, vull::memory_order_release);
                 return true;
             }
@@ -64,8 +65,8 @@ MpmcQueue<T, SlotCountShift>::dequeued_type MpmcQueue<T, SlotCountShift>::dequeu
         auto &slot = m_slots[tail % k_slot_count];
         auto &turn = m_turns[tail % k_slot_count];
         if ((tail / k_slot_count) * 2 + 1 == turn.load(vull::memory_order_acquire)) {
-            if (m_tail.compare_exchange(tail, tail + 1)) {
-                auto value = slot.load();
+            if (m_tail.compare_exchange_weak(tail, tail + 1, vull::memory_order_relaxed)) {
+                auto value = slot.load(vull::memory_order_relaxed);
                 turn.store((tail / k_slot_count) * 2 + 2, vull::memory_order_release);
                 return value;
             }
