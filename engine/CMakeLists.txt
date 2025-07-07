@@ -1,6 +1,6 @@
 # Main vull library.
 add_library(vull)
-target_compile_features(vull PRIVATE cxx_std_20)
+target_compile_features(vull PRIVATE cxx_std_23)
 target_compile_options(vull PRIVATE ${VULL_COMPILER_FLAGS_LIST})
 target_include_directories(vull PUBLIC include)
 target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd liburing::liburing)
@@ -17,7 +17,7 @@ endif()
 # Separate shaderc library. This is a separate library rather than a component since you'd likely want the shader
 # compiler to be built for development, but not shipped with the final game.
 add_library(vull-shaderc)
-target_compile_features(vull-shaderc PRIVATE cxx_std_20)
+target_compile_features(vull-shaderc PRIVATE cxx_std_23)
 target_compile_options(vull-shaderc PRIVATE ${VULL_COMPILER_FLAGS_LIST})
 target_link_libraries(vull-shaderc PRIVATE vull)
 

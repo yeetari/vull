@@ -1,6 +1,6 @@
 # vull
 
-A vulkan rendering engine written in C++ 20.
+A vulkan rendering engine written in C++ 23.
 
 ![screenshot](docs/screenshot.jpg)
 
