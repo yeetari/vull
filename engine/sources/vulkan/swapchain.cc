@@ -126,7 +126,7 @@ Swapchain::Swapchain(Swapchain &&other)
 
 uint32_t Swapchain::acquire_image(vkb::Semaphore semaphore) const {
     uint32_t image_index = 0;
-    m_context.vkAcquireNextImageKHR(m_swapchain, ~0ull, semaphore, nullptr, &image_index);
+    m_context.vkAcquireNextImageKHR(m_swapchain, ~0uz, semaphore, nullptr, &image_index);
     return image_index;
 }
 

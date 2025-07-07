@@ -104,7 +104,7 @@ NativeFn Value::native_fn() const {
 }
 
 Object::Object(ObjectType type) {
-    m_header = static_cast<uintptr_t>(type) << 1u;
+    m_header = static_cast<uintptr_t>(type) << 1;
 }
 
 Optional<ListObject &> Object::as_list() {
@@ -121,24 +121,24 @@ Optional<Environment &> Object::as_environment() {
 
 void Object::set_next_object(Object *next_object) {
     const auto address = vull::bit_cast<uintptr_t>(next_object);
-    VULL_ASSERT((address & ~0xfull) == address);
-    m_header &= 0xfu;
+    VULL_ASSERT((address & ~0xfuz) == address);
+    m_header &= 0xfuz;
     m_header |= address;
 }
 
 void Object::set_marked(bool marked) {
-    m_header &= ~1ull;
+    m_header &= ~1uz;
     if (marked) {
-        m_header |= 1u;
+        m_header |= 1uz;
     }
 }
 
 Object *Object::next_object() const {
-    return vull::bit_cast<Object *>(m_header & ~0xfull);
+    return vull::bit_cast<Object *>(m_header & ~0xfuz);
 }
 
 ObjectType Object::type() const {
-    return static_cast<ObjectType>((m_header >> 1u) & 0b111u);
+    return static_cast<ObjectType>((m_header >> 1) & 0b111u);
 }
 
 bool Object::marked() const {

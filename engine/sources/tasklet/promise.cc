@@ -8,7 +8,7 @@
 
 namespace vull::tasklet {
 
-#define FULFILLED_SENTINEL vull::bit_cast<Tasklet *>(-1ull)
+#define FULFILLED_SENTINEL vull::bit_cast<Tasklet *>(-1uz)
 
 void PromiseBase::wake_all() {
     // Atomically swap list with the fulfilled sentinel.

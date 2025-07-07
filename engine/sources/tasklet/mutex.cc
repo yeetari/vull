@@ -12,7 +12,7 @@
 
 namespace vull::tasklet {
 
-#define UNLOCKED_SENTINEL vull::bit_cast<Tasklet *>(-1ull)
+#define UNLOCKED_SENTINEL vull::bit_cast<Tasklet *>(-1uz)
 
 Mutex::Mutex() {
     // Start in unlocked state.

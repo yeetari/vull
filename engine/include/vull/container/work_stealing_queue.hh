@@ -16,7 +16,7 @@ class WorkStealingQueue {
     using RetType = conditional<is_ptr<T>, T, Optional<T>>;
 
     // Max size of the queue, should be a power of two to allow modulo operations to be transformed into cheaper ands.
-    static constexpr int64_t k_slot_count = 1ul << SlotCountShift;
+    static constexpr int64_t k_slot_count = 1z << SlotCountShift;
     Array<Atomic<T>, k_slot_count> m_slots{};
     Atomic<int64_t> m_head;
     Atomic<int64_t> m_tail;

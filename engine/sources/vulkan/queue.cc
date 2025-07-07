@@ -80,7 +80,7 @@ CommandBuffer &Queue::request_cmd_buf() {
             .pSemaphores = &wait_semaphore,
             .pValues = &wait_value,
         };
-        m_context.vkWaitSemaphores(&wait_info, ~0ull);
+        m_context.vkWaitSemaphores(&wait_info, ~0uz);
         cmd_buf.reset();
         return cmd_buf;
     }

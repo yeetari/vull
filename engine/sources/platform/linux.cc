@@ -336,7 +336,7 @@ void Semaphore::wait() {
     }
 
     // Otherwise add a waiter.
-    m_data.fetch_add(1ul << 32, vull::memory_order_relaxed);
+    m_data.fetch_add(1uz << 32, vull::memory_order_relaxed);
 
     while (true) {
         if ((data & 0xffffffffu) == 0) {
@@ -349,7 +349,7 @@ void Semaphore::wait() {
             data = m_data.load(vull::memory_order_relaxed);
         } else {
             // Try to acquire the semaphore and stop being a waiter.
-            const auto new_data = data - 1 - (1ul << 32);
+            const auto new_data = data - 1 - (1uz << 32);
             if (m_data.compare_exchange_weak(data, new_data, vull::memory_order_acquire)) {
                 return;
             }
@@ -614,7 +614,7 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
 static uint64_t monotonic_time() {
     struct timespec ts{};
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    return uint64_t(ts.tv_sec) * 1000000000ull + uint64_t(ts.tv_nsec);
+    return uint64_t(ts.tv_sec) * 1000000000uz + uint64_t(ts.tv_nsec);
 }
 
 Timer::Timer() : m_epoch(monotonic_time()) {}

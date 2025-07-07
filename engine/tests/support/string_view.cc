@@ -41,7 +41,7 @@ TEST_CASE(StringView, ToIntegral_Unsigned) {
     EXPECT_THAT(StringView("255").to_integral<uint8_t>(), is(equal_to(255)));
     EXPECT_THAT(StringView("65535").to_integral<uint16_t>(), is(equal_to(65535)));
     EXPECT_THAT(StringView("4294967295").to_integral<uint32_t>(), is(equal_to(4294967295u)));
-    EXPECT_THAT(StringView("18446744073709551615").to_integral<uint64_t>(), is(equal_to(18446744073709551615ull)));
+    EXPECT_THAT(StringView("18446744073709551615").to_integral<uint64_t>(), is(equal_to(18446744073709551615uz)));
 }
 
 TEST_CASE(StringView, ToIntegral_Signed) {
@@ -56,7 +56,7 @@ TEST_CASE(StringView, ToIntegral_Signed) {
     EXPECT_THAT(StringView("127").to_integral<int8_t>(), is(equal_to(127)));
     EXPECT_THAT(StringView("32767").to_integral<int16_t>(), is(equal_to(32767)));
     EXPECT_THAT(StringView("2147483647").to_integral<int32_t>(), is(equal_to(2147483647)));
-    EXPECT_THAT(StringView("9223372036854775807").to_integral<int64_t>(), is(equal_to(9223372036854775807ll)));
+    EXPECT_THAT(StringView("9223372036854775807").to_integral<int64_t>(), is(equal_to(9223372036854775807z)));
     EXPECT_THAT(StringView("-128").to_integral<int8_t>(), is(equal_to(-128)));
     EXPECT_THAT(StringView("-32768").to_integral<int16_t>(), is(equal_to(-32768)));
     EXPECT_THAT(StringView("-2147483648").to_integral<int32_t>(), is(equal_to(-2147483648)));
