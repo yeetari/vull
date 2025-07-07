@@ -8,6 +8,7 @@
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/future.hh>
+#include <vull/tasklet/io.hh>
 #include <vull/tasklet/latch.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/tasklet/scheduler.hh>
@@ -18,6 +19,28 @@
 using namespace vull;
 
 namespace {
+
+void blocking_io_dispatch(uint32_t count) {
+    tasklet::schedule([count] {
+        for (uint32_t i = 0; i < count; i++) {
+            tasklet::submit_io_request<tasklet::NopRequest>().await();
+        }
+    }).await();
+}
+
+void parallel_io_dispatch(uint32_t count) {
+    tasklet::schedule([count] {
+        Vector<tasklet::Future<tasklet::IoResult>> futures;
+        futures.ensure_capacity(count);
+        for (uint32_t i = 0; i < count; i++) {
+            futures.push(tasklet::submit_io_request<tasklet::NopRequest>());
+        }
+        // TODO: Not having a Future::wait_all() will skew this benchmark a bit.
+        for (auto &future : futures) {
+            future.await();
+        }
+    }).await();
+}
 
 double estimate_pi(uint32_t tasklet_count) {
     Vector<tasklet::Future<size_t>> futures;
@@ -144,6 +167,22 @@ int main(int argc, char **argv) {
             });
         }
         latch.wait();
+
+        // Blocking IO dispatch benchmark.
+        {
+            constexpr size_t count = 8192;
+            platform::Timer timer;
+            blocking_io_dispatch(count);
+            vull::info("[bench] Completed {} blocking IO dispatches in {} ms", count, timer.elapsed() * 1000.0f);
+        }
+
+        // Parallel IO dispatch benchmark.
+        {
+            constexpr size_t count = 16384;
+            platform::Timer timer;
+            parallel_io_dispatch(count);
+            vull::info("[bench] Completed {} parallel IO dispatches in {} ms", count, timer.elapsed() * 1000.0f);
+        }
 
         // Monte Carlo pi estimation.
         {
