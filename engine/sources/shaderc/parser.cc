@@ -342,7 +342,7 @@ ParseResult<ast::Node> Parser::parse_expr() {
     Vector<Operand> operands;
     Vector<Operator> operators;
 
-    auto reduce_top_operator = [&]() -> Result<void, ParseError> {
+    auto reduce_top_operator = [&] -> Result<void, ParseError> {
         auto op = operators.take_last();
         if (op == Operator::CallOrConstruct || op == Operator::OpenParen) {
             ParseError error;

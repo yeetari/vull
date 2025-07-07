@@ -110,7 +110,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
 
     // Spawn WSI thread.
     auto &scheduler = tasklet::Scheduler::current();
-    m_thread = VULL_EXPECT(platform::Thread::create([this, image_index, &scheduler]() mutable {
+    m_thread = VULL_EXPECT(platform::Thread::create([this, image_index, &scheduler] mutable {
         uint32_t frame_index = 0;
         scheduler.setup_thread();
         while (m_running.load(vull::memory_order_acquire)) {

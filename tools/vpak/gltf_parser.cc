@@ -584,7 +584,7 @@ GltfResult<> Converter::convert() {
     futures.ensure_capacity(material_array.size());
     for (uint32_t index = 0; index < material_array.size(); index++) {
         const auto &material = VULL_TRY(material_array[index].get<json::Object>());
-        futures.push(tasklet::schedule([this, &material, index]() -> GltfResult<> {
+        futures.push(tasklet::schedule([this, &material, index] -> GltfResult<> {
             VULL_TRY(process_material(material, index));
             return {};
         }));
@@ -599,7 +599,7 @@ GltfResult<> Converter::convert() {
         for (uint32_t primitive_index = 0; primitive_index < primitive_array.size(); primitive_index++) {
             const auto &primitive = VULL_TRY(primitive_array[primitive_index].get<json::Object>());
             auto name = vull::format("{}.{}", mesh_name, primitive_index);
-            futures.push(tasklet::schedule([this, &primitive, name = vull::move(name)]() mutable -> GltfResult<> {
+            futures.push(tasklet::schedule([this, &primitive, name = vull::move(name)] mutable -> GltfResult<> {
                 VULL_TRY(process_primitive(primitive, vull::move(name)));
                 return {};
             }));
@@ -620,7 +620,7 @@ GltfResult<> Converter::convert() {
         const auto &scene = VULL_TRY(scene_array[scene_index].get<json::Object>());
         const auto &name = VULL_TRY(scene["name"].get<String>());
         vull::info("[gltf] Creating scene '{}'", name);
-        futures.push(tasklet::schedule([this, &scene, &name]() -> GltfResult<> {
+        futures.push(tasklet::schedule([this, &scene, &name] -> GltfResult<> {
             VULL_TRY(process_scene(scene, name));
             return {};
         }));
@@ -683,7 +683,7 @@ GltfResult<> GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution,
 
     // Use only one thread if reproducible, otherwise let scheduler decide.
     tasklet::Scheduler scheduler(reproducible ? 1 : 0);
-    VULL_TRY(scheduler.run([&]() -> GltfResult<> {
+    VULL_TRY(scheduler.run([&] -> GltfResult<> {
         Converter converter(m_binary_blob.span(), pack_writer, document, max_resolution);
         VULL_TRY(converter.convert());
         return {};

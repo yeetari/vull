@@ -334,7 +334,7 @@ uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
     }
 
     // There is no pending future so we need to schedule the load.
-    auto future = tasklet::schedule([this, name = String(name), fallback_index]() mutable {
+    auto future = tasklet::schedule([this, name = String(name), fallback_index] mutable {
         return load_texture(vull::move(name), fallback_index);
     });
     m_futures.set(name, vull::move(future));
