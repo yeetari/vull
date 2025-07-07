@@ -2,11 +2,14 @@
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
 #include <vull/platform/semaphore.hh>
+#include <vull/platform/tasklet.hh>
 #include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 
 #include <vull/container/array.hh>
 #include <vull/container/vector.hh>
+#include <vull/core/log.hh>
+#include <vull/maths/common.hh>
 #include <vull/support/algorithm.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
@@ -17,6 +20,8 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/io.hh>
+#include <vull/tasklet/scheduler.hh>
 #include <vull/tasklet/tasklet.hh>
 
 // IWYU pragma: no_include <bits/types/stack_t.h>
@@ -25,6 +30,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <libgen.h>
+#include <liburing.h>
+#include <liburing/io_uring.h>
 #include <linux/futex.h>
 #include <poll.h>
 #include <pthread.h>
@@ -485,6 +492,123 @@ void install_fault_handler() {
     for (auto signal : k_fault_signals) {
         sigaction(signal, &action, nullptr);
     }
+}
+
+static bool probe_flag(uint32_t flag) {
+    io_uring ring;
+    if (io_uring_queue_init(1, &ring, flag) == 0) {
+        io_uring_queue_exit(&ring);
+        return true;
+    }
+    return false;
+}
+
+static void queue_io_request(io_uring *ring, tasklet::IoRequest *request) {
+    auto *sqe = io_uring_get_sqe(ring);
+    io_uring_sqe_set_data(sqe, request);
+    switch (request->kind()) {
+        using enum tasklet::IoRequestKind;
+    case Nop:
+        io_uring_prep_nop(sqe);
+        break;
+    case PollEvent: {
+        auto *poll_event = static_cast<tasklet::PollEventRequest *>(request);
+        int fd = poll_event->event().fd();
+        if (poll_event->multishot()) {
+            io_uring_prep_poll_multishot(sqe, fd, POLLIN);
+        } else {
+            io_uring_prep_poll_add(sqe, fd, POLLIN);
+        }
+        break;
+    }
+    case WaitEvent: {
+        auto *wait_event = static_cast<tasklet::WaitEventRequest *>(request);
+        int fd = wait_event->event().fd();
+        io_uring_prep_read(sqe, fd, &wait_event->value(), sizeof(eventfd_t), 0);
+        break;
+    }
+    }
+}
+
+void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
+    // Build ring flags.
+    // TODO: Use IORING_SETUP_TASKRUN_FLAG?
+    uint32_t ring_flags = 0;
+    if (probe_flag(IORING_SETUP_SUBMIT_ALL)) {
+        ring_flags |= IORING_SETUP_SUBMIT_ALL;
+    } else {
+        vull::warn("[platform] IORING_SETUP_SUBMIT_ALL is not supported");
+    }
+    if (probe_flag(IORING_SETUP_COOP_TASKRUN)) {
+        ring_flags |= IORING_SETUP_COOP_TASKRUN;
+    }
+    if (probe_flag(IORING_SETUP_SINGLE_ISSUER)) {
+        ring_flags |= IORING_SETUP_SINGLE_ISSUER;
+    }
+
+    io_uring ring;
+    if (io_uring_queue_init(256, &ring, ring_flags) < 0) {
+        vull::error("[platform] Failed to create io_uring");
+        return;
+    }
+
+    // Warn if nice features aren't supported.
+    if ((ring.features & IORING_FEAT_NODROP) == 0) {
+        vull::warn("[platform] IORING_FEAT_NODROP is not supported");
+    }
+    if ((ring.features & IORING_FEAT_FAST_POLL) == 0) {
+        vull::warn("[platform] IORING_FEAT_FAST_POLL is not supported");
+    }
+
+    // Add the two events to the ring.
+    // TODO: Would a multishot read be better?
+    tasklet::PollEventRequest poll_quit_event(queue.quit_event, false);
+    tasklet::PollEventRequest poll_submit_event(queue.submit_event, true);
+    queue_io_request(&ring, &poll_quit_event);
+    queue_io_request(&ring, &poll_submit_event);
+
+    for (bool running = true; running;) {
+        // Submit any pending SQEs and wait for at least one CQE.
+        io_uring_submit_and_wait(&ring, 1);
+
+        // Handle all ready CQEs.
+        Array<io_uring_cqe *, 64> cqes;
+        uint32_t cqe_count = io_uring_peek_batch_cqe(&ring, cqes.data(), cqes.size());
+        for (uint32_t cqe_index = 0; cqe_index < cqe_count; cqe_index++) {
+            auto *cqe = cqes[cqe_index];
+            auto *request = static_cast<tasklet::IoRequest *>(io_uring_cqe_get_data(cqe));
+            if (request == &poll_quit_event) {
+                queue.quit_event.reset();
+                running = false;
+            } else if (request == &poll_submit_event) {
+                // Requeue the event poll if the multishot was lost. This probably never happens.
+                queue.submit_event.reset();
+                if ((cqe->flags & IORING_CQE_F_MORE) == 0) {
+                    queue_io_request(&ring, &poll_submit_event);
+                }
+            } else {
+                // Resume the suspended tasklet.
+                request->fulfill(cqe->res);
+                request->sub_ref();
+            }
+        }
+        io_uring_cq_advance(&ring, cqe_count);
+
+        // Queue any new requests. This currently assumes that each IoRequest corresponds to one SQE.
+        // TODO: Add functions to MpmcQueue optimised for SC dequeuing.
+        const auto pending_count = queue.pending.exchange(0, vull::memory_order_relaxed);
+        const auto to_queue_count = vull::min(pending_count, io_uring_sq_space_left(&ring));
+        for (uint32_t i = 0; i < to_queue_count; i++) {
+            queue_io_request(&ring, queue.dequeue(platform::Thread::yield));
+        }
+
+        // Resubmit the event if the amount we submitted was truncated.
+        if (pending_count != to_queue_count) {
+            queue.pending.fetch_add(pending_count - to_queue_count, vull::memory_order_relaxed);
+            queue.submit_event.set();
+        }
+    }
+    io_uring_queue_exit(&ring);
 }
 
 static uint64_t monotonic_time() {

@@ -5,15 +5,19 @@
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
+#include <vull/platform/event.hh>
 #include <vull/platform/semaphore.hh>
+#include <vull/platform/tasklet.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/result.hh>
+#include <vull/support/shared_ptr.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
+#include <vull/tasklet/io.hh>
 #include <vull/tasklet/tasklet.hh>
 
 #include <stdint.h>
@@ -35,7 +39,7 @@ VULL_GLOBAL(thread_local platform::Semaphore *s_work_available = nullptr);
 
 } // namespace
 
-class TaskletQueue : public MpmcQueue<Tasklet *, 11> {};
+class TaskletQueue : public MpmcQueue<Tasklet *, 13> {};
 
 Tasklet *Tasklet::current() {
     return s_current_tasklet;
@@ -51,6 +55,7 @@ Scheduler::Scheduler(uint32_t thread_count) {
     }
     m_worker_threads.ensure_size(thread_count);
     m_queue = vull::make_unique<TaskletQueue>();
+    m_io_queue = vull::make_unique<IoQueue>();
 }
 
 Scheduler::~Scheduler() {
@@ -58,11 +63,16 @@ Scheduler::~Scheduler() {
 }
 
 void Scheduler::join() {
+    // Join worker threads.
     m_running.store(false, vull::memory_order_release);
     while (m_alive_worker_count.load() != 0) {
         m_work_available.post();
     }
     m_worker_threads.clear();
+
+    // Join the IO thread last in case there are tasklets waiting for IO.
+    m_io_queue->quit_event.set();
+    VULL_EXPECT(m_io_thread.join());
 }
 
 uint32_t Scheduler::tasklet_count() const {
@@ -148,13 +158,27 @@ bool Scheduler::start(Tasklet *tasklet) {
         }
         VULL_IGNORE(thread.set_name(vull::format("Worker #{}", i)));
     }
-    vull::info("[tasklet] Started {} threads", m_worker_threads.size());
+    vull::info("[tasklet] Started {} worker threads", m_worker_threads.size());
+
+    m_io_thread = VULL_EXPECT(platform::Thread::create([this] {
+        setup_thread();
+        platform::spawn_tasklet_io_dispatcher(*m_io_queue);
+    }));
+    VULL_IGNORE(m_io_thread.set_name("IO"));
+    vull::info("[tasklet] Started IO thread");
     return true;
 }
 
 void Scheduler::setup_thread() {
     s_queue = m_queue.ptr();
     s_work_available = &m_work_available;
+}
+
+void Scheduler::submit_io_request(SharedPtr<IoRequest> request) {
+    m_io_queue->enqueue(request.disown(), yield);
+    if (m_io_queue->pending.fetch_add(1, vull::memory_order_relaxed) == 0) {
+        m_io_queue->submit_event.set();
+    }
 }
 
 bool in_tasklet_context() {
@@ -167,12 +191,19 @@ void schedule(Tasklet *tasklet) {
     s_work_available->post();
 }
 
+void submit_io_request(SharedPtr<IoRequest> request) {
+    VULL_ASSERT(in_tasklet_context());
+    s_scheduler->submit_io_request(vull::move(request));
+}
+
 void suspend() {
+    VULL_ASSERT(in_tasklet_context());
     VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
     vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
 }
 
 void yield() {
+    VULL_ASSERT(in_tasklet_context());
     auto *dequeued = s_queue->try_dequeue();
     if (dequeued == nullptr) {
         return;

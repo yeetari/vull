@@ -1,10 +1,14 @@
 #pragma once
 
+#include <vull/container/mpmc_queue.hh>
 #include <vull/container/vector.hh>
+#include <vull/platform/event.hh>
 #include <vull/platform/semaphore.hh>
+#include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
+#include <vull/support/shared_ptr.hh> // IWYU pragma: keep
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/promise.hh>
@@ -12,20 +16,23 @@
 
 #include <stdint.h>
 
-namespace vull::platform {
-
-class Thread;
-
-} // namespace vull::platform
-
 namespace vull::tasklet {
 
+class IoRequest;
 class TaskletQueue;
+
+struct IoQueue : MpmcQueue<IoRequest *, 11> {
+    platform::Event quit_event;
+    platform::Event submit_event;
+    Atomic<uint32_t> pending;
+};
 
 class Scheduler {
     Vector<platform::Thread> m_worker_threads;
     UniquePtr<TaskletQueue> m_queue;
+    UniquePtr<IoQueue> m_io_queue;
     platform::Semaphore m_work_available{1};
+    platform::Thread m_io_thread;
     Atomic<uint32_t> m_alive_worker_count;
     Atomic<bool> m_running;
 
@@ -46,6 +53,7 @@ public:
     auto run(F &&callable);
     bool start(Tasklet *tasklet);
     void setup_thread();
+    void submit_io_request(SharedPtr<IoRequest> request);
 
     uint32_t tasklet_count() const;
     bool is_running() const { return m_running.load(vull::memory_order_acquire); }

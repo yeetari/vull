@@ -1,6 +1,8 @@
 #pragma once
 
+#include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
+#include <vull/tasklet/io.hh>
 #include <vull/tasklet/tasklet.hh>
 
 namespace vull::tasklet {
@@ -32,6 +34,34 @@ auto schedule(F &&callable) {
     auto promise = tasklet->set_callable(vull::forward<F>(callable));
     schedule(tasklet);
     return Future(vull::move(promise));
+}
+
+/**
+ * @brief Adds the given IoRequest to the IO queue. Blocks if the queue is full.
+ *
+ * @param request the IoRequest to submit
+ */
+void submit_io_request(SharedPtr<IoRequest> request);
+
+/**
+ * @brief Constructs and submits a typed IO request to the IO queue and returns a Future associated with its completion.
+ * Blocks if the queue is full.
+ *
+ * This function creates a new IO request of type T with the given arguments and adds it to the IO queue. If the queue
+ * is full, the function will yield the current tasklet to the scheduler until space is available. The returned Future
+ * keeps the request alive and allows the caller or another tasklet to wait for and retrieve the result of the IO
+ * operation.
+ *
+ * @tparam T the type of IO request to create; must be derived from IoRequest
+ * @tparam Args the argument types to pass to T's constructor
+ * @param args the arguments with which to construct the request
+ * @return a Future<IoResult> representing the result of the IO operation
+ */
+template <DerivedFrom<IoRequest> T, typename... Args>
+Future<IoResult> submit_io_request(Args &&...args) {
+    SharedPtr<T> request(new T(vull::forward<Args>(args)...));
+    submit_io_request(request);
+    return Future<IoResult>(vull::move(request));
 }
 
 /**
