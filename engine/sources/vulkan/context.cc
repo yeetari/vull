@@ -558,23 +558,17 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     return {vull::move(allocation), image_ci.extent, image_ci.format, ImageView(this, image, view, range)};
 }
 
-Vector<Queue &> &Context::queue_list_for(QueueKind kind) {
+Queue &Context::get_queue(QueueKind kind) {
     switch (kind) {
     case QueueKind::Compute:
-        return m_compute_queues;
+        return m_compute_queues.first();
     case QueueKind::Graphics:
-        return m_graphics_queues;
+        return m_graphics_queues.first();
     case QueueKind::Transfer:
-        return m_transfer_queues;
+        return m_transfer_queues.first();
     default:
         vull::unreachable();
     }
-}
-
-QueueHandle Context::lock_queue(QueueKind kind) {
-    // TODO: Make use of other queues.
-    auto &queue_list = queue_list_for(kind);
-    return QueueHandle(queue_list.first());
 }
 
 size_t Context::descriptor_size(vkb::DescriptorType type) const {

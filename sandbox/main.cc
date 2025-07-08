@@ -273,8 +273,8 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
     m_cpu_time_graph->push_section("compile-rg", compile_rg_timer.elapsed());
 
     platform::Timer execute_rg_timer;
-    auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
-    auto cmd_buf = queue->request_cmd_buf();
+    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
+    auto cmd_buf = queue.request_cmd_buf();
     cmd_buf->reset_query(m_pipeline_statistics_pool, frame_info.frame_index);
     cmd_buf->begin_query(m_pipeline_statistics_pool, frame_info.frame_index);
     graph.execute(*cmd_buf, true);
@@ -294,7 +294,7 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
             .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
         },
     };
-    auto future = queue->submit(vull::move(cmd_buf), signal_semaphores.span(), wait_semaphores.span());
+    auto future = queue.submit(vull::move(cmd_buf), signal_semaphores.span(), wait_semaphores.span());
     m_cpu_time_graph->push_section("execute-rg", execute_rg_timer.elapsed());
     return future;
 }

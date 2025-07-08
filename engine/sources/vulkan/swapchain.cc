@@ -140,8 +140,8 @@ void Swapchain::present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphor
         .pImageIndices = &image_index,
     };
     // TODO: Assuming graphics queue last touched swapchain image + that whatever graphics queue we get can present.
-    auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
-    queue->present(present_info);
+    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
+    queue.present(present_info);
 }
 
 Image &Swapchain::image(uint32_t index) {

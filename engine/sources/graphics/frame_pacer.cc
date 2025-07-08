@@ -85,8 +85,8 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
 
     // Dummy first frame.
     uint32_t image_index = swapchain.acquire_image(*m_acquire_semaphores.first());
-    auto queue = swapchain.context().lock_queue(vk::QueueKind::Graphics);
-    auto cmd_buf = queue->request_cmd_buf();
+    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
+    auto cmd_buf = queue.request_cmd_buf();
     vkb::ImageMemoryBarrier2 swapchain_present_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .oldLayout = vkb::ImageLayout::Undefined,
@@ -111,7 +111,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         .semaphore = *m_present_semaphores[image_index],
         .stageMask = vkb::PipelineStage2::AllCommands,
     };
-    queue->submit(vull::move(cmd_buf), signal_semaphore_info, wait_semaphore_info).await();
+    queue.submit(vull::move(cmd_buf), signal_semaphore_info, wait_semaphore_info).await();
 
     // Spawn WSI thread.
     auto &scheduler = tasklet::Scheduler::current();

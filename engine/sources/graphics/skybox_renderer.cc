@@ -120,8 +120,8 @@ void SkyboxRenderer::load(Stream &stream) {
         staging_data += 4;
     }
 
-    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    queue->immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Copy,

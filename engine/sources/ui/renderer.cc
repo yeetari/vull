@@ -91,8 +91,8 @@ Renderer::Renderer(vk::Context &context) : m_context(context) {
     };
     m_null_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
-    auto queue = context.lock_queue(vk::QueueKind::Graphics);
-    queue->immediate_submit([this](vk::CommandBuffer &cmd_buf) {
+    auto &queue = context.get_queue(vk::QueueKind::Graphics);
+    queue.immediate_submit([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.image_barrier({
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::AllGraphics,

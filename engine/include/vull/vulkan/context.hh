@@ -22,7 +22,6 @@ namespace vull::vk {
 
 class Allocator;
 class Queue;
-class QueueHandle;
 
 enum class MemoryUsage;
 enum class QueueKind;
@@ -61,7 +60,7 @@ public:
     Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
-    QueueHandle lock_queue(QueueKind kind);
+    Queue &get_queue(QueueKind kind);
 
     template <typename T>
     void set_object_name(const T &object, StringView name) const;

@@ -190,8 +190,8 @@ void DefaultRenderer::create_resources() {
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
 
-    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    queue->immediate_submit([this](vk::CommandBuffer &cmd_buf) {
+    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    queue.immediate_submit([this](vk::CommandBuffer &cmd_buf) {
         cmd_buf.zero_buffer(m_object_visibility_buffer, 0, m_object_visibility_buffer.size());
     });
 }
@@ -293,8 +293,8 @@ void DefaultRenderer::load_scene(Scene &scene) {
             m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
         VULL_EXPECT(vertex_stream->read({staging_buffer.mapped_raw(), vertex_entry.size}));
 
-        auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-        queue->immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+        auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+        queue.immediate_submit([&](vk::CommandBuffer &cmd_buf) {
             vkb::BufferCopy copy{
                 .dstOffset = vertex_buffer_offset,
                 .size = vertex_entry.size,
@@ -309,7 +309,7 @@ void DefaultRenderer::load_scene(Scene &scene) {
             m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
         VULL_EXPECT(index_stream->read({staging_buffer.mapped_raw(), index_entry.size}));
 
-        queue->immediate_submit([&](vk::CommandBuffer &cmd_buf) {
+        queue.immediate_submit([&](vk::CommandBuffer &cmd_buf) {
             vkb::BufferCopy copy{
                 .dstOffset = index_buffer_offset,
                 .size = index_entry.size,

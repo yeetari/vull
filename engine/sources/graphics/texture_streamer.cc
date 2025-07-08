@@ -162,8 +162,8 @@ vk::Image TextureStreamer::create_default_image(Vec2u extent, vkb::Format format
     memcpy(staging_buffer.mapped_raw(), pixel_data.data(), pixel_data.size());
 
     // Perform CPU -> GPU copy.
-    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    queue->immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
+    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
         vkb::ImageMemoryBarrier2 transfer_write_barrier{
             .sType = vkb::StructureType::ImageMemoryBarrier2,
             .dstStageMask = vkb::PipelineStage2::Copy,
@@ -225,8 +225,8 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     };
     auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
-    auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    auto cmd_buf = queue->request_cmd_buf();
+    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    auto cmd_buf = queue.request_cmd_buf();
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
     vkb::ImageMemoryBarrier2 transfer_write_barrier{
@@ -288,9 +288,8 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     };
     cmd_buf->image_barrier(image_read_barrier);
 
-    // Submit command buffer and release queue ownership immediately to avoid holding it during the upcoming mutex.
-    queue->submit(vull::move(cmd_buf), {}, {});
-    queue.release();
+    // Submit command buffer.
+    queue.submit(vull::move(cmd_buf), {}, {});
 
     ScopedLock images_lock(m_images_mutex);
     const auto next_index = m_images.size();

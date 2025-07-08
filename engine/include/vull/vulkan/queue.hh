@@ -5,7 +5,6 @@
 #include <vull/support/function.hh> // IWYU pragma: keep
 #include <vull/support/span.hh>
 #include <vull/support/unique_ptr.hh>
-#include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/vulkan/vulkan.hh>
@@ -16,7 +15,6 @@ namespace vull::vk {
 
 class CommandBuffer;
 class Context;
-class QueueHandle;
 
 enum class QueueKind {
     Compute,
@@ -26,7 +24,6 @@ enum class QueueKind {
 
 class Queue {
     friend Context;
-    friend QueueHandle;
 
 private:
     const Context &m_context;
@@ -60,40 +57,5 @@ public:
     uint32_t family_index() const { return m_family_index; }
     uint32_t index() const { return m_index; }
 };
-
-// TODO: Remove this.
-class QueueHandle {
-    friend Context;
-
-private:
-    Queue *m_queue;
-
-    explicit QueueHandle(Queue &queue) : m_queue(&queue) {}
-
-public:
-    QueueHandle(const QueueHandle &) = delete;
-    QueueHandle(QueueHandle &&other) : m_queue(vull::exchange(other.m_queue, nullptr)) {}
-    ~QueueHandle() { release(); }
-
-    QueueHandle &operator=(const QueueHandle &) = delete;
-    QueueHandle &operator=(QueueHandle &&);
-
-    void release();
-
-    Queue &operator*() const { return *m_queue; }
-    Queue *operator->() const { return m_queue; }
-};
-
-inline QueueHandle &QueueHandle::operator=(QueueHandle &&other) {
-    QueueHandle moved(vull::move(other));
-    vull::swap(m_queue, other.m_queue);
-    return *this;
-}
-
-inline void QueueHandle::release() {
-    if (m_queue != nullptr) {
-        m_queue = nullptr;
-    }
-}
 
 } // namespace vull::vk
