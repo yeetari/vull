@@ -1,117 +1,94 @@
 #include <vull/vulkan/queue.hh>
 
 #include <vull/container/vector.hh>
+#include <vull/core/log.hh>
 #include <vull/support/assert.hh>
+#include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
+#include <vull/support/scoped_lock.hh>
 #include <vull/support/span.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
+#include <vull/tasklet/future.hh>
+#include <vull/tasklet/io.hh>
+#include <vull/tasklet/mutex.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
+#include <vull/vulkan/fence.hh>
 #include <vull/vulkan/vulkan.hh>
+
+#include <stdint.h>
 
 namespace vull::vk {
 
 Queue::Queue(const Context &context, uint32_t family_index, uint32_t index)
     : m_context(context), m_family_index(family_index), m_index(index) {
     context.vkGetDeviceQueue(family_index, index, &m_queue);
-    vkb::CommandPoolCreateInfo cmd_pool_ci{
-        .sType = vkb::StructureType::CommandPoolCreateInfo,
-        .flags = vkb::CommandPoolCreateFlags::Transient | vkb::CommandPoolCreateFlags::ResetCommandBuffer,
-        .queueFamilyIndex = family_index,
-    };
-    VULL_ENSURE(context.vkCreateCommandPool(&cmd_pool_ci, &m_cmd_pool) == vkb::Result::Success);
-}
-
-Queue::Queue(Queue &&other) : m_context(other.m_context), m_family_index(other.m_family_index), m_index(other.m_index) {
-    m_cmd_pool = vull::exchange(other.m_cmd_pool, nullptr);
-    m_queue = vull::exchange(other.m_queue, nullptr);
-    m_cmd_bufs = vull::move(other.m_cmd_bufs);
 }
 
 Queue::~Queue() {
     wait_idle();
-    m_context.vkDestroyCommandPool(m_cmd_pool);
 }
 
-CommandBuffer &Queue::request_cmd_buf() {
-    // Reset any completed command buffers.
-    CommandBuffer *available_cmd_buf = nullptr;
-    for (auto &cmd_buf : m_cmd_bufs) {
-        if (!cmd_buf.m_in_flight) {
-            // Command buffer already in recording state.
-            available_cmd_buf = &cmd_buf;
-            continue;
-        }
-        uint64_t value = 0;
-        VULL_ENSURE(m_context.vkGetSemaphoreCounterValue(cmd_buf.completion_semaphore(), &value) ==
-                    vkb::Result::Success);
-        if (value == cmd_buf.completion_value()) {
-            cmd_buf.reset();
-            available_cmd_buf = &cmd_buf;
-        }
+UniquePtr<CommandBuffer> Queue::request_cmd_buf() {
+    // Try to use an available buffer first.
+    ScopedLock lock(m_buffers_mutex);
+    if (!m_buffers.empty()) {
+        return m_buffers.take_last();
+    }
+    lock.unlock();
+
+    // Otherwise allocate a new one.
+    const auto total_count = m_total_buffer_count.fetch_add(1, vull::memory_order_relaxed) + 1;
+    if (total_count % 10 == 0) {
+        vull::trace("[vulkan] Reached {} command buffers for queue family {}", total_count, m_family_index);
     }
 
-    // Reuse any completed command buffers.
-    if (available_cmd_buf != nullptr) {
-        return *available_cmd_buf;
-    }
+    // Create a pool first.
+    vkb::CommandPoolCreateInfo pool_ci{
+        .sType = vkb::StructureType::CommandPoolCreateInfo,
+        .flags = vkb::CommandPoolCreateFlags::Transient,
+        .queueFamilyIndex = m_family_index,
+    };
+    vkb::CommandPool pool;
+    VULL_ENSURE(m_context.vkCreateCommandPool(&pool_ci, &pool) == vkb::Result::Success);
 
-    // Else, allocate a new command buffer.
+    // Then allocate a buffer.
     vkb::CommandBufferAllocateInfo buffer_ai{
         .sType = vkb::StructureType::CommandBufferAllocateInfo,
-        .commandPool = m_cmd_pool,
+        .commandPool = pool,
         .level = vkb::CommandBufferLevel::Primary,
         .commandBufferCount = 1,
     };
     vkb::CommandBuffer buffer;
-    const auto allocation_result = m_context.vkAllocateCommandBuffers(&buffer_ai, &buffer);
-
-    // If the allocation wasn't a success (out of either host or device memory), then we must wait for and reuse an
-    // existing command buffer.
-    if (allocation_result != vkb::Result::Success) {
-        // The first command buffer allocation shouldn't fail.
-        VULL_ENSURE(!m_cmd_bufs.empty());
-        auto &cmd_buf = m_cmd_bufs.first();
-        vkb::Semaphore wait_semaphore = cmd_buf.completion_semaphore();
-        uint64_t wait_value = cmd_buf.completion_value();
-        vkb::SemaphoreWaitInfo wait_info{
-            .sType = vkb::StructureType::SemaphoreWaitInfo,
-            .semaphoreCount = 1,
-            .pSemaphores = &wait_semaphore,
-            .pValues = &wait_value,
-        };
-        m_context.vkWaitSemaphores(&wait_info, ~0uz);
-        cmd_buf.reset();
-        return cmd_buf;
-    }
-    return m_cmd_bufs.emplace(m_context, buffer);
+    VULL_ENSURE(m_context.vkAllocateCommandBuffers(&buffer_ai, &buffer) == vkb::Result::Success);
+    auto cmd_buf = vull::make_unique<CommandBuffer>(m_context, pool, buffer);
+    cmd_buf->reset();
+    return cmd_buf;
 }
 
 void Queue::immediate_submit(Function<void(CommandBuffer &)> callback) {
-    auto &cmd_buf = request_cmd_buf();
-    callback(cmd_buf);
-    submit(cmd_buf, nullptr, {}, {});
+    auto cmd_buf = request_cmd_buf();
+    callback(*cmd_buf);
+    submit(vull::move(cmd_buf), {}, {});
     wait_idle();
 }
 
-void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
-                   Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
-    m_context.vkEndCommandBuffer(*cmd_buf);
-    cmd_buf.m_in_flight = true;
+void Queue::present(const vkb::PresentInfoKHR &present_info) {
+    ScopedLock lock(m_submit_mutex);
+    m_context.vkQueuePresentKHR(m_queue, &present_info);
+}
 
-    // TODO(small-vector)
-    Vector<vkb::SemaphoreSubmitInfo> signal_sems;
-    signal_sems.ensure_capacity(static_cast<uint32_t>(signal_semaphores.size()) + 1);
-    signal_sems.extend(signal_semaphores);
-    signal_sems.push({
-        .sType = vkb::StructureType::SemaphoreSubmitInfo,
-        .semaphore = cmd_buf.completion_semaphore(),
-        .value = cmd_buf.completion_value(),
-    });
+tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
+                                    Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
+                                    Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
+    m_context.vkEndCommandBuffer(**cmd_buf);
 
+    // Submit the command buffer to the queue.
     vkb::CommandBufferSubmitInfo cmd_buf_si{
         .sType = vkb::StructureType::CommandBufferSubmitInfo,
-        .commandBuffer = *cmd_buf,
+        .commandBuffer = **cmd_buf,
     };
     vkb::SubmitInfo2 submit_info{
         .sType = vkb::StructureType::SubmitInfo2,
@@ -119,10 +96,19 @@ void Queue::submit(CommandBuffer &cmd_buf, vkb::Fence signal_fence, Span<vkb::Se
         .pWaitSemaphoreInfos = wait_semaphores.data(),
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &cmd_buf_si,
-        .signalSemaphoreInfoCount = signal_sems.size(),
-        .pSignalSemaphoreInfos = signal_sems.data(),
+        .signalSemaphoreInfoCount = static_cast<uint32_t>(signal_semaphores.size()),
+        .pSignalSemaphoreInfos = signal_semaphores.data(),
     };
-    m_context.vkQueueSubmit2(m_queue, 1, &submit_info, signal_fence);
+    ScopedLock lock(m_submit_mutex);
+    m_context.vkQueueSubmit2(m_queue, 1, &submit_info, *cmd_buf->completion_fence());
+    lock.unlock();
+
+    return tasklet::submit_io_request<tasklet::WaitVkFenceRequest>(cmd_buf->completion_fence())
+        .and_then([this, cmd_buf = vull::move(cmd_buf)](tasklet::IoResult) mutable {
+        cmd_buf->reset();
+        ScopedLock lock(m_buffers_mutex);
+        m_buffers.push(vull::move(cmd_buf));
+    });
 }
 
 void Queue::wait_idle() {

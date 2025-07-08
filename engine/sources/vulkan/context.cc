@@ -5,7 +5,6 @@
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
-#include <vull/maths/random.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
@@ -14,7 +13,6 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
-#include <vull/tasklet/mutex.hh>
 #include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/buffer.hh>
@@ -574,19 +572,9 @@ Vector<Queue &> &Context::queue_list_for(QueueKind kind) {
 }
 
 QueueHandle Context::lock_queue(QueueKind kind) {
-    // Try to pick a free queue.
+    // TODO: Make use of other queues.
     auto &queue_list = queue_list_for(kind);
-    for (Queue &queue : queue_list) {
-        if (queue.m_mutex.try_lock()) {
-            return QueueHandle(queue);
-        }
-    }
-
-    // Otherwise pick a random queue to wait on.
-    VULL_ASSERT(!queue_list.empty());
-    Queue &queue = queue_list[vull::linear_rand(0u, queue_list.size() - 1)];
-    queue.m_mutex.lock();
-    return QueueHandle(queue);
+    return QueueHandle(queue_list.first());
 }
 
 size_t Context::descriptor_size(vkb::DescriptorType type) const {

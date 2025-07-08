@@ -29,6 +29,7 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/ui/element.hh>
 #include <vull/ui/font.hh>
 #include <vull/ui/font_atlas.hh>
@@ -47,7 +48,6 @@
 #include <vull/vpak/stream.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/fence.hh>
 #include <vull/vulkan/query_pool.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/render_graph.hh>
@@ -90,7 +90,7 @@ public:
     Sandbox(bool enable_validation);
 
     void load_scene(StringView scene_name);
-    void render_frame(FramePacer &frame_pacer);
+    tasklet::Future<void> render_frame(FramePacer &frame_pacer);
     void start_loop();
 };
 
@@ -204,7 +204,7 @@ void Sandbox::load_scene(StringView scene_name) {
     world.register_component<Collider>();
 }
 
-void Sandbox::render_frame(FramePacer &frame_pacer) {
+tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
     platform::Timer acquire_frame_timer;
     auto frame_info = frame_pacer.acquire_frame();
     m_cpu_time_graph->push_section("acquire-frame", acquire_frame_timer.elapsed());
@@ -274,11 +274,11 @@ void Sandbox::render_frame(FramePacer &frame_pacer) {
 
     platform::Timer execute_rg_timer;
     auto queue = m_context.lock_queue(vk::QueueKind::Graphics);
-    auto &cmd_buf = queue->request_cmd_buf();
-    cmd_buf.reset_query(m_pipeline_statistics_pool, frame_info.frame_index);
-    cmd_buf.begin_query(m_pipeline_statistics_pool, frame_info.frame_index);
-    graph.execute(cmd_buf, true);
-    cmd_buf.end_query(m_pipeline_statistics_pool, frame_info.frame_index);
+    auto cmd_buf = queue->request_cmd_buf();
+    cmd_buf->reset_query(m_pipeline_statistics_pool, frame_info.frame_index);
+    cmd_buf->begin_query(m_pipeline_statistics_pool, frame_info.frame_index);
+    graph.execute(*cmd_buf, true);
+    cmd_buf->end_query(m_pipeline_statistics_pool, frame_info.frame_index);
 
     Array signal_semaphores{
         vkb::SemaphoreSubmitInfo{
@@ -294,15 +294,15 @@ void Sandbox::render_frame(FramePacer &frame_pacer) {
             .stageMask = vkb::PipelineStage2::ColorAttachmentOutput,
         },
     };
-    queue->submit(cmd_buf, *frame_info.fence, signal_semaphores.span(), wait_semaphores.span());
+    auto future = queue->submit(vull::move(cmd_buf), signal_semaphores.span(), wait_semaphores.span());
     m_cpu_time_graph->push_section("execute-rg", execute_rg_timer.elapsed());
+    return future;
 }
 
 void Sandbox::start_loop() {
     FramePacer frame_pacer(m_swapchain, 2);
     while (!m_should_close) {
-        render_frame(frame_pacer);
-        frame_pacer.submit_frame();
+        frame_pacer.submit_frame(render_frame(frame_pacer));
     }
 }
 

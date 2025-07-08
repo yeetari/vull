@@ -3,6 +3,7 @@
 #include <vull/container/vector.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
+#include <vull/vulkan/fence.hh>
 #include <vull/vulkan/vulkan.hh>
 
 #include <stdint.h>
@@ -14,11 +15,8 @@ class Context;
 class Image;
 class Pipeline;
 class QueryPool;
-class Queue;
 
 class CommandBuffer {
-    friend Queue;
-
     struct DescriptorBufferBinding {
         vkb::PipelineBindPoint bind_point;
         uint32_t set;
@@ -28,27 +26,28 @@ class CommandBuffer {
 
 private:
     const Context &m_context;
-    const vkb::CommandBuffer m_cmd_buf;
-    vkb::Semaphore m_completion_semaphore;
-    uint64_t m_completion_value{0};
+    vkb::CommandPool m_pool;
+    vkb::CommandBuffer m_buffer;
+    vk::Fence m_completion_fence;
     Vector<Buffer> m_associated_buffers;
     Vector<vkb::DescriptorBufferBindingInfoEXT> m_descriptor_buffers;
     Vector<DescriptorBufferBinding> m_descriptor_buffer_bindings;
     vkb::PipelineLayout m_compute_layout;
     vkb::PipelineLayout m_graphics_layout;
-    bool m_in_flight{false};
 
-    void reset();
     void emit_descriptor_binds();
 
 public:
-    CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf);
+    CommandBuffer(const Context &context, vkb::CommandPool pool, vkb::CommandBuffer buffer)
+        : m_context(context), m_pool(pool), m_buffer(buffer), m_completion_fence(context, false) {}
     CommandBuffer(const CommandBuffer &) = delete;
-    CommandBuffer(CommandBuffer &&);
+    CommandBuffer(CommandBuffer &&) = delete;
     ~CommandBuffer();
 
     CommandBuffer &operator=(const CommandBuffer &) = delete;
     CommandBuffer &operator=(CommandBuffer &&) = delete;
+
+    void reset();
 
     void begin_label(StringView label);
     void insert_label(StringView label);
@@ -91,9 +90,8 @@ public:
     void end_query(const QueryPool &query_pool, uint32_t query) const;
     void write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const;
 
-    vkb::CommandBuffer operator*() const { return m_cmd_buf; }
-    vkb::Semaphore completion_semaphore() const { return m_completion_semaphore; }
-    uint64_t completion_value() const { return m_completion_value; }
+    vkb::CommandBuffer operator*() const { return m_buffer; }
+    vk::Fence &completion_fence() { return m_completion_fence; }
 };
 
 template <typename T>

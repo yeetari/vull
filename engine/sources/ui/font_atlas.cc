@@ -9,6 +9,7 @@
 #include <vull/support/optional.hh>
 #include <vull/support/span.hh>
 #include <vull/support/tuple.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/ui/font.hh>
 #include <vull/vulkan/buffer.hh>
@@ -183,7 +184,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     font.rasterise(glyph_index, {staging_buffer.mapped<uint8_t>(), glyph_size});
 
     auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    auto &cmd_buf = queue->request_cmd_buf();
+    auto cmd_buf = queue->request_cmd_buf();
     vkb::ImageMemoryBarrier2 transfer_write_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .srcStageMask = vkb::PipelineStage2::AllCommands,
@@ -195,7 +196,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
         .image = *m_image,
         .subresourceRange = m_image.full_view().range(),
     };
-    cmd_buf.image_barrier(transfer_write_barrier);
+    cmd_buf->image_barrier(transfer_write_barrier);
 
     vkb::BufferImageCopy copy_region{
         .imageSubresource{
@@ -212,7 +213,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
             .depth = 1,
         },
     };
-    cmd_buf.copy_buffer_to_image(staging_buffer, m_image, vkb::ImageLayout::TransferDstOptimal, copy_region);
+    cmd_buf->copy_buffer_to_image(staging_buffer, m_image, vkb::ImageLayout::TransferDstOptimal, copy_region);
 
     vkb::ImageMemoryBarrier2 sampled_read_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
@@ -225,10 +226,11 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
         .image = *m_image,
         .subresourceRange = m_image.full_view().range(),
     };
-    cmd_buf.image_barrier(sampled_read_barrier);
+    cmd_buf->image_barrier(sampled_read_barrier);
 
-    cmd_buf.bind_associated_buffer(vull::move(staging_buffer));
-    queue->submit(cmd_buf, nullptr, {}, {});
+    // TODO: Use futures.
+    cmd_buf->bind_associated_buffer(vull::move(staging_buffer));
+    queue->submit(vull::move(cmd_buf), {}, {});
     queue->wait_idle();
 
     CachedGlyph glyph{

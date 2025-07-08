@@ -226,7 +226,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
     auto queue = m_context.lock_queue(vk::QueueKind::Transfer);
-    auto &cmd_buf = queue->request_cmd_buf();
+    auto cmd_buf = queue->request_cmd_buf();
 
     // Transition the whole image (all mip levels) to TransferDstOptimal.
     vkb::ImageMemoryBarrier2 transfer_write_barrier{
@@ -242,7 +242,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
             .layerCount = 1,
         },
     };
-    cmd_buf.image_barrier(transfer_write_barrier);
+    cmd_buf->image_barrier(transfer_write_barrier);
 
     uint32_t mip_width = width;
     uint32_t mip_height = height;
@@ -263,8 +263,8 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
             },
             .imageExtent = {mip_width, mip_height, 1},
         };
-        cmd_buf.copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
-        cmd_buf.bind_associated_buffer(vull::move(staging_buffer));
+        cmd_buf->copy_buffer_to_image(staging_buffer, image, vkb::ImageLayout::TransferDstOptimal, copy);
+        cmd_buf->bind_associated_buffer(vull::move(staging_buffer));
 
         mip_width >>= 1;
         mip_height >>= 1;
@@ -286,10 +286,10 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
             .layerCount = 1,
         },
     };
-    cmd_buf.image_barrier(image_read_barrier);
+    cmd_buf->image_barrier(image_read_barrier);
 
     // Submit command buffer and release queue ownership immediately to avoid holding it during the upcoming mutex.
-    queue->submit(cmd_buf, nullptr, {}, {});
+    queue->submit(vull::move(cmd_buf), {}, {});
     queue.release();
 
     ScopedLock images_lock(m_images_mutex);

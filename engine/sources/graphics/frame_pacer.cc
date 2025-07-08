@@ -13,11 +13,12 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/promise.hh>
 #include <vull/tasklet/scheduler.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/fence.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/query_pool.hh>
 #include <vull/vulkan/queue.hh>
@@ -64,11 +65,10 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
     VULL_ASSERT(queue_length > 0);
 
     // Create per-queued frame objects.
+    m_frame_futures.ensure_size(queue_length);
     m_render_graphs.ensure_size(queue_length);
     for (uint32_t i = 0; i < queue_length; i++) {
-        auto &fence = m_fences.emplace(m_context, true);
         auto &acquire_semaphore = m_acquire_semaphores.emplace(m_context);
-        m_context.set_object_name(fence, vull::format("Frame fence #{}", i));
         m_context.set_object_name(acquire_semaphore, vull::format("Acquire semaphore #{}", i));
     }
 
@@ -78,10 +78,15 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         m_context.set_object_name(present_semaphore, vull::format("Present semaphore #{}", i));
     }
 
+    // TODO(tasklet): Allow futures to start completed.
+    for (auto &future : m_frame_futures) {
+        future = tasklet::schedule([] {});
+    }
+
     // Dummy first frame.
     uint32_t image_index = swapchain.acquire_image(*m_acquire_semaphores.first());
     auto queue = swapchain.context().lock_queue(vk::QueueKind::Graphics);
-    auto &cmd_buf = queue->request_cmd_buf();
+    auto cmd_buf = queue->request_cmd_buf();
     vkb::ImageMemoryBarrier2 swapchain_present_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
         .oldLayout = vkb::ImageLayout::Undefined,
@@ -93,7 +98,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             .layerCount = 1,
         },
     };
-    cmd_buf.image_barrier(swapchain_present_barrier);
+    cmd_buf->image_barrier(swapchain_present_barrier);
 
     // Wait for the acquire semaphore straight away and signal the present semaphore at the end.
     vkb::SemaphoreSubmitInfo wait_semaphore_info{
@@ -106,12 +111,11 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         .semaphore = *m_present_semaphores[image_index],
         .stageMask = vkb::PipelineStage2::AllCommands,
     };
-    queue->submit(cmd_buf, nullptr, signal_semaphore_info, wait_semaphore_info);
+    queue->submit(vull::move(cmd_buf), signal_semaphore_info, wait_semaphore_info).await();
 
     // Spawn WSI thread.
     auto &scheduler = tasklet::Scheduler::current();
     m_thread = VULL_EXPECT(platform::Thread::create([this, image_index, &scheduler] mutable {
-        uint32_t frame_index = 0;
         scheduler.setup_thread();
         while (m_running.load(vull::memory_order_acquire)) {
             // Present the current frame.
@@ -119,37 +123,37 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             m_swapchain.present(image_index, present_wait_semaphores.span());
 
             // Advance the frame index.
-            frame_index = (frame_index + 1) % m_fences.size();
+            m_frame_index = (m_frame_index + 1) % m_frame_futures.size();
 
-            // Wait on the frame fence if we are running ahead.
-            const auto &fence = m_fences[frame_index];
-            fence.wait();
-            fence.reset();
+            // Wait on the frame future. This prevents the host running ahead.
+            // TODO(tasklet): Allow normal threads to wait on futures properly.
+            while (!m_frame_futures[m_frame_index].is_complete()) {
+                platform::Thread::yield();
+            }
 
             // Get the render graph for the previous frame N and the pass timings.
-            auto &render_graph = m_render_graphs[frame_index];
+            auto &render_graph = m_render_graphs[m_frame_index];
             auto pass_times = get_pass_times(render_graph);
 
             // Make a new render graph for the next frame, deleting the old one.
             render_graph = vull::make_unique<vk::RenderGraph>(m_context);
 
             // Acquire an image for the next frame.
-            const auto &acquire_semaphore = m_acquire_semaphores[frame_index];
+            const auto &acquire_semaphore = m_acquire_semaphores[m_frame_index];
             image_index = m_swapchain.acquire_image(*acquire_semaphore);
 
             // Pass the frame info to the render tasklet.
             m_promise.fulfill(FrameInfo{
-                .fence = fence,
                 .acquire_semaphore = acquire_semaphore,
                 .present_semaphore = m_present_semaphores[image_index],
                 .swapchain_image = m_swapchain.image(image_index),
                 .graph = *render_graph,
                 .pass_times = vull::move(pass_times),
-                .frame_index = frame_index,
+                .frame_index = m_frame_index,
             });
 
             // Wait for the command recording to complete before presenting.
-            m_event.wait();
+            m_recorded_event.wait();
         }
     }));
     VULL_IGNORE(m_thread.set_name("Frame pacer"));
@@ -157,7 +161,10 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
 
 FramePacer::~FramePacer() {
     m_running.store(false, vull::memory_order_release);
-    m_event.set();
+    m_recorded_event.set();
+    for (auto &future : m_frame_futures) {
+        future.await();
+    }
     VULL_EXPECT(m_thread.join());
     m_context.vkDeviceWaitIdle();
 }
@@ -169,8 +176,9 @@ FrameInfo FramePacer::acquire_frame() {
     return frame_info;
 }
 
-void FramePacer::submit_frame() {
-    m_event.set();
+void FramePacer::submit_frame(tasklet::Future<void> &&future) {
+    m_frame_futures[m_frame_index] = vull::move(future);
+    m_recorded_event.set();
 }
 
 } // namespace vull

@@ -7,6 +7,7 @@
 #include <vull/support/utility.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/context.hh>
+#include <vull/vulkan/fence.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/query_pool.hh>
@@ -14,68 +15,38 @@
 
 namespace vull::vk {
 
-CommandBuffer::CommandBuffer(const Context &context, vkb::CommandBuffer cmd_buf)
-    : m_context(context), m_cmd_buf(cmd_buf) {
-    vkb::SemaphoreTypeCreateInfo timeline_ci{
-        .sType = vkb::StructureType::SemaphoreTypeCreateInfo,
-        .semaphoreType = vkb::SemaphoreType::Timeline,
-        .initialValue = m_completion_value++,
-    };
-    vkb::SemaphoreCreateInfo semaphore_ci{
-        .sType = vkb::StructureType::SemaphoreCreateInfo,
-        .pNext = &timeline_ci,
-    };
-    VULL_ENSURE(m_context.vkCreateSemaphore(&semaphore_ci, &m_completion_semaphore) == vkb::Result::Success);
-
-    vkb::CommandBufferBeginInfo cmd_buf_bi{
-        .sType = vkb::StructureType::CommandBufferBeginInfo,
-        .flags = vkb::CommandBufferUsage::OneTimeSubmit,
-    };
-    context.vkBeginCommandBuffer(cmd_buf, &cmd_buf_bi);
-}
-
-CommandBuffer::CommandBuffer(CommandBuffer &&other) : m_context(other.m_context), m_cmd_buf(other.m_cmd_buf) {
-    m_completion_semaphore = vull::exchange(other.m_completion_semaphore, nullptr);
-    m_completion_value = vull::exchange(other.m_completion_value, 0u);
-    m_associated_buffers = vull::move(other.m_associated_buffers);
-    m_in_flight = vull::exchange(other.m_in_flight, false);
-}
-
 CommandBuffer::~CommandBuffer() {
-    m_context.vkDestroySemaphore(m_completion_semaphore);
+    m_context.vkDestroyCommandPool(m_pool);
 }
 
 void CommandBuffer::reset() {
+    // Reset the completion fence.
+    m_completion_fence.reset();
+
     // Free any associated buffers.
     m_associated_buffers.clear();
 
-    // Reset the semaphore to an uncompleted state and the command buffer back to a fresh recording state. Since the
-    // command pool was created with the RESET_COMMAND_BUFFER flag, the reset is implicitly performed by
-    // vkBeginCommandBuffer.
-    vkb::SemaphoreSignalInfo signal_info{
-        .sType = vkb::StructureType::SemaphoreSignalInfo,
-        .semaphore = m_completion_semaphore,
-        .value = (++m_completion_value)++,
-    };
-    VULL_ENSURE(m_context.vkSignalSemaphore(&signal_info) == vkb::Result::Success);
+    // Reset the command pool.
+    m_context.vkResetCommandPool(m_pool, vkb::CommandPoolResetFlags::None);
+
+    // Begin the buffer.
     vkb::CommandBufferBeginInfo cmd_buf_bi{
         .sType = vkb::StructureType::CommandBufferBeginInfo,
         .flags = vkb::CommandBufferUsage::OneTimeSubmit,
     };
-    m_context.vkBeginCommandBuffer(m_cmd_buf, &cmd_buf_bi);
-    m_in_flight = false;
+    m_context.vkBeginCommandBuffer(m_buffer, &cmd_buf_bi);
 }
 
 void CommandBuffer::emit_descriptor_binds() {
     if (m_descriptor_buffers.empty()) {
         return;
     }
-    m_context.vkCmdBindDescriptorBuffersEXT(m_cmd_buf, m_descriptor_buffers.size(), m_descriptor_buffers.data());
+    m_context.vkCmdBindDescriptorBuffersEXT(m_buffer, m_descriptor_buffers.size(), m_descriptor_buffers.data());
 
     // TODO: Batch this.
     for (const auto &binding : m_descriptor_buffer_bindings) {
         auto *layout = binding.bind_point == vkb::PipelineBindPoint::Compute ? m_compute_layout : m_graphics_layout;
-        m_context.vkCmdSetDescriptorBufferOffsetsEXT(m_cmd_buf, binding.bind_point, layout, binding.set, 1,
+        m_context.vkCmdSetDescriptorBufferOffsetsEXT(m_buffer, binding.bind_point, layout, binding.set, 1,
                                                      &binding.buffer_index, &binding.offset);
     }
     m_descriptor_buffers.clear();
@@ -88,7 +59,7 @@ void CommandBuffer::begin_label(StringView label) {
         .pLabelName = label.data(),
         .color{1.0f, 1.0f, 1.0f, 1.0f},
     };
-    m_context.vkCmdBeginDebugUtilsLabelEXT(m_cmd_buf, &label_info);
+    m_context.vkCmdBeginDebugUtilsLabelEXT(m_buffer, &label_info);
 }
 
 void CommandBuffer::insert_label(StringView label) {
@@ -97,27 +68,27 @@ void CommandBuffer::insert_label(StringView label) {
         .pLabelName = label.data(),
         .color{1.0f, 1.0f, 1.0f, 1.0f},
     };
-    m_context.vkCmdInsertDebugUtilsLabelEXT(m_cmd_buf, &label_info);
+    m_context.vkCmdInsertDebugUtilsLabelEXT(m_buffer, &label_info);
 }
 
 void CommandBuffer::end_label() {
-    m_context.vkCmdEndDebugUtilsLabelEXT(m_cmd_buf);
+    m_context.vkCmdEndDebugUtilsLabelEXT(m_buffer);
 }
 
 void CommandBuffer::set_viewport(Span<vkb::Viewport> viewports, uint32_t first) {
-    m_context.vkCmdSetViewport(m_cmd_buf, first, static_cast<uint32_t>(viewports.size()), viewports.data());
+    m_context.vkCmdSetViewport(m_buffer, first, static_cast<uint32_t>(viewports.size()), viewports.data());
 }
 
 void CommandBuffer::set_scissor(Span<vkb::Rect2D> scissors, uint32_t first) {
-    m_context.vkCmdSetScissor(m_cmd_buf, first, static_cast<uint32_t>(scissors.size()), scissors.data());
+    m_context.vkCmdSetScissor(m_buffer, first, static_cast<uint32_t>(scissors.size()), scissors.data());
 }
 
 void CommandBuffer::begin_rendering(const vkb::RenderingInfo &rendering_info) const {
-    m_context.vkCmdBeginRendering(m_cmd_buf, &rendering_info);
+    m_context.vkCmdBeginRendering(m_buffer, &rendering_info);
 }
 
 void CommandBuffer::end_rendering() const {
-    m_context.vkCmdEndRendering(m_cmd_buf);
+    m_context.vkCmdEndRendering(m_buffer);
 }
 
 void CommandBuffer::bind_associated_buffer(Buffer &&buffer) {
@@ -152,7 +123,7 @@ void CommandBuffer::bind_descriptor_buffer(vkb::PipelineBindPoint bind_point, co
 }
 
 void CommandBuffer::bind_index_buffer(const Buffer &buffer, vkb::IndexType index_type) const {
-    m_context.vkCmdBindIndexBuffer(m_cmd_buf, *buffer, 0, index_type);
+    m_context.vkCmdBindIndexBuffer(m_buffer, *buffer, 0, index_type);
 }
 
 void CommandBuffer::bind_pipeline(const Pipeline &pipeline) {
@@ -166,61 +137,61 @@ void CommandBuffer::bind_pipeline(const Pipeline &pipeline) {
     default:
         vull::unreachable();
     }
-    m_context.vkCmdBindPipeline(m_cmd_buf, pipeline.bind_point(), *pipeline);
+    m_context.vkCmdBindPipeline(m_buffer, pipeline.bind_point(), *pipeline);
 }
 
 void CommandBuffer::bind_vertex_buffer(const Buffer &buffer) const {
     const vkb::DeviceSize offset = 0;
     auto *vk_buffer = *buffer;
-    m_context.vkCmdBindVertexBuffers(m_cmd_buf, 0, 1, &vk_buffer, &offset);
+    m_context.vkCmdBindVertexBuffers(m_buffer, 0, 1, &vk_buffer, &offset);
 }
 
 void CommandBuffer::copy_buffer(const Buffer &src, const Buffer &dst, Span<vkb::BufferCopy> regions) const {
-    m_context.vkCmdCopyBuffer(m_cmd_buf, *src, *dst, static_cast<uint32_t>(regions.size()), regions.data());
+    m_context.vkCmdCopyBuffer(m_buffer, *src, *dst, static_cast<uint32_t>(regions.size()), regions.data());
 }
 
 void CommandBuffer::copy_buffer_to_image(const Buffer &src, const Image &dst, vkb::ImageLayout dst_layout,
                                          Span<vkb::BufferImageCopy> regions) const {
-    m_context.vkCmdCopyBufferToImage(m_cmd_buf, *src, *dst, dst_layout, static_cast<uint32_t>(regions.size()),
+    m_context.vkCmdCopyBufferToImage(m_buffer, *src, *dst, dst_layout, static_cast<uint32_t>(regions.size()),
                                      regions.data());
 }
 
 void CommandBuffer::zero_buffer(const Buffer &buffer, vkb::DeviceSize offset, vkb::DeviceSize size) {
-    m_context.vkCmdFillBuffer(m_cmd_buf, *buffer, offset, size, 0);
+    m_context.vkCmdFillBuffer(m_buffer, *buffer, offset, size, 0);
 }
 
 void CommandBuffer::push_constants(vkb::ShaderStage stage, uint32_t size, const void *data) const {
     VULL_ASSERT(stage != vkb::ShaderStage::All);
     if (stage == vkb::ShaderStage::Compute) {
-        m_context.vkCmdPushConstants(m_cmd_buf, m_compute_layout, stage, 0, size, data);
+        m_context.vkCmdPushConstants(m_buffer, m_compute_layout, stage, 0, size, data);
         return;
     }
     if (stage != vkb::ShaderStage::AllGraphics) {
         VULL_ASSERT((stage & vkb::ShaderStage::Compute) != vkb::ShaderStage::Compute);
     }
-    m_context.vkCmdPushConstants(m_cmd_buf, m_graphics_layout, stage, 0, size, data);
+    m_context.vkCmdPushConstants(m_buffer, m_graphics_layout, stage, 0, size, data);
 }
 
 void CommandBuffer::dispatch(uint32_t x, uint32_t y, uint32_t z) {
     emit_descriptor_binds();
-    m_context.vkCmdDispatch(m_cmd_buf, x, y, z);
+    m_context.vkCmdDispatch(m_buffer, x, y, z);
 }
 
 void CommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count) {
     emit_descriptor_binds();
-    m_context.vkCmdDraw(m_cmd_buf, vertex_count, instance_count, 0, 0);
+    m_context.vkCmdDraw(m_buffer, vertex_count, instance_count, 0, 0);
 }
 
 void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index) {
     emit_descriptor_binds();
-    m_context.vkCmdDrawIndexed(m_cmd_buf, index_count, instance_count, first_index, 0, 0);
+    m_context.vkCmdDrawIndexed(m_buffer, index_count, instance_count, first_index, 0, 0);
 }
 
 void CommandBuffer::draw_indexed_indirect_count(const Buffer &buffer, vkb::DeviceSize offset,
                                                 const Buffer &count_buffer, vkb::DeviceSize count_offset,
                                                 uint32_t max_draw_count, uint32_t stride) {
     emit_descriptor_binds();
-    m_context.vkCmdDrawIndexedIndirectCount(m_cmd_buf, *buffer, offset, *count_buffer, count_offset, max_draw_count,
+    m_context.vkCmdDrawIndexedIndirectCount(m_buffer, *buffer, offset, *count_buffer, count_offset, max_draw_count,
                                             stride);
 }
 
@@ -241,23 +212,23 @@ void CommandBuffer::image_barrier(const vkb::ImageMemoryBarrier2 &barrier) const
 }
 
 void CommandBuffer::pipeline_barrier(const vkb::DependencyInfo &dependency_info) const {
-    m_context.vkCmdPipelineBarrier2(m_cmd_buf, &dependency_info);
+    m_context.vkCmdPipelineBarrier2(m_buffer, &dependency_info);
 }
 
 void CommandBuffer::reset_query_pool(const vk::QueryPool &query_pool) const {
-    m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, 0, query_pool.count());
+    m_context.vkCmdResetQueryPool(m_buffer, *query_pool, 0, query_pool.count());
 }
 
 void CommandBuffer::reset_query(const QueryPool &query_pool, uint32_t query) const {
-    m_context.vkCmdResetQueryPool(m_cmd_buf, *query_pool, query, 1);
+    m_context.vkCmdResetQueryPool(m_buffer, *query_pool, query, 1);
 }
 
 void CommandBuffer::begin_query(const QueryPool &query_pool, uint32_t query) const {
-    m_context.vkCmdBeginQuery(m_cmd_buf, *query_pool, query, vkb::QueryControlFlags::None);
+    m_context.vkCmdBeginQuery(m_buffer, *query_pool, query, vkb::QueryControlFlags::None);
 }
 
 void CommandBuffer::end_query(const QueryPool &query_pool, uint32_t query) const {
-    m_context.vkCmdEndQuery(m_cmd_buf, *query_pool, query);
+    m_context.vkCmdEndQuery(m_buffer, *query_pool, query);
 }
 
 void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, const QueryPool &query_pool, uint32_t query) const {
@@ -265,7 +236,7 @@ void CommandBuffer::write_timestamp(vkb::PipelineStage2 stage, const QueryPool &
     if (stage == vkb::PipelineStage2::None) {
         stage = vkb::PipelineStage2::TopOfPipe;
     }
-    m_context.vkCmdWriteTimestamp2(m_cmd_buf, stage, *query_pool, query);
+    m_context.vkCmdWriteTimestamp2(m_buffer, stage, *query_pool, query);
 }
 
 } // namespace vull::vk

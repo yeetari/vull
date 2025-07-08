@@ -8,6 +8,7 @@
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh> // IWYU pragma: keep
+#include <vull/tasklet/future.hh>     // IWYU pragma: keep
 #include <vull/tasklet/promise.hh>
 
 #include <stdint.h>
@@ -15,7 +16,6 @@
 namespace vull::vk {
 
 class Context;
-class Fence;
 class Image;
 class RenderGraph;
 class Semaphore;
@@ -26,7 +26,6 @@ class Swapchain;
 namespace vull {
 
 struct FrameInfo {
-    const vk::Fence &fence;
     const vk::Semaphore &acquire_semaphore;
     const vk::Semaphore &present_semaphore;
     const vk::Image &swapchain_image;
@@ -38,13 +37,14 @@ struct FrameInfo {
 class FramePacer {
     vk::Context &m_context;
     vk::Swapchain &m_swapchain;
-    Vector<vk::Fence> m_fences;
+    Vector<tasklet::Future<void>> m_frame_futures;
     Vector<vk::Semaphore> m_acquire_semaphores;
     Vector<vk::Semaphore> m_present_semaphores;
     Vector<UniquePtr<vk::RenderGraph>> m_render_graphs;
-    platform::Event m_event;
+    platform::Event m_recorded_event;
     platform::Thread m_thread;
     tasklet::Promise<FrameInfo> m_promise;
+    uint32_t m_frame_index{0};
     Atomic<bool> m_running{true};
 
 public:
@@ -57,8 +57,8 @@ public:
     FramePacer &operator=(FramePacer &&) = delete;
 
     FrameInfo acquire_frame();
-    void submit_frame();
-    uint32_t queue_length() const { return m_fences.size(); }
+    void submit_frame(tasklet::Future<void> &&future);
+    uint32_t queue_length() const { return m_frame_futures.size(); }
 };
 
 } // namespace vull
