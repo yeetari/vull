@@ -12,7 +12,7 @@ include(VullAddExecutable)
 include(VullAddShader)
 include(VullVpak)
 
-set(VULL_ALL_COMPONENTS "graphics;physics;script;ui;x11-window")
+set(VULL_ALL_COMPONENTS "GRAPHICS;PHYSICS;SCRIPT;UI;X11_WINDOW")
 set(VULL_ENABLED_COMPONENTS "${VULL_ALL_COMPONENTS}" CACHE STRING "")
 
 # Ensure enabled components are valid.
@@ -24,12 +24,10 @@ endforeach()
 
 # Set variables for enabled components.
 foreach(component ${VULL_ALL_COMPONENTS})
-    string(TOUPPER "${component}" upper_component)
-    string(REGEX REPLACE "-" "_" upper_component "${upper_component}")
     if("${component}" IN_LIST VULL_ENABLED_COMPONENTS)
-        set(VULL_BUILD_${upper_component} TRUE)
+        set(VULL_BUILD_${component} TRUE)
     else()
-        set(VULL_BUILD_${upper_component} FALSE)
+        set(VULL_BUILD_${component} FALSE)
     endif()
 endforeach()
 
