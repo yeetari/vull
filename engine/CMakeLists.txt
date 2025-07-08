@@ -5,12 +5,16 @@ target_compile_options(vull PRIVATE ${VULL_COMPILER_FLAGS_LIST})
 target_include_directories(vull PUBLIC include)
 target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd liburing::liburing)
 
+# Add preprocessor definitions for enabled components.
+foreach(component ${VULL_ENABLED_COMPONENTS})
+    target_compile_definitions(vull PUBLIC VULL_BUILD_${component})
+endforeach()
+
 if(VULL_BUILD_UI)
     target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
 endif()
 
 if(VULL_BUILD_X11_WINDOW)
-    target_compile_definitions(vull PUBLIC VULL_BUILD_X11_WINDOW)
     target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_xinput X11::xkbcommon X11::xkbcommon_X11)
 endif()
 
