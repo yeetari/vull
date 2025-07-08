@@ -11,6 +11,12 @@ class Event;
 
 } // namespace vull::platform
 
+namespace vull::vk {
+
+class Fence;
+
+} // namespace vull::vk
+
 namespace vull::tasklet {
 
 class Tasklet;
@@ -21,6 +27,7 @@ enum class IoRequestKind {
     Nop,
     PollEvent,
     WaitEvent,
+    WaitVkFence,
 };
 
 // Inheriting from SharedPromise like this means that all IO request types must be trivially destructible.
@@ -60,6 +67,19 @@ public:
 
     platform::Event &event() const { return m_event; }
     uint64_t &value() { return m_value; }
+};
+
+class WaitVkFenceRequest : public IoRequest {
+    const vk::Fence &m_fence;
+    int m_fd;
+
+public:
+    explicit WaitVkFenceRequest(const vk::Fence &fence) : IoRequest(IoRequestKind::WaitVkFence), m_fence(fence) {}
+
+    void set_fd(int fd) { m_fd = fd; }
+
+    const vk::Fence &fence() const { return m_fence; }
+    int fd() const { return m_fd; }
 };
 
 } // namespace vull::tasklet

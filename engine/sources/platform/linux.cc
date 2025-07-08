@@ -24,6 +24,10 @@
 #include <vull/tasklet/scheduler.hh>
 #include <vull/tasklet/tasklet.hh>
 
+#ifdef VULL_BUILD_GRAPHICS
+#include <vull/vulkan/fence.hh>
+#endif
+
 // IWYU pragma: no_include <bits/types/stack_t.h>
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
 #include <endian.h>
@@ -527,6 +531,20 @@ static void queue_io_request(io_uring *ring, tasklet::IoRequest *request) {
         io_uring_prep_read(sqe, fd, &wait_event->value(), sizeof(eventfd_t), 0);
         break;
     }
+#ifdef VULL_BUILD_GRAPHICS
+    case WaitVkFence: {
+        auto *wait_vk_fence = static_cast<tasklet::WaitVkFenceRequest *>(request);
+        auto fd = wait_vk_fence->fence().make_fd();
+        if (fd) {
+            wait_vk_fence->set_fd(*fd);
+            io_uring_prep_poll_add(sqe, *fd, POLLIN);
+        } else {
+            // Fence already signaled, just queue a nop.
+            io_uring_prep_nop(sqe);
+        }
+        break;
+    }
+#endif
     }
 }
 
@@ -587,6 +605,11 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
                     queue_io_request(&ring, &poll_submit_event);
                 }
             } else {
+                // Close fence syncfd.
+                if (request->kind() == tasklet::IoRequestKind::WaitVkFence) {
+                    close(static_cast<tasklet::WaitVkFenceRequest *>(request)->fd());
+                }
+
                 // Resume the suspended tasklet.
                 request->fulfill(cqe->res);
                 request->sub_ref();
