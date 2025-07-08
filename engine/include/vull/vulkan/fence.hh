@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/support/optional.hh>
 #include <vull/support/utility.hh>
 #include <vull/vulkan/vulkan.hh>
 
@@ -22,6 +23,7 @@ public:
     Fence &operator=(const Fence &) = delete;
     Fence &operator=(Fence &&) = delete;
 
+    Optional<int> make_fd() const;
     void reset() const;
     void wait(uint64_t timeout = UINT64_MAX) const;
     vkb::Fence operator*() const { return m_fence; }
