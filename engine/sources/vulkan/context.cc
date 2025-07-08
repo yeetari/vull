@@ -282,10 +282,8 @@ Context::Context(bool enable_validation) : ContextTable{} {
     };
 
     Array enabled_device_extensions{
-        "VK_EXT_descriptor_buffer",
-        "VK_EXT_shader_atomic_float",
-        "VK_EXT_shader_atomic_float2",
-        "VK_KHR_swapchain",
+        "VK_EXT_descriptor_buffer", "VK_EXT_shader_atomic_float", "VK_EXT_shader_atomic_float2",
+        "VK_KHR_external_fence_fd", "VK_KHR_swapchain",
     };
     vkb::DeviceCreateInfo device_ci{
         .sType = vkb::StructureType::DeviceCreateInfo,
