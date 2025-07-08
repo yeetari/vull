@@ -200,6 +200,7 @@ private:
     PFN_vkGetDeviceQueue m_vkGetDeviceQueue;
     PFN_vkGetDeviceQueue2 m_vkGetDeviceQueue2;
     PFN_vkGetEventStatus m_vkGetEventStatus;
+    PFN_vkGetFenceFdKHR m_vkGetFenceFdKHR;
     PFN_vkGetFenceStatus m_vkGetFenceStatus;
     PFN_vkGetImageMemoryRequirements m_vkGetImageMemoryRequirements;
     PFN_vkGetImageMemoryRequirements2 m_vkGetImageMemoryRequirements2;
@@ -239,6 +240,7 @@ private:
     PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT m_vkGetSamplerOpaqueCaptureDescriptorDataEXT;
     PFN_vkGetSemaphoreCounterValue m_vkGetSemaphoreCounterValue;
     PFN_vkGetSwapchainImagesKHR m_vkGetSwapchainImagesKHR;
+    PFN_vkImportFenceFdKHR m_vkImportFenceFdKHR;
     PFN_vkInvalidateMappedMemoryRanges m_vkInvalidateMappedMemoryRanges;
     PFN_vkMapMemory m_vkMapMemory;
     PFN_vkMergePipelineCaches m_vkMergePipelineCaches;
@@ -453,6 +455,7 @@ public:
     void vkGetDeviceQueue(uint32_t queueFamilyIndex, uint32_t queueIndex, Queue *pQueue) const;
     void vkGetDeviceQueue2(const DeviceQueueInfo2 *pQueueInfo, Queue *pQueue) const;
     Result vkGetEventStatus(Event event) const;
+    Result vkGetFenceFdKHR(const FenceGetFdInfoKHR *pGetFdInfo, int *pFd) const;
     Result vkGetFenceStatus(Fence fence) const;
     void vkGetImageMemoryRequirements(Image image, MemoryRequirements *pMemoryRequirements) const;
     void vkGetImageMemoryRequirements2(const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements) const;
@@ -492,6 +495,7 @@ public:
     Result vkGetSamplerOpaqueCaptureDescriptorDataEXT(const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData) const;
     Result vkGetSemaphoreCounterValue(Semaphore semaphore, uint64_t *pValue) const;
     Result vkGetSwapchainImagesKHR(SwapchainKHR swapchain, uint32_t *pSwapchainImageCount, Image *pSwapchainImages) const;
+    Result vkImportFenceFdKHR(const ImportFenceFdInfoKHR *pImportFenceFdInfo) const;
     Result vkInvalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges) const;
     Result vkMapMemory(DeviceMemory memory, DeviceSize offset, DeviceSize size, MemoryMapFlags flags, void ** ppData) const;
     Result vkMergePipelineCaches(PipelineCache dstCache, uint32_t srcCacheCount, const PipelineCache *pSrcCaches) const;

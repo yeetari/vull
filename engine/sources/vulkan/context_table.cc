@@ -219,6 +219,7 @@ void ContextTable::load_device() {
     m_vkGetDeviceQueue = reinterpret_cast<PFN_vkGetDeviceQueue>(vkGetDeviceProcAddr("vkGetDeviceQueue"));
     m_vkGetDeviceQueue2 = reinterpret_cast<PFN_vkGetDeviceQueue2>(vkGetDeviceProcAddr("vkGetDeviceQueue2"));
     m_vkGetEventStatus = reinterpret_cast<PFN_vkGetEventStatus>(vkGetDeviceProcAddr("vkGetEventStatus"));
+    m_vkGetFenceFdKHR = reinterpret_cast<PFN_vkGetFenceFdKHR>(vkGetDeviceProcAddr("vkGetFenceFdKHR"));
     m_vkGetFenceStatus = reinterpret_cast<PFN_vkGetFenceStatus>(vkGetDeviceProcAddr("vkGetFenceStatus"));
     m_vkGetImageMemoryRequirements = reinterpret_cast<PFN_vkGetImageMemoryRequirements>(vkGetDeviceProcAddr("vkGetImageMemoryRequirements"));
     m_vkGetImageMemoryRequirements2 = reinterpret_cast<PFN_vkGetImageMemoryRequirements2>(vkGetDeviceProcAddr("vkGetImageMemoryRequirements2"));
@@ -234,6 +235,7 @@ void ContextTable::load_device() {
     m_vkGetSamplerOpaqueCaptureDescriptorDataEXT = reinterpret_cast<PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT>(vkGetDeviceProcAddr("vkGetSamplerOpaqueCaptureDescriptorDataEXT"));
     m_vkGetSemaphoreCounterValue = reinterpret_cast<PFN_vkGetSemaphoreCounterValue>(vkGetDeviceProcAddr("vkGetSemaphoreCounterValue"));
     m_vkGetSwapchainImagesKHR = reinterpret_cast<PFN_vkGetSwapchainImagesKHR>(vkGetDeviceProcAddr("vkGetSwapchainImagesKHR"));
+    m_vkImportFenceFdKHR = reinterpret_cast<PFN_vkImportFenceFdKHR>(vkGetDeviceProcAddr("vkImportFenceFdKHR"));
     m_vkInvalidateMappedMemoryRanges = reinterpret_cast<PFN_vkInvalidateMappedMemoryRanges>(vkGetDeviceProcAddr("vkInvalidateMappedMemoryRanges"));
     m_vkMapMemory = reinterpret_cast<PFN_vkMapMemory>(vkGetDeviceProcAddr("vkMapMemory"));
     m_vkMergePipelineCaches = reinterpret_cast<PFN_vkMergePipelineCaches>(vkGetDeviceProcAddr("vkMergePipelineCaches"));
@@ -996,6 +998,10 @@ Result ContextTable::vkGetEventStatus(Event event) const {
     return m_vkGetEventStatus(m_device, event);
 }
 
+Result ContextTable::vkGetFenceFdKHR(const FenceGetFdInfoKHR *pGetFdInfo, int *pFd) const {
+    return m_vkGetFenceFdKHR(m_device, pGetFdInfo, pFd);
+}
+
 Result ContextTable::vkGetFenceStatus(Fence fence) const {
     return m_vkGetFenceStatus(m_device, fence);
 }
@@ -1150,6 +1156,10 @@ Result ContextTable::vkGetSemaphoreCounterValue(Semaphore semaphore, uint64_t *p
 
 Result ContextTable::vkGetSwapchainImagesKHR(SwapchainKHR swapchain, uint32_t *pSwapchainImageCount, Image *pSwapchainImages) const {
     return m_vkGetSwapchainImagesKHR(m_device, swapchain, pSwapchainImageCount, pSwapchainImages);
+}
+
+Result ContextTable::vkImportFenceFdKHR(const ImportFenceFdInfoKHR *pImportFenceFdInfo) const {
+    return m_vkImportFenceFdKHR(m_device, pImportFenceFdInfo);
 }
 
 Result ContextTable::vkInvalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges) const {

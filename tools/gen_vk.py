@@ -127,6 +127,7 @@ desired_extension_names = [
     'VK_EXT_shader_atomic_float',
     'VK_EXT_shader_atomic_float2',
     'VK_EXT_validation_features',
+    'VK_KHR_external_fence_fd',
     'VK_KHR_surface',
     'VK_KHR_swapchain',
     'VK_KHR_xcb_surface',

@@ -1928,6 +1928,8 @@ enum class StructureType {
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     ValidationFeaturesEXT = 1000247000,
+    ImportFenceFdInfoKHR = 1000115000,
+    FenceGetFdInfoKHR = 1000115001,
     SwapchainCreateInfoKHR = 1000001000,
     PresentInfoKHR = 1000001001,
     DeviceGroupPresentCapabilitiesKHR = 1000060007,
@@ -4974,6 +4976,22 @@ struct ValidationFeaturesEXT {
     const ValidationFeatureDisableEXT *pDisabledValidationFeatures;
 };
 
+struct ImportFenceFdInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    Fence fence;
+    FenceImportFlags flags;
+    ExternalFenceHandleTypeFlags handleType;
+    int fd;
+};
+
+struct FenceGetFdInfoKHR {
+    StructureType sType;
+    const void *pNext;
+    Fence fence;
+    ExternalFenceHandleTypeFlags handleType;
+};
+
 struct SurfaceCapabilitiesKHR {
     uint32_t minImageCount;
     uint32_t maxImageCount;
@@ -5260,6 +5278,7 @@ using PFN_vkGetDeviceProcAddr = PFN_vkVoidFunction (*)(Device device, const char
 using PFN_vkGetDeviceQueue = void (*)(Device device, uint32_t queueFamilyIndex, uint32_t queueIndex, Queue *pQueue);
 using PFN_vkGetDeviceQueue2 = void (*)(Device device, const DeviceQueueInfo2 *pQueueInfo, Queue *pQueue);
 using PFN_vkGetEventStatus = Result (*)(Device device, Event event);
+using PFN_vkGetFenceFdKHR = Result (*)(Device device, const FenceGetFdInfoKHR *pGetFdInfo, int *pFd);
 using PFN_vkGetFenceStatus = Result (*)(Device device, Fence fence);
 using PFN_vkGetImageMemoryRequirements = void (*)(Device device, Image image, MemoryRequirements *pMemoryRequirements);
 using PFN_vkGetImageMemoryRequirements2 = void (*)(Device device, const ImageMemoryRequirementsInfo2 *pInfo, MemoryRequirements2 *pMemoryRequirements);
@@ -5300,6 +5319,7 @@ using PFN_vkGetRenderAreaGranularity = void (*)(Device device, RenderPass render
 using PFN_vkGetSamplerOpaqueCaptureDescriptorDataEXT = Result (*)(Device device, const SamplerCaptureDescriptorDataInfoEXT *pInfo, void *pData);
 using PFN_vkGetSemaphoreCounterValue = Result (*)(Device device, Semaphore semaphore, uint64_t *pValue);
 using PFN_vkGetSwapchainImagesKHR = Result (*)(Device device, SwapchainKHR swapchain, uint32_t *pSwapchainImageCount, Image *pSwapchainImages);
+using PFN_vkImportFenceFdKHR = Result (*)(Device device, const ImportFenceFdInfoKHR *pImportFenceFdInfo);
 using PFN_vkInvalidateMappedMemoryRanges = Result (*)(Device device, uint32_t memoryRangeCount, const MappedMemoryRange *pMemoryRanges);
 using PFN_vkMapMemory = Result (*)(Device device, DeviceMemory memory, DeviceSize offset, DeviceSize size, MemoryMapFlags flags, void ** ppData);
 using PFN_vkMergePipelineCaches = Result (*)(Device device, PipelineCache dstCache, uint32_t srcCacheCount, const PipelineCache *pSrcCaches);
