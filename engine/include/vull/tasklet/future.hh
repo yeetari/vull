@@ -48,7 +48,7 @@ template <typename F>
 auto Future<T>::and_then(F &&callable) {
     using R = FunctionTraits<F>::result_type;
     auto *tasklet = Tasklet::create<TaskletSize::Normal>();
-    auto promise = tasklet->set_callable([*this, callable = vull::move(callable)] {
+    auto promise = tasklet->set_callable([*this, callable = vull::move(callable)] mutable {
         if constexpr (vull::is_same<T, void>) {
             await();
             if constexpr (vull::is_same<R, void>) {
