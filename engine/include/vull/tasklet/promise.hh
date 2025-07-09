@@ -87,7 +87,9 @@ void SharedPromise<T>::add_ref() const {
 template <typename T>
 void SharedPromise<T>::sub_ref() const {
     if (m_ref_count.fetch_sub(1, vull::memory_order_acq_rel) == 1) {
-        delete this;
+        // Use operator delete to avoid sized deallocation.
+        // NOLINTNEXTLINE
+        ::operator delete(const_cast<SharedPromise<T> *>(this));
     }
 }
 
