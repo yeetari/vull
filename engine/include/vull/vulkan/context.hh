@@ -34,9 +34,9 @@ class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     Vector<UniquePtr<Allocator>> m_allocators;
     Vector<UniquePtr<Queue>> m_queues;
-    Vector<Queue &> m_compute_queues;
-    Vector<Queue &> m_graphics_queues;
-    Vector<Queue &> m_transfer_queues;
+    Queue *m_compute_queue{nullptr};
+    Queue *m_graphics_queue{nullptr};
+    Queue *m_transfer_queue{nullptr};
     vkb::Sampler m_nearest_sampler;
     vkb::Sampler m_linear_sampler;
     vkb::Sampler m_depth_reduce_sampler;

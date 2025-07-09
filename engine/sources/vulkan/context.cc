@@ -299,30 +299,25 @@ Context::Context(bool enable_validation) : ContextTable{} {
         m_allocators.emplace(new Allocator(*this, i));
     }
 
-    auto create_queues = [&](uint32_t family_index, Vector<Queue &> &vector) {
-        for (uint32_t index = 0; index < queue_families[family_index].queueCount; index++) {
-            auto &queue = *m_queues.emplace(new Queue(*this, family_index, index));
-            vector.push(queue);
-        }
-    };
-
     for (uint32_t family_index = 0; family_index < queue_families.size(); family_index++) {
-        auto flags = queue_families[family_index].queueFlags;
+        const auto &family = queue_families[family_index];
+        const auto flags = family.queueFlags;
+        auto *queue = m_queues.emplace(new Queue(*this, family_index, family.queueCount)).ptr();
         if ((flags & vkb::QueueFlags::Graphics) != vkb::QueueFlags::None) {
-            create_queues(family_index, m_graphics_queues);
+            m_graphics_queue = queue;
         } else if ((flags & vkb::QueueFlags::Compute) != vkb::QueueFlags::None) {
-            create_queues(family_index, m_compute_queues);
+            m_compute_queue = queue;
         } else if ((flags & vkb::QueueFlags::Transfer) != vkb::QueueFlags::None) {
-            create_queues(family_index, m_transfer_queues);
+            m_transfer_queue = queue;
         }
     }
 
-    VULL_ENSURE(!m_graphics_queues.empty());
-    if (m_compute_queues.empty()) {
-        m_compute_queues.extend(m_graphics_queues);
+    VULL_ENSURE(m_graphics_queue != nullptr);
+    if (m_compute_queue == nullptr) {
+        m_compute_queue = m_graphics_queue;
     }
-    if (m_transfer_queues.empty()) {
-        m_transfer_queues.extend(m_compute_queues);
+    if (m_transfer_queue == nullptr) {
+        m_transfer_queue = m_compute_queue;
     }
 
     vull::debug("[vulkan] Memory usage -> memory type mapping:");
@@ -561,11 +556,11 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
 Queue &Context::get_queue(QueueKind kind) {
     switch (kind) {
     case QueueKind::Compute:
-        return m_compute_queues.first();
+        return *m_compute_queue;
     case QueueKind::Graphics:
-        return m_graphics_queues.first();
+        return *m_graphics_queue;
     case QueueKind::Transfer:
-        return m_transfer_queues.first();
+        return *m_transfer_queue;
     default:
         vull::unreachable();
     }

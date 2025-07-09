@@ -28,14 +28,14 @@ class Queue {
 private:
     const Context &m_context;
     const uint32_t m_family_index;
-    const uint32_t m_index;
-    vkb::Queue m_queue;
+    Vector<vkb::Queue> m_queues;
     Vector<UniquePtr<CommandBuffer>> m_buffers;
     tasklet::Mutex m_buffers_mutex;
-    tasklet::Mutex m_submit_mutex;
+    tasklet::Mutex *m_submit_mutexes;
+    Atomic<uint32_t> m_queue_index;
     Atomic<uint32_t> m_total_buffer_count;
 
-    Queue(const Context &context, uint32_t family_index, uint32_t index);
+    Queue(const Context &context, uint32_t family_index, uint32_t count);
 
 public:
     Queue(const Queue &) = delete;
@@ -53,9 +53,7 @@ public:
                                  Span<vkb::SemaphoreSubmitInfo> wait_semaphores);
     void wait_idle();
 
-    vkb::Queue operator*() const { return m_queue; }
     uint32_t family_index() const { return m_family_index; }
-    uint32_t index() const { return m_index; }
 };
 
 } // namespace vull::vk

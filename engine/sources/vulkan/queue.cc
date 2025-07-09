@@ -22,13 +22,18 @@
 
 namespace vull::vk {
 
-Queue::Queue(const Context &context, uint32_t family_index, uint32_t index)
-    : m_context(context), m_family_index(family_index), m_index(index) {
-    context.vkGetDeviceQueue(family_index, index, &m_queue);
+Queue::Queue(const Context &context, uint32_t family_index, uint32_t count)
+    : m_context(context), m_family_index(family_index) {
+    m_queues.ensure_size(count);
+    for (uint32_t index = 0; index < count; index++) {
+        context.vkGetDeviceQueue(family_index, index, &m_queues[index]);
+    }
+    m_submit_mutexes = new tasklet::Mutex[count];
 }
 
 Queue::~Queue() {
     wait_idle();
+    delete[] m_submit_mutexes;
 }
 
 UniquePtr<CommandBuffer> Queue::request_cmd_buf() {
@@ -76,14 +81,17 @@ void Queue::immediate_submit(Function<void(CommandBuffer &)> callback) {
 }
 
 void Queue::present(const vkb::PresentInfoKHR &present_info) {
-    ScopedLock lock(m_submit_mutex);
-    m_context.vkQueuePresentKHR(m_queue, &present_info);
+    ScopedLock lock(m_submit_mutexes[0]);
+    m_context.vkQueuePresentKHR(m_queues[0], &present_info);
 }
 
 tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
                                     Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
                                     Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
     m_context.vkEndCommandBuffer(**cmd_buf);
+
+    // Pick a vkb::Queue to use.
+    const auto queue_index = m_queue_index.fetch_add(1, vull::memory_order_relaxed) % m_queues.size();
 
     // Submit the command buffer to the queue.
     vkb::CommandBufferSubmitInfo cmd_buf_si{
@@ -99,8 +107,8 @@ tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
         .signalSemaphoreInfoCount = static_cast<uint32_t>(signal_semaphores.size()),
         .pSignalSemaphoreInfos = signal_semaphores.data(),
     };
-    ScopedLock lock(m_submit_mutex);
-    m_context.vkQueueSubmit2(m_queue, 1, &submit_info, *cmd_buf->completion_fence());
+    ScopedLock lock(m_submit_mutexes[queue_index]);
+    m_context.vkQueueSubmit2(m_queues[queue_index], 1, &submit_info, *cmd_buf->completion_fence());
     lock.unlock();
 
     return tasklet::submit_io_request<tasklet::WaitVkFenceRequest>(cmd_buf->completion_fence())
@@ -112,7 +120,9 @@ tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
 }
 
 void Queue::wait_idle() {
-    m_context.vkQueueWaitIdle(m_queue);
+    for (auto *queue : m_queues) {
+        m_context.vkQueueWaitIdle(queue);
+    }
 }
 
 } // namespace vull::vk
