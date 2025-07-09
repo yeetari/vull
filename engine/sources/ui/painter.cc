@@ -100,6 +100,9 @@ void Painter::unset_scissor() {
 
 void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u viewport_extent,
                       const vk::SampledImage &null_image) {
+    if (m_commands.empty()) {
+        return;
+    }
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
         context.create_buffer(m_bound_textures.size() * descriptor_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
