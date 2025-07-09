@@ -44,7 +44,7 @@ class TextureStreamer {
 
     vk::Image create_default_image(Vec2u extent, vkb::Format format, Span<const uint8_t> pixel_data);
     Result<uint32_t, StreamError> load_texture(Stream &stream);
-    uint32_t load_texture(String &&name, uint32_t fallback_index);
+    uint32_t load_texture(const String &name, uint32_t fallback_index);
 
 public:
     explicit TextureStreamer(vk::Context &context);
@@ -55,7 +55,7 @@ public:
     TextureStreamer &operator=(const TextureStreamer &) = delete;
     TextureStreamer &operator=(TextureStreamer &&) = delete;
 
-    uint32_t ensure_texture(StringView name, TextureKind kind);
+    uint32_t ensure_texture(const String &name, TextureKind kind);
 
     vkb::DescriptorSetLayout set_layout() const { return m_set_layout; }
     const vk::Buffer &descriptor_buffer() const { return m_descriptor_buffer; }

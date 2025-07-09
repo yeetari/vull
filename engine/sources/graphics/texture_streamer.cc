@@ -300,7 +300,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     return next_index;
 }
 
-uint32_t TextureStreamer::load_texture(String &&name, uint32_t fallback_index) {
+uint32_t TextureStreamer::load_texture(const String &name, uint32_t fallback_index) {
     auto stream = vpak::open(name);
     if (!stream) {
         vull::error("[graphics] Failed to find texture {}", name);
@@ -314,7 +314,7 @@ uint32_t TextureStreamer::load_texture(String &&name, uint32_t fallback_index) {
     return fallback_index;
 }
 
-uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
+uint32_t TextureStreamer::ensure_texture(const String &name, TextureKind kind) {
     // First check if the texture is already loaded.
     if (auto index = m_loaded_indices.get(name)) {
         return *index;
@@ -333,8 +333,8 @@ uint32_t TextureStreamer::ensure_texture(StringView name, TextureKind kind) {
     }
 
     // There is no pending future so we need to schedule the load.
-    auto future = tasklet::schedule([this, name = String(name), fallback_index] mutable {
-        return load_texture(vull::move(name), fallback_index);
+    auto future = tasklet::schedule([this, name, fallback_index] mutable {
+        return load_texture(name, fallback_index);
     });
     m_futures.set(name, vull::move(future));
     return fallback_index;

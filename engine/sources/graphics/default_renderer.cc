@@ -365,11 +365,12 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             continue;
         }
 
-        StringView albedo_name;
-        StringView normal_name;
+        // TODO: Assuming fallback indices here.
+        uint32_t albedo_index = 0;
+        uint32_t normal_index = 1;
         if (auto material = entity.try_get<Material>()) {
-            albedo_name = material->albedo_name();
-            normal_name = material->normal_name();
+            albedo_index = m_texture_streamer.ensure_texture(material->albedo_name(), TextureKind::Albedo);
+            normal_index = m_texture_streamer.ensure_texture(material->normal_name(), TextureKind::Normal);
         }
 
         auto bounding_sphere = entity.try_get<BoundingSphere>();
@@ -377,8 +378,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             .transform = m_scene->get_transform_matrix(entity),
             .center = bounding_sphere ? bounding_sphere->center() : Vec3f(0.0f),
             .radius = bounding_sphere ? bounding_sphere->radius() : FLT_MAX,
-            .albedo_index = m_texture_streamer.ensure_texture(albedo_name, TextureKind::Albedo),
-            .normal_index = m_texture_streamer.ensure_texture(normal_name, TextureKind::Normal),
+            .albedo_index = albedo_index,
+            .normal_index = normal_index,
             .index_count = mesh_info->index_count,
             .first_index = mesh_info->index_offset,
             .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),
