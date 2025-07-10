@@ -4,7 +4,6 @@
 #include <vull/core/log.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
-#include <vull/support/function.hh>
 #include <vull/support/scoped_lock.hh>
 #include <vull/support/span.hh>
 #include <vull/support/unique_ptr.hh>
@@ -71,13 +70,6 @@ UniquePtr<CommandBuffer> Queue::request_cmd_buf() {
     auto cmd_buf = vull::make_unique<CommandBuffer>(m_context, pool, buffer);
     cmd_buf->reset();
     return cmd_buf;
-}
-
-void Queue::immediate_submit(Function<void(CommandBuffer &)> callback) {
-    auto cmd_buf = request_cmd_buf();
-    callback(*cmd_buf);
-    submit(vull::move(cmd_buf), {}, {});
-    wait_idle();
 }
 
 void Queue::present(const vkb::PresentInfoKHR &present_info) {

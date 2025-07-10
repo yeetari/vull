@@ -46,8 +46,6 @@ public:
     Queue &operator=(Queue &&) = delete;
 
     UniquePtr<CommandBuffer> request_cmd_buf();
-    // TODO: Remove immediate_submit.
-    void immediate_submit(Function<void(CommandBuffer &)> callback);
     void present(const vkb::PresentInfoKHR &present_info);
     tasklet::Future<void> submit(UniquePtr<CommandBuffer> &&cmd_buf, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
                                  Span<vkb::SemaphoreSubmitInfo> wait_semaphores);
