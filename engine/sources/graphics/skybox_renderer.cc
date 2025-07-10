@@ -6,6 +6,9 @@
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
+#include <vull/support/unique_ptr.hh>
+#include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
@@ -120,39 +123,40 @@ void SkyboxRenderer::load(Stream &stream) {
         staging_data += 4;
     }
 
+    // TODO: Don't immediately await the submit.
     auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
-    queue.immediate_submit([&](const vk::CommandBuffer &cmd_buf) {
-        vkb::ImageMemoryBarrier2 transfer_write_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .dstStageMask = vkb::PipelineStage2::Copy,
-            .dstAccessMask = vkb::Access2::TransferWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::TransferDstOptimal,
-            .image = *m_image,
-            .subresourceRange = m_image.full_view().range(),
-        };
-        vkb::BufferImageCopy copy{
-            .imageSubresource{
-                .aspectMask = vkb::ImageAspect::Color,
-                .layerCount = 6,
-            },
-            .imageExtent = {1024, 1024, 1},
-        };
-        vkb::ImageMemoryBarrier2 image_read_barrier{
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Copy,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::AllCommands,
-            .dstAccessMask = vkb::Access2::ShaderRead,
-            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
-            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            .image = *m_image,
-            .subresourceRange = m_image.full_view().range(),
-        };
-        cmd_buf.image_barrier(transfer_write_barrier);
-        cmd_buf.copy_buffer_to_image(staging_buffer, m_image, vkb::ImageLayout::TransferDstOptimal, copy);
-        cmd_buf.image_barrier(image_read_barrier);
-    });
+    auto cmd_buf = queue.request_cmd_buf();
+    vkb::ImageMemoryBarrier2 transfer_write_barrier{
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .dstStageMask = vkb::PipelineStage2::Copy,
+        .dstAccessMask = vkb::Access2::TransferWrite,
+        .oldLayout = vkb::ImageLayout::Undefined,
+        .newLayout = vkb::ImageLayout::TransferDstOptimal,
+        .image = *m_image,
+        .subresourceRange = m_image.full_view().range(),
+    };
+    vkb::BufferImageCopy copy{
+        .imageSubresource{
+            .aspectMask = vkb::ImageAspect::Color,
+            .layerCount = 6,
+        },
+        .imageExtent = {1024, 1024, 1},
+    };
+    vkb::ImageMemoryBarrier2 image_read_barrier{
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .srcStageMask = vkb::PipelineStage2::Copy,
+        .srcAccessMask = vkb::Access2::TransferWrite,
+        .dstStageMask = vkb::PipelineStage2::AllCommands,
+        .dstAccessMask = vkb::Access2::ShaderRead,
+        .oldLayout = vkb::ImageLayout::TransferDstOptimal,
+        .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+        .image = *m_image,
+        .subresourceRange = m_image.full_view().range(),
+    };
+    cmd_buf->image_barrier(transfer_write_barrier);
+    cmd_buf->copy_buffer_to_image(staging_buffer, m_image, vkb::ImageLayout::TransferDstOptimal, copy);
+    cmd_buf->image_barrier(image_read_barrier);
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 }
 
 } // namespace vull

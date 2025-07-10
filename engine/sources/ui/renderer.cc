@@ -5,7 +5,10 @@
 #include <vull/support/assert.hh>
 #include <vull/support/function.hh>
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/ui/painter.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
@@ -92,17 +95,17 @@ Renderer::Renderer(vk::Context &context) : m_context(context) {
     m_null_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
     auto &queue = context.get_queue(vk::QueueKind::Graphics);
-    queue.immediate_submit([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.image_barrier({
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .dstStageMask = vkb::PipelineStage2::AllGraphics,
-            .dstAccessMask = vkb::Access2::ShaderSampledRead,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            .image = *m_null_image,
-            .subresourceRange = m_null_image.full_view().range(),
-        });
+    auto cmd_buf = queue.request_cmd_buf();
+    cmd_buf->image_barrier({
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .dstStageMask = vkb::PipelineStage2::AllGraphics,
+        .dstAccessMask = vkb::Access2::ShaderSampledRead,
+        .oldLayout = vkb::ImageLayout::Undefined,
+        .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+        .image = *m_null_image,
+        .subresourceRange = m_null_image.full_view().range(),
     });
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 }
 
 Renderer::~Renderer() {

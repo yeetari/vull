@@ -26,6 +26,7 @@
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
 #include <vull/vpak/stream.hh>
@@ -191,9 +192,9 @@ void DefaultRenderer::create_resources() {
         vk::MemoryUsage::DeviceOnly);
 
     auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
-    queue.immediate_submit([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.zero_buffer(m_object_visibility_buffer, 0, m_object_visibility_buffer.size());
-    });
+    auto cmd_buf = queue.request_cmd_buf();
+    cmd_buf->zero_buffer(m_object_visibility_buffer, 0, m_object_visibility_buffer.size());
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 }
 
 void DefaultRenderer::create_pipelines() {

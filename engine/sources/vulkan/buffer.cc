@@ -2,9 +2,10 @@
 
 #include <vull/maths/common.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/function.hh>
 #include <vull/support/span.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/command_buffer.hh>
@@ -57,12 +58,12 @@ Buffer Buffer::create_staging() const {
 }
 
 void Buffer::copy_from(const Buffer &src, Queue &queue) const {
-    queue.immediate_submit([&](const CommandBuffer &cmd_buf) {
-        vkb::BufferCopy copy{
-            .size = vull::min(src.size(), m_size),
-        };
-        cmd_buf.copy_buffer(src, *this, copy);
-    });
+    auto cmd_buf = queue.request_cmd_buf();
+    vkb::BufferCopy copy{
+        .size = vull::min(src.size(), m_size),
+    };
+    cmd_buf->copy_buffer(src, *this, copy);
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 }
 
 void Buffer::upload(Span<const void> data) const {
