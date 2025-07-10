@@ -49,6 +49,8 @@ public:
     void swap(SharedPtr &other);
 
     explicit operator bool() const { return m_ptr != nullptr; }
+    bool is_null() const { return m_ptr == nullptr; }
+
     T &operator*() const;
     T *operator->() const;
     T *ptr() const { return m_ptr; }
