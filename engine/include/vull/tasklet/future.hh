@@ -29,6 +29,7 @@ public:
     auto and_then(F &&callable);
 
     bool is_complete() const;
+    bool is_valid() const;
 };
 
 template <typename T>
@@ -71,6 +72,11 @@ auto Future<T>::and_then(F &&callable) {
 template <typename T>
 bool Future<T>::is_complete() const {
     return m_promise->is_fulfilled();
+}
+
+template <typename T>
+bool Future<T>::is_valid() const {
+    return !m_promise.is_null();
 }
 
 } // namespace vull::tasklet
