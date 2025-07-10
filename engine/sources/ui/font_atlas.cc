@@ -5,12 +5,12 @@
 #include <vull/maths/relational.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/span.hh>
 #include <vull/support/tuple.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/ui/font.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
@@ -33,42 +33,42 @@ FontAtlas::FontAtlas(vk::Context &context, Vec2u extent) : m_context(context), m
         .arrayLayers = 1,
         .samples = vkb::SampleCount::_1,
         .tiling = vkb::ImageTiling::Optimal,
-        .usage = vkb::ImageUsage::Sampled | vkb::ImageUsage::TransferDst,
+        .usage = vkb::ImageUsage::TransferDst | vkb::ImageUsage::Sampled,
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
     m_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
 
     auto &queue = context.get_queue(vk::QueueKind::Graphics);
-    queue.immediate_submit([this](vk::CommandBuffer &cmd_buf) {
-        cmd_buf.image_barrier({
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .dstStageMask = vkb::PipelineStage2::Clear,
-            .dstAccessMask = vkb::Access2::TransferWrite,
-            .oldLayout = vkb::ImageLayout::Undefined,
-            .newLayout = vkb::ImageLayout::TransferDstOptimal,
-            .image = *m_image,
-            .subresourceRange = m_image.full_view().range(),
-        });
-
-        vkb::ClearColorValue colour{
-            .float32{},
-        };
-        const auto range = m_image.full_view().range();
-        m_context.vkCmdClearColorImage(*cmd_buf, *m_image, vkb::ImageLayout::TransferDstOptimal, &colour, 1, &range);
-
-        cmd_buf.image_barrier({
-            .sType = vkb::StructureType::ImageMemoryBarrier2,
-            .srcStageMask = vkb::PipelineStage2::Clear,
-            .srcAccessMask = vkb::Access2::TransferWrite,
-            .dstStageMask = vkb::PipelineStage2::AllGraphics,
-            .dstAccessMask = vkb::Access2::ShaderSampledRead,
-            .oldLayout = vkb::ImageLayout::TransferDstOptimal,
-            .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
-            .image = *m_image,
-            .subresourceRange = m_image.full_view().range(),
-        });
+    auto cmd_buf = queue.request_cmd_buf();
+    cmd_buf->image_barrier({
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .dstStageMask = vkb::PipelineStage2::Clear,
+        .dstAccessMask = vkb::Access2::TransferWrite,
+        .oldLayout = vkb::ImageLayout::Undefined,
+        .newLayout = vkb::ImageLayout::TransferDstOptimal,
+        .image = *m_image,
+        .subresourceRange = m_image.full_view().range(),
     });
+
+    vkb::ClearColorValue colour{
+        .float32{},
+    };
+    const auto range = m_image.full_view().range();
+    m_context.vkCmdClearColorImage(**cmd_buf, *m_image, vkb::ImageLayout::TransferDstOptimal, &colour, 1, &range);
+
+    cmd_buf->image_barrier({
+        .sType = vkb::StructureType::ImageMemoryBarrier2,
+        .srcStageMask = vkb::PipelineStage2::Clear,
+        .srcAccessMask = vkb::Access2::TransferWrite,
+        .dstStageMask = vkb::PipelineStage2::AllGraphics,
+        .dstAccessMask = vkb::Access2::ShaderSampledRead,
+        .oldLayout = vkb::ImageLayout::TransferDstOptimal,
+        .newLayout = vkb::ImageLayout::ReadOnlyOptimal,
+        .image = *m_image,
+        .subresourceRange = m_image.full_view().range(),
+    });
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 
     m_skyline = new Node{
         .width = extent.x(),
@@ -158,17 +158,31 @@ Optional<Vec2u> FontAtlas::allocate_rect(Vec2u extent) {
 }
 
 CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
-    if (glyph_index > font.glyph_count()) {
+    // Ignore any bad indices.
+    if (glyph_index >= font.glyph_count()) {
         return {};
     }
 
+    // Try to find the glyph.
     // TODO: Replace linear search - maybe a binary tree that can also be used for rect packing?
-    for (const auto &glyph : m_cache) {
+    for (auto &glyph : m_cache) {
         if (glyph.font == &font && glyph.index == glyph_index) {
-            return glyph;
+            if (!glyph.future.is_valid()) {
+                // Future has already completed, we can return the index.
+                return glyph;
+            }
+            if (glyph.future.is_complete()) {
+                // Future has completed since our last check, clear it.
+                glyph.future.await();
+                glyph.future = {};
+                return glyph;
+            }
+            // Otherwise the future is still pending.
+            return {};
         }
     }
 
+    // Otherwise the glyph has not been loaded.
     const auto glyph_info = font.ensure_glyph(glyph_index);
     if (vull::any(vull::equal(glyph_info.bitmap_extent, Vec2u(0)))) {
         return {};
@@ -183,7 +197,7 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     auto staging_buffer = m_context.create_buffer(glyph_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
     font.rasterise(glyph_index, {staging_buffer.mapped<uint8_t>(), glyph_size});
 
-    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
     auto cmd_buf = queue.request_cmd_buf();
     vkb::ImageMemoryBarrier2 transfer_write_barrier{
         .sType = vkb::StructureType::ImageMemoryBarrier2,
@@ -228,19 +242,17 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     };
     cmd_buf->image_barrier(sampled_read_barrier);
 
-    // TODO: Use futures.
     cmd_buf->bind_associated_buffer(vull::move(staging_buffer));
-    queue.submit(vull::move(cmd_buf), {}, {});
-    queue.wait_idle();
-
-    CachedGlyph glyph{
+    auto future = queue.submit(vull::move(cmd_buf), {}, {});
+    m_cache.push({
         .font = &font,
         .index = glyph_index,
         .atlas_offset = *offset,
         .size = glyph_info.bitmap_extent,
         .bitmap_offset = glyph_info.bitmap_offset,
-    };
-    return m_cache.emplace(glyph);
+        .future = vull::move(future),
+    });
+    return {};
 }
 
 vk::SampledImage FontAtlas::sampled_image() const {

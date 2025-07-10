@@ -4,6 +4,7 @@
 #include <vull/maths/vec.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/tuple.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/vulkan/image.hh>
 
 #include <stdint.h>
@@ -24,6 +25,7 @@ struct CachedGlyph {
     Vec2u atlas_offset;
     Vec2u size;
     Vec2i bitmap_offset;
+    tasklet::Future<void> future;
 };
 
 // Skyline Bottom-Left
