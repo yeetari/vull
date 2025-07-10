@@ -45,6 +45,7 @@
 #include <vull/vulkan/vulkan.hh>
 
 #include <float.h>
+#include <stdint.h>
 #include <string.h>
 
 namespace vull {
@@ -279,48 +280,65 @@ void DefaultRenderer::load_scene(Scene &scene) {
                                 vk::MemoryUsage::DeviceOnly);
     m_index_buffer = m_context.create_buffer(
         index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-
     seen_vertex_buffers.clear();
+
     vkb::DeviceSize vertex_buffer_offset = 0;
     vkb::DeviceSize index_buffer_offset = 0;
+    Vector<tasklet::Future<void>> futures;
+    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
+    UniquePtr<vk::CommandBuffer> cmd_buf;
+    size_t mesh_count = 0;
     for (auto [entity, mesh] : scene.world().view<Mesh>()) {
         if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
             continue;
         }
 
+        if (!cmd_buf) {
+            cmd_buf = queue.request_cmd_buf();
+        }
+
         auto vertex_entry = *vpak::stat(mesh.vertex_data_name());
         auto vertex_stream = vpak::open(mesh.vertex_data_name());
-        auto staging_buffer =
+        auto vertex_staging_buffer =
             m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(vertex_stream->read({staging_buffer.mapped_raw(), vertex_entry.size}));
+        VULL_EXPECT(vertex_stream->read({vertex_staging_buffer.mapped_raw(), vertex_entry.size}));
 
-        auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
-        queue.immediate_submit([&](vk::CommandBuffer &cmd_buf) {
-            vkb::BufferCopy copy{
-                .dstOffset = vertex_buffer_offset,
-                .size = vertex_entry.size,
-            };
-            cmd_buf.copy_buffer(staging_buffer, m_vertex_buffer, copy);
-        });
+        vkb::BufferCopy vertex_copy{
+            .dstOffset = vertex_buffer_offset,
+            .size = vertex_entry.size,
+        };
+        cmd_buf->copy_buffer(vertex_staging_buffer, m_vertex_buffer, vertex_copy);
+        cmd_buf->bind_associated_buffer(vull::move(vertex_staging_buffer));
         vertex_buffer_offset += vertex_entry.size;
 
         auto index_entry = *vpak::stat(mesh.index_data_name());
         auto index_stream = vpak::open(mesh.index_data_name());
-        staging_buffer =
+        auto index_staging_buffer =
             m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(index_stream->read({staging_buffer.mapped_raw(), index_entry.size}));
+        VULL_EXPECT(index_stream->read({index_staging_buffer.mapped_raw(), index_entry.size}));
 
-        queue.immediate_submit([&](vk::CommandBuffer &cmd_buf) {
-            vkb::BufferCopy copy{
-                .dstOffset = index_buffer_offset,
-                .size = index_entry.size,
-            };
-            cmd_buf.copy_buffer(staging_buffer, m_index_buffer, copy);
-        });
+        vkb::BufferCopy index_copy{
+            .dstOffset = index_buffer_offset,
+            .size = index_entry.size,
+        };
+        cmd_buf->copy_buffer(index_staging_buffer, m_index_buffer, index_copy);
+        cmd_buf->bind_associated_buffer(vull::move(index_staging_buffer));
         index_buffer_offset += index_entry.size;
+
+        if (mesh_count++ >= 32) {
+            futures.push(queue.submit(vull::move(cmd_buf), {}, {}));
+            mesh_count = 0;
+        }
+    }
+    if (mesh_count > 0) {
+        futures.push(queue.submit(vull::move(cmd_buf), {}, {}));
     }
     VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
     VULL_ENSURE(index_buffer_offset == index_buffer_size);
+
+    for (auto &future : futures) {
+        future.await();
+    }
 }
 
 void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
