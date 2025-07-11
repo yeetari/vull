@@ -75,4 +75,20 @@ public:
     void unset_scissor();
 };
 
+/**
+ * @brief A helper class for setting a scissor and unsetting it on destruction.
+ */
+class Scissor {
+    Painter &m_painter;
+
+public:
+    Scissor(Painter &painter, LayoutPoint position, LayoutSize size);
+    Scissor(const Scissor &) = delete;
+    Scissor(Scissor &&) = delete;
+    ~Scissor();
+
+    Scissor &operator=(const Scissor &) = delete;
+    Scissor &operator=(Scissor &&) = delete;
+};
+
 } // namespace vull::ui

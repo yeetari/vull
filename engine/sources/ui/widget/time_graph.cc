@@ -42,7 +42,7 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
     }
 
     // Draw bars.
-    painter.set_scissor(position, computed_size());
+    Scissor scissor(painter, position, computed_size());
     for (uint32_t bar_index = bar_offset; bar_index < m_graph.m_bars.size(); bar_index++) {
         const auto bar_base = position + LayoutDelta(bar_width * int32_t(bar_index - bar_offset), computed_height());
         for (LayoutUnit y_offset; const auto &section : m_graph.m_bars[bar_index].sections) {
@@ -53,7 +53,6 @@ void TimeGraphPanel::paint(Painter &painter, LayoutPoint position) const {
             y_offset += height;
         }
     }
-    painter.unset_scissor();
 }
 
 TimeGraph::TimeGraph(Tree &tree, Optional<Element &> parent, const Colour &base_colour, String title)

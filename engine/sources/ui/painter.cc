@@ -253,4 +253,12 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
     flush_draws();
 }
 
+Scissor::Scissor(Painter &painter, LayoutPoint position, LayoutSize size) : m_painter(painter) {
+    painter.set_scissor(position, size);
+}
+
+Scissor::~Scissor() {
+    m_painter.unset_scissor();
+}
+
 } // namespace vull::ui
