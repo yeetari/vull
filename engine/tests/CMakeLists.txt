@@ -15,6 +15,7 @@ target_sources(vull-tests PRIVATE
     support/string_view.cc
     support/variant.cc
     tasklet/future.cc
+    tasklet/latch.cc
     tasklet/simple.cc
     runner.cc)
 

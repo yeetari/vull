@@ -6,15 +6,19 @@
 
 namespace vull::tasklet {
 
-void Latch::count_down(uint32_t by) {
-    const auto value = m_value.fetch_sub(by, vull::memory_order_acq_rel);
-    if (value != by) {
-        VULL_ASSERT(value > by);
-        return;
-    }
+void Latch::arrive(uint32_t update) {
+    count_down(update);
+    wait();
+}
 
-    // Wake all of the waiters.
-    m_promise.fulfill();
+void Latch::count_down(uint32_t update) {
+    const auto value = m_value.fetch_sub(update, vull::memory_order_release);
+    if (value == update) {
+        // Wake all of the waiters.
+        m_promise.fulfill();
+    } else {
+        VULL_ASSERT(value > update);
+    }
 }
 
 bool Latch::try_wait() const {
