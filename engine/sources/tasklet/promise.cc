@@ -12,7 +12,7 @@ namespace vull::tasklet {
 
 void PromiseBase::wake_all() {
     // Atomically swap list with the fulfilled sentinel.
-    auto *tasklet = m_wait_list.exchange(FULFILLED_SENTINEL, vull::memory_order_acquire);
+    auto *tasklet = m_wait_list.exchange(FULFILLED_SENTINEL, vull::memory_order_acq_rel);
     while (tasklet != nullptr) {
         // Dequeue from the list before rescheduling the tasklet.
         auto *next = tasklet->pop_linked_tasklet();
@@ -21,7 +21,9 @@ void PromiseBase::wake_all() {
 }
 
 bool PromiseBase::add_waiter(Tasklet *tasklet) {
-    auto *head = m_wait_list.load(vull::memory_order_relaxed);
+    // TODO: relaxed might be fine here but wait() probably needs some ordering in the event this function returns
+    // false.
+    auto *head = m_wait_list.load(vull::memory_order_acquire);
     do {
         if (head == FULFILLED_SENTINEL) {
             // Promise was fulfilled. Make sure to clear the linked tasklet.
@@ -29,7 +31,7 @@ bool PromiseBase::add_waiter(Tasklet *tasklet) {
             return false;
         }
         tasklet->set_linked_tasklet(head);
-    } while (!m_wait_list.compare_exchange_weak(head, tasklet, vull::memory_order_release));
+    } while (!m_wait_list.compare_exchange_weak(head, tasklet, vull::memory_order_acq_rel, vull::memory_order_acquire));
     return true;
 }
 
