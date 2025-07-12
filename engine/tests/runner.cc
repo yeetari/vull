@@ -7,6 +7,7 @@
 #include <vull/support/utility.hh>
 #include <vull/test/test.hh>
 
+#include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -24,6 +25,13 @@ extern Test __stop_vull_test_info;
 namespace vull::test {
 
 VULL_GLOBAL(Test *g_current_test);
+VULL_GLOBAL(static pthread_mutex_t s_mutex);
+
+void Test::append_message(String &&message) {
+    pthread_mutex_lock(&s_mutex);
+    messages.push(vull::move(message));
+    pthread_mutex_unlock(&s_mutex);
+}
 
 } // namespace vull::test
 
@@ -50,6 +58,7 @@ int main(int argc, char **argv) {
 
     uint32_t passed_count = 0;
     uint32_t failed_count = 0;
+    pthread_mutex_init(&s_mutex, nullptr);
     for (auto &test : tests) {
         g_current_test = &test;
         if (test_filter.empty() || vull::contains(test_filter, test.name)) {

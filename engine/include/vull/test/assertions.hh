@@ -20,7 +20,7 @@ bool try_match(const auto &actual, const auto &matcher, StringView expression,
     message.append_text("\n          but: ");
     matcher.describe_mismatch(message, actual);
     message.append_text(vull::format("\n     at {}:{}\n", location.file_name(), location.line()));
-    g_current_test->messages.push(message.build());
+    g_current_test->append_message(message.build());
     return true;
 }
 

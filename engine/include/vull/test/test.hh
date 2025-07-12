@@ -11,6 +11,8 @@ struct Test {
     const char *name;
     void (*fn)();
     Vector<String> messages;
+
+    void append_message(String &&message);
 };
 
 extern Test *g_current_test;
