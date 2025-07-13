@@ -49,10 +49,11 @@ void main() {
         return;
     }
 
-    // Early pass - ignore objects not visible last frame.
-    uint object_bit = object_index % gl_WorkGroupSize.x;
+    uint object_bit = gl_LocalInvocationID.x;
     uint object_mask = 1 << object_bit;
     bool culled_last_frame = (g_visibility[gl_WorkGroupID.x] & object_mask) == 0;
+
+    // Early pass - ignore objects not visible last frame.
     if (!k_late && culled_last_frame) {
         return;
     }
@@ -65,14 +66,14 @@ void main() {
     vec3 scale = vec3(length(transform[0].xyz), length(transform[1].xyz), length(transform[2].xyz));
     float radius = object.radius * max(scale.x, max(scale.y, scale.z));
 
-    // Frustum cull against the bounding sphere.
+    // Frustum cull against the bounding sphere in both passes since it's cheap.
     bool visible = true;
     for (uint i = 0; i < 4; i++) {
         visible = visible && dot(center, g_frustum_planes[i]) + radius >= 0.0f;
     }
 
     // Late pass - do occlusion culling.
-    if (k_late) {
+    if (k_late && visible) {
         // Reproject sphere center into view space.
         center = g_cull_view * center;
 
@@ -83,34 +84,36 @@ void main() {
             float level = floor(log2(max(size.x, size.y)));
             float occluder_depth = textureLod(g_depth_pyramid, (ndc_aabb.xy + ndc_aabb.zw) * 0.5f, level).r;
             float sphere_depth = g_proj[3][2] / (-center.z - radius);
-            visible = visible && occluder_depth < sphere_depth;
+            visible = occluder_depth < sphere_depth;
         }
     }
 
-    // Early pass - draw all visible objects.
-    // Late pass - only draw if visible *and* not visible last frame (and therefore wasn't drawn in the early pass).
-    bool should_draw = visible && (!k_late || culled_last_frame);
-    uvec4 should_draw_ballot = subgroupBallot(should_draw);
+    // Late pass - update visibility buffer.
+    if (k_late) {
+        // Optimised version of if (visible) visibility |= object_mask;
+        g_visibility[gl_WorkGroupID.x] = subgroupOr(uint(visible) << object_bit);
+
+        // Only draw objects not drawn in the early pass, i.e. objects that were culled last frame.
+        visible = visible && culled_last_frame;
+    }
+
+    // Sum total number of visible objects in this subgroup.
+    uvec4 visible_ballot = subgroupBallot(visible);
     if (subgroupElect()) {
-        uint subgroup_draw_count = subgroupBallotBitCount(should_draw_ballot);
+        uint subgroup_draw_count = subgroupBallotBitCount(visible_ballot);
         s_draw_offset = atomicAdd(g_draw_count, subgroup_draw_count);
     }
     subgroupMemoryBarrierShared();
 
-    if (should_draw) {
+    if (visible) {
         // subgroupBallotExclusiveBitCount == how many invocations before us (those with a lower id), have their bit set
         // in the ballot (where set means they need a draw index reserving).
-        uint draw_index = s_draw_offset + subgroupBallotExclusiveBitCount(should_draw_ballot);
+        uint draw_index = s_draw_offset + subgroupBallotExclusiveBitCount(visible_ballot);
         g_draws[draw_index].index_count = object.index_count;
         g_draws[draw_index].instance_count = 1;
         g_draws[draw_index].first_index = object.first_index;
         g_draws[draw_index].vertex_offset = object.vertex_offset;
         g_draws[draw_index].first_instance = 0;
         g_draws[draw_index].object_index = object_index;
-    }
-
-    if (k_late) {
-        // Optimised version of if (visible) visibility |= object_mask;
-        g_visibility[gl_WorkGroupID.x] = subgroupOr(uint(visible) << object_bit);
     }
 }
