@@ -282,9 +282,11 @@ protected:
     PhysicalDevice m_physical_device;
     Device m_device;
 
-    void load_loader(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
-    void load_instance(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
-    void load_device();
+public:
+    bool load_loader(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
+    void load_instance(Instance instance, PFN_vkGetInstanceProcAddr get_instance_proc_addr);
+    void load_device(Device device);
+    void set_physical_device(PhysicalDevice physical_device) { m_physical_device = physical_device; }
 
 private:
 ''')
@@ -355,17 +357,20 @@ namespace vull::vkb {
         else:
             loader_commands.append(name)
 
-    file.write('void ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {\n')
+    file.write('bool ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {\n')
     for command in loader_commands:
         file.write('    m_{0} = reinterpret_cast<PFN_{0}>(vkGetInstanceProcAddr(nullptr, "{0}"));\n'.format(command))
+    file.write('    return m_vkEnumerateInstanceVersion != nullptr;\n')
     file.write('}\n\n')
 
-    file.write('void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {\n')
+    file.write('void ContextTable::load_instance(Instance instance, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {\n')
+    file.write('    m_instance = instance;\n')
     for command in instance_commands:
         file.write('    m_{0} = reinterpret_cast<PFN_{0}>(vkGetInstanceProcAddr(m_instance, "{0}"));\n'.format(command))
     file.write('}\n\n')
 
-    file.write('void ContextTable::load_device() {\n')
+    file.write('void ContextTable::load_device(Device device) {\n')
+    file.write('    m_device = device;\n')
     for command in device_commands:
         file.write('    m_{0} = reinterpret_cast<PFN_{0}>(vkGetDeviceProcAddr("{0}"));\n'.format(command))
     file.write('}\n\n')

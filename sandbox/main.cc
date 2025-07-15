@@ -63,7 +63,7 @@ namespace {
 
 class Sandbox {
     UniquePtr<platform::Window> m_window;
-    vk::Context m_context;
+    UniquePtr<vk::Context> m_context;
     vk::Swapchain m_swapchain;
     vk::QueryPool m_pipeline_statistics_pool;
     DeferredRenderer m_deferred_renderer;
@@ -87,26 +87,43 @@ class Sandbox {
     bool m_should_close{false};
 
 public:
-    Sandbox(bool enable_validation);
+    static Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> create(bool enable_validation);
 
+    Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context);
     void load_scene(StringView scene_name);
     tasklet::Future<void> render_frame(FramePacer &frame_pacer);
     void start_loop();
 };
 
-Sandbox::Sandbox(bool enable_validation)
-    : m_window(VULL_EXPECT(platform::Window::create(vull::nullopt, vull::nullopt, true))), m_context(enable_validation),
-      m_swapchain(VULL_EXPECT(m_window->create_swapchain(m_context, vk::SwapchainMode::LowPower))),
-      m_pipeline_statistics_pool(m_context, 2,
+Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> Sandbox::create(bool enable_validation) {
+    auto window = VULL_TRY(platform::Window::create(vull::nullopt, vull::nullopt, true));
+    Array instance_extensions{
+        "VK_KHR_surface",
+        "VK_KHR_xcb_surface",
+    };
+    vk::AppInfo app_info{
+        .name = "Vull Sandbox",
+        .version = 1,
+        .instance_extensions = instance_extensions.span(),
+        .enable_validation = enable_validation,
+    };
+    auto context = VULL_TRY(vk::Context::create(app_info));
+    return vull::make_unique<Sandbox>(vull::move(window), vull::move(context));
+}
+
+Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context)
+    : m_window(vull::move(window)), m_context(vull::move(context)),
+      m_swapchain(VULL_EXPECT(m_window->create_swapchain(*m_context, vk::SwapchainMode::LowPower))),
+      m_pipeline_statistics_pool(*m_context, 2,
                                  vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                      vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
                                      vkb::QueryPipelineStatisticFlags::VertexShaderInvocations |
                                      vkb::QueryPipelineStatisticFlags::FragmentShaderInvocations |
                                      vkb::QueryPipelineStatisticFlags::ComputeShaderInvocations),
-      m_deferred_renderer(m_context, m_swapchain.extent_3D()), m_default_renderer(m_context, m_swapchain.extent_3D()),
-      m_skybox_renderer(m_context), m_ui_style(VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18)),
-                                               VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18))),
-      m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(m_context), m_font_atlas(m_context, Vec2u(512, 512)),
+      m_deferred_renderer(*m_context, m_swapchain.extent_3D()), m_default_renderer(*m_context, m_swapchain.extent_3D()),
+      m_skybox_renderer(*m_context), m_ui_style(VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18)),
+                                                VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18))),
+      m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(*m_context), m_font_atlas(*m_context, Vec2u(512, 512)),
       m_free_camera(m_window->aspect_ratio()) {
     m_window->grab_cursor();
     m_window->on_close([this] {
@@ -273,7 +290,7 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
     m_cpu_time_graph->push_section("compile-rg", compile_rg_timer.elapsed());
 
     platform::Timer execute_rg_timer;
-    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
+    auto &queue = m_context->get_queue(vk::QueueKind::Graphics);
     auto cmd_buf = queue.request_cmd_buf();
     cmd_buf->reset_query(m_pipeline_statistics_pool, frame_info.frame_index);
     cmd_buf->begin_query(m_pipeline_statistics_pool, frame_info.frame_index);
@@ -316,8 +333,8 @@ int main(int argc, char **argv) {
     args_parser.add_flag(enable_validation, "Enable vulkan validation layer", "enable-vvl");
     args_parser.add_argument(scene_name, "scene-name", true);
     return vull::start_application(argc, argv, args_parser, [&] {
-        Sandbox sandbox(enable_validation);
-        sandbox.load_scene(scene_name);
-        sandbox.start_loop();
+        auto sandbox = VULL_EXPECT(Sandbox::create(enable_validation));
+        sandbox->load_scene(scene_name);
+        sandbox->start_loop();
     });
 }

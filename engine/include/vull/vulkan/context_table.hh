@@ -12,9 +12,11 @@ protected:
     PhysicalDevice m_physical_device;
     Device m_device;
 
-    void load_loader(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
-    void load_instance(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
-    void load_device();
+public:
+    bool load_loader(PFN_vkGetInstanceProcAddr get_instance_proc_addr);
+    void load_instance(Instance instance, PFN_vkGetInstanceProcAddr get_instance_proc_addr);
+    void load_device(Device device);
+    void set_physical_device(PhysicalDevice physical_device) { m_physical_device = physical_device; }
 
 private:
     PFN_vkAcquireNextImage2KHR m_vkAcquireNextImage2KHR;

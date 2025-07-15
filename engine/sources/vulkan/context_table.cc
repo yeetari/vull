@@ -4,14 +4,16 @@
 
 namespace vull::vkb {
 
-void ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {
+bool ContextTable::load_loader(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {
     m_vkCreateInstance = reinterpret_cast<PFN_vkCreateInstance>(vkGetInstanceProcAddr(nullptr, "vkCreateInstance"));
     m_vkEnumerateInstanceExtensionProperties = reinterpret_cast<PFN_vkEnumerateInstanceExtensionProperties>(vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties"));
     m_vkEnumerateInstanceLayerProperties = reinterpret_cast<PFN_vkEnumerateInstanceLayerProperties>(vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceLayerProperties"));
     m_vkEnumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion"));
+    return m_vkEnumerateInstanceVersion != nullptr;
 }
 
-void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {
+void ContextTable::load_instance(Instance instance, PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr) {
+    m_instance = instance;
     m_vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
     m_vkCreateDevice = reinterpret_cast<PFN_vkCreateDevice>(vkGetInstanceProcAddr(m_instance, "vkCreateDevice"));
     m_vkCreateXcbSurfaceKHR = reinterpret_cast<PFN_vkCreateXcbSurfaceKHR>(vkGetInstanceProcAddr(m_instance, "vkCreateXcbSurfaceKHR"));
@@ -50,7 +52,8 @@ void ContextTable::load_instance(PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr
     m_vkSubmitDebugUtilsMessageEXT = reinterpret_cast<PFN_vkSubmitDebugUtilsMessageEXT>(vkGetInstanceProcAddr(m_instance, "vkSubmitDebugUtilsMessageEXT"));
 }
 
-void ContextTable::load_device() {
+void ContextTable::load_device(Device device) {
+    m_device = device;
     m_vkAcquireNextImage2KHR = reinterpret_cast<PFN_vkAcquireNextImage2KHR>(vkGetDeviceProcAddr("vkAcquireNextImage2KHR"));
     m_vkAcquireNextImageKHR = reinterpret_cast<PFN_vkAcquireNextImageKHR>(vkGetDeviceProcAddr("vkAcquireNextImageKHR"));
     m_vkAllocateCommandBuffers = reinterpret_cast<PFN_vkAllocateCommandBuffers>(vkGetDeviceProcAddr("vkAllocateCommandBuffers"));

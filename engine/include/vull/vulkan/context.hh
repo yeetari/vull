@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vull/container/vector.hh>
+#include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
 #include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/buffer.hh>
@@ -27,8 +29,26 @@ enum class MemoryUsage;
 enum class QueueKind;
 enum class Sampler;
 
+struct AppInfo {
+    const char *name;
+    uint32_t version;
+    Span<const char *> instance_extensions;
+    bool enable_validation;
+};
+
+enum class ContextError {
+    LoaderUnavailable,
+    VersionUnsupported,
+    InstanceCreationFailed,
+    InstanceExtensionUnsupported,
+    NoSuitableDevice,
+    DeviceFeatureUnsupported,
+    DeviceCreationFailed,
+    Unknown,
+};
+
 class Context : public vkb::ContextTable {
-    vkb::DebugUtilsMessengerEXT m_debug_utils_messenger;
+    const vkb::DebugUtilsMessengerEXT m_debug_utils_messenger;
     vkb::PhysicalDeviceProperties m_properties{};
     vkb::PhysicalDeviceDescriptorBufferPropertiesEXT m_descriptor_buffer_properties{};
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
@@ -49,7 +69,10 @@ class Context : public vkb::ContextTable {
     void set_object_name(const void *object, StringView name) const;
 
 public:
-    explicit Context(bool enable_validation);
+    static Result<UniquePtr<Context>, ContextError> create(const AppInfo &app_info);
+
+    Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyProperties2> &queue_families,
+            vkb::DebugUtilsMessengerEXT debug_utils_messenger, bool anisotropy_supported);
     Context(const Context &) = delete;
     Context(Context &&) = delete;
     ~Context();

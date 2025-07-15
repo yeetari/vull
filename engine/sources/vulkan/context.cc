@@ -8,6 +8,7 @@
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
+#include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
@@ -33,23 +34,11 @@
 namespace vull::vk {
 namespace {
 
-#define VK_MAKE_VERSION(major, minor, patch)                                                                           \
-    ((static_cast<uint32_t>(major) << 22u) | (static_cast<uint32_t>(minor) << 12u) | static_cast<uint32_t>(patch))
-
-const char *queue_flag_string(uint32_t bit) {
-    switch (static_cast<vkb::QueueFlags>(bit)) {
-    case vkb::QueueFlags::Graphics:
-        return "G";
-    case vkb::QueueFlags::Compute:
-        return "C";
-    case vkb::QueueFlags::Transfer:
-        return "T";
-    case vkb::QueueFlags::SparseBinding:
-        return "SB";
-    default:
-        return "?";
-    }
+constexpr uint32_t make_version(uint32_t variant, uint32_t major, uint32_t minor, uint32_t patch) {
+    return (variant << 29) | (major << 22) | (minor << 12) | patch;
 }
+
+constexpr uint32_t k_vulkan_version = make_version(0, 1, 3, 0);
 
 // TODO: This should be generated in Vulkan.hh
 vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
@@ -72,6 +61,8 @@ vkb::Bool validation_callback(vkb::DebugUtilsMessageSeverityFlagsEXT severity, v
         }
     }
 
+    sb.append("\n{}", callback_data->pMessage);
+
     if (severity == vkb::DebugUtilsMessageSeverityFlagsEXT::Warning) {
         vull::warn("[vulkan] Validation warning: {}", sb.build());
         return false;
@@ -82,14 +73,416 @@ vkb::Bool validation_callback(vkb::DebugUtilsMessageSeverityFlagsEXT severity, v
     abort();
 }
 
+template <typename T, typename F>
+Vector<T> build_vector(F &&function) {
+    uint32_t count = 0;
+    function(&count, nullptr);
+    Vector<T> vector(count);
+    if constexpr (vull::is_same<T, vkb::QueueFamilyProperties2>) {
+        for (auto &properties : vector) {
+            properties.sType = vkb::StructureType::QueueFamilyProperties2;
+        }
+    }
+    function(&count, vector.data());
+    return vector;
+}
+
 } // namespace
+
+Result<UniquePtr<Context>, ContextError> Context::create(const AppInfo &app_info) {
+    // Try to open loader shared library.
+    void *loader_module = dlopen("libvulkan.so.1", RTLD_LAZY | RTLD_LOCAL);
+    if (loader_module == nullptr) {
+        loader_module = dlopen("libvulkan.so", RTLD_LAZY | RTLD_LOCAL);
+    }
+    if (loader_module == nullptr) {
+        return ContextError::LoaderUnavailable;
+    }
+
+    auto *vkGetInstanceProcAddr =
+        vull::bit_cast<vkb::PFN_vkGetInstanceProcAddr>(dlsym(loader_module, "vkGetInstanceProcAddr"));
+    if (vkGetInstanceProcAddr == nullptr) {
+        return ContextError::LoaderUnavailable;
+    }
+
+    // Load loader (non-instance specific) functions.
+    vkb::ContextTable context_table;
+    if (!context_table.load_loader(vkGetInstanceProcAddr)) {
+        // Loader only supports vulkan 1.0.
+        return ContextError::VersionUnsupported;
+    }
+
+    // Even though this function is called EnumerateInstanceVersion, it effectively gets the version of vulkan the
+    // loader itself knows about.
+    uint32_t loader_version;
+    if (context_table.vkEnumerateInstanceVersion(&loader_version) != vkb::Result::Success) {
+        return ContextError::VersionUnsupported;
+    }
+    if (loader_version < k_vulkan_version) {
+        return ContextError::VersionUnsupported;
+    }
+
+    // Get available layers and extensions.
+    const auto layer_properties = build_vector<vkb::LayerProperties>([&](auto... args) {
+        return context_table.vkEnumerateInstanceLayerProperties(args...);
+    });
+    const auto extension_properties = build_vector<vkb::ExtensionProperties>([&](auto... args) {
+        return context_table.vkEnumerateInstanceExtensionProperties(nullptr, args...);
+    });
+
+    // Check if validation layer is available.
+    bool validation_layer_available = false;
+    const char *validation_layer_name = "VK_LAYER_KHRONOS_validation";
+    for (const auto &layer : layer_properties) {
+        if (StringView(static_cast<const char *>(layer.layerName)) == validation_layer_name) {
+            validation_layer_available = true;
+            break;
+        }
+    }
+    if (app_info.enable_validation && !validation_layer_available) {
+        vull::warn("[vulkan] Validation layer not available");
+    }
+
+    // Check instance extension support.
+    Vector<const char *> instance_extensions;
+    instance_extensions.extend(app_info.instance_extensions);
+    instance_extensions.push("VK_EXT_debug_utils");
+    for (const char *desired_extension : instance_extensions) {
+        bool found = false;
+        for (const auto &extension : extension_properties) {
+            if (StringView(static_cast<const char *>(extension.extensionName)) == desired_extension) {
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            vull::error("[vulkan] Instance extension {} not supported", desired_extension);
+            return ContextError::InstanceExtensionUnsupported;
+        }
+    }
+
+    // TODO: Use VK_EXT_layer_settings.
+    const auto enabled_validation_features = vkb::ValidationFeatureEnableEXT::SynchronizationValidation;
+    vkb::ValidationFeaturesEXT validation_features{
+        .sType = vkb::StructureType::ValidationFeaturesEXT,
+        .enabledValidationFeatureCount = 1,
+        .pEnabledValidationFeatures = &enabled_validation_features,
+    };
+    vkb::ApplicationInfo application_info{
+        .sType = vkb::StructureType::ApplicationInfo,
+        .pApplicationName = app_info.name,
+        .applicationVersion = app_info.version,
+        .pEngineName = "vull",
+        // TODO: Get the actual engine version.
+        .engineVersion = 1,
+        .apiVersion = k_vulkan_version,
+    };
+    vkb::InstanceCreateInfo instance_ci{
+        .sType = vkb::StructureType::InstanceCreateInfo,
+        .pNext = &validation_features,
+        .pApplicationInfo = &application_info,
+        .enabledExtensionCount = instance_extensions.size(),
+        .ppEnabledExtensionNames = instance_extensions.data(),
+    };
+    if (app_info.enable_validation && validation_layer_available) {
+        vull::info("[vulkan] Enabling validation layer");
+        instance_ci.enabledLayerCount = 1;
+        instance_ci.ppEnabledLayerNames = &validation_layer_name;
+    }
+    vkb::Instance instance;
+    if (context_table.vkCreateInstance(&instance_ci, &instance) != vkb::Result::Success) {
+        // This should never really happen since we check extension and layer support. We also don't need to worry about
+        // ErrorIncompatibleDriver since that can only happen on 1.0 drivers.
+        return ContextError::InstanceCreationFailed;
+    }
+    context_table.load_instance(instance, vkGetInstanceProcAddr);
+
+    // Create a debug utils messenger for validation errors.
+    vkb::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_ci{
+        .sType = vkb::StructureType::DebugUtilsMessengerCreateInfoEXT,
+        .messageSeverity =
+            vkb::DebugUtilsMessageSeverityFlagsEXT::Warning | vkb::DebugUtilsMessageSeverityFlagsEXT::Error,
+        .messageType = vkb::DebugUtilsMessageTypeFlagsEXT::Validation,
+        .pfnUserCallback = &validation_callback,
+    };
+    vkb::DebugUtilsMessengerEXT debug_utils_messenger;
+    if (context_table.vkCreateDebugUtilsMessengerEXT(&debug_utils_messenger_ci, &debug_utils_messenger) !=
+        vkb::Result::Success) {
+        return ContextError::Unknown;
+    }
+
+    // Pick the first physical device.
+    // TODO: Prioritise dedicated hardware and allow override.
+    vkb::PhysicalDevice physical_device;
+    uint32_t physical_device_count = 1;
+    const auto enumeration_result = context_table.vkEnumeratePhysicalDevices(&physical_device_count, &physical_device);
+    if (enumeration_result != vkb::Result::Success && enumeration_result != vkb::Result::Incomplete) {
+        return ContextError::NoSuitableDevice;
+    }
+    context_table.set_physical_device(physical_device);
+
+    // Check that syncfd fence export is supported.
+    vkb::PhysicalDeviceExternalFenceInfo external_fence_info{
+        .sType = vkb::StructureType::PhysicalDeviceExternalFenceInfo,
+        .handleType = vkb::ExternalFenceHandleTypeFlags::SyncFd,
+    };
+    vkb::ExternalFenceProperties external_fence_properties{
+        .sType = vkb::StructureType::ExternalFenceProperties,
+    };
+    context_table.vkGetPhysicalDeviceExternalFenceProperties(&external_fence_info, &external_fence_properties);
+    if ((external_fence_properties.externalFenceFeatures & vkb::ExternalFenceFeature::Exportable) !=
+        vkb::ExternalFenceFeature::Exportable) {
+        vull::error("[vulkan] Fence export to syncfd unsupported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+
+    // Get supported features.
+    vkb::PhysicalDeviceVulkan11Features supported_features_11{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan11Features,
+    };
+    vkb::PhysicalDeviceVulkan12Features supported_features_12{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
+        .pNext = &supported_features_11,
+    };
+    vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT supported_features_atomic_float_2{
+        .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
+        .pNext = &supported_features_12,
+    };
+    vkb::PhysicalDeviceDescriptorBufferFeaturesEXT supported_features_descriptor_buffer{
+        .sType = vkb::StructureType::PhysicalDeviceDescriptorBufferFeaturesEXT,
+        .pNext = &supported_features_atomic_float_2,
+    };
+    vkb::PhysicalDeviceFeatures2 supported_features{
+        .sType = vkb::StructureType::PhysicalDeviceFeatures2,
+        .pNext = &supported_features_descriptor_buffer,
+    };
+    context_table.vkGetPhysicalDeviceFeatures2(&supported_features);
+
+    // Check 1.0 features.
+    if (!supported_features.features.multiDrawIndirect) {
+        vull::error("[vulkan] Feature multiDrawIndirect not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    const bool anisotropy_supported = supported_features.features.samplerAnisotropy;
+    if (!anisotropy_supported) {
+        vull::warn("[vulkan] Feature samplerAnisotropy not supported");
+    }
+    if (!supported_features.features.textureCompressionBC) {
+        vull::error("[vulkan] Feature textureCompressionBC not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features.features.pipelineStatisticsQuery) {
+        // TODO: This shouldn't be required.
+        vull::error("[vulkan] Feature pipelineStatisticsQuery not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features.features.shaderInt16) {
+        vull::error("[vulkan] Feature shaderInt16 not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+
+    // Check 1.1 features.
+    if (!supported_features_11.storageBuffer16BitAccess) {
+        vull::error("[vulkan] Feature storageBuffer16BitAccess not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_11.shaderDrawParameters) {
+        vull::error("[vulkan] Feature shaderDrawParameters not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+
+    // Check 1.2 features.
+    if (!supported_features_12.drawIndirectCount) {
+        vull::error("[vulkan] Feature drawIndirectCount not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_12.descriptorIndexing) {
+        vull::error("[vulkan] Feature descriptorIndexing not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_12.descriptorBindingVariableDescriptorCount) {
+        vull::error("[vulkan] Feature descriptorBindingVariableDescriptorCount not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_12.samplerFilterMinmax) {
+        vull::error("[vulkan] Feature samplerFilterMinmax not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_12.scalarBlockLayout) {
+        vull::error("[vulkan] Feature scalarBlockLayout not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+
+    // Check extension features.
+    if (!supported_features_atomic_float_2.shaderSharedFloat32AtomicMinMax) {
+        vull::error("[vulkan] Feature shaderSharedFloat32AtomicMinMax not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+    if (!supported_features_descriptor_buffer.descriptorBuffer) {
+        vull::error("[vulkan] Feature descriptorBuffer not supported");
+        return ContextError::DeviceFeatureUnsupported;
+    }
+
+    vkb::PhysicalDeviceVulkan11Features requested_features_11{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan11Features,
+        .storageBuffer16BitAccess = true,
+        .multiview = true, // Guaranteed
+        .shaderDrawParameters = true,
+    };
+    vkb::PhysicalDeviceVulkan12Features requested_features_12{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
+        .pNext = &requested_features_11,
+        .drawIndirectCount = true,
+
+        // Guaranteed by the descriptorIndexing feature flag. We don't care about any of the UpdateAfterBind features
+        // since we're using descriptor buffers.
+        .descriptorIndexing = true,
+        .shaderUniformTexelBufferArrayDynamicIndexing = true,
+        .shaderStorageTexelBufferArrayDynamicIndexing = true,
+        .shaderSampledImageArrayNonUniformIndexing = true,
+        .shaderStorageBufferArrayNonUniformIndexing = true,
+        .shaderUniformTexelBufferArrayNonUniformIndexing = true,
+        .descriptorBindingUpdateUnusedWhilePending = true,
+        .descriptorBindingPartiallyBound = true,
+
+        .descriptorBindingVariableDescriptorCount = true,
+
+        // Guaranteed by the descriptorIndexing feature flag.
+        .runtimeDescriptorArray = true,
+
+        .samplerFilterMinmax = true,
+        .scalarBlockLayout = true,
+
+        // Guaranteed.
+        .uniformBufferStandardLayout = true,
+        .shaderSubgroupExtendedTypes = true,
+        .separateDepthStencilLayouts = true,
+        .hostQueryReset = true,
+        .timelineSemaphore = true,
+
+        // Guaranteed in 1.3 and above.
+        .bufferDeviceAddress = true,
+        .vulkanMemoryModel = true,
+        .vulkanMemoryModelDeviceScope = true,
+
+        // Guaranteed.
+        .subgroupBroadcastDynamicId = true,
+    };
+    vkb::PhysicalDeviceVulkan13Features requested_features_13{
+        .sType = vkb::StructureType::PhysicalDeviceVulkan13Features,
+        .pNext = &requested_features_12,
+
+        // All features guaranteed by spec.
+        .inlineUniformBlock = true,
+        .shaderDemoteToHelperInvocation = true,
+        .shaderTerminateInvocation = true,
+        .subgroupSizeControl = true,
+        .computeFullSubgroups = true,
+        .synchronization2 = true,
+        .shaderZeroInitializeWorkgroupMemory = true,
+        .dynamicRendering = true,
+        .shaderIntegerDotProduct = true,
+        .maintenance4 = true,
+    };
+    vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT requested_features_atomic_float_2{
+        .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
+        .pNext = &requested_features_13,
+        .shaderSharedFloat32AtomicMinMax = true,
+    };
+    vkb::PhysicalDeviceDescriptorBufferFeaturesEXT requested_features_descriptor_buffer{
+        .sType = vkb::StructureType::PhysicalDeviceDescriptorBufferFeaturesEXT,
+        .pNext = &requested_features_atomic_float_2,
+        .descriptorBuffer = true,
+    };
+    vkb::PhysicalDeviceFeatures2 requested_features{
+        .sType = vkb::StructureType::PhysicalDeviceFeatures2,
+        .pNext = &requested_features_descriptor_buffer,
+        .features{
+            // Supported everywhere.
+            .fullDrawIndexUint32 = true,
+            .imageCubeArray = true,
+            .independentBlend = true,
+
+            .multiDrawIndirect = true,
+            .samplerAnisotropy = anisotropy_supported,
+            .textureCompressionBC = true,
+            .pipelineStatisticsQuery = true,
+
+            // Supported everywhere.
+            .fragmentStoresAndAtomics = true,
+
+            // Guaranteed by descriptorIndexing 1.2 flag.
+            .shaderSampledImageArrayDynamicIndexing = true,
+            .shaderStorageBufferArrayDynamicIndexing = true,
+
+            .shaderInt16 = true,
+        },
+    };
+
+    // Get physical device properties.
+    // TODO: Check limits and format features.
+    vkb::PhysicalDeviceProperties2 device_properties{
+        .sType = vkb::StructureType::PhysicalDeviceProperties2,
+    };
+    context_table.vkGetPhysicalDeviceProperties2(&device_properties);
+    vull::info("[vulkan] Using {}", device_properties.properties.deviceName);
+
+    // Get queue family info.
+    const auto queue_families = build_vector<vkb::QueueFamilyProperties2>([&](auto... args) {
+        return context_table.vkGetPhysicalDeviceQueueFamilyProperties2(args...);
+    });
+    uint32_t max_queue_count = 0;
+    for (const auto &family : queue_families) {
+        max_queue_count = vull::max(max_queue_count, family.queueFamilyProperties.queueCount);
+    }
+
+    // Build queue create infos.
+    Vector<vkb::DeviceQueueCreateInfo> queue_cis;
+    Vector<float> queue_priorities(max_queue_count, 1.0f);
+    for (uint32_t i = 0; i < queue_families.size(); i++) {
+        const auto &properties = queue_families[i].queueFamilyProperties;
+
+        if ((properties.queueFlags & (vkb::QueueFlags::Graphics | vkb::QueueFlags::Compute |
+                                      vkb::QueueFlags::Transfer)) == vkb::QueueFlags::None) {
+            continue;
+        }
+
+        queue_cis.push({
+            .sType = vkb::StructureType::DeviceQueueCreateInfo,
+            .queueFamilyIndex = i,
+            .queueCount = properties.queueCount,
+            .pQueuePriorities = queue_priorities.data(),
+        });
+        vull::debug("[vulkan] Creating {} queues from family {}", properties.queueCount, i);
+    }
+
+    Array device_extensions{
+        "VK_EXT_descriptor_buffer", "VK_EXT_shader_atomic_float", "VK_EXT_shader_atomic_float2",
+        "VK_KHR_external_fence_fd", "VK_KHR_swapchain",
+    };
+    vkb::DeviceCreateInfo device_ci{
+        .sType = vkb::StructureType::DeviceCreateInfo,
+        .pNext = &requested_features,
+        .queueCreateInfoCount = queue_cis.size(),
+        .pQueueCreateInfos = queue_cis.data(),
+        .enabledExtensionCount = device_extensions.size(),
+        .ppEnabledExtensionNames = device_extensions.data(),
+    };
+    vkb::Device device;
+    if (context_table.vkCreateDevice(&device_ci, &device) != vkb::Result::Success) {
+        return ContextError::DeviceCreationFailed;
+    }
+    context_table.load_device(device);
+    return vull::make_unique<Context>(context_table, queue_families, debug_utils_messenger, anisotropy_supported);
+}
 
 template <vkb::ObjectType ObjectType>
 void Context::set_object_name(const void *object, StringView name) const {
     vkb::DebugUtilsObjectNameInfoEXT name_info{
         .sType = vkb::StructureType::DebugUtilsObjectNameInfoEXT,
         .objectType = ObjectType,
-        .objectHandle = __builtin_bit_cast(uint64_t, object),
+        .objectHandle = vull::bit_cast<uint64_t>(object),
         .pObjectName = name.data(),
     };
     vkSetDebugUtilsObjectNameEXT(&name_info);
@@ -112,79 +505,9 @@ void Context::set_object_name(const Semaphore &object, StringView name) const {
     set_object_name<vkb::ObjectType::Semaphore>(*object, name);
 }
 
-Context::Context(bool enable_validation) : ContextTable{} {
-    void *libvulkan = dlopen("libvulkan.so.1", RTLD_NOW | RTLD_LOCAL);
-    if (libvulkan == nullptr) {
-        libvulkan = dlopen("libvulkan.so", RTLD_NOW | RTLD_LOCAL);
-        VULL_ENSURE(libvulkan != nullptr, "Failed to find vulkan");
-    }
-    auto *vkGetInstanceProcAddr =
-        reinterpret_cast<vkb::PFN_vkGetInstanceProcAddr>(dlsym(libvulkan, "vkGetInstanceProcAddr"));
-    load_loader(vkGetInstanceProcAddr);
-
-    Array enabled_instance_extensions{
-        "VK_EXT_debug_utils",
-        "VK_KHR_get_physical_device_properties2",
-        "VK_KHR_surface",
-        "VK_KHR_xcb_surface",
-    };
-    vkb::ApplicationInfo application_info{
-        .sType = vkb::StructureType::ApplicationInfo,
-        .apiVersion = VK_MAKE_VERSION(1, 3, 0),
-    };
-    const auto enable_sync_validation = vkb::ValidationFeatureEnableEXT::SynchronizationValidation;
-    vkb::ValidationFeaturesEXT validation_features{
-        .sType = vkb::StructureType::ValidationFeaturesEXT,
-        .enabledValidationFeatureCount = 1,
-        .pEnabledValidationFeatures = &enable_sync_validation,
-    };
-    vkb::InstanceCreateInfo instance_ci{
-        .sType = vkb::StructureType::InstanceCreateInfo,
-        .pNext = &validation_features,
-        .pApplicationInfo = &application_info,
-        .enabledExtensionCount = enabled_instance_extensions.size(),
-        .ppEnabledExtensionNames = enabled_instance_extensions.data(),
-    };
-    const char *validation_layer_name = "VK_LAYER_KHRONOS_validation";
-    if (enable_validation) {
-        uint32_t layer_count = 0;
-        vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-        Vector<vkb::LayerProperties> layers(layer_count);
-        vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
-
-        bool has_validation_layer = false;
-        for (const auto &layer : layers) {
-            if (vull::StringView(static_cast<const char *>(layer.layerName)) == validation_layer_name) {
-                has_validation_layer = true;
-                break;
-            }
-        }
-        if (has_validation_layer) {
-            vull::info("[vulkan] Enabling validation layer");
-            instance_ci.enabledLayerCount = 1;
-            instance_ci.ppEnabledLayerNames = &validation_layer_name;
-        } else {
-            vull::warn("[vulkan] Validation layer not present");
-        }
-    }
-    VULL_ENSURE(vkCreateInstance(&instance_ci, &m_instance) == vkb::Result::Success);
-    load_instance(vkGetInstanceProcAddr);
-
-    vkb::DebugUtilsMessengerCreateInfoEXT debug_utils_messenger_ci{
-        .sType = vkb::StructureType::DebugUtilsMessengerCreateInfoEXT,
-        .messageSeverity =
-            vkb::DebugUtilsMessageSeverityFlagsEXT::Warning | vkb::DebugUtilsMessageSeverityFlagsEXT::Error,
-        .messageType = vkb::DebugUtilsMessageTypeFlagsEXT::Validation,
-        .pfnUserCallback = &validation_callback,
-    };
-    vkCreateDebugUtilsMessengerEXT(&debug_utils_messenger_ci, &m_debug_utils_messenger);
-
-    // TODO: Better device selection.
-    uint32_t physical_device_count = 1;
-    vkb::Result enumeration_result = vkEnumeratePhysicalDevices(&physical_device_count, &m_physical_device);
-    VULL_ENSURE(enumeration_result == vkb::Result::Success || enumeration_result == vkb::Result::Incomplete);
-    VULL_ENSURE(physical_device_count == 1);
-
+Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyProperties2> &queue_families,
+                 vkb::DebugUtilsMessengerEXT debug_utils_messenger, bool anisotropy_supported)
+    : vkb::ContextTable(table), m_debug_utils_messenger(debug_utils_messenger) {
     m_descriptor_buffer_properties.sType = vkb::StructureType::PhysicalDeviceDescriptorBufferPropertiesEXT;
     vkb::PhysicalDeviceProperties2 properties{
         .sType = vkb::StructureType::PhysicalDeviceProperties2,
@@ -192,107 +515,6 @@ Context::Context(bool enable_validation) : ContextTable{} {
     };
     vkGetPhysicalDeviceProperties2(&properties);
     m_properties = properties.properties;
-    vull::info("[vulkan] Creating device from {}", m_properties.deviceName);
-
-    uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, nullptr);
-    Vector<vkb::QueueFamilyProperties> queue_families(queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(&queue_family_count, queue_families.data());
-    vull::debug("[vulkan] Device has {} queue families", queue_families.size());
-
-    uint32_t max_queue_count = 0;
-    for (const auto &family : queue_families) {
-        max_queue_count = vull::max(max_queue_count, family.queueCount);
-    }
-
-    Vector<vkb::DeviceQueueCreateInfo> queue_cis;
-    Vector<float> queue_priorities(max_queue_count, 1.0f);
-    for (uint32_t i = 0; i < queue_families.size(); i++) {
-        queue_cis.push({
-            .sType = vkb::StructureType::DeviceQueueCreateInfo,
-            .queueFamilyIndex = i,
-            .queueCount = queue_families[i].queueCount,
-            .pQueuePriorities = queue_priorities.data(),
-        });
-
-        StringBuilder flags_string;
-        bool first = true;
-        for (uint32_t bit = 0; bit < 32; bit++) {
-            if ((static_cast<uint32_t>(queue_families[i].queueFlags) & (1u << bit)) == 0u) {
-                continue;
-            }
-            if (!vull::exchange(first, false)) {
-                flags_string.append('/');
-            }
-            flags_string.append("{}", queue_flag_string(1u << bit));
-        }
-        vull::debug("[vulkan]  - {} queues capable of {}", queue_families[i].queueCount, flags_string.build());
-    }
-
-    // TODO: Some features (like pipelineStatisticsQuery) should be optional.
-    vkb::PhysicalDeviceFeatures2 device_10_features{
-        .sType = vkb::StructureType::PhysicalDeviceFeatures2,
-        .features{
-            .multiDrawIndirect = true,
-            .samplerAnisotropy = true,
-            .pipelineStatisticsQuery = true,
-            .shaderInt16 = true,
-        },
-    };
-    vkb::PhysicalDeviceVulkan11Features device_11_features{
-        .sType = vkb::StructureType::PhysicalDeviceVulkan11Features,
-        .pNext = &device_10_features,
-        .storageBuffer16BitAccess = true,
-        .shaderDrawParameters = true,
-    };
-    vkb::PhysicalDeviceVulkan12Features device_12_features{
-        .sType = vkb::StructureType::PhysicalDeviceVulkan12Features,
-        .pNext = &device_11_features,
-        .drawIndirectCount = true,
-        .shaderSampledImageArrayNonUniformIndexing = true,
-        .descriptorBindingPartiallyBound = true,
-        .descriptorBindingVariableDescriptorCount = true,
-        .runtimeDescriptorArray = true,
-        .samplerFilterMinmax = true,
-        .scalarBlockLayout = true,
-        .hostQueryReset = true,
-        .timelineSemaphore = true,
-        // Extension promoted to vk 1.2, feature must be supported in vk 1.3
-        .bufferDeviceAddress = true,
-    };
-    vkb::PhysicalDeviceVulkan13Features device_13_features{
-        .sType = vkb::StructureType::PhysicalDeviceVulkan13Features,
-        .pNext = &device_12_features,
-        .synchronization2 = true,
-        .shaderZeroInitializeWorkgroupMemory = true,
-        .dynamicRendering = true,
-        .maintenance4 = true,
-    };
-    vkb::PhysicalDeviceShaderAtomicFloat2FeaturesEXT atomic_float_min_max_features{
-        .sType = vkb::StructureType::PhysicalDeviceShaderAtomicFloat2FeaturesEXT,
-        .pNext = &device_13_features,
-        .shaderSharedFloat32AtomicMinMax = true,
-    };
-    vkb::PhysicalDeviceDescriptorBufferFeaturesEXT descriptor_buffer_features{
-        .sType = vkb::StructureType::PhysicalDeviceDescriptorBufferFeaturesEXT,
-        .pNext = &atomic_float_min_max_features,
-        .descriptorBuffer = true,
-    };
-
-    Array enabled_device_extensions{
-        "VK_EXT_descriptor_buffer", "VK_EXT_shader_atomic_float", "VK_EXT_shader_atomic_float2",
-        "VK_KHR_external_fence_fd", "VK_KHR_swapchain",
-    };
-    vkb::DeviceCreateInfo device_ci{
-        .sType = vkb::StructureType::DeviceCreateInfo,
-        .pNext = &descriptor_buffer_features,
-        .queueCreateInfoCount = queue_cis.size(),
-        .pQueueCreateInfos = queue_cis.data(),
-        .enabledExtensionCount = enabled_device_extensions.size(),
-        .ppEnabledExtensionNames = enabled_device_extensions.data(),
-    };
-    VULL_ENSURE(vkCreateDevice(&device_ci, &m_device) == vkb::Result::Success);
-    load_device();
 
     vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
     for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
@@ -300,8 +522,13 @@ Context::Context(bool enable_validation) : ContextTable{} {
     }
 
     for (uint32_t family_index = 0; family_index < queue_families.size(); family_index++) {
-        const auto &family = queue_families[family_index];
+        const auto &family = queue_families[family_index].queueFamilyProperties;
         const auto flags = family.queueFlags;
+        if ((flags & (vkb::QueueFlags::Graphics | vkb::QueueFlags::Compute | vkb::QueueFlags::Transfer)) ==
+            vkb::QueueFlags::None) {
+            continue;
+        }
+
         auto *queue = m_queues.emplace(new Queue(*this, family_index, family.queueCount)).ptr();
         if ((flags & vkb::QueueFlags::Graphics) != vkb::QueueFlags::None) {
             m_graphics_queue = queue;
@@ -368,6 +595,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
     print_for(MemoryUsage::HostToDevice);
     print_for(MemoryUsage::DeviceToHost);
 
+    // TODO: Create a sampler cache.
     vkb::SamplerCreateInfo nearest_sampler_ci{
         .sType = vkb::StructureType::SamplerCreateInfo,
         .magFilter = vkb::Filter::Nearest,
@@ -383,7 +611,7 @@ Context::Context(bool enable_validation) : ContextTable{} {
         .magFilter = vkb::Filter::Linear,
         .minFilter = vkb::Filter::Linear,
         .mipmapMode = vkb::SamplerMipmapMode::Linear,
-        .anisotropyEnable = true,
+        .anisotropyEnable = anisotropy_supported,
         .maxAnisotropy = 16.0f,
         .maxLod = vkb::k_lod_clamp_none,
     };
