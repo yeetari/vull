@@ -32,7 +32,7 @@ enum class Sampler;
 struct AppInfo {
     const char *name;
     uint32_t version;
-    Span<const char *> instance_extensions;
+    Span<const char *const> instance_extensions;
     bool enable_validation;
 };
 

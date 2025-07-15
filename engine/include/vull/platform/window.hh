@@ -59,6 +59,7 @@ public:
 
     virtual Result<vk::Swapchain, vkb::Result> create_swapchain(vk::Context &context, vk::SwapchainMode mode) = 0;
     virtual void poll_events() = 0;
+    virtual Span<const char *const> required_extensions() const = 0;
 
     bool is_button_pressed(MouseButton button) const;
     bool is_key_pressed(Key key) const;

@@ -97,14 +97,10 @@ public:
 
 Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> Sandbox::create(bool enable_validation) {
     auto window = VULL_TRY(platform::Window::create(vull::nullopt, vull::nullopt, true));
-    Array instance_extensions{
-        "VK_KHR_surface",
-        "VK_KHR_xcb_surface",
-    };
     vk::AppInfo app_info{
         .name = "Vull Sandbox",
         .version = 1,
-        .instance_extensions = instance_extensions.span(),
+        .instance_extensions = window->required_extensions(),
         .enable_validation = enable_validation,
     };
     auto context = VULL_TRY(vk::Context::create(app_info));

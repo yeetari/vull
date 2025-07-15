@@ -10,6 +10,7 @@
 #include <vull/support/function.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
@@ -65,6 +66,7 @@ public:
 
     Result<vk::Swapchain, vkb::Result> create_swapchain(vk::Context &context, vk::SwapchainMode mode) override;
     void poll_events() override;
+    Span<const char *const> required_extensions() const override;
 
     void grab_cursor() override;
     void ungrab_cursor() override;
@@ -89,6 +91,14 @@ Result<vk::Swapchain, vkb::Result> WindowX11::create_swapchain(vk::Context &cont
         return result;
     }
     return vk::Swapchain(context, {m_resolution.x(), m_resolution.y()}, surface, mode);
+}
+
+Span<const char *const> WindowX11::required_extensions() const {
+    static constexpr Array extensions{
+        "VK_KHR_surface",
+        "VK_KHR_xcb_surface",
+    };
+    return extensions.span();
 }
 
 Key translate_key(xkb_keysym_t keysym) {
