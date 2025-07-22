@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/eventfd.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -496,6 +497,44 @@ void install_fault_handler() {
     for (auto signal : k_fault_signals) {
         sigaction(signal, &action, nullptr);
     }
+}
+
+static consteval int fiber_mmap_flags() {
+    int flags = 0;
+
+    // Not shared between processes.
+    flags |= MAP_PRIVATE;
+
+    // Not backed by a file.
+    flags |= MAP_ANONYMOUS;
+
+    // Advise that the mapping is for a stack. This seems to disable transparent huge pages.
+    flags |= MAP_STACK;
+
+    return flags;
+}
+
+uint8_t *allocate_fiber_memory(size_t size) {
+    void *result = mmap(nullptr, size, PROT_READ | PROT_WRITE, fiber_mmap_flags(), -1, 0);
+    if (result == MAP_FAILED) {
+        return nullptr;
+    }
+
+    // Try to use MADV_GUARD_INSTALL.
+    // TODO: Use the libc constant when it exists.
+    const auto page_size = static_cast<size_t>(getpagesize());
+    if (madvise(result, page_size, 102) < 0) {
+        // Otherwise fallback to creating a PROT_NONE VMA.
+        if (mprotect(result, page_size, PROT_NONE) < 0) {
+            return nullptr;
+        }
+    }
+
+    // Try to prefault in the first few pages. We don't really care if this fails.
+    const auto prefault_amount = page_size * 4;
+    auto *end = vull::bit_cast<uint8_t *>(result) + size;
+    madvise(end - prefault_amount, prefault_amount, MADV_POPULATE_WRITE);
+    return end;
 }
 
 static bool probe_flag(uint32_t flag) {
