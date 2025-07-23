@@ -34,6 +34,8 @@ private:
     alignas(64) Atomic<uint32_t> m_tail;
 
 public:
+    static consteval uint32_t capacity() { return k_slot_count; }
+
     template <typename YieldFn>
     void enqueue(T value, YieldFn yield_fn);
     template <typename YieldFn>
