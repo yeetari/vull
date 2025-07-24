@@ -126,4 +126,9 @@ T *SharedPtr<T>::operator->() const {
     return m_ptr;
 }
 
+template <typename T>
+SharedPtr<T> adopt_shared(T *ptr) {
+    return SharedPtr<T>(ptr);
+}
+
 } // namespace vull
