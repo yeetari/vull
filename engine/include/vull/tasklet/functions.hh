@@ -1,8 +1,10 @@
 #pragma once
 
+#include <vull/support/shared_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
 #include <vull/tasklet/io.hh>
+#include <vull/tasklet/promise.hh>
 #include <vull/tasklet/tasklet.hh>
 
 namespace vull::tasklet {
@@ -24,16 +26,15 @@ void schedule(Tasklet *tasklet);
  * the queue is full. The callable can have an arbitrary capture list but no parameters.
  *
  * @tparam F the callable type
- * @tparam Size the tasklet stack size to use
  * @param callable the callable to schedule
  * @return a Future which stores the result of the callable's invocation
  */
-template <typename F, TaskletSize Size = TaskletSize::Normal>
+template <typename F>
 auto schedule(F &&callable) {
-    auto *tasklet = Tasklet::create<Size>();
-    auto promise = tasklet->set_callable(vull::forward<F>(callable));
-    schedule(tasklet);
-    return Future(vull::move(promise));
+    auto *tasklet = new PromisedTasklet(vull::forward<F>(callable));
+    Future<typename PromisedTasklet<F>::result_type> future(vull::adopt_shared(tasklet));
+    schedule(static_cast<Tasklet *>(tasklet));
+    return future;
 }
 
 /**

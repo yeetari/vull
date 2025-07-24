@@ -20,9 +20,9 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/fiber.hh>
 #include <vull/tasklet/io.hh>
 #include <vull/tasklet/scheduler.hh>
-#include <vull/tasklet/tasklet.hh>
 
 #ifdef VULL_BUILD_GRAPHICS
 #include <vull/vulkan/fence.hh>
@@ -475,13 +475,14 @@ Result<void, ThreadError> Thread::set_name(String name) const {
 
 [[noreturn]] static void fault_handler(int signal, siginfo_t *info, void *) {
     const auto address = vull::bit_cast<uintptr_t>(info->si_addr);
-    const auto *tasklet = tasklet::Tasklet::current();
+    const auto *fiber = tasklet::Fiber::current();
     const char *signal_name = sigabbrev_np(signal);
-    if (tasklet != nullptr && tasklet->is_guard_page(address)) {
-        fprintf(stderr, "Stack overflow at address 0x%lx in tasklet %p\n", address, static_cast<const void *>(tasklet));
-    } else if (tasklet != nullptr) {
+    if (fiber != nullptr && fiber->is_guard_page(address)) {
+        fprintf(stderr, "Stack overflow at address 0x%lx in tasklet %p\n", address,
+                static_cast<const void *>(fiber->current_tasklet()));
+    } else if (fiber != nullptr) {
         fprintf(stderr, "SIG%s at address 0x%lx in tasklet %p\n", signal_name, address,
-                static_cast<const void *>(tasklet));
+                static_cast<const void *>(fiber->current_tasklet()));
     } else {
         fprintf(stderr, "SIG%s at address 0x%lx\n", signal_name, address);
     }

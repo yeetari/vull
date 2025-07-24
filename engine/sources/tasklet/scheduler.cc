@@ -1,6 +1,5 @@
 #include <vull/tasklet/scheduler.hh>
 
-#include <vull/container/array.hh>
 #include <vull/container/mpmc_queue.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
@@ -16,6 +15,7 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/fiber.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/io.hh>
 #include <vull/tasklet/tasklet.hh>
@@ -24,26 +24,140 @@
 #include <unistd.h>
 
 namespace vull::tasklet {
-namespace {
 
-extern "C" void vull_make_context(void *stack_top, void (*entry_point)(Tasklet *));
-extern "C" [[noreturn]] void vull_load_context(Tasklet *tasklet, Tasklet *to_free);
-extern "C" void vull_swap_context(Tasklet *from, Tasklet *to);
-
-VULL_GLOBAL(thread_local Tasklet *s_current_tasklet = nullptr);
-VULL_GLOBAL(thread_local Tasklet *s_scheduler_tasklet = nullptr);
-VULL_GLOBAL(thread_local Tasklet *s_to_schedule = nullptr);
-VULL_GLOBAL(thread_local TaskletQueue *s_queue = nullptr);
-VULL_GLOBAL(thread_local Scheduler *s_scheduler = nullptr);
-VULL_GLOBAL(thread_local platform::Semaphore *s_work_available = nullptr);
-
-} // namespace
-
+class FiberQueue : public MpmcQueue<Fiber *, 9> {};
 class TaskletQueue : public MpmcQueue<Tasklet *, 13> {};
 
-Tasklet *Tasklet::current() {
-    return s_current_tasklet;
+namespace {
+
+// Shared between all worker threads of the same scheduler.
+VULL_GLOBAL(thread_local FiberQueue *s_fiber_queue = nullptr);
+VULL_GLOBAL(thread_local TaskletQueue *s_tasklet_queue = nullptr);
+VULL_GLOBAL(thread_local Scheduler *s_scheduler = nullptr);
+VULL_GLOBAL(thread_local platform::Semaphore *s_work_available = nullptr);
+VULL_GLOBAL(thread_local Atomic<uint32_t> *s_ready_fiber_count = nullptr);
+VULL_GLOBAL(thread_local Atomic<uint32_t> *s_ready_tasklet_count = nullptr);
+
+// Per worker thread.
+VULL_GLOBAL(thread_local Fiber *s_helper_fiber = nullptr);
+VULL_GLOBAL(thread_local Fiber *s_cleanup_fiber = nullptr);
+
+Fiber *pick_ready_fiber() {
+    uint32_t count = s_ready_fiber_count->load(vull::memory_order_relaxed);
+    while (true) {
+        if (count == 0) {
+            return nullptr;
+        }
+        if (s_ready_fiber_count->compare_exchange_weak(count, count - 1, vull::memory_order_acquire)) {
+            // Yield to the OS scheduler in the event of a dequeue failure, which is likely due to heavy contention.
+            // This seems to improve performance in the event of very heavy mutex contention.
+            return s_fiber_queue->dequeue(platform::Thread::yield);
+        }
+    }
 }
+
+Tasklet *pick_ready_tasklet() {
+    uint32_t count = s_ready_tasklet_count->load(vull::memory_order_relaxed);
+    while (true) {
+        if (count == 0) {
+            return nullptr;
+        }
+        if (s_ready_tasklet_count->compare_exchange_weak(count, count - 1, vull::memory_order_acquire)) {
+            return s_tasklet_queue->dequeue(platform::Thread::yield);
+        }
+    }
+}
+
+[[noreturn]] void fiber_loop() {
+    while (s_scheduler->is_running()) {
+        // Wait for new work.
+        s_work_available->wait();
+
+        // See if there's an unblocked fiber to run.
+        if (auto *fiber = pick_ready_fiber()) {
+            VULL_ASSERT(fiber != Fiber::current());
+
+            // Mark the current fiber to be returned to the free pool.
+            VULL_ASSERT(s_cleanup_fiber == nullptr);
+            s_cleanup_fiber = Fiber::current();
+
+            // Switch to the unblocked fiber.
+            fiber->swap_to(true);
+            continue;
+        }
+
+        // Otherwise the semaphore must have been posted for a tasklet.
+        // TODO: Make the whole Tasklet a SharedPromise.
+        if (auto *tasklet = pick_ready_tasklet()) {
+            // Suspended tasklets should resume via the fiber queue.
+            VULL_ASSERT(!tasklet->has_owner());
+
+            auto *fiber = Fiber::current();
+            fiber->set_current_tasklet(tasklet);
+            tasklet->set_owner(fiber);
+
+            // Run the tasklet.
+            tasklet->invoke();
+            fiber->set_current_tasklet(nullptr);
+            continue;
+        }
+
+        // If we got here, than the semaphore had a higher count than the number of jobs available, probably because of
+        // the ready fiber getting in the helper fiber.
+        // TODO: Using a counting semaphore like this is suboptimal.
+    }
+
+    s_scheduler->decrease_worker_count();
+    platform::Thread::exit();
+}
+
+void unsuspend_fiber(Fiber *fiber) {
+    // The fiber may still be in the middle of yielding, spin whilst that's the case.
+    // TODO: Can we do something better here?
+    FiberState state;
+    do {
+        state = fiber->state();
+    } while (state == FiberState::Running || state == FiberState::Yielding);
+
+    [[maybe_unused]] const auto old_state = fiber->exchange_state(FiberState::Runnable);
+    VULL_ASSERT(old_state == FiberState::Suspended);
+    s_fiber_queue->enqueue(fiber, [] {});
+    s_ready_fiber_count->fetch_add(1, vull::memory_order_release);
+    s_work_available->post();
+}
+
+[[noreturn]] void helper_fiber() {
+    // Get the fiber we switched from.
+    auto *fiber = Fiber::current();
+    if (fiber != nullptr && fiber->exchange_state(FiberState::Suspended) == FiberState::Yielding) {
+        // Requeue straight away. This shouldn't ever block.
+        unsuspend_fiber(fiber);
+    }
+
+    // Pick a new fiber to switch to. This may end up picking the fiber we just yielded from, but that's better than
+    // making a new fiber. Also the FIFO guarantee of the queue means that it has lowest priority.
+    Fiber *next_fiber;
+    while (true) {
+        // Try to pick an unblocked fiber first.
+        if ((next_fiber = pick_ready_fiber()) != nullptr) {
+            break;
+        }
+
+        // Otherwise try to get a free fiber from the pool, or create a new one.
+        if ((next_fiber = s_scheduler->request_fiber()) != nullptr) {
+            break;
+        }
+
+        // Otherwise we've exhausted the maximum fiber count and there's not much we can do.
+        vull::warn("[tasklet] Exhausted the fiber pool");
+        platform::Thread::yield();
+    }
+
+    // Switch to the fiber.
+    next_fiber->switch_to();
+}
+
+} // namespace
 
 Scheduler &Scheduler::current() {
     return *s_scheduler;
@@ -54,7 +168,9 @@ Scheduler::Scheduler(uint32_t thread_count) {
         thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
     }
     m_worker_threads.ensure_size(thread_count);
-    m_queue = vull::make_unique<TaskletQueue>();
+    m_ready_fiber_queue = vull::make_unique<FiberQueue>();
+    m_free_fiber_queue = vull::make_unique<FiberQueue>();
+    m_tasklet_queue = vull::make_unique<TaskletQueue>();
     m_io_queue = vull::make_unique<IoQueue>();
 }
 
@@ -75,83 +191,48 @@ void Scheduler::join() {
     VULL_EXPECT(m_io_thread.join());
 }
 
-uint32_t Scheduler::tasklet_count() const {
-    return m_queue->size();
-}
-
-static Tasklet *pick_next() {
-    auto *next = vull::exchange(s_to_schedule, nullptr);
-    if (next == nullptr) {
-        s_work_available->wait();
-        while (true) {
-            if (!s_scheduler->is_running() && s_queue->empty()) {
-                s_scheduler->decrease_worker_count();
-                platform::Thread::exit();
-            }
-            if ((next = s_queue->try_dequeue()) != nullptr) {
-                break;
-            }
-
-            // The dequeue has failed, likely due to heavy contention. Yield to the OS scheduler to try to lift some of
-            // it. This seems to improve performance in the event of very heavy mutex contention.
-            platform::Thread::yield();
-        }
+Fiber *Scheduler::request_fiber() {
+    // Try to get a free fiber.
+    if (auto *fiber = m_free_fiber_queue->try_dequeue()) {
+        return fiber;
     }
 
-    if (next->state() == TaskletState::Uninitialised) {
-        vull_make_context(next->stack_top(), next->invoker());
-    } else {
-        // The tasklet may still be in the running state if it is in the middle yielding, spin whilst that's the case.
-        // TODO: Can we do something better here?
-        while (next->state() == TaskletState::Running) {
+    // Otherwise create a new fiber if we're under the limit.
+    uint32_t fiber_count = m_created_fiber_count.load(vull::memory_order_relaxed);
+    do {
+        if (fiber_count >= FiberQueue::capacity()) {
+            return nullptr;
         }
-        VULL_ASSERT(next->state() == TaskletState::Waiting);
-    }
-    next->set_state(TaskletState::Running);
-    return next;
+    } while (!m_created_fiber_count.compare_exchange_weak(fiber_count, fiber_count + 1, vull::memory_order_acq_rel,
+                                                          vull::memory_order_acquire));
+    return Fiber::create(&fiber_loop);
 }
 
-[[noreturn]] void tasklet_switch_next(Tasklet *current) {
-    auto *next = pick_next();
-    vull_load_context(s_current_tasklet = next, current);
-}
-
-[[noreturn]] static void scheduler_fn(Tasklet *) {
-    // s_current_tasklet should still be the tasklet we yielded from, or nullptr in the edge case that this is the first
-    // schedule.
-    VULL_ASSERT(s_current_tasklet != s_scheduler_tasklet);
-    VULL_ASSERT(s_current_tasklet->state() != TaskletState::Done);
-    s_current_tasklet->set_state(TaskletState::Waiting);
-
-    auto *next = pick_next();
-    vull_load_context(s_current_tasklet = next, nullptr);
+void Scheduler::return_fiber(Fiber *fiber) {
+    VULL_ASSERT(fiber->state() == FiberState::Runnable);
+    m_free_fiber_queue->enqueue(fiber, [] {});
 }
 
 bool Scheduler::start(Tasklet *tasklet) {
     if (m_worker_threads.empty()) {
         return false;
     }
-    if (!m_queue->try_enqueue(tasklet)) {
+    if (!m_tasklet_queue->try_enqueue(tasklet)) {
         return false;
     }
+    m_ready_tasklet_count.fetch_add(1, vull::memory_order_relaxed);
     m_running.store(true, vull::memory_order_release);
     for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
         auto &thread = m_worker_threads[i];
         thread = VULL_EXPECT(platform::Thread::create([this] {
             // Setup per-thread data.
-            s_scheduler = this;
-            s_queue = m_queue.ptr();
-            s_work_available = &m_work_available;
+            setup_thread();
             VULL_EXPECT(platform::Thread::setup_signal_stack());
 
-            // Use thread stack for scheduler tasklet.
-            Array<uint8_t, 131072> tasklet_data{};
-            s_scheduler_tasklet = new (tasklet_data.data()) Tasklet(tasklet_data.size(), nullptr);
-            vull_make_context(s_scheduler_tasklet->stack_top(), scheduler_fn);
-
+            // Create a helper fiber per thread.
             m_alive_worker_count.fetch_add(1);
-            auto *next = pick_next();
-            vull_load_context(s_current_tasklet = next, nullptr);
+            s_helper_fiber = Fiber::create(&helper_fiber);
+            s_helper_fiber->swap_to(false);
         }));
         if (thread.pin_to_core(i).is_error()) {
             vull::error("[tasklet] Failed to pin worker thread {}", i);
@@ -170,8 +251,12 @@ bool Scheduler::start(Tasklet *tasklet) {
 }
 
 void Scheduler::setup_thread() {
-    s_queue = m_queue.ptr();
+    s_scheduler = this;
+    s_fiber_queue = m_ready_fiber_queue.ptr();
+    s_tasklet_queue = m_tasklet_queue.ptr();
     s_work_available = &m_work_available;
+    s_ready_fiber_count = &m_ready_fiber_count;
+    s_ready_tasklet_count = &m_ready_tasklet_count;
 }
 
 void Scheduler::submit_io_request(SharedPtr<IoRequest> request) {
@@ -181,14 +266,29 @@ void Scheduler::submit_io_request(SharedPtr<IoRequest> request) {
     }
 }
 
+uint32_t Scheduler::queued_tasklet_count() const {
+    return m_tasklet_queue->size();
+}
+
+bool Scheduler::is_running() const {
+    return m_running.load(vull::memory_order_acquire);
+}
+
 bool in_tasklet_context() {
-    return s_current_tasklet != nullptr;
+    return Fiber::current() != nullptr;
 }
 
 void schedule(Tasklet *tasklet) {
-    VULL_ASSERT(s_queue != nullptr && s_work_available != nullptr);
-    s_queue->enqueue(tasklet, yield);
-    s_work_available->post();
+    VULL_ASSERT(s_tasklet_queue != nullptr && s_work_available != nullptr);
+    if (!tasklet->has_owner()) {
+        // New tasklet goes on the queue.
+        s_tasklet_queue->enqueue(tasklet, tasklet::yield);
+        s_ready_tasklet_count->fetch_add(1, vull::memory_order_release);
+        s_work_available->post();
+    } else {
+        // Otherwise unsuspend its owner fiber.
+        unsuspend_fiber(tasklet->owner());
+    }
 }
 
 void submit_io_request(SharedPtr<IoRequest> request) {
@@ -197,22 +297,22 @@ void submit_io_request(SharedPtr<IoRequest> request) {
 }
 
 void suspend() {
+    // Switch to the helper fiber.
     VULL_ASSERT(in_tasklet_context());
-    VULL_ASSERT(s_current_tasklet->state() == TaskletState::Running);
-    vull_swap_context(s_current_tasklet, s_scheduler_tasklet);
+    VULL_ASSERT(Fiber::current() != s_helper_fiber);
+    s_helper_fiber->swap_to(false);
+
+    // We've been unsuspended, check if we need to return the previously running fiber to the free pool.
+    if (auto *fiber = vull::exchange(s_cleanup_fiber, nullptr)) {
+        fiber->exchange_state(FiberState::Runnable);
+        s_scheduler->return_fiber(fiber);
+    }
 }
 
 void yield() {
     VULL_ASSERT(in_tasklet_context());
-    auto *dequeued = s_queue->try_dequeue();
-    if (dequeued == nullptr) {
-        return;
-    }
-    [[maybe_unused]] bool success = s_queue->try_enqueue(s_current_tasklet);
-    VULL_ASSERT(success);
-
-    VULL_ASSERT(s_to_schedule == nullptr);
-    s_to_schedule = dequeued;
+    [[maybe_unused]] const auto old_state = Fiber::current()->exchange_state(FiberState::Yielding);
+    VULL_ASSERT(old_state == FiberState::Running);
     suspend();
 }
 

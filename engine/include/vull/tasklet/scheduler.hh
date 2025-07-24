@@ -18,6 +18,8 @@
 
 namespace vull::tasklet {
 
+class Fiber;
+class FiberQueue;
 class IoRequest;
 class TaskletQueue;
 
@@ -29,11 +31,16 @@ struct IoQueue : MpmcQueue<IoRequest *, 11> {
 
 class Scheduler {
     Vector<platform::Thread> m_worker_threads;
-    UniquePtr<TaskletQueue> m_queue;
+    UniquePtr<FiberQueue> m_ready_fiber_queue;
+    UniquePtr<FiberQueue> m_free_fiber_queue;
+    UniquePtr<TaskletQueue> m_tasklet_queue;
     UniquePtr<IoQueue> m_io_queue;
     platform::Semaphore m_work_available{1};
     platform::Thread m_io_thread;
     Atomic<uint32_t> m_alive_worker_count;
+    Atomic<uint32_t> m_created_fiber_count;
+    Atomic<uint32_t> m_ready_fiber_count;
+    Atomic<uint32_t> m_ready_tasklet_count;
     Atomic<bool> m_running;
 
 public:
@@ -49,23 +56,24 @@ public:
 
     void decrease_worker_count() { m_alive_worker_count.fetch_sub(1); }
     void join();
-    template <TaskletSize Size = TaskletSize::Normal, typename F>
+    Fiber *request_fiber();
+    void return_fiber(Fiber *fiber);
+    template <typename F>
     auto run(F &&callable);
     bool start(Tasklet *tasklet);
     void setup_thread();
     void submit_io_request(SharedPtr<IoRequest> request);
 
-    uint32_t tasklet_count() const;
-    bool is_running() const { return m_running.load(vull::memory_order_acquire); }
+    uint32_t queued_tasklet_count() const;
+    bool is_running() const;
 };
 
-template <TaskletSize Size, typename F>
+template <typename F>
 auto Scheduler::run(F &&callable) {
     using R = FunctionTraits<F>::result_type;
     Promise<R> promise;
     platform::Semaphore semaphore;
-    auto *tasklet = Tasklet::create<Size>();
-    tasklet->set_callable([&, callable = vull::move(callable)] {
+    auto *tasklet = new PromisedTasklet([&, callable = vull::move(callable)] {
         if constexpr (vull::is_same<R, void>) {
             callable();
             promise.fulfill();

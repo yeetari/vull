@@ -17,6 +17,7 @@ target_sources(vull PRIVATE
     support/stream.cc
     support/string.cc
     support/string_builder.cc
+    tasklet/fiber.cc
     tasklet/latch.cc
     tasklet/mutex.cc
     tasklet/promise.cc
