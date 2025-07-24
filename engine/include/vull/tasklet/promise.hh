@@ -54,6 +54,14 @@ class SharedPromise : public Promise<T> {
     mutable Atomic<uint32_t> m_ref_count{0};
 
 public:
+    SharedPromise() = default;
+    SharedPromise(const SharedPromise &) = delete;
+    SharedPromise(SharedPromise &&) = delete;
+    virtual ~SharedPromise() = default;
+
+    SharedPromise &operator=(const SharedPromise &) = delete;
+    SharedPromise &operator=(SharedPromise &&) = delete;
+
     void add_ref() const;
     void sub_ref() const;
 };
@@ -87,9 +95,7 @@ void SharedPromise<T>::add_ref() const {
 template <typename T>
 void SharedPromise<T>::sub_ref() const {
     if (m_ref_count.fetch_sub(1, vull::memory_order_acq_rel) == 1) {
-        // Use operator delete to avoid sized deallocation.
-        // NOLINTNEXTLINE
-        ::operator delete(const_cast<SharedPromise<T> *>(this));
+        delete this;
     }
 }
 
