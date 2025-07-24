@@ -6,7 +6,6 @@
 #include <vull/container/vector.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
-#include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
@@ -132,12 +131,16 @@ PipelineResult PipelineBuilder::build(const Context &context) {
     }
 
     // TODO(small-vector)
-    Vector<vkb::PipelineShaderStageCreateInfo> shader_cis;
-    Vector<vkb::SpecializationInfo> specialization_infos;
-    specialization_infos.ensure_capacity(m_shaders.size());
-    for (const Shader &shader : m_shaders) {
+    struct ShaderInfo {
+        vkb::SpecializationInfo specialization_info;
         Vector<vkb::SpecializationMapEntry> specialization_map_entries;
         Vector<size_t> specialization_values;
+    };
+    Vector<vkb::PipelineShaderStageCreateInfo> shader_cis;
+    Vector<ShaderInfo> shader_infos;
+    shader_infos.ensure_capacity(m_shaders.size());
+    for (const Shader &shader : m_shaders) {
+        auto &[specialization_info, specialization_map_entries, specialization_values] = shader_infos.emplace();
         for (const auto &constant : shader.constants()) {
             if (!m_constants.contains(constant.name)) {
                 return UnspecifiedConstantError{constant.name};
@@ -151,12 +154,12 @@ PipelineResult PipelineBuilder::build(const Context &context) {
             specialization_values.push(*m_constants.get(constant.name));
         }
 
-        auto &specialization_info = specialization_infos.emplace(vkb::SpecializationInfo{
+        specialization_info = vkb::SpecializationInfo{
             .mapEntryCount = specialization_map_entries.size(),
-            .pMapEntries = specialization_map_entries.take_all().data(),
+            .pMapEntries = specialization_map_entries.data(),
             .dataSize = specialization_values.size_bytes(),
-            .pData = specialization_values.take_all().data(),
-        });
+            .pData = specialization_values.data(),
+        };
         for (const auto &[name, stage, interface_ids] : shader.entry_points()) {
             shader_cis.push({
                 .sType = vkb::StructureType::PipelineShaderStageCreateInfo,
