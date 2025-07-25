@@ -283,14 +283,15 @@ bool in_tasklet_context() {
 }
 
 void schedule(Tasklet *tasklet) {
-    VULL_ASSERT(s_tasklet_queue != nullptr && s_work_available != nullptr);
     if (!tasklet->has_owner()) {
         // New tasklet goes on the queue.
+        VULL_ASSERT(in_tasklet_context());
         s_tasklet_queue->enqueue(tasklet, tasklet::yield);
         s_ready_tasklet_count->fetch_add(1, vull::memory_order_release);
         s_work_available->post();
     } else {
         // Otherwise unsuspend its owner fiber.
+        VULL_ASSERT(s_fiber_queue != nullptr);
         unsuspend_fiber(tasklet->owner());
     }
 }

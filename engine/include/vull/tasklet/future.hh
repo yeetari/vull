@@ -9,8 +9,11 @@
 namespace vull::tasklet {
 
 /**
- * @brief A class which represents the result of an asynchronous tasklet execution. Another tasklet can wait on a
- * tasklet's completion and retrieve its result when ready.
+ * @brief A class which represents the result of an asynchronous execution of an operation within a tasklet context, for
+ * example the execution of a tasklet or the execution of an IO request. Another tasklet can wait on the future's
+ * completion and retrieve its result when ready.
+ *
+ * @ingroup Tasklet
  */
 template <typename T>
 class Future {
@@ -20,15 +23,46 @@ private:
     SharedPtr<SharedPromise<T>> m_promise;
 
 public:
+    /**
+     * @brief Default constructs the future with no underlying promise.
+     */
     Future() = default;
+
+    /**
+     * @brief Constructs the future with the given promise.
+     */
     Future(SharedPtr<SharedPromise<T>> &&promise) : m_promise(vull::move(promise)) {}
 
+    /**
+     * @brief Suspends the calling tasklet until the future is complete and returns its result.
+     */
     T await() const;
 
+    /**
+     * @brief Schedules the given callable to run on completion of this future and returns another future associated
+     * with its completion. If this future's result is not void, it is passed to the callable as the only argument.
+     *
+     * The callable may return any type, including void. The returned future can be chained with additional `and_then()`
+     * calls.
+     *
+     * @tparam F the callable type
+     * @param callable the callable to schedule on completion
+     * @return a Future which stores the result of the callable's invocation
+     */
     template <typename F>
     auto and_then(F &&callable);
 
+    /**
+     * @brief Returns true if the `Promise` underlying the future has been fulfilled.
+     *
+     * This function does not provide any memory ordering guarantees and a call to `await()` should still be made, in
+     * which case `await()` will not block if the future is complete.
+     */
     bool is_complete() const;
+
+    /**
+     * @brief Returns true if the future is holding a valid reference to a `Promise`.
+     */
     bool is_valid() const;
 };
 

@@ -7,7 +7,23 @@
 #include <vull/tasklet/promise.hh>
 #include <vull/tasklet/tasklet.hh>
 
+/**
+ * @defgroup Tasklet Tasklet System
+ * @brief Vull's fiber-based task system
+ */
+
+/**
+ * @namespace vull::tasklet
+ * @ingroup Tasklet
+ */
 namespace vull::tasklet {
+
+/**
+ * @defgroup TaskletFunctions Tasklet Functions
+ * @ingroup Tasklet
+ * @code #include <vull/tasklet/functions.hh> @endcode
+ * @{
+ */
 
 /**
  * @brief Returns true if the calling thread is in a tasklet context.
@@ -15,15 +31,30 @@ namespace vull::tasklet {
 bool in_tasklet_context();
 
 /**
- * @brief Adds the given tasklet to the scheduling queue. Blocks if the queue is full.
+ * @brief Adds the given tasklet to the scheduling queue.
+ *
+ * This function may only be called from a non-tasklet context if the tasklet to be scheduled is coming from a suspended
+ * state.
+ *
+ * If the tasklet is coming from a suspended state, this function is guaranteed to not block or suspend the calling
+ * tasklet. Otherwise, the calling tasklet may be suspended until there is sufficient space on the scheduling queue.
+ *
+ * Any new tasklets which are scheduled are guaranteed to be started in a FIFO order, with respect to other new
+ * tasklets.
  *
  * @param tasklet the tasklet to schedule
  */
 void schedule(Tasklet *tasklet);
 
 /**
- * @brief Adds the given callable to the scheduling queue and returns a Future associated with its completion. Blocks if
- * the queue is full. The callable can have an arbitrary capture list but no parameters.
+ * @brief Adds the given callable to the scheduling queue and returns a `Future` associated with its completion. The
+ * callable can have an arbitrary capture list but no parameters.
+ *
+ * This function may only be called from a tasklet context. The calling tasklet may be suspended until there is
+ * sufficient space on the scheduling queue.
+ *
+ * New tasklets which are scheduled are guaranteed to be started in a FIFO order, with respect to other new
+ * tasklets.
  *
  * @tparam F the callable type
  * @param callable the callable to schedule
@@ -38,25 +69,25 @@ auto schedule(F &&callable) {
 }
 
 /**
- * @brief Adds the given IoRequest to the IO queue. Blocks if the queue is full.
+ * @brief Adds the given `IoRequest` to the IO queue. Suspends the calling tasklet if the queue is full.
  *
- * @param request the IoRequest to submit
+ * @param request the `IoRequest` to submit
  */
 void submit_io_request(SharedPtr<IoRequest> request);
 
 /**
- * @brief Constructs and submits a typed IO request to the IO queue and returns a Future associated with its completion.
- * Blocks if the queue is full.
+ * @brief Constructs and submits a typed IO request to the IO queue and returns a `Future` associated with its
+ * completion. Suspends the calling tasklet if the queue is full.
  *
  * This function creates a new IO request of type T with the given arguments and adds it to the IO queue. If the queue
- * is full, the function will yield the current tasklet to the scheduler until space is available. The returned Future
+ * is full, the function will yield the current tasklet to the scheduler until space is available. The returned future
  * keeps the request alive and allows the caller or another tasklet to wait for and retrieve the result of the IO
  * operation.
  *
- * @tparam T the type of IO request to create; must be derived from IoRequest
+ * @tparam T the type of IO request to create; must be derived from `IoRequest`
  * @tparam Args the argument types to pass to T's constructor
  * @param args the arguments with which to construct the request
- * @return a Future<IoResult> representing the result of the IO operation
+ * @return a `Future<IoResult>` representing the result of the IO operation
  */
 template <DerivedFrom<IoRequest> T, typename... Args>
 Future<IoResult> submit_io_request(Args &&...args) {
@@ -66,7 +97,7 @@ Future<IoResult> submit_io_request(Args &&...args) {
 }
 
 /**
- * @brief Suspends the current tasklet's execution until rescheduled by another tasklet.
+ * @brief Suspends the current tasklet's execution until explicitly rescheduled by another tasklet.
  */
 void suspend();
 
@@ -75,5 +106,7 @@ void suspend();
  * automatically.
  */
 void yield();
+
+/** @} */
 
 } // namespace vull::tasklet
