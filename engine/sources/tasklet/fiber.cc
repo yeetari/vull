@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#if VULL_ASAN_ENABLED
+#include <sanitizer/asan_interface.h>
+#endif
+
 namespace vull::tasklet {
 namespace {
 
@@ -32,11 +36,22 @@ Fiber *Fiber::current() {
     return s_current_fiber;
 }
 
+void Fiber::finish_switch([[maybe_unused]] Fiber *fiber) {
+#if VULL_ASAN_ENABLED
+    __sanitizer_finish_switch_fiber(fiber->m_fake_stack_ptr, nullptr, nullptr);
+#endif
+}
+
 FiberState Fiber::exchange_state(FiberState state) {
     return m_state.exchange(state, vull::memory_order_relaxed);
 }
 
 [[noreturn]] void Fiber::switch_to() {
+#if VULL_ASAN_ENABLED
+    // We're not switching back so delete the fake stack.
+    __sanitizer_start_switch_fiber(nullptr, m_memory_bottom, k_max_stack_size);
+    m_fake_stack_ptr = nullptr;
+#endif
     s_current_fiber = this;
     m_state.store(FiberState::Running, vull::memory_order_relaxed);
     vull_switch_fiber(nullptr, this);
@@ -44,12 +59,20 @@ FiberState Fiber::exchange_state(FiberState state) {
 }
 
 void Fiber::swap_to(bool exchange_current) {
+#if VULL_ASAN_ENABLED
+    if (s_current_fiber != nullptr) {
+        __sanitizer_start_switch_fiber(&s_current_fiber->m_fake_stack_ptr, m_memory_bottom, k_max_stack_size);
+    } else {
+        __sanitizer_start_switch_fiber(nullptr, m_memory_bottom, k_max_stack_size);
+    }
+#endif
     m_state.store(FiberState::Running, vull::memory_order_relaxed);
     if (exchange_current) {
         vull_switch_fiber(vull::exchange(s_current_fiber, this), this);
     } else {
         vull_switch_fiber(s_current_fiber, this);
     }
+    Fiber::finish_switch(s_current_fiber);
 }
 
 bool Fiber::is_guard_page(uintptr_t address) const {

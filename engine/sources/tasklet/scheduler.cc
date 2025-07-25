@@ -69,6 +69,7 @@ Tasklet *pick_ready_tasklet() {
 }
 
 [[noreturn]] void fiber_loop() {
+    Fiber::finish_switch(Fiber::current());
     while (s_scheduler->is_running()) {
         // Wait for new work.
         s_work_available->wait();
@@ -127,6 +128,9 @@ void unsuspend_fiber(Fiber *fiber) {
 }
 
 [[noreturn]] void helper_fiber() {
+    // Finalise the stack switch for ASan.
+    Fiber::finish_switch(s_helper_fiber);
+
     // Get the fiber we switched from.
     auto *fiber = Fiber::current();
     if (fiber != nullptr && fiber->exchange_state(FiberState::Suspended) == FiberState::Yielding) {

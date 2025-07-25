@@ -17,6 +17,7 @@ enum class FiberState {
 
 class Fiber {
     void *m_memory_bottom;
+    [[maybe_unused]] void *m_fake_stack_ptr{nullptr};
     Tasklet *m_current_tasklet{nullptr};
     Atomic<FiberState> m_state{FiberState::Runnable};
 
@@ -25,6 +26,7 @@ class Fiber {
 public:
     static Fiber *create(void (*entry_point)());
     static Fiber *current();
+    static void finish_switch(Fiber *fiber);
 
     void set_current_tasklet(Tasklet *current_tasklet) { m_current_tasklet = current_tasklet; }
 
