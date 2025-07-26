@@ -3,6 +3,7 @@
 #include <vull/maths/random.hh>
 #include <vull/platform/timer.hh>
 #include <vull/support/args_parser.hh>
+#include <vull/support/atomic.hh>
 #include <vull/support/scoped_lock.hh>
 #include <vull/support/string.hh>
 #include <vull/support/utility.hh>
@@ -141,14 +142,45 @@ uint32_t find_primes(uint32_t tasklet_count) {
     return primes.size();
 }
 
+void do_stress_test(uint32_t tasklet_count) {
+    vull::info("[stress] Spawning {} tasklets", tasklet_count);
+    Atomic<uint32_t> atomic_counter;
+    uint32_t shared_counter = 0;
+    tasklet::Latch latch(tasklet_count);
+    tasklet::Mutex mutex;
+    for (uint32_t i = 0; i < tasklet_count; i++) {
+        tasklet::schedule([&] {
+            auto io_future = tasklet::submit_io_request<tasklet::NopRequest>();
+            for (uint32_t j = 0; j < 5; j++) {
+                tasklet::yield();
+            }
+
+            mutex.lock();
+            shared_counter++;
+            mutex.unlock();
+
+            tasklet::schedule([io_future] {
+                tasklet::yield();
+                io_future.await();
+            }).and_then([&] {
+                tasklet::yield();
+                atomic_counter.fetch_add(1, vull::memory_order_relaxed);
+                latch.count_down();
+            });
+        });
+    }
+    latch.wait();
+    vull::info("[stress] Counters: {} {}", atomic_counter.load(vull::memory_order_relaxed), shared_counter);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
-    bool torture_test = false;
+    bool stress_test = false;
     uint32_t thread_count = 0;
 
     ArgsParser args_parser("tasklet-bench", "Tasklet Benchmarks", "0.1.0");
-    args_parser.add_flag(torture_test, "Run torture tests", "torture");
+    args_parser.add_flag(stress_test, "Run stress test", "stress");
     args_parser.add_option(thread_count, "Tasklet worker thread count", "threads");
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -158,7 +190,7 @@ int main(int argc, char **argv) {
     vull::set_log_colours_enabled(true);
 
     tasklet::Scheduler scheduler(thread_count);
-    scheduler.run([] {
+    scheduler.run([&] {
         // Warmup scheduler.
         tasklet::Latch latch(512);
         for (size_t i = 0; i < 512; i++) {
@@ -167,6 +199,11 @@ int main(int argc, char **argv) {
             });
         }
         latch.wait();
+
+        if (stress_test) {
+            do_stress_test(100'000 * scheduler.thread_count());
+            return;
+        }
 
         // Blocking IO dispatch benchmark.
         {
