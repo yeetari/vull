@@ -1,5 +1,6 @@
 #include <vull/tasklet/scheduler.hh>
 
+#include <vull/container/array.hh>
 #include <vull/container/mpmc_queue.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
@@ -26,9 +27,14 @@
 namespace vull::tasklet {
 
 class FiberQueue : public MpmcQueue<Fiber *, 9> {};
-class TaskletQueue : public MpmcQueue<Tasklet *, 13> {};
+class TaskletQueue : public MpmcQueue<Tasklet *, 11> {};
 
 namespace {
+
+constexpr Array k_priority_weights{
+    4u,
+    1u,
+};
 
 // Shared between all worker threads of the same scheduler.
 VULL_GLOBAL(thread_local FiberQueue *s_fiber_queue = nullptr);
@@ -69,43 +75,51 @@ Tasklet *pick_ready_tasklet() {
 }
 
 [[noreturn]] void fiber_loop() {
-    Fiber::finish_switch(Fiber::current());
+    auto *running_fiber = Fiber::current();
+    Fiber::finish_switch(running_fiber);
     while (s_scheduler->is_running()) {
         // Wait for new work.
         s_work_available->wait();
 
-        // See if there's an unblocked fiber to run.
-        if (auto *fiber = pick_ready_fiber()) {
-            VULL_ASSERT(fiber != Fiber::current());
+        // Prioritise getting either a fiber or tasklet first but try to make sure we always get something since we've
+        // decremented the semaphore.
+        Fiber *fiber = nullptr;
+        Tasklet *tasklet = nullptr;
+        if (Fiber::current()->advance_priority(k_priority_weights.span()) == 0) {
+            fiber = pick_ready_fiber();
+            if (fiber == nullptr) {
+                tasklet = pick_ready_tasklet();
+            }
+        } else {
+            tasklet = pick_ready_tasklet();
+            if (tasklet == nullptr) {
+                fiber = pick_ready_fiber();
+            }
+        }
+
+        if (fiber != nullptr) {
+            VULL_ASSERT(fiber != running_fiber);
 
             // Mark the current fiber to be returned to the free pool.
             VULL_ASSERT(s_cleanup_fiber == nullptr);
-            s_cleanup_fiber = Fiber::current();
+            s_cleanup_fiber = running_fiber;
 
             // Switch to the unblocked fiber.
             fiber->swap_to(true);
-            continue;
-        }
-
-        // Otherwise the semaphore must have been posted for a tasklet.
-        // TODO: Make the whole Tasklet a SharedPromise.
-        if (auto *tasklet = pick_ready_tasklet()) {
+        } else if (tasklet != nullptr) {
             // Suspended tasklets should resume via the fiber queue.
             VULL_ASSERT(!tasklet->has_owner());
 
-            auto *fiber = Fiber::current();
-            fiber->set_current_tasklet(tasklet);
-            tasklet->set_owner(fiber);
-
             // Run the tasklet.
+            running_fiber->set_current_tasklet(tasklet);
+            tasklet->set_owner(running_fiber);
             tasklet->invoke();
-            fiber->set_current_tasklet(nullptr);
-            continue;
+            running_fiber->set_current_tasklet(nullptr);
+        } else {
+            // If we got here, than the semaphore had a higher count than the number of jobs available, probably because
+            // of the ready fiber getting in the helper fiber.
+            // TODO: Using a counting semaphore like this is suboptimal.
         }
-
-        // If we got here, than the semaphore had a higher count than the number of jobs available, probably because of
-        // the ready fiber getting in the helper fiber.
-        // TODO: Using a counting semaphore like this is suboptimal.
     }
 
     s_scheduler->decrease_worker_count();
@@ -142,13 +156,19 @@ void unsuspend_fiber(Fiber *fiber) {
     // making a new fiber. Also the FIFO guarantee of the queue means that it has lowest priority.
     Fiber *next_fiber;
     while (true) {
-        // Try to pick an unblocked fiber first.
-        if ((next_fiber = pick_ready_fiber()) != nullptr) {
+        // If priority allows, try to pick an unblocked fiber first.
+        const bool fiber_first = fiber != nullptr && fiber->advance_priority(k_priority_weights.span()) == 0;
+        if (fiber_first && (next_fiber = pick_ready_fiber()) != nullptr) {
             break;
         }
 
-        // Otherwise try to get a free fiber from the pool, or create a new one.
+        // Otherwise try to get a free fiber from the pool.
         if ((next_fiber = s_scheduler->request_fiber()) != nullptr) {
+            break;
+        }
+
+        // The pool is full so we must try to pick any fiber now.
+        if ((next_fiber = pick_ready_fiber()) != nullptr) {
             break;
         }
 

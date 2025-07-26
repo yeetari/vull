@@ -64,6 +64,7 @@ public:
     void setup_thread();
     void submit_io_request(SharedPtr<IoRequest> request);
 
+    uint32_t thread_count() const { return m_worker_threads.size(); }
     uint32_t queued_tasklet_count() const;
     bool is_running() const;
 };

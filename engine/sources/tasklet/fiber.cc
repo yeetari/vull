@@ -3,6 +3,7 @@
 #include <vull/maths/common.hh>
 #include <vull/platform/tasklet.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/span.hh>
 #include <vull/support/utility.hh>
 
 #include <stddef.h>
@@ -40,6 +41,15 @@ void Fiber::finish_switch([[maybe_unused]] Fiber *fiber) {
 #if VULL_ASAN_ENABLED
     __sanitizer_finish_switch_fiber(fiber->m_fake_stack_ptr, nullptr, nullptr);
 #endif
+}
+
+uint32_t Fiber::advance_priority(Span<const uint32_t> priority_weights) {
+    const auto current_level = m_priority_level;
+    if (--m_priority_weight_counter == 0) {
+        m_priority_level = (m_priority_level + 1) % priority_weights.size();
+        m_priority_weight_counter = priority_weights[m_priority_level];
+    }
+    return current_level;
 }
 
 FiberState Fiber::exchange_state(FiberState state) {

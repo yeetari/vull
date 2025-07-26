@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/support/atomic.hh>
+#include <vull/support/span.hh>
 
 #include <stdint.h>
 
@@ -20,6 +21,8 @@ class Fiber {
     [[maybe_unused]] void *m_fake_stack_ptr{nullptr};
     Tasklet *m_current_tasklet{nullptr};
     Atomic<FiberState> m_state{FiberState::Runnable};
+    uint32_t m_priority_level{0};
+    uint32_t m_priority_weight_counter{1};
 
     explicit Fiber(void *memory_bottom) : m_memory_bottom(memory_bottom) {}
 
@@ -30,6 +33,7 @@ public:
 
     void set_current_tasklet(Tasklet *current_tasklet) { m_current_tasklet = current_tasklet; }
 
+    uint32_t advance_priority(Span<const uint32_t> priority_weights);
     FiberState exchange_state(FiberState state);
     void swap_to(bool exchange_current);
     [[noreturn]] void switch_to();
