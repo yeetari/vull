@@ -284,7 +284,7 @@ void Scheduler::setup_thread() {
 }
 
 void Scheduler::submit_io_request(SharedPtr<IoRequest> request) {
-    m_io_queue->enqueue(request.disown(), yield);
+    m_io_queue->enqueue(request.disown(), tasklet::yield);
     if (m_io_queue->pending.fetch_add(1, vull::memory_order_relaxed) == 0) {
         m_io_queue->submit_event.set();
     }
@@ -305,7 +305,6 @@ bool in_tasklet_context() {
 void schedule(Tasklet *tasklet) {
     if (!tasklet->has_owner()) {
         // New tasklet goes on the queue.
-        VULL_ASSERT(in_tasklet_context());
         s_tasklet_queue->enqueue(tasklet, tasklet::yield);
         s_ready_tasklet_count->fetch_add(1, vull::memory_order_release);
         s_work_available->post();
@@ -335,7 +334,11 @@ void suspend() {
 }
 
 void yield() {
-    VULL_ASSERT(in_tasklet_context());
+    if (!in_tasklet_context()) [[unlikely]] {
+        // Just yield to the OS scheduler.
+        platform::Thread::yield();
+        return;
+    }
     [[maybe_unused]] const auto old_state = Fiber::current()->exchange_state(FiberState::Yielding);
     VULL_ASSERT(old_state == FiberState::Running);
     suspend();

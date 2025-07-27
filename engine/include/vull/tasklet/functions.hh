@@ -33,11 +33,9 @@ bool in_tasklet_context();
 /**
  * @brief Adds the given tasklet to the scheduling queue.
  *
- * This function may only be called from a non-tasklet context if the tasklet to be scheduled is coming from a suspended
- * state.
- *
- * If the tasklet is coming from a suspended state, this function is guaranteed to not block or suspend the calling
- * tasklet. Otherwise, the calling tasklet may be suspended until there is sufficient space on the scheduling queue.
+ * If the tasklet is coming from a suspended state, this function is guaranteed to not block or suspend the caller.
+ * Otherwise, the calling tasklet may be suspended until there is sufficient space on the scheduling queue. If called
+ * from a non-tasklet context, the calling thread will block until there is sufficient space.
  *
  * Any new tasklets which are scheduled are guaranteed to be started in a FIFO order, with respect to other new
  * tasklets.
@@ -50,8 +48,8 @@ void schedule(Tasklet *tasklet);
  * @brief Adds the given callable to the scheduling queue and returns a `Future` associated with its completion. The
  * callable can have an arbitrary capture list but no parameters.
  *
- * This function may only be called from a tasklet context. The calling tasklet may be suspended until there is
- * sufficient space on the scheduling queue.
+ * The calling tasklet may be suspended until there is sufficient space on the scheduling queue. If called from a
+ * non-tasklet context, the calling thread will block until there is sufficient space.
  *
  * New tasklets which are scheduled are guaranteed to be started in a FIFO order, with respect to other new
  * tasklets.
@@ -71,6 +69,8 @@ auto schedule(F &&callable) {
 /**
  * @brief Adds the given `IoRequest` to the IO queue. Suspends the calling tasklet if the queue is full.
  *
+ * This function may only be called from a tasklet context.
+ *
  * @param request the `IoRequest` to submit
  */
 void submit_io_request(SharedPtr<IoRequest> request);
@@ -83,6 +83,8 @@ void submit_io_request(SharedPtr<IoRequest> request);
  * is full, the function will yield the current tasklet to the scheduler until space is available. The returned future
  * keeps the request alive and allows the caller or another tasklet to wait for and retrieve the result of the IO
  * operation.
+ *
+ * This function may only be called from a tasklet context.
  *
  * @tparam T the type of IO request to create; must be derived from `IoRequest`
  * @tparam Args the argument types to pass to T's constructor
@@ -97,13 +99,17 @@ Future<IoResult> submit_io_request(Args &&...args) {
 }
 
 /**
- * @brief Suspends the current tasklet's execution until explicitly rescheduled by another tasklet.
+ * @brief Suspends the calling tasklet's execution until explicitly rescheduled by another tasklet.
+ *
+ * This function may only be called from a tasklet context.
  */
 void suspend();
 
 /**
- * @brief Yields the current tasklet's execution to the scheduler. The current tasklet will be rescheduled
+ * @brief Yields the calling tasklet's execution to the scheduler. The calling tasklet will be rescheduled
  * automatically.
+ *
+ * If called from a non-tasklet context, yields the calling thread to the OS scheduler.
  */
 void yield();
 
