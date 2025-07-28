@@ -65,6 +65,7 @@ Result<Thread, ThreadError> Thread::create(F &&callable) {
     return Thread(VULL_TRY(create(&proxy<F>, new F(vull::move(callable)))));
 }
 
+uint32_t core_count();
 void install_fault_handler();
 
 } // namespace vull::platform

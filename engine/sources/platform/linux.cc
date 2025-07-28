@@ -473,6 +473,10 @@ Result<void, ThreadError> Thread::set_name(String name) const {
     return {};
 }
 
+uint32_t core_count() {
+    return static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN));
+}
+
 [[noreturn]] static void fault_handler(int signal, siginfo_t *info, void *) {
     const auto address = vull::bit_cast<uintptr_t>(info->si_addr);
     const auto *fiber = tasklet::Fiber::current();
