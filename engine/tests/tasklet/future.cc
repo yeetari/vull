@@ -1,6 +1,9 @@
 #include <vull/support/atomic.hh>
+#include <vull/support/shared_ptr.hh>
+#include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/future.hh>
+#include <vull/tasklet/promise.hh>
 #include <vull/tasklet/scheduler.hh>
 #include <vull/test/assertions.hh>
 #include <vull/test/matchers.hh>
@@ -94,9 +97,11 @@ TEST_CASE(TaskletFuture, AndThenToVoid) {
     scheduler.run([] {
         tasklet::schedule([] {
             return 10;
+            // clang-format off
         }).and_then([](int value) {
             EXPECT_THAT(value, is(equal_to(10)));
-        });
+            // clang-format on
+        }).await();
     });
 }
 
@@ -108,10 +113,10 @@ TEST_CASE(TaskletFuture, AndThenToOther) {
             // clang-format off
         }).and_then([](int value) {
             return value > 0;
-            // clang-format on
         }).and_then([](bool value) {
             EXPECT_TRUE(value);
-        });
+            // clang-format on
+        }).await();
     });
 }
 
@@ -128,4 +133,28 @@ TEST_CASE(TaskletFuture, AndThenMove) {
         }).await();
         EXPECT_THAT(destruct_count, is(equal_to(1)));
     });
+}
+
+TEST_CASE(TaskletFuture, Empty) {
+    tasklet::Future<void> future;
+    EXPECT_FALSE(future.is_valid());
+}
+
+TEST_CASE(TaskletFuture, SwapEmpty) {
+    auto promise = vull::adopt_shared(new tasklet::SharedPromise<void>);
+    tasklet::Future<void> foo(SharedPtr{promise});
+    tasklet::Future<void> bar;
+    EXPECT_TRUE(foo.is_valid());
+    vull::swap(foo, bar);
+    EXPECT_FALSE(foo.is_valid());
+    EXPECT_TRUE(bar.is_valid());
+}
+
+TEST_CASE(TaskletFuture, IsComplete) {
+    auto promise = vull::adopt_shared(new tasklet::SharedPromise<void>);
+    tasklet::Future<void> future(SharedPtr{promise});
+    ASSERT_TRUE(future.is_valid());
+    EXPECT_FALSE(future.is_complete());
+    promise->fulfill();
+    EXPECT_TRUE(future.is_complete());
 }
