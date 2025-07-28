@@ -13,7 +13,7 @@ using namespace vull;
 using namespace vull::test::matchers;
 
 TEST_CASE(TaskletLatch, Arrive) {
-    tasklet::Scheduler scheduler(4);
+    tasklet::Scheduler scheduler(4, 64, false);
     scheduler.run([] {
         Atomic<size_t> counter;
         tasklet::Latch latch(16);
@@ -34,7 +34,7 @@ TEST_CASE(TaskletLatch, Arrive) {
 
 TEST_CASE(TaskletLatch, CountDown) {
     // Use one thread to effectively guarantee a fail if wait() doesn't work.
-    tasklet::Scheduler scheduler(1);
+    tasklet::Scheduler scheduler(1, 64, false);
     scheduler.run([] {
         Atomic<size_t> counter;
         tasklet::Latch latch(64);
@@ -55,7 +55,7 @@ TEST_CASE(TaskletLatch, TryWaitZero) {
 }
 
 TEST_CASE(TaskletLatch, TryWait) {
-    tasklet::Scheduler scheduler;
+    tasklet::Scheduler scheduler(4, 64, false);
     scheduler.run([] {
         tasklet::Latch latch(3);
         EXPECT_FALSE(latch.try_wait());

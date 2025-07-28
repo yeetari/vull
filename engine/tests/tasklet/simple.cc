@@ -9,7 +9,7 @@ using namespace vull;
 using namespace vull::test::matchers;
 
 TEST_CASE(Tasklet, SchedulerRun) {
-    tasklet::Scheduler scheduler;
+    tasklet::Scheduler scheduler(4, 64, false);
     auto value = scheduler.run([] {
         return 5;
     });
@@ -18,7 +18,7 @@ TEST_CASE(Tasklet, SchedulerRun) {
 
 TEST_CASE(Tasklet, InTaskletContext) {
     EXPECT_FALSE(tasklet::in_tasklet_context());
-    tasklet::Scheduler scheduler;
+    tasklet::Scheduler scheduler(4, 64, false);
     scheduler.run([] {
         tasklet::schedule([] {
             EXPECT_TRUE(tasklet::in_tasklet_context());

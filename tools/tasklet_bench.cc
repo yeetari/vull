@@ -1,6 +1,8 @@
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/maths/common.hh>
 #include <vull/maths/random.hh>
+#include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/atomic.hh>
@@ -176,12 +178,16 @@ void do_stress_test(uint32_t tasklet_count) {
 } // namespace
 
 int main(int argc, char **argv) {
+    bool pin_threads = false;
     bool stress_test = false;
-    uint32_t thread_count = 0;
+    uint32_t fiber_limit = 256;
+    uint32_t thread_count = vull::max(platform::core_count() / 2, 1);
 
     ArgsParser args_parser("tasklet-bench", "Tasklet Benchmarks", "0.1.0");
-    args_parser.add_flag(stress_test, "Run stress test", "stress");
-    args_parser.add_option(thread_count, "Tasklet worker thread count", "threads");
+    args_parser.add_flag(pin_threads, "Pin worker threads to cores", "pin", 'p');
+    args_parser.add_flag(stress_test, "Run stress test", "stress", 's');
+    args_parser.add_option(fiber_limit, "Tasklet fiber limit", "fiber-limit");
+    args_parser.add_option(thread_count, "Tasklet worker thread count", "threads", 't');
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
@@ -189,7 +195,7 @@ int main(int argc, char **argv) {
     vull::open_log();
     vull::set_log_colours_enabled(true);
 
-    tasklet::Scheduler scheduler(thread_count);
+    tasklet::Scheduler scheduler(thread_count, fiber_limit, pin_threads);
     scheduler.run([&] {
         // Warmup scheduler.
         tasklet::Latch latch(512);

@@ -22,7 +22,6 @@
 #include <vull/tasklet/tasklet.hh>
 
 #include <stdint.h>
-#include <unistd.h>
 
 namespace vull::tasklet {
 
@@ -173,6 +172,7 @@ void unsuspend_fiber(Fiber *fiber) {
         }
 
         // Otherwise we've exhausted the maximum fiber count and there's not much we can do.
+        // TODO: Rate limit this log message.
         vull::warn("[tasklet] Exhausted the fiber pool");
         platform::Thread::yield();
     }
@@ -187,15 +187,44 @@ Scheduler &Scheduler::current() {
     return *s_scheduler;
 }
 
-Scheduler::Scheduler(uint32_t thread_count) {
-    if (thread_count == 0) {
-        thread_count = vull::max(static_cast<uint32_t>(sysconf(_SC_NPROCESSORS_ONLN)) / 2, 2);
+Scheduler::Scheduler(uint32_t thread_count, uint32_t fiber_limit, bool pin_threads) {
+    m_fiber_limit = vull::clamp(fiber_limit, thread_count + 1, FiberQueue::capacity());
+    if (fiber_limit != m_fiber_limit) {
+        vull::warn("[tasklet] Fiber limit clamped to {}", m_fiber_limit);
+    } else {
+        vull::debug("[tasklet] Fiber limit set to {}", m_fiber_limit);
     }
-    m_worker_threads.ensure_size(thread_count);
+
     m_ready_fiber_queue = vull::make_unique<FiberQueue>();
     m_free_fiber_queue = vull::make_unique<FiberQueue>();
     m_tasklet_queue = vull::make_unique<TaskletQueue>();
     m_io_queue = vull::make_unique<IoQueue>();
+
+    for (uint32_t i = 0; i < thread_count; i++) {
+        auto thread = VULL_EXPECT(platform::Thread::create([this] {
+            // Setup per-thread data.
+            setup_thread();
+            VULL_EXPECT(platform::Thread::setup_signal_stack());
+
+            // Create a helper fiber per thread.
+            m_alive_worker_count.fetch_add(1);
+            s_helper_fiber = Fiber::create(&helper_fiber);
+            s_helper_fiber->swap_to(false);
+        }));
+        VULL_IGNORE(thread.set_name(vull::format("Worker #{}", i)));
+        if (pin_threads && thread.pin_to_core(i).is_error()) {
+            vull::error("[tasklet] Failed to pin worker thread {}", i);
+        }
+        m_worker_threads.push(vull::move(thread));
+    }
+    vull::info("[tasklet] Created {} worker threads", m_worker_threads.size());
+
+    m_io_thread = VULL_EXPECT(platform::Thread::create([this] {
+        setup_thread();
+        platform::spawn_tasklet_io_dispatcher(*m_io_queue);
+    }));
+    VULL_IGNORE(m_io_thread.set_name("IO"));
+    vull::info("[tasklet] Created IO thread");
 }
 
 Scheduler::~Scheduler() {
@@ -224,54 +253,20 @@ Fiber *Scheduler::request_fiber() {
     // Otherwise create a new fiber if we're under the limit.
     uint32_t fiber_count = m_created_fiber_count.load(vull::memory_order_relaxed);
     do {
-        if (fiber_count >= FiberQueue::capacity()) {
+        if (fiber_count >= m_fiber_limit) {
             return nullptr;
         }
     } while (!m_created_fiber_count.compare_exchange_weak(fiber_count, fiber_count + 1, vull::memory_order_acq_rel,
                                                           vull::memory_order_acquire));
+    if ((fiber_count + 1) % 10 == 0) {
+        vull::trace("[tasklet] Reached {} allocated fibers", fiber_count + 1);
+    }
     return Fiber::create(&fiber_loop);
 }
 
 void Scheduler::return_fiber(Fiber *fiber) {
     VULL_ASSERT(fiber->state() == FiberState::Runnable);
     m_free_fiber_queue->enqueue(fiber, [] {});
-}
-
-bool Scheduler::start(Tasklet *tasklet) {
-    if (m_worker_threads.empty()) {
-        return false;
-    }
-    if (!m_tasklet_queue->try_enqueue(tasklet)) {
-        return false;
-    }
-    m_ready_tasklet_count.fetch_add(1, vull::memory_order_relaxed);
-    m_running.store(true, vull::memory_order_release);
-    for (uint32_t i = 0; i < m_worker_threads.size(); i++) {
-        auto &thread = m_worker_threads[i];
-        thread = VULL_EXPECT(platform::Thread::create([this] {
-            // Setup per-thread data.
-            setup_thread();
-            VULL_EXPECT(platform::Thread::setup_signal_stack());
-
-            // Create a helper fiber per thread.
-            m_alive_worker_count.fetch_add(1);
-            s_helper_fiber = Fiber::create(&helper_fiber);
-            s_helper_fiber->swap_to(false);
-        }));
-        if (thread.pin_to_core(i).is_error()) {
-            vull::error("[tasklet] Failed to pin worker thread {}", i);
-        }
-        VULL_IGNORE(thread.set_name(vull::format("Worker #{}", i)));
-    }
-    vull::info("[tasklet] Started {} worker threads", m_worker_threads.size());
-
-    m_io_thread = VULL_EXPECT(platform::Thread::create([this] {
-        setup_thread();
-        platform::spawn_tasklet_io_dispatcher(*m_io_queue);
-    }));
-    VULL_IGNORE(m_io_thread.set_name("IO"));
-    vull::info("[tasklet] Started IO thread");
-    return true;
 }
 
 void Scheduler::setup_thread() {
@@ -281,6 +276,12 @@ void Scheduler::setup_thread() {
     s_work_available = &m_work_available;
     s_ready_fiber_count = &m_ready_fiber_count;
     s_ready_tasklet_count = &m_ready_tasklet_count;
+}
+
+void Scheduler::enqueue(Tasklet *tasklet) {
+    m_tasklet_queue->enqueue(tasklet, tasklet::yield);
+    m_ready_tasklet_count.fetch_add(1, vull::memory_order_release);
+    m_work_available.post();
 }
 
 void Scheduler::submit_io_request(SharedPtr<IoRequest> request) {
@@ -305,9 +306,7 @@ bool in_tasklet_context() {
 void schedule(Tasklet *tasklet) {
     if (!tasklet->has_owner()) {
         // New tasklet goes on the queue.
-        s_tasklet_queue->enqueue(tasklet, tasklet::yield);
-        s_ready_tasklet_count->fetch_add(1, vull::memory_order_release);
-        s_work_available->post();
+        s_scheduler->enqueue(tasklet);
     } else {
         // Otherwise unsuspend its owner fiber.
         VULL_ASSERT(s_fiber_queue != nullptr);

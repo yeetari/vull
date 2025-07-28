@@ -30,23 +30,24 @@ struct IoQueue : MpmcQueue<IoRequest *, 11> {
 };
 
 class Scheduler {
-    Vector<platform::Thread> m_worker_threads;
+    uint32_t m_fiber_limit;
     UniquePtr<FiberQueue> m_ready_fiber_queue;
     UniquePtr<FiberQueue> m_free_fiber_queue;
     UniquePtr<TaskletQueue> m_tasklet_queue;
     UniquePtr<IoQueue> m_io_queue;
-    platform::Semaphore m_work_available{1};
+    Vector<platform::Thread> m_worker_threads;
     platform::Thread m_io_thread;
+    platform::Semaphore m_work_available;
     Atomic<uint32_t> m_alive_worker_count;
     Atomic<uint32_t> m_created_fiber_count;
     Atomic<uint32_t> m_ready_fiber_count;
     Atomic<uint32_t> m_ready_tasklet_count;
-    Atomic<bool> m_running;
+    Atomic<bool> m_running{true};
 
 public:
     static Scheduler &current();
 
-    explicit Scheduler(uint32_t thread_count = 0);
+    Scheduler(uint32_t thread_count, uint32_t fiber_limit, bool pin_threads);
     Scheduler(const Scheduler &) = delete;
     Scheduler(Scheduler &&) = delete;
     ~Scheduler();
@@ -60,8 +61,8 @@ public:
     void return_fiber(Fiber *fiber);
     template <typename F>
     auto run(F &&callable);
-    bool start(Tasklet *tasklet);
     void setup_thread();
+    void enqueue(Tasklet *tasklet);
     void submit_io_request(SharedPtr<IoRequest> request);
 
     uint32_t thread_count() const { return m_worker_threads.size(); }
@@ -83,7 +84,7 @@ auto Scheduler::run(F &&callable) {
         }
         semaphore.post();
     });
-    VULL_ENSURE(start(tasklet));
+    enqueue(tasklet);
     semaphore.wait();
     VULL_ASSERT(promise.is_fulfilled());
     if constexpr (!vull::is_same<R, void>) {

@@ -1,6 +1,7 @@
 #include <vull/core/application.hh>
 
 #include <vull/core/log.hh>
+#include <vull/maths/common.hh>
 #include <vull/platform/file.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/args_parser.hh>
@@ -27,8 +28,10 @@ static int vpak_select(const struct dirent *entry) {
 }
 
 int start_application(int argc, char **argv, ArgsParser &args_parser, Function<void()> start_fn) {
-    uint32_t thread_count = 0;
+    uint32_t fiber_limit = 256;
+    uint32_t thread_count = vull::max(platform::core_count() / 2, 2);
     String vpak_directory_path;
+    args_parser.add_option(fiber_limit, "Tasklet fiber limit", "fiber-limit");
     args_parser.add_option(thread_count, "Tasklet worker thread count", "threads");
     args_parser.add_option(vpak_directory_path, "Vpak directory path", "vpak-dir");
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
@@ -65,7 +68,7 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     }
     free(entry_list);
 
-    tasklet::Scheduler scheduler(thread_count);
+    tasklet::Scheduler scheduler(thread_count, fiber_limit, true);
     scheduler.run(vull::move(start_fn));
     scheduler.join();
     vull::close_log();

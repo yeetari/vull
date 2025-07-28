@@ -17,6 +17,7 @@
 #include <vull/json/parser.hh>
 #include <vull/json/tree.hh>
 #include <vull/maths/vec.hh>
+#include <vull/platform/thread.hh>
 #include <vull/platform/timer.hh>
 #include <vull/scene/transform.hh>
 #include <vull/support/assert.hh>
@@ -681,8 +682,9 @@ GltfResult<> GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution,
         }
     }
 
-    // Use only one thread if reproducible, otherwise let scheduler decide.
-    tasklet::Scheduler scheduler(reproducible ? 1 : 0);
+    // Use only one thread if reproducible.
+    const auto thread_count = reproducible ? 1 : (platform::core_count() / 2);
+    tasklet::Scheduler scheduler(thread_count, 256, true);
     VULL_TRY(scheduler.run([&] -> GltfResult<> {
         Converter converter(m_binary_blob.span(), pack_writer, document, max_resolution);
         VULL_TRY(converter.convert());
