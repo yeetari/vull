@@ -10,6 +10,8 @@
 /**
  * @defgroup Tasklet Tasklet System
  * @brief Vull's fiber-based task system
+ *
+ * @include{doc} docs/tasklet.md
  */
 
 /**
