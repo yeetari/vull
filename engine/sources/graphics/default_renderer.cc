@@ -87,6 +87,8 @@ struct UniformBuffer {
     Vec3f view_position;
     uint32_t object_count;
     Array<Vec4f, 4> frustum_planes;
+    uint32_t viewport_width;
+    uint32_t viewport_height;
 };
 
 } // namespace
@@ -367,6 +369,8 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
         .view_position = m_camera->position(),
         .object_count = m_object_count,
         .frustum_planes = m_frustum_planes,
+        .viewport_width = m_viewport_extent.width,
+        .viewport_height = m_viewport_extent.height,
     };
     memcpy(buffer.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
 }

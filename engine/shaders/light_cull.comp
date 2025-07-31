@@ -33,7 +33,7 @@ shared uint g_tile_light_count = {};
 shared ViewFrustum g_frustum;
 
 ViewFrustum create_frustum(ivec2 tile_id) {
-    vec2 ndc_tile_size = 2.0f * vec2(k_tile_size) / vec2(k_viewport_width, k_viewport_height);
+    vec2 ndc_tile_size = 2.0f * vec2(k_tile_size) / vec2(g_viewport_width, g_viewport_height);
     vec4 ndc_points[4];
     ndc_points[0] = vec4(tile_id * ndc_tile_size - 1.0f, 1.0f, 1.0f);
     ndc_points[1] = vec4(vec2(ndc_points[0].x, ndc_points[0].y + ndc_tile_size.y), 1.0f, 1.0f);

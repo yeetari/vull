@@ -40,7 +40,7 @@ void main() {
     vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     vec3 normal = decode_normal(texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rg);
 
-    vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(k_viewport_width, k_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
+    vec4 world_position = vec4(gl_GlobalInvocationID.xy / vec2(g_viewport_width, g_viewport_height) * 2.0f - 1.0f, depth, 1.0f);
     world_position = g_inv_proj_view * world_position;
     world_position /= world_position.w;
 

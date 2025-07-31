@@ -11,5 +11,7 @@ layout (set = s, binding = b, scalar) restrict readonly uniform UniformBuffer { 
     vec3 g_view_position; \
     uint g_object_count; \
     vec4 g_frustum_planes[4]; \
+    uint g_viewport_width; \
+    uint g_viewport_height; \
     ShadowInfo g_shadow_info; \
  }
