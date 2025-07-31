@@ -7,6 +7,7 @@
 #include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
@@ -17,15 +18,11 @@
 #include <vull/tasklet/future.hh>
 #include <vull/tasklet/promise.hh>
 #include <vull/tasklet/scheduler.hh>
-#include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/image.hh>
 #include <vull/vulkan/query_pool.hh>
-#include <vull/vulkan/queue.hh>
 #include <vull/vulkan/render_graph.hh>
 #include <vull/vulkan/semaphore.hh>
 #include <vull/vulkan/swapchain.hh>
-#include <vull/vulkan/vulkan.hh>
 
 namespace vull {
 namespace {
@@ -83,44 +80,18 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         future = tasklet::schedule([] {});
     }
 
-    // Dummy first frame.
-    uint32_t image_index = swapchain.acquire_image(*m_acquire_semaphores.first());
-    auto &queue = m_context.get_queue(vk::QueueKind::Graphics);
-    auto cmd_buf = queue.request_cmd_buf();
-    vkb::ImageMemoryBarrier2 swapchain_present_barrier{
-        .sType = vkb::StructureType::ImageMemoryBarrier2,
-        .oldLayout = vkb::ImageLayout::Undefined,
-        .newLayout = vkb::ImageLayout::PresentSrcKHR,
-        .image = *swapchain.image(image_index),
-        .subresourceRange{
-            .aspectMask = vkb::ImageAspect::Color,
-            .levelCount = 1,
-            .layerCount = 1,
-        },
-    };
-    cmd_buf->image_barrier(swapchain_present_barrier);
-
-    // Wait for the acquire semaphore straight away and signal the present semaphore at the end.
-    vkb::SemaphoreSubmitInfo wait_semaphore_info{
-        .sType = vkb::StructureType::SemaphoreSubmitInfo,
-        .semaphore = *m_acquire_semaphores.first(),
-        .stageMask = vkb::PipelineStage2::AllCommands,
-    };
-    vkb::SemaphoreSubmitInfo signal_semaphore_info{
-        .sType = vkb::StructureType::SemaphoreSubmitInfo,
-        .semaphore = *m_present_semaphores[image_index],
-        .stageMask = vkb::PipelineStage2::AllCommands,
-    };
-    queue.submit(vull::move(cmd_buf), signal_semaphore_info, wait_semaphore_info).await();
-
     // Spawn WSI thread.
     auto &scheduler = tasklet::Scheduler::current();
-    m_thread = VULL_EXPECT(platform::Thread::create([this, image_index, &scheduler] mutable {
+    m_thread = VULL_EXPECT(platform::Thread::create([this, &scheduler] mutable {
         scheduler.setup_thread();
+
+        Optional<uint32_t> image_index;
         while (m_running.load(vull::memory_order_acquire)) {
             // Present the current frame.
-            Array present_wait_semaphores{*m_present_semaphores[image_index]};
-            m_swapchain.present(image_index, present_wait_semaphores.span());
+            if (image_index) {
+                Array present_wait_semaphores{*m_present_semaphores[*image_index]};
+                m_swapchain.present(*image_index, present_wait_semaphores.span());
+            }
 
             // Advance the frame index.
             m_frame_index = (m_frame_index + 1) % m_frame_futures.size();
@@ -145,8 +116,8 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             // Pass the frame info to the render tasklet.
             m_promise.fulfill(FrameInfo{
                 .acquire_semaphore = acquire_semaphore,
-                .present_semaphore = m_present_semaphores[image_index],
-                .swapchain_image = m_swapchain.image(image_index),
+                .present_semaphore = m_present_semaphores[*image_index],
+                .swapchain_image = m_swapchain.image(*image_index),
                 .graph = *render_graph,
                 .pass_times = vull::move(pass_times),
                 .frame_index = m_frame_index,
