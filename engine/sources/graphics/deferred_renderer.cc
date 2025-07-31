@@ -39,12 +39,7 @@ struct PointLight {
 
 } // namespace
 
-DeferredRenderer::DeferredRenderer(vk::Context &context, vkb::Extent3D viewport_extent)
-    : m_context(context), m_viewport_extent(viewport_extent) {
-    m_tile_extent = {
-        .width = vull::ceil_div(viewport_extent.width, k_tile_size),
-        .height = vull::ceil_div(viewport_extent.height, k_tile_size),
-    };
+DeferredRenderer::DeferredRenderer(vk::Context &context) : m_context(context) {
     create_set_layouts();
     create_pipelines();
 }
@@ -136,7 +131,10 @@ void DeferredRenderer::create_pipelines() {
                                           .add_set_layout(m_set_layout)
                                           .add_shader(deferred_shader)
                                           .set_constant("k_tile_size", k_tile_size)
-                                          .set_constant("k_row_tile_count", m_tile_extent.width)
+                                          .set_push_constant_range({
+                                              .stageFlags = vkb::ShaderStage::Compute,
+                                              .size = sizeof(uint32_t),
+                                          })
                                           .build(m_context));
 
     auto triangle_shader = VULL_EXPECT(vk::Shader::load(m_context, "/shaders/fst.vert"));
@@ -155,24 +153,25 @@ void DeferredRenderer::create_pipelines() {
                                               .build(m_context));
 }
 
-GBuffer DeferredRenderer::create_gbuffer(vk::RenderGraph &graph) {
+// NOLINTNEXTLINE
+GBuffer DeferredRenderer::create_gbuffer(vk::RenderGraph &graph, Vec2u viewport_extent) {
     vk::AttachmentDescription albedo_description{
-        .extent = {m_viewport_extent.width, m_viewport_extent.height},
+        .extent = {viewport_extent.x(), viewport_extent.y()},
         .format = vkb::Format::R8G8B8A8Unorm,
         .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
     };
     vk::AttachmentDescription normal_description{
-        .extent = {m_viewport_extent.width, m_viewport_extent.height},
+        .extent = {viewport_extent.x(), viewport_extent.y()},
         .format = vkb::Format::R16G16Snorm,
         .usage = vkb::ImageUsage::ColorAttachment | vkb::ImageUsage::Sampled,
     };
     vk::AttachmentDescription depth_description{
-        .extent = {m_viewport_extent.width, m_viewport_extent.height},
+        .extent = {viewport_extent.x(), viewport_extent.y()},
         .format = vkb::Format::D32Sfloat,
         .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
     };
     return GBuffer{
-        .viewport_extent{m_viewport_extent.width, m_viewport_extent.height},
+        .viewport_extent = viewport_extent,
         .albedo = graph.new_attachment("gbuffer-albedo", albedo_description),
         .normal = graph.new_attachment("gbuffer-normal", normal_description),
         .depth = graph.new_attachment("gbuffer-depth", depth_description),
@@ -188,6 +187,10 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         .colour = Vec3f(1.0f),
     });
 
+    Vec2u tile_extent;
+    tile_extent.set_x(vull::ceil_div(gbuffer.viewport_extent.x(), k_tile_size));
+    tile_extent.set_y(vull::ceil_div(gbuffer.viewport_extent.y(), k_tile_size));
+
     vk::BufferDescription descriptor_buffer_description{
         .size = m_set_layout_size,
         .usage = vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::ResourceDescriptorBufferEXT,
@@ -199,8 +202,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         .host_accessible = true,
     };
     vk::BufferDescription visibility_buffer_description{
-        .size =
-            (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * m_tile_extent.width * m_tile_extent.height,
+        .size = (sizeof(uint32_t) + k_tile_max_light_count * sizeof(uint32_t)) * tile_extent.x() * tile_extent.y(),
         .usage = vkb::BufferUsage::StorageBuffer,
     };
     auto descriptor_buffer_id = graph.new_buffer("deferred-descriptor-buffer", descriptor_buffer_description);
@@ -233,11 +235,11 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_light_cull_pipeline);
-        cmd_buf.dispatch(m_tile_extent.width, m_tile_extent.height);
+        cmd_buf.dispatch(tile_extent.x(), tile_extent.y());
     });
 
     vk::AttachmentDescription hdr_image_description{
-        .extent = {m_viewport_extent.width, m_viewport_extent.height},
+        .extent = {gbuffer.viewport_extent.x(), gbuffer.viewport_extent.y()},
         .format = vkb::Format::R16G16B16A16Sfloat,
         .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::TransferSrc,
     };
@@ -255,7 +257,9 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_deferred_pipeline);
-        cmd_buf.dispatch(vull::ceil_div(m_viewport_extent.width, 8), vull::ceil_div(m_viewport_extent.height, 8));
+        cmd_buf.push_constants(vkb::ShaderStage::Compute, tile_extent.x());
+        cmd_buf.dispatch(vull::ceil_div(gbuffer.viewport_extent.x(), 8),
+                         vull::ceil_div(gbuffer.viewport_extent.y(), 8));
     });
 
     auto &blit_tonemap_pass =

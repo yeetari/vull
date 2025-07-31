@@ -6,7 +6,6 @@
 #include "lib/ubo.glsl"
 
 layout (constant_id = 0) const uint k_tile_size = 0;
-layout (constant_id = 1) const uint k_row_tile_count = 0;
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
@@ -25,6 +24,10 @@ layout (binding = 2) restrict readonly buffer LightVisibilities {
     LightVisibility g_light_visibilities[];
 };
 
+layout (push_constant) uniform PushConstants {
+    uint g_row_tile_count;
+};
+
 void main() {
     float depth = texelFetch(g_depth_image, ivec2(gl_GlobalInvocationID.xy), 0).r;
     if (depth == 0.0f) {
@@ -33,7 +36,7 @@ void main() {
 
     // Compute tile index for light culling buckets.
     ivec2 tile_id = ivec2(gl_GlobalInvocationID.xy / k_tile_size);
-    uint tile_index = tile_id.y * k_row_tile_count + tile_id.x;
+    uint tile_index = tile_id.y * g_row_tile_count + tile_id.x;
 
     vec4 albedo = texelFetch(g_albedo_image, ivec2(gl_GlobalInvocationID.xy), 0);
     vec3 normal = decode_normal(texelFetch(g_normal_image, ivec2(gl_GlobalInvocationID.xy), 0).rg);

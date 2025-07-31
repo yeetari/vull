@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/maths/vec.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/vulkan.hh>
 
@@ -17,8 +18,6 @@ struct GBuffer;
 
 class DeferredRenderer {
     vk::Context &m_context;
-    vkb::Extent3D m_viewport_extent{};
-    vkb::Extent3D m_tile_extent{};
 
     vkb::DescriptorSetLayout m_set_layout;
     vkb::DeviceSize m_set_layout_size;
@@ -32,7 +31,7 @@ class DeferredRenderer {
     void create_pipelines();
 
 public:
-    DeferredRenderer(vk::Context &context, vkb::Extent3D viewport_extent);
+    explicit DeferredRenderer(vk::Context &context);
     DeferredRenderer(const DeferredRenderer &) = delete;
     DeferredRenderer(DeferredRenderer &&) = delete;
     ~DeferredRenderer();
@@ -40,7 +39,7 @@ public:
     DeferredRenderer &operator=(const DeferredRenderer &) = delete;
     DeferredRenderer &operator=(DeferredRenderer &&) = delete;
 
-    GBuffer create_gbuffer(vk::RenderGraph &graph);
+    GBuffer create_gbuffer(vk::RenderGraph &graph, Vec2u viewport_extent);
     void build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::ResourceId &frame_ubo, vk::ResourceId &target);
     void set_exposure(float exposure) { m_exposure = exposure; }
 };

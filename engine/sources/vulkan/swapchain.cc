@@ -106,10 +106,11 @@ Swapchain::Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR sur
                 .layerCount = 1,
             },
         };
+        vkb::Extent3D extent{m_extent.width, m_extent.height, 1};
         vkb::ImageView view;
         VULL_ENSURE(context.vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
         m_images.push(
-            Image(context, extent_3D(), view_ci.format, ImageView(&context, image, view, view_ci.subresourceRange)));
+            Image(context, extent, view_ci.format, ImageView(&context, image, view, view_ci.subresourceRange)));
     }
 }
 

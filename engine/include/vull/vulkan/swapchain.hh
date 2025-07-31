@@ -39,9 +39,7 @@ public:
     void present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphores) const;
 
     Context &context() const { return m_context; }
-    Vec2f dimensions() const { return {static_cast<float>(m_extent.width), static_cast<float>(m_extent.height)}; }
-    vkb::Extent2D extent_2D() const { return m_extent; }
-    vkb::Extent3D extent_3D() const { return {m_extent.width, m_extent.height, 1}; }
+    Vec2u extent() const { return {m_extent.width, m_extent.height}; }
     Image &image(uint32_t index);
     const Image &image(uint32_t index) const;
     uint32_t image_count() const { return m_images.size(); }
