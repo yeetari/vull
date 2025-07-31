@@ -128,6 +128,11 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
     m_window->on_mouse_release(MouseButton::Middle, [this](Vec2f) {
         m_window->cursor_grabbed() ? m_window->ungrab_cursor() : m_window->grab_cursor();
     });
+    m_window->on_key_release(Key::Return, [this](ModifierMask mask) {
+        if ((mask & ModifierMask::Alt) == ModifierMask::Alt) {
+            m_window->set_fullscreen(!m_window->is_fullscreen());
+        }
+    });
 
     // TODO: Delta and position shouldn't be floats.
     m_window->on_mouse_move([this](Vec2f delta, Vec2f position, MouseButtonMask buttons) {
@@ -154,6 +159,7 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
     main_window.content_pane().add_child<ui::Label>("F2 for time graphs");
     main_window.content_pane().add_child<ui::Label>("F3 for pipeline statistics");
     main_window.content_pane().add_child<ui::Label>("F4 for camera settings");
+    main_window.content_pane().add_child<ui::Label>("ALT+ENTER for fullscreen");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([this] {
         m_should_close = true;
