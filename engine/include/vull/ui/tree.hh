@@ -15,7 +15,7 @@ class Style;
 
 class Tree {
     Style &m_style;
-    Vec2f m_ppcm;
+    float m_ppcm;
     UniquePtr<Element> m_root_element;
     Optional<Element &> m_active_element;
     Optional<Element &> m_hovered_element;
@@ -30,7 +30,7 @@ class Tree {
     void unset_hovered_element();
 
 public:
-    Tree(Style &style, Vec2f ppcm) : m_style(style), m_ppcm(ppcm) {}
+    Tree(Style &style, float ppcm) : m_style(style), m_ppcm(ppcm) {}
 
     template <typename T, typename... Args>
     T &set_root(Args &&...args);
@@ -48,7 +48,7 @@ public:
     void handle_mouse_move(Vec2i delta, Vec2u position, MouseButtonMask buttons);
 
     Style &style() const { return m_style; }
-    Vec2f ppcm() const { return m_ppcm; }
+    float ppcm() const { return m_ppcm; }
     Optional<Element &> active_element() const { return m_active_element; }
     Optional<Element &> hovered_element() const { return m_hovered_element; }
 };

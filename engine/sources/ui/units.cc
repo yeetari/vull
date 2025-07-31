@@ -9,8 +9,7 @@ LayoutUnit Length::resolve(Tree &tree, LayoutUnit maximum) const {
     case LengthType::Absolute:
         return m_layout_value;
     case LengthType::Cm:
-        // TODO: Will ppcm.x always equal ppcm.y?
-        return LayoutUnit::from_float_pixels(m_float_value * tree.ppcm().x());
+        return LayoutUnit::from_float_pixels(m_float_value * tree.ppcm());
     case LengthType::Percentage:
         return maximum.scale_by(m_float_value / 100.0f);
     case LengthType::Grow:

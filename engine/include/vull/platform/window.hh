@@ -27,7 +27,7 @@ using WindowCloseCallback = void();
 class Window {
 protected:
     Vec2u m_resolution;
-    Vec2f m_ppcm;
+    float m_ppcm;
     Function<WindowCloseCallback> m_close_callback;
 
     // TODO: Make an InputSystem class.
@@ -42,7 +42,7 @@ protected:
     MouseButtonMask m_buttons;
     Array<bool, static_cast<uint8_t>(Key::Count)> m_keys{};
 
-    explicit Window(Vec2f ppcm) : m_ppcm(ppcm) {}
+    explicit Window(float ppcm) : m_ppcm(ppcm) {}
 
 public:
     static Result<UniquePtr<Window>, WindowError> create(Optional<uint16_t> width, Optional<uint16_t> height,
@@ -77,7 +77,7 @@ public:
 
     float aspect_ratio() const;
     Vec2u resolution() const { return m_resolution; }
-    Vec2f ppcm() const { return m_ppcm; }
+    float ppcm() const { return m_ppcm; }
 };
 
 inline float Window::aspect_ratio() const {

@@ -51,7 +51,7 @@ class WindowX11 : public Window {
     void handle_event(const xcb_ge_generic_event_t *);
 
 public:
-    WindowX11(Vec2f ppcm, xcb_connection_t *connection, xcb_screen_t *screen,
+    WindowX11(float ppcm, xcb_connection_t *connection, xcb_screen_t *screen,
               xcb_intern_atom_reply_t *delete_window_atom, xkb_state *xkb_state, uint32_t id, uint32_t hidden_cursor_id,
               uint8_t xinput_opcode)
         : Window(ppcm), m_connection(connection), m_screen(screen), m_delete_window_atom(delete_window_atom),
@@ -465,15 +465,15 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
     xcb_create_cursor(connection, hidden_cursor_id, hidden_pixmap_id, hidden_pixmap_id, 0, 0, 0, 0, 0, 0, 0, 0);
     xcb_free_pixmap(connection, hidden_pixmap_id);
 
-    // Calculate the ppcm with RandR.
-    Vec2f resolution_float(*width, *height);
+    // Calculate the vertical ppcm with RandR.
     auto primary_output_request = xcb_randr_get_output_primary(connection, id);
     auto *primary_output = xcb_randr_get_output_primary_reply(connection, primary_output_request, nullptr);
     auto output_info_request = xcb_randr_get_output_info(connection, primary_output->output, 0);
     auto *output_info = xcb_randr_get_output_info_reply(connection, output_info_request, nullptr);
-    auto width_cm = static_cast<float>(output_info->mm_width) / 10.0f;
-    auto height_cm = width_cm / (resolution_float.x() / resolution_float.y());
-    Vec2f ppcm = resolution_float / Vec2f(width_cm, height_cm);
+    const Vec2f screen_extent(screen->width_in_pixels, screen->height_in_pixels);
+    const float height_cm = static_cast<float>(output_info->mm_width) / (screen_extent.x() / screen_extent.y()) / 10.0f;
+    const float ppcm = screen_extent.y() / height_cm;
+    vull::debug("[platform] Screen height {} cm with {} ppcm", height_cm, ppcm);
     free(output_info);
     free(primary_output);
 
