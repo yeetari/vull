@@ -5,10 +5,8 @@
 #include "lib/shadow.glsl"
 #include "lib/ubo.glsl"
 
-layout (constant_id = 0) const uint k_viewport_width = 0;
-layout (constant_id = 1) const uint k_viewport_height = 0;
-layout (constant_id = 2) const uint k_tile_size = 0;
-layout (constant_id = 3) const uint k_row_tile_count = 0;
+layout (constant_id = 0) const uint k_tile_size = 0;
+layout (constant_id = 1) const uint k_row_tile_count = 0;
 
 layout (local_size_x = 8, local_size_y = 8) in;
 

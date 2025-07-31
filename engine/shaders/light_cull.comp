@@ -5,12 +5,10 @@
 
 #extension GL_EXT_shader_atomic_float2 : enable
 
-layout (constant_id = 0) const uint k_viewport_width = 0;
-layout (constant_id = 1) const uint k_viewport_height = 0;
-layout (constant_id = 2) const uint k_tile_size = 0;
-layout (constant_id = 3) const uint k_tile_max_light_count = 0;
+layout (constant_id = 0) const uint k_tile_size = 0;
+layout (constant_id = 1) const uint k_tile_max_light_count = 0;
 
-layout (local_size_x_id = 2) in;
+layout (local_size_x_id = 0) in;
 
 DECLARE_UBO(0, 0);
 layout (binding = 1, std430) restrict readonly buffer Lights {

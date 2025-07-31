@@ -127,8 +127,6 @@ void DeferredRenderer::create_pipelines() {
     m_light_cull_pipeline = VULL_EXPECT(vk::PipelineBuilder()
                                             .add_set_layout(m_set_layout)
                                             .add_shader(light_cull_shader)
-                                            .set_constant("k_viewport_width", m_viewport_extent.width)
-                                            .set_constant("k_viewport_height", m_viewport_extent.height)
                                             .set_constant("k_tile_size", k_tile_size)
                                             .set_constant("k_tile_max_light_count", k_tile_max_light_count)
                                             .build(m_context));
@@ -137,8 +135,6 @@ void DeferredRenderer::create_pipelines() {
     m_deferred_pipeline = VULL_EXPECT(vk::PipelineBuilder()
                                           .add_set_layout(m_set_layout)
                                           .add_shader(deferred_shader)
-                                          .set_constant("k_viewport_width", m_viewport_extent.width)
-                                          .set_constant("k_viewport_height", m_viewport_extent.height)
                                           .set_constant("k_tile_size", k_tile_size)
                                           .set_constant("k_row_tile_count", m_tile_extent.width)
                                           .build(m_context));
