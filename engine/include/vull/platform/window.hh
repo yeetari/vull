@@ -42,7 +42,7 @@ protected:
     MouseButtonMask m_buttons;
     Array<bool, static_cast<uint8_t>(Key::Count)> m_keys{};
 
-    Window(Vec2u resolution, Vec2f ppcm) : m_resolution(resolution), m_ppcm(ppcm) {}
+    explicit Window(Vec2f ppcm) : m_ppcm(ppcm) {}
 
 public:
     static Result<UniquePtr<Window>, WindowError> create(Optional<uint16_t> width, Optional<uint16_t> height,

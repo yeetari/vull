@@ -2,6 +2,7 @@
 
 #include <vull/container/vector.hh>
 #include <vull/maths/vec.hh>
+#include <vull/support/optional.hh>
 #include <vull/support/span.hh>
 #include <vull/vulkan/vulkan.hh>
 
@@ -20,14 +21,17 @@ enum class SwapchainMode {
 
 class Swapchain {
     Context &m_context;
-    vkb::Extent2D m_extent;
     vkb::SurfaceKHR m_surface;
-    vkb::SurfaceCapabilitiesKHR m_surface_capabilities{};
+    vkb::PresentModeKHR m_present_mode;
+
+    vkb::Extent2D m_extent{};
     vkb::SwapchainKHR m_swapchain{nullptr};
+    vkb::SwapchainKHR m_old_swapchain{nullptr};
     Vector<Image> m_images;
+    bool m_recreate_required{true};
 
 public:
-    Swapchain(Context &context, vkb::Extent2D extent, vkb::SurfaceKHR surface, SwapchainMode mode);
+    Swapchain(Context &context, vkb::SurfaceKHR surface, SwapchainMode mode);
     Swapchain(const Swapchain &) = delete;
     Swapchain(Swapchain &&);
     ~Swapchain();
@@ -35,8 +39,10 @@ public:
     Swapchain &operator=(const Swapchain &) = delete;
     Swapchain &operator=(Swapchain &&) = delete;
 
-    uint32_t acquire_image(vkb::Semaphore semaphore) const;
-    void present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphores) const;
+    Optional<uint32_t> acquire_image(vkb::Semaphore semaphore);
+    void present(uint32_t image_index, Span<vkb::Semaphore> wait_semaphores);
+    void recreate(Vec2u extent);
+    bool is_recreate_required(Vec2u window_extent) const;
 
     Context &context() const { return m_context; }
     Vec2u extent() const { return {m_extent.width, m_extent.height}; }

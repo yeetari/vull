@@ -22,7 +22,6 @@
 #include <vull/scene/scene.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
-#include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
@@ -87,16 +86,18 @@ class Sandbox {
     bool m_should_close{false};
 
 public:
-    static Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> create(bool enable_validation);
+    static Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError, vkb::Result>
+    create(bool enable_validation);
 
-    Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context);
+    Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context, vk::Swapchain &&swapchain);
     void load_scene(StringView scene_name);
     tasklet::Future<void> render_frame(FramePacer &frame_pacer);
     void start_loop();
 };
 
-Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> Sandbox::create(bool enable_validation) {
-    auto window = VULL_TRY(platform::Window::create(vull::nullopt, vull::nullopt, true));
+Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError, vkb::Result>
+Sandbox::create(bool enable_validation) {
+    auto window = VULL_TRY(platform::Window::create(1280, 720, false));
     vk::AppInfo app_info{
         .name = "Vull Sandbox",
         .version = 1,
@@ -104,12 +105,12 @@ Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError> Sandbox::cre
         .enable_validation = enable_validation,
     };
     auto context = VULL_TRY(vk::Context::create(app_info));
-    return vull::make_unique<Sandbox>(vull::move(window), vull::move(context));
+    auto swapchain = VULL_TRY(window->create_swapchain(*context, vk::SwapchainMode::LowPower));
+    return vull::make_unique<Sandbox>(vull::move(window), vull::move(context), vull::move(swapchain));
 }
 
-Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context)
-    : m_window(vull::move(window)), m_context(vull::move(context)),
-      m_swapchain(VULL_EXPECT(m_window->create_swapchain(*m_context, vk::SwapchainMode::LowPower))),
+Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&context, vk::Swapchain &&swapchain)
+    : m_window(vull::move(window)), m_context(vull::move(context)), m_swapchain(vull::move(swapchain)),
       m_pipeline_statistics_pool(*m_context, 2,
                                  vkb::QueryPipelineStatisticFlags::InputAssemblyVertices |
                                      vkb::QueryPipelineStatisticFlags::InputAssemblyPrimitives |
@@ -218,7 +219,7 @@ void Sandbox::load_scene(StringView scene_name) {
 
 tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
     platform::Timer acquire_frame_timer;
-    auto frame_info = frame_pacer.acquire_frame();
+    auto frame_info = frame_pacer.acquire_frame(m_window->resolution());
     m_cpu_time_graph->push_section("acquire-frame", acquire_frame_timer.elapsed());
 
     float dt = m_frame_timer.elapsed();

@@ -3,6 +3,7 @@
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/maths/vec.hh>
 #include <vull/platform/event.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/assert.hh>
@@ -23,6 +24,8 @@
 #include <vull/vulkan/render_graph.hh>
 #include <vull/vulkan/semaphore.hh>
 #include <vull/vulkan/swapchain.hh>
+
+#include <stdint.h>
 
 namespace vull {
 namespace {
@@ -69,12 +72,6 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         m_context.set_object_name(acquire_semaphore, vull::format("Acquire semaphore #{}", i));
     }
 
-    // There needs to be a present semaphore per swapchain image.
-    for (uint32_t i = 0; i < swapchain.image_count(); i++) {
-        auto &present_semaphore = m_present_semaphores.emplace(m_context);
-        m_context.set_object_name(present_semaphore, vull::format("Present semaphore #{}", i));
-    }
-
     // TODO(tasklet): Allow futures to start completed.
     for (auto &future : m_frame_futures) {
         future = tasklet::schedule([] {});
@@ -82,11 +79,24 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
 
     // Spawn WSI thread.
     auto &scheduler = tasklet::Scheduler::current();
-    m_thread = VULL_EXPECT(platform::Thread::create([this, &scheduler] mutable {
+    m_thread = VULL_EXPECT(platform::Thread::create([this, &scheduler] {
         scheduler.setup_thread();
 
         Optional<uint32_t> image_index;
         while (m_running.load(vull::memory_order_acquire)) {
+            if (m_swapchain.is_recreate_required(m_window_extent)) {
+                m_context.vkDeviceWaitIdle();
+                m_swapchain.recreate(m_window_extent);
+                image_index.clear();
+
+                // There needs to be a present semaphore per swapchain image.
+                m_present_semaphores.clear();
+                for (uint32_t i = 0; i < m_swapchain.image_count(); i++) {
+                    auto &present_semaphore = m_present_semaphores.emplace(m_context);
+                    m_context.set_object_name(present_semaphore, vull::format("Present semaphore #{}", i));
+                }
+            }
+
             // Present the current frame.
             if (image_index) {
                 Array present_wait_semaphores{*m_present_semaphores[*image_index]};
@@ -112,6 +122,9 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             // Acquire an image for the next frame.
             const auto &acquire_semaphore = m_acquire_semaphores[m_frame_index];
             image_index = m_swapchain.acquire_image(*acquire_semaphore);
+            if (!image_index) {
+                continue;
+            }
 
             // Pass the frame info to the render tasklet.
             m_promise.fulfill(FrameInfo{
@@ -140,7 +153,8 @@ FramePacer::~FramePacer() {
     m_context.vkDeviceWaitIdle();
 }
 
-FrameInfo FramePacer::acquire_frame() {
+FrameInfo FramePacer::acquire_frame(Vec2u window_extent) {
+    m_window_extent = window_extent;
     m_promise.wait();
     auto frame_info = vull::move(m_promise.value());
     m_promise.reset();

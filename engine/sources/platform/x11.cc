@@ -46,17 +46,16 @@ class WindowX11 : public Window {
     void handle_event(uint8_t, const xcb_key_press_event_t *);
     void handle_event(uint8_t, const xcb_button_press_event_t *);
     void handle_event(const xcb_motion_notify_event_t *);
-    void handle_event(const xcb_expose_event_t *);
+    void handle_event(const xcb_configure_notify_event_t *);
     void handle_event(const xcb_client_message_event_t *);
     void handle_event(const xcb_ge_generic_event_t *);
 
 public:
-    WindowX11(Vec2u resolution, Vec2f ppcm, xcb_connection_t *connection, xcb_screen_t *screen,
+    WindowX11(Vec2f ppcm, xcb_connection_t *connection, xcb_screen_t *screen,
               xcb_intern_atom_reply_t *delete_window_atom, xkb_state *xkb_state, uint32_t id, uint32_t hidden_cursor_id,
               uint8_t xinput_opcode)
-        : Window(resolution, ppcm), m_connection(connection), m_screen(screen),
-          m_delete_window_atom(delete_window_atom), m_xkb_state(xkb_state), m_id(id),
-          m_hidden_cursor_id(hidden_cursor_id), m_xinput_opcode(xinput_opcode) {}
+        : Window(ppcm), m_connection(connection), m_screen(screen), m_delete_window_atom(delete_window_atom),
+          m_xkb_state(xkb_state), m_id(id), m_hidden_cursor_id(hidden_cursor_id), m_xinput_opcode(xinput_opcode) {}
     WindowX11(const WindowX11 &) = delete;
     WindowX11(WindowX11 &&) = delete;
     ~WindowX11() override;
@@ -90,7 +89,7 @@ Result<vk::Swapchain, vkb::Result> WindowX11::create_swapchain(vk::Context &cont
     if (auto result = context.vkCreateXcbSurfaceKHR(&surface_ci, &surface); result != vkb::Result::Success) {
         return result;
     }
-    return vk::Swapchain(context, {m_resolution.x(), m_resolution.y()}, surface, mode);
+    return vk::Swapchain(context, surface, mode);
 }
 
 Span<const char *const> WindowX11::required_extensions() const {
@@ -267,7 +266,10 @@ void WindowX11::handle_event(const xcb_motion_notify_event_t *motion_event) {
     }
 }
 
-void WindowX11::handle_event(const xcb_expose_event_t *) {}
+void WindowX11::handle_event(const xcb_configure_notify_event_t *configure_event) {
+    m_resolution.set_x(configure_event->width);
+    m_resolution.set_y(configure_event->height);
+}
 
 void WindowX11::handle_event(const xcb_client_message_event_t *client_message) {
     if (client_message->data.data32[0] == m_delete_window_atom->atom && m_close_callback) {
@@ -326,14 +328,18 @@ void WindowX11::poll_events() {
         case XCB_MOTION_NOTIFY:
             handle_event(vull::bit_cast<xcb_motion_notify_event_t *>(event));
             break;
-        case XCB_EXPOSE:
-            handle_event(vull::bit_cast<xcb_expose_event_t *>(event));
+        case XCB_CONFIGURE_NOTIFY:
+            handle_event(vull::bit_cast<xcb_configure_notify_event_t *>(event));
             break;
         case XCB_CLIENT_MESSAGE:
             handle_event(vull::bit_cast<xcb_client_message_event_t *>(event));
             break;
         case XCB_GE_GENERIC:
             handle_event(vull::bit_cast<xcb_ge_generic_event_t *>(event));
+            break;
+        case XCB_UNMAP_NOTIFY:
+        case XCB_MAP_NOTIFY:
+        case XCB_REPARENT_NOTIFY:
             break;
         default:
             vull::warn("[platform] Received unknown X event {}", event_id);
@@ -381,7 +387,8 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
 
     // Create a window on the first screen.
     const uint32_t event_mask = XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE | XCB_EVENT_MASK_BUTTON_PRESS |
-                                XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_EXPOSURE;
+                                XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
+                                XCB_EVENT_MASK_STRUCTURE_NOTIFY;
     const uint32_t id = xcb_generate_id(connection);
     xcb_create_window(connection, screen->root_depth, id, screen->root, 0, 0, *width, *height, 0,
                       XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, XCB_CW_EVENT_MASK, &event_mask);
@@ -473,10 +480,8 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
     // Make the window visible and sync the connection.
     xcb_map_window(connection, id);
     free(xcb_get_input_focus_reply(connection, xcb_get_input_focus(connection), nullptr));
-
-    Vec2u resolution(*width, *height);
-    return vull::make_unique<WindowX11>(resolution, ppcm, connection, screen, delete_window_atom, xkb_state, id,
-                                        hidden_cursor_id, xinput->major_opcode);
+    return vull::make_unique<WindowX11>(ppcm, connection, screen, delete_window_atom, xkb_state, id, hidden_cursor_id,
+                                        xinput->major_opcode);
 }
 
 } // namespace vull::platform

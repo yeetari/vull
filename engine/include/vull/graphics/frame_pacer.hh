@@ -2,6 +2,7 @@
 
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/maths/vec.hh>
 #include <vull/platform/event.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/atomic.hh>
@@ -44,6 +45,7 @@ class FramePacer {
     platform::Event m_recorded_event;
     platform::Thread m_thread;
     tasklet::Promise<FrameInfo> m_promise;
+    Vec2u m_window_extent;
     uint32_t m_frame_index{0};
     Atomic<bool> m_running{true};
 
@@ -56,7 +58,7 @@ public:
     FramePacer &operator=(const FramePacer &) = delete;
     FramePacer &operator=(FramePacer &&) = delete;
 
-    FrameInfo acquire_frame();
+    FrameInfo acquire_frame(Vec2u window_extent);
     void submit_frame(tasklet::Future<void> &&future);
     uint32_t queue_length() const { return m_frame_futures.size(); }
 };

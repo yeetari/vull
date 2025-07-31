@@ -72,9 +72,9 @@ UniquePtr<CommandBuffer> Queue::request_cmd_buf() {
     return cmd_buf;
 }
 
-void Queue::present(const vkb::PresentInfoKHR &present_info) {
+vkb::Result Queue::present(const vkb::PresentInfoKHR &present_info) {
     ScopedLock lock(m_submit_mutexes[0]);
-    m_context.vkQueuePresentKHR(m_queues[0], &present_info);
+    return m_context.vkQueuePresentKHR(m_queues[0], &present_info);
 }
 
 tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,

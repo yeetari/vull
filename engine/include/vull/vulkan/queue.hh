@@ -46,7 +46,7 @@ public:
     Queue &operator=(Queue &&) = delete;
 
     UniquePtr<CommandBuffer> request_cmd_buf();
-    void present(const vkb::PresentInfoKHR &present_info);
+    vkb::Result present(const vkb::PresentInfoKHR &present_info);
     tasklet::Future<void> submit(UniquePtr<CommandBuffer> &&cmd_buf, Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
                                  Span<vkb::SemaphoreSubmitInfo> wait_semaphores);
     void wait_idle();
