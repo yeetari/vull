@@ -56,6 +56,7 @@ enum class Key : uint8_t {
     Z,
     Space,
     Shift,
+    Return,
     Count,
 };
 

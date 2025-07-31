@@ -69,6 +69,7 @@ public:
 
     void grab_cursor() override;
     void ungrab_cursor() override;
+    void set_fullscreen(bool fullscreen) override;
 };
 
 WindowX11::~WindowX11() {
@@ -182,6 +183,8 @@ Key translate_key(xkb_keysym_t keysym) {
         return Key::Space;
     case XKB_KEY_Shift_L:
         return Key::Shift;
+    case XKB_KEY_Return:
+        return Key::Return;
     default:
         return Key::Unknown;
     }
@@ -368,6 +371,37 @@ xcb_intern_atom_cookie_t intern_atom(xcb_connection_t *connection, StringView na
     return xcb_intern_atom(connection, 1, static_cast<uint16_t>(name.length()), name.data());
 }
 
+void WindowX11::set_fullscreen(bool fullscreen) {
+    if (vull::exchange(m_is_fullscreen, fullscreen) == fullscreen) {
+        return;
+    }
+
+    auto state_atom_request = intern_atom(m_connection, "_NET_WM_STATE");
+    auto fullscreen_atom_request = intern_atom(m_connection, "_NET_WM_STATE_FULLSCREEN");
+    auto *state_atom = xcb_intern_atom_reply(m_connection, state_atom_request, nullptr);
+    auto *fullscreen_atom = xcb_intern_atom_reply(m_connection, fullscreen_atom_request, nullptr);
+    xcb_client_message_event_t event{
+        .response_type = XCB_CLIENT_MESSAGE,
+        .format = 32,
+        .window = m_id,
+        .type = state_atom->atom,
+        .data{
+            .data32{
+                fullscreen ? 1u : 0u,
+                fullscreen_atom->atom,
+                0,
+                0,
+                0,
+            },
+        },
+    };
+    xcb_send_event(m_connection, 0, m_screen->root, XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
+                   vull::bit_cast<const char *>(&event));
+    xcb_flush(m_connection);
+    free(fullscreen_atom);
+    free(state_atom);
+}
+
 } // namespace
 
 // TODO: Improve the error checking here.
@@ -403,17 +437,6 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
     xcb_change_property(connection, XCB_PROP_MODE_REPLACE, id, protocols_atom->atom, XCB_ATOM_ATOM, 32, 1,
                         &delete_window_atom->atom);
     free(protocols_atom);
-
-    if (fullscreen) {
-        auto state_atom_request = intern_atom(connection, "_NET_WM_STATE");
-        auto fullscreen_atom_request = intern_atom(connection, "_NET_WM_STATE_FULLSCREEN");
-        auto *state_atom = xcb_intern_atom_reply(connection, state_atom_request, nullptr);
-        auto *fullscreen_atom = xcb_intern_atom_reply(connection, fullscreen_atom_request, nullptr);
-        xcb_change_property(connection, XCB_PROP_MODE_REPLACE, id, state_atom->atom, XCB_ATOM_ATOM, 32, 1,
-                            &fullscreen_atom->atom);
-        free(fullscreen_atom);
-        free(state_atom);
-    }
 
     // Setup XKB.
     if (xkb_x11_setup_xkb_extension(connection, XKB_X11_MIN_MAJOR_XKB_VERSION, XKB_X11_MIN_MINOR_XKB_VERSION,
@@ -480,8 +503,11 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
     // Make the window visible and sync the connection.
     xcb_map_window(connection, id);
     free(xcb_get_input_focus_reply(connection, xcb_get_input_focus(connection), nullptr));
-    return vull::make_unique<WindowX11>(ppcm, connection, screen, delete_window_atom, xkb_state, id, hidden_cursor_id,
-                                        xinput->major_opcode);
+
+    auto window = vull::make_unique<WindowX11>(ppcm, connection, screen, delete_window_atom, xkb_state, id,
+                                               hidden_cursor_id, xinput->major_opcode);
+    window->set_fullscreen(fullscreen);
+    return window;
 }
 
 } // namespace vull::platform

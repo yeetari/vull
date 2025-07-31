@@ -29,6 +29,7 @@ protected:
     Vec2u m_resolution;
     float m_ppcm;
     Function<WindowCloseCallback> m_close_callback;
+    bool m_is_fullscreen{false};
 
     // TODO: Make an InputSystem class.
     int16_t m_mouse_x{0};
@@ -73,11 +74,13 @@ public:
 
     virtual void grab_cursor() = 0;
     virtual void ungrab_cursor() = 0;
-    bool cursor_grabbed() const { return m_cursor_grabbed; }
+    virtual void set_fullscreen(bool fullscreen) = 0;
 
     float aspect_ratio() const;
     Vec2u resolution() const { return m_resolution; }
     float ppcm() const { return m_ppcm; }
+    bool is_fullscreen() const { return m_is_fullscreen; }
+    bool cursor_grabbed() const { return m_cursor_grabbed; }
 };
 
 inline float Window::aspect_ratio() const {
