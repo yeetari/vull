@@ -172,6 +172,7 @@ GBuffer DeferredRenderer::create_gbuffer(vk::RenderGraph &graph) {
         .usage = vkb::ImageUsage::DepthStencilAttachment | vkb::ImageUsage::Sampled,
     };
     return GBuffer{
+        .viewport_extent{m_viewport_extent.width, m_viewport_extent.height},
         .albedo = graph.new_attachment("gbuffer-albedo", albedo_description),
         .normal = graph.new_attachment("gbuffer-normal", normal_description),
         .depth = graph.new_attachment("gbuffer-depth", depth_description),

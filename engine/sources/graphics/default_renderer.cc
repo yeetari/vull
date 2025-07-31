@@ -93,8 +93,7 @@ struct UniformBuffer {
 
 } // namespace
 
-DefaultRenderer::DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent)
-    : m_context(context), m_viewport_extent(viewport_extent), m_texture_streamer(context) {
+DefaultRenderer::DefaultRenderer(vk::Context &context) : m_context(context), m_texture_streamer(context) {
     create_set_layouts();
     create_resources();
     create_pipelines();
@@ -187,9 +186,6 @@ void DefaultRenderer::create_set_layouts() {
 }
 
 void DefaultRenderer::create_resources() {
-    // Round down viewport to previous power of two.
-    m_depth_pyramid_extent = {1u << vull::log2(m_viewport_extent.width), 1u << vull::log2(m_viewport_extent.height)};
-
     m_object_visibility_buffer = m_context.create_buffer(
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
         vk::MemoryUsage::DeviceOnly);
@@ -343,7 +339,7 @@ void DefaultRenderer::load_scene(Scene &scene) {
     }
 }
 
-void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
+void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent) {
     const auto proj = m_camera->projection_matrix();
     const auto view = m_camera->view_matrix();
     const auto proj_view = proj * view;
@@ -369,8 +365,8 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer) {
         .view_position = m_camera->position(),
         .object_count = m_object_count,
         .frustum_planes = m_frustum_planes,
-        .viewport_width = m_viewport_extent.width,
-        .viewport_height = m_viewport_extent.height,
+        .viewport_width = viewport_extent.x(),
+        .viewport_height = viewport_extent.y(),
     };
     memcpy(buffer.mapped_raw(), &frame_ubo_data, sizeof(UniformBuffer));
 }
@@ -437,7 +433,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
                            .write(object_buffer_id);
     setup_pass.set_on_execute([=, this, &graph, objects = vull::move(objects)](vk::CommandBuffer &) {
         const auto &frame_ubo = graph.get_buffer(frame_ubo_id);
-        update_ubo(frame_ubo);
+        update_ubo(frame_ubo, gbuffer.viewport_extent);
 
         const auto &object_buffer = graph.get_buffer(object_buffer_id);
         memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
@@ -492,13 +488,16 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         record_draws(cmd_buf, draw_buffer);
     });
 
+    // Round down the viewport extent to the previous power of two.
+    Vec2u depth_pyramid_extent(1u << vull::log2(gbuffer.viewport_extent.x()),
+                               1u << vull::log2(gbuffer.viewport_extent.y()));
+
     // TODO: Make depth pyramid an imported resource so reduce pass can be conditionally disabled via
     //       m_cull_view_locked. This won't stall the pipeline since it's further into the frame, and will also
     //       reduce VRAM usage.
-    const auto depth_pyramid_mip_count =
-        vull::log2(vull::max(m_depth_pyramid_extent.width, m_depth_pyramid_extent.height)) + 1;
+    const auto depth_pyramid_mip_count = vull::log2(vull::max(depth_pyramid_extent.x(), depth_pyramid_extent.y())) + 1;
     vk::AttachmentDescription depth_pyramid_description{
-        .extent = m_depth_pyramid_extent,
+        .extent{depth_pyramid_extent.x(), depth_pyramid_extent.y()},
         .format = vkb::Format::R16Sfloat,
         .usage = vkb::ImageUsage::Storage | vkb::ImageUsage::Sampled,
         .mip_levels = depth_pyramid_mip_count,
@@ -533,8 +532,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
 
             DepthReduceData shader_data{
                 .mip_size{
-                    vull::max(m_depth_pyramid_extent.width >> i, 1),
-                    vull::max(m_depth_pyramid_extent.height >> i, 1),
+                    vull::max(depth_pyramid_extent.x() >> i, 1),
+                    vull::max(depth_pyramid_extent.y() >> i, 1),
                 },
             };
             cmd_buf.push_constants(vkb::ShaderStage::Compute, shader_data);

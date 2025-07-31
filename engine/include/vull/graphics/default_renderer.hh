@@ -30,7 +30,6 @@ class Scene;
 
 class DefaultRenderer {
     vk::Context &m_context;
-    vkb::Extent3D m_viewport_extent{};
     TextureStreamer m_texture_streamer;
 
     vkb::DescriptorSetLayout m_main_set_layout;
@@ -38,7 +37,6 @@ class DefaultRenderer {
     vkb::DeviceSize m_main_set_layout_size{0};
     vkb::DeviceSize m_reduce_set_layout_size{0};
 
-    vkb::Extent2D m_depth_pyramid_extent;
     vk::Buffer m_object_visibility_buffer;
     vk::Buffer m_vertex_buffer;
     vk::Buffer m_index_buffer;
@@ -66,11 +64,11 @@ class DefaultRenderer {
     void create_set_layouts();
     void create_resources();
     void create_pipelines();
-    void update_ubo(const vk::Buffer &buffer);
+    void update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent);
     void record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer);
 
 public:
-    DefaultRenderer(vk::Context &context, vkb::Extent3D viewport_extent);
+    explicit DefaultRenderer(vk::Context &context);
     DefaultRenderer(const DefaultRenderer &) = delete;
     DefaultRenderer(DefaultRenderer &&) = delete;
     ~DefaultRenderer();
