@@ -12,7 +12,7 @@ class Window;
 } // namespace vull::platform
 
 class FreeCamera final : public vull::Camera {
-    const float m_aspect_ratio;
+    float m_aspect_ratio{1.0f};
     vull::Vec3f m_position;
     vull::Vec3f m_forward;
     vull::Vec3f m_right;
@@ -21,8 +21,6 @@ class FreeCamera final : public vull::Camera {
     float m_fov{vull::half_pi<float>};
 
 public:
-    explicit FreeCamera(float aspect_ratio) : m_aspect_ratio(aspect_ratio) {}
-
     void handle_mouse_move(vull::Vec2f delta);
     void update(const vull::platform::Window &window, float dt);
 

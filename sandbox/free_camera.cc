@@ -43,6 +43,7 @@ void FreeCamera::update(const vull::platform::Window &window, float dt) {
     if (window.is_key_pressed(vull::Key::D)) {
         m_position += m_right * speed;
     }
+    m_aspect_ratio = window.aspect_ratio();
 }
 
 vull::Vec3f FreeCamera::up() const {

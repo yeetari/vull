@@ -119,8 +119,7 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
       m_deferred_renderer(*m_context), m_default_renderer(*m_context), m_skybox_renderer(*m_context),
       m_ui_style(VULL_EXPECT(ui::Font::load("/fonts/Inter-Medium", 18)),
                  VULL_EXPECT(ui::Font::load("/fonts/RobotoMono-Regular", 18))),
-      m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(*m_context), m_font_atlas(*m_context, Vec2u(512, 512)),
-      m_free_camera(m_window->aspect_ratio()) {
+      m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(*m_context), m_font_atlas(*m_context, Vec2u(512, 512)) {
     m_window->grab_cursor();
     m_window->on_close([this] {
         m_should_close = true;
