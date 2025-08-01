@@ -42,9 +42,4 @@ layout (set = s, binding = b, scalar) restrict readonly buffer ObjectBuffer { \
     Object g_objects[]; \
 };
 
-#define DECLARE_VERTEX_BUFFER(s, b) \
-layout (set = s, binding = b, scalar) restrict readonly buffer VertexBuffer { \
-    Vertex g_vertices[]; \
-};
-
 #endif

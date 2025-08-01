@@ -141,13 +141,6 @@ void DefaultRenderer::create_set_layouts() {
             .descriptorCount = 1,
             .stageFlags = vkb::ShaderStage::Compute,
         },
-        // Vertex buffer.
-        vkb::DescriptorSetLayoutBinding{
-            .binding = 5,
-            .descriptorType = vkb::DescriptorType::StorageBuffer,
-            .descriptorCount = 1,
-            .stageFlags = vkb::ShaderStage::Vertex,
-        },
     };
     vkb::DescriptorSetLayoutCreateInfo main_set_layout_ci{
         .sType = vkb::StructureType::DescriptorSetLayoutCreateInfo,
@@ -209,6 +202,10 @@ void DefaultRenderer::create_pipelines() {
                                          .set_cull_mode(vkb::CullMode::Back, vkb::FrontFace::CounterClockwise)
                                          .set_depth_format(vkb::Format::D32Sfloat)
                                          .set_depth_params(vkb::CompareOp::GreaterOrEqual, true, true)
+                                         .set_push_constant_range({
+                                             .stageFlags = vkb::ShaderStage::Vertex,
+                                             .size = sizeof(vkb::DeviceAddress),
+                                         })
                                          .set_topology(vkb::PrimitiveTopology::TriangleList)
                                          .build(m_context));
 
@@ -372,6 +369,7 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent
 }
 
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer) {
+    cmd_buf.push_constants(vkb::ShaderStage::Vertex, m_vertex_buffer.device_address());
     cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
     cmd_buf.draw_indexed_indirect_count(draw_buffer, sizeof(uint32_t), draw_buffer, 0, m_object_count, sizeof(DrawCmd));
 }
@@ -442,7 +440,6 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         descriptor_builder.set(0, 0, frame_ubo);
         descriptor_builder.set(1, 0, object_buffer);
         descriptor_builder.set(2, 0, m_object_visibility_buffer);
-        descriptor_builder.set(5, 0, m_vertex_buffer);
     });
 
     vk::BufferDescription draw_buffer_description{

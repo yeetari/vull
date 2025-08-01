@@ -6,14 +6,22 @@
 DECLARE_UBO(0, 0);
 DECLARE_DRAW_BUFFER(0, 3);
 DECLARE_OBJECT_BUFFER(0, 1);
-DECLARE_VERTEX_BUFFER(0, 5);
 
 layout (location = 0) out vec4 g_out_position;
 layout (location = 1) out vec4 g_out_normal;
 layout (location = 2) out flat uvec2 g_out_texture_indices;
 
+layout (buffer_reference, std430) restrict readonly buffer VertexBuffer {
+    Vertex vertices[];
+};
+
+layout (push_constant) uniform PushConstants {
+    VertexBuffer g_vertex_buffer;
+};
+
 void main() {
-    Vertex vertex = g_vertices[gl_VertexIndex];
+    restrict Object object = g_objects[g_draws[gl_DrawID].object_index];
+    restrict Vertex vertex = g_vertex_buffer.vertices[gl_VertexIndex];
 
     // Unpack FP16 position.
     vec3 position = vec3(0);
@@ -31,7 +39,6 @@ void main() {
     // TODO: Unpack in fragment shader?
     vec2 uv = unpackHalf2x16(vertex.uv);
 
-    Object object = g_objects[g_draws[gl_DrawID].object_index];
     vec4 world_position = object.transform * vec4(position, 1.0f);
     g_out_position = vec4(world_position.xyz, uv.x);
     g_out_normal = vec4(adjugate(object.transform) * normal, uv.y);
