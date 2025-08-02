@@ -8,6 +8,7 @@ find engine/sources engine/tests sandbox tools \
     -and -not -name 'gltf_parser.cc' \
     -and -not -name 'variant.cc' \
     -and -not -name 'vector.cc' \
+    -and -not -name 'wayland.cc' \
     -print0 |
 parallel -0 \
     include-what-you-use \
