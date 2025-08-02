@@ -44,7 +44,6 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     if (platform::Thread::block_signals().is_error()) {
         vull::error("[main] Failed to mask signals");
     }
-    VULL_IGNORE(platform::Thread::current().set_name("Main thread"));
 
     // Default to directory containing the executable.
     if (vpak_directory_path.empty()) {
