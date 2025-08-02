@@ -39,9 +39,9 @@ RUN apt-get update \
       libllvmlibc-19-dev \
       libstdc++-13-dev \
       liburing-dev \
+      libwayland-dev \
       libx11-dev \
       libxcb-randr0-dev \
-      libxcb-util-dev \
       libxcb-xkb-dev \
       libxcb-xinput-dev \
       libxkbcommon-dev \
@@ -52,6 +52,8 @@ RUN apt-get update \
       ninja-build \
       parallel \
       shaderc \
+      wayland-protocols \
+      wayland-utils \
  && rm -rf \
    /var/lib/apt/lists/* \
  && ln -sf /usr/bin/g++-13 /usr/bin/g++ \
