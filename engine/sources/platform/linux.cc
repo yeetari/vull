@@ -14,6 +14,7 @@
 #include <vull/support/algorithm.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
+#include <vull/support/function.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
@@ -22,6 +23,7 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/fiber.hh>
+#include <vull/tasklet/future.hh>
 #include <vull/tasklet/io.hh>
 #include <vull/tasklet/scheduler.hh>
 
@@ -48,6 +50,7 @@
 #include <string.h>
 #include <sys/eventfd.h>
 #include <sys/mman.h>
+#include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -668,6 +671,51 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
         }
     }
     io_uring_queue_exit(&ring);
+}
+
+void take_over_main_thread(tasklet::Future<void> &&future, Function<void()> stop_fn) {
+    // We can't poll on a future (futex), so use an event.
+    Event event;
+    future.and_then([&] {
+        event.set();
+    });
+
+    sigset_t signal_mask;
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGINT);
+    sigaddset(&signal_mask, SIGQUIT);
+    int signal_fd = signalfd(-1, &signal_mask, SFD_CLOEXEC);
+
+    Array poll_fds{
+        pollfd{
+            .fd = event.fd(),
+            .events = POLLIN,
+        },
+        pollfd{
+            .fd = signal_fd,
+            .events = POLLIN,
+        },
+    };
+    while (true) {
+        poll(poll_fds.data(), poll_fds.size(), -1);
+
+        // Check if the application has finished normally.
+        if ((poll_fds[0].revents & POLLIN) != 0) {
+            event.reset();
+            break;
+        }
+
+        if ((poll_fds[1].revents & POLLIN) != 0) {
+            signalfd_siginfo signal_info{};
+            if (read(signal_fd, &signal_info, sizeof(signalfd_siginfo)) < 0) {
+                vull::error("[platform] signalfd read failed");
+                continue;
+            }
+
+            vull::debug("[platform] Received SIG{}", sigabbrev_np(static_cast<int>(signal_info.ssi_signo)));
+            stop_fn();
+        }
+    }
 }
 
 void wake_address_single(uint32_t *address) {

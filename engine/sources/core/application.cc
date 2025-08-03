@@ -3,6 +3,7 @@
 #include <vull/core/log.hh>
 #include <vull/maths/common.hh>
 #include <vull/platform/file.hh>
+#include <vull/platform/tasklet.hh>
 #include <vull/platform/thread.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/function.hh>
@@ -11,6 +12,7 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
+#include <vull/tasklet/functions.hh>
 #include <vull/tasklet/scheduler.hh>
 #include <vull/vpak/file_system.hh>
 
@@ -27,7 +29,8 @@ static int vpak_select(const struct dirent *entry) {
     return StringView(static_cast<const char *>(entry->d_name)).ends_with(".vpak") ? 1 : 0;
 }
 
-int start_application(int argc, char **argv, ArgsParser &args_parser, Function<void()> start_fn) {
+int start_application(int argc, char **argv, ArgsParser &args_parser, Function<void()> start_fn,
+                      Function<void()> stop_fn) {
     uint32_t fiber_limit = 256;
     uint32_t thread_count = vull::max(platform::core_count() / 2, 2);
     String vpak_directory_path;
@@ -39,7 +42,6 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     }
 
     // Install fault handler and block conventional signal handlers for the whole process.
-    // TODO: Use signalfd to handle SIGINT, SIGQUIT, etc.
     platform::install_fault_handler();
     if (platform::Thread::block_signals().is_error()) {
         vull::error("[main] Failed to mask signals");
@@ -68,7 +70,10 @@ int start_application(int argc, char **argv, ArgsParser &args_parser, Function<v
     free(entry_list);
 
     tasklet::Scheduler scheduler(thread_count, fiber_limit, true);
-    scheduler.run(vull::move(start_fn));
+    scheduler.setup_thread();
+    platform::take_over_main_thread(tasklet::schedule(vull::move(start_fn)), vull::move(stop_fn));
+
+    // Make sure the log is closed after the scheduler has fully stopped.
     scheduler.join();
     vull::close_log();
     return EXIT_SUCCESS;

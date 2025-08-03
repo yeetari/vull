@@ -21,6 +21,7 @@
 #include <vull/platform/window.hh>
 #include <vull/scene/scene.hh>
 #include <vull/support/args_parser.hh>
+#include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
@@ -83,7 +84,7 @@ class Sandbox {
     platform::Timer m_frame_timer;
     PhysicsEngine m_physics_engine;
     Scene m_scene;
-    bool m_should_close{false};
+    Atomic<bool> m_should_close;
 
 public:
     static Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError, vkb::Result>
@@ -93,6 +94,7 @@ public:
     void load_scene(StringView scene_name);
     tasklet::Future<void> render_frame(FramePacer &frame_pacer);
     void start_loop();
+    void close();
 };
 
 Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError, vkb::Result>
@@ -123,7 +125,7 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
       m_ui_tree(m_ui_style, m_window->ppcm()), m_ui_renderer(*m_context), m_font_atlas(*m_context, Vec2u(512, 512)) {
     m_window->grab_cursor();
     m_window->on_close([this] {
-        m_should_close = true;
+        close();
     });
     m_window->on_mouse_release(MouseButton::Middle, [this](Vec2f) {
         m_window->cursor_grabbed() ? m_window->ungrab_cursor() : m_window->grab_cursor();
@@ -162,7 +164,7 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
     main_window.content_pane().add_child<ui::Label>("ALT+ENTER for fullscreen");
     auto &quit_button = main_window.content_pane().add_child<ui::Button>("Quit");
     quit_button.set_on_release([this] {
-        m_should_close = true;
+        close();
     });
 
     auto &graphs_window = screen_pane.add_child<ui::Window>("Graphs");
@@ -320,9 +322,13 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
 
 void Sandbox::start_loop() {
     FramePacer frame_pacer(m_swapchain, 2);
-    while (!m_should_close) {
+    while (!m_should_close.load(vull::memory_order_relaxed)) {
         frame_pacer.submit_frame(render_frame(frame_pacer));
     }
+}
+
+void Sandbox::close() {
+    m_should_close.store(true, vull::memory_order_relaxed);
 }
 
 } // namespace
@@ -334,9 +340,13 @@ int main(int argc, char **argv) {
     ArgsParser args_parser("vull-sandbox", "Vull Sandbox", "0.1.0");
     args_parser.add_flag(enable_validation, "Enable vulkan validation layer", "enable-vvl");
     args_parser.add_argument(scene_name, "scene-name", true);
+
+    UniquePtr<Sandbox> sandbox;
     return vull::start_application(argc, argv, args_parser, [&] {
-        auto sandbox = VULL_EXPECT(Sandbox::create(enable_validation));
+        sandbox = VULL_EXPECT(Sandbox::create(enable_validation));
         sandbox->load_scene(scene_name);
         sandbox->start_loop();
+    }, [&] {
+        sandbox->close();
     });
 }
