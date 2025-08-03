@@ -107,10 +107,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             m_frame_index = (m_frame_index + 1) % m_frame_futures.size();
 
             // Wait on the frame future. This prevents the host running ahead.
-            // TODO(tasklet): Allow normal threads to wait on futures properly.
-            while (!m_frame_futures[m_frame_index].is_complete()) {
-                platform::Thread::yield();
-            }
+            m_frame_futures[m_frame_index].await();
 
             // Get the render graph for the previous frame N and the pass timings.
             auto &render_graph = m_render_graphs[m_frame_index];
