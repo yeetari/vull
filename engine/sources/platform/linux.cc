@@ -307,15 +307,6 @@ void Semaphore::post() {
     }
 }
 
-void Semaphore::release() {
-    m_data.fetch_or(0xffffffu, vull::memory_order_release);
-    auto *value = vull::bit_cast<uint32_t *>(m_data.raw_ptr());
-#if BYTE_ORDER == BIG_ENDIAN
-    value++;
-#endif
-    syscall(SYS_futex, value, FUTEX_WAKE_PRIVATE, UINT32_MAX, nullptr, nullptr, 0);
-}
-
 bool Semaphore::try_wait() {
     uint64_t data = m_data.load(vull::memory_order_relaxed);
     while (true) {

@@ -19,7 +19,6 @@ public:
     Semaphore &operator=(Semaphore &&) = delete;
 
     void post();
-    void release();
     bool try_wait();
     void wait();
 };
