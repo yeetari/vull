@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 namespace vull::platform {
 
 enum class Endian {
@@ -30,5 +32,9 @@ consteval bool is_big_endian() {
 consteval bool is_little_endian() {
     return endian() == Endian::Little;
 }
+
+void wake_address_single(uint32_t *address);
+void wake_address_all(uint32_t *address);
+void wait_address(uint32_t *address, uint32_t expected);
 
 } // namespace vull::platform

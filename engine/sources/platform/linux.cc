@@ -1,6 +1,7 @@
 #include <vull/platform/event.hh>
 #include <vull/platform/file.hh>
 #include <vull/platform/file_stream.hh>
+#include <vull/platform/platform.hh>
 #include <vull/platform/semaphore.hh>
 #include <vull/platform/tasklet.hh>
 #include <vull/platform/thread.hh>
@@ -667,6 +668,18 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
         }
     }
     io_uring_queue_exit(&ring);
+}
+
+void wake_address_single(uint32_t *address) {
+    syscall(SYS_futex, address, FUTEX_WAKE_PRIVATE, 1, nullptr, nullptr, 0);
+}
+
+void wake_address_all(uint32_t *address) {
+    syscall(SYS_futex, address, FUTEX_WAKE_PRIVATE, INT32_MAX, nullptr, nullptr, 0);
+}
+
+void wait_address(uint32_t *address, uint32_t expected) {
+    syscall(SYS_futex, address, FUTEX_WAIT_PRIVATE, expected, nullptr, nullptr, 0);
 }
 
 static uint64_t monotonic_time() {
