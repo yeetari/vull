@@ -14,17 +14,16 @@
 
 namespace vull::platform {
 
-Result<UniquePtr<Window>, WindowError> Window::create(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                      bool fullscreen) {
+Result<UniquePtr<Window>, WindowError> Window::create(Optional<uint16_t> width, Optional<uint16_t> height) {
 #ifdef VULL_BUILD_WAYLAND_WINDOW
     vull::trace("[window] Attempting to create Wayland window");
-    if (auto wayland = create_wayland(width, height, fullscreen); !wayland.is_error()) {
+    if (auto wayland = create_wayland(width, height); !wayland.is_error()) {
         return wayland;
     }
 #endif
 #ifdef VULL_BUILD_X11_WINDOW
     vull::trace("[window] Attempting to create X11 window");
-    if (auto x11 = create_x11(width, height, fullscreen); !x11.is_error()) {
+    if (auto x11 = create_x11(width, height); !x11.is_error()) {
         return x11;
     }
 #endif

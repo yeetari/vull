@@ -99,7 +99,7 @@ public:
 
 Result<UniquePtr<Sandbox>, vk::ContextError, platform::WindowError, vkb::Result>
 Sandbox::create(bool enable_validation) {
-    auto window = VULL_TRY(platform::Window::create(1280, 720, false));
+    auto window = VULL_TRY(platform::Window::create(1280, 720));
     vk::AppInfo app_info{
         .name = "Vull Sandbox",
         .version = 1,

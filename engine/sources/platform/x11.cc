@@ -317,8 +317,7 @@ void WindowX11::set_fullscreen(bool fullscreen) {
 
 // TODO: Improve the error checking here.
 
-Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                          bool fullscreen) {
+Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> width, Optional<uint16_t> height) {
     // Attempt to open a connection.
     auto *connection = xcb_connect(nullptr, nullptr);
     if (xcb_connection_has_error(connection) > 0) {
@@ -415,10 +414,8 @@ Result<UniquePtr<Window>, WindowError> Window::create_x11(Optional<uint16_t> wid
     xcb_map_window(connection, id);
     free(xcb_get_input_focus_reply(connection, xcb_get_input_focus(connection), nullptr));
 
-    auto window = vull::make_unique<WindowX11>(ppcm, connection, screen, delete_window_atom, xkb_state, id,
-                                               hidden_cursor_id, xinput->major_opcode);
-    window->set_fullscreen(fullscreen);
-    return window;
+    return vull::make_unique<WindowX11>(ppcm, connection, screen, delete_window_atom, xkb_state, id, hidden_cursor_id,
+                                        xinput->major_opcode);
 }
 
 } // namespace vull::platform

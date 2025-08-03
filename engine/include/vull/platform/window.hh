@@ -49,12 +49,9 @@ protected:
     explicit Window(float ppcm) : m_ppcm(ppcm) {}
 
 public:
-    static Result<UniquePtr<Window>, WindowError> create(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                         bool fullscreen);
-    static Result<UniquePtr<Window>, WindowError> create_wayland(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                                 bool fullscreen);
-    static Result<UniquePtr<Window>, WindowError> create_x11(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                             bool fullscreen);
+    static Result<UniquePtr<Window>, WindowError> create(Optional<uint16_t> width, Optional<uint16_t> height);
+    static Result<UniquePtr<Window>, WindowError> create_wayland(Optional<uint16_t> width, Optional<uint16_t> height);
+    static Result<UniquePtr<Window>, WindowError> create_x11(Optional<uint16_t> width, Optional<uint16_t> height);
 
     Window(const Window &) = delete;
     Window(Window &&) = delete;

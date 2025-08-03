@@ -481,8 +481,7 @@ public:
 
 } // namespace
 
-Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t> width, Optional<uint16_t> height,
-                                                              bool fullscreen) {
+Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t> width, Optional<uint16_t> height) {
     wl_display *display = wl_display_connect(nullptr);
     if (display == nullptr) {
         vull::error("[wayland] Failed to connect to Wayland display");
@@ -532,9 +531,6 @@ Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t>
         return WindowError::WaylandError;
     }
     xdg_toplevel_set_title(xdg_toplevel, "Vull");
-    if (fullscreen) {
-        xdg_toplevel_set_fullscreen(xdg_toplevel, nullptr);
-    }
 
     // Enable server side decoration, if available.
     zxdg_toplevel_decoration_v1 *toplevel_decoration{nullptr};
