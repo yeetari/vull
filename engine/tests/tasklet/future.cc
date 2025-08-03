@@ -60,6 +60,16 @@ TEST_CASE(TaskletFuture, AwaitMove) {
     });
 }
 
+TEST_CASE(TaskletFuture, AwaitThread) {
+    tasklet::Scheduler scheduler(4, 64, false);
+    scheduler.setup_thread();
+
+    auto future = tasklet::schedule([&] {
+        return 5;
+    });
+    EXPECT_THAT(future.await(), is(equal_to(5)));
+}
+
 TEST_CASE(TaskletFuture, AndThenVoid) {
     tasklet::Scheduler scheduler(4, 64, false);
     scheduler.run([] {

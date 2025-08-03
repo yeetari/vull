@@ -13,7 +13,9 @@ class Tasklet;
  * @brief The base promise type which contains the wait list logic.
  */
 class PromiseBase {
-    Atomic<Tasklet *> m_wait_list;
+    Atomic<uint64_t> m_state;
+
+    uint32_t *futex_word();
 
 protected:
     /**
