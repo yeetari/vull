@@ -404,8 +404,8 @@ public:
             // Pointer is locked, rely on relative movement.
             return;
         }
-        const auto mouse_x = static_cast<int16_t>(surface_x / 255);
-        const auto mouse_y = static_cast<int16_t>(surface_y / 255);
+        const auto mouse_x = static_cast<int16_t>(wl_fixed_to_int(surface_x));
+        const auto mouse_y = static_cast<int16_t>(wl_fixed_to_int(surface_y));
         const auto delta_x = mouse_x - window.m_mouse_x;
         const auto delta_y = mouse_y - window.m_mouse_y;
         window.m_mouse_x = mouse_x;
@@ -461,15 +461,15 @@ public:
     };
 
     static void on_relative_motion(void *window_ptr, zwp_relative_pointer_v1 * /* relative_pointer */,
-                                   uint32_t /* utime_hi */, uint32_t /* utime_lo */, int32_t /* dx */, int32_t /* dy */,
-                                   int32_t dx_unaccel, int32_t dy_unaccel) {
+                                   uint32_t /* utime_hi */, uint32_t /* utime_lo */, wl_fixed_t /* dx */,
+                                   wl_fixed_t /* dy */, wl_fixed_t dx_unaccel, wl_fixed_t dy_unaccel) {
         auto &window = *static_cast<WindowWayland *>(window_ptr);
         if (!window.m_cursor_grabbed) {
             // Pointer is unlocked, rely on other motion events.
             return;
         }
-        Vec2f delta{dx_unaccel, dy_unaccel};
-        delta /= 64;
+        Vec2f delta(dx_unaccel, dy_unaccel);
+        delta /= 256.0f;
         if (!vull::fuzzy_zero(delta) && window.m_mouse_move_callback) {
             window.m_mouse_move_callback(delta, {}, window.m_buttons);
         }
