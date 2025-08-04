@@ -1149,6 +1149,17 @@ enum class InternalAllocationType {
     Executable = 0,
 };
 
+enum class LayerSettingTypeEXT {
+    Bool32 = 0,
+    Int32 = 1,
+    Int64 = 2,
+    Uint32 = 3,
+    Uint64 = 4,
+    Float32 = 5,
+    Float64 = 6,
+    String = 7,
+};
+
 enum class LogicOp {
     Clear = 0,
     And = 1,
@@ -1524,6 +1535,7 @@ enum class Result {
     ErrorFormatNotSupported = -11,
     ErrorFragmentedPool = -12,
     ErrorUnknown = -13,
+    ErrorValidationFailed = -1000011001,
     ErrorOutOfPoolMemory = -1000069000,
     ErrorInvalidExternalHandle = -1000072003,
     ErrorFragmentation = -1000161000,
@@ -1931,6 +1943,7 @@ enum class StructureType {
     OpaqueCaptureDescriptorDataCreateInfoEXT = 1000316010,
     DescriptorBufferBindingInfoEXT = 1000316011,
     DescriptorBufferBindingPushDescriptorBufferHandleEXT = 1000316012,
+    LayerSettingsCreateInfoEXT = 1000496000,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     ValidationFeaturesEXT = 1000247000,
@@ -4938,6 +4951,21 @@ struct OpaqueCaptureDescriptorDataCreateInfoEXT {
     StructureType sType;
     const void *pNext;
     const void *opaqueCaptureDescriptorData;
+};
+
+struct LayerSettingEXT {
+    const char *pLayerName;
+    const char *pSettingName;
+    LayerSettingTypeEXT type;
+    uint32_t valueCount;
+    const void *pValues;
+};
+
+struct LayerSettingsCreateInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    uint32_t settingCount;
+    const LayerSettingEXT *pSettings;
 };
 
 struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {

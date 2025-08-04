@@ -124,6 +124,7 @@ with open('vk.xml', 'rb') as file:
 desired_extension_names = [
     'VK_EXT_debug_utils',
     'VK_EXT_descriptor_buffer',
+    'VK_EXT_layer_settings',
     'VK_EXT_shader_atomic_float',
     'VK_EXT_shader_atomic_float2',
     'VK_EXT_validation_features',
