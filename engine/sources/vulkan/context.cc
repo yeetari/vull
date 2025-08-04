@@ -162,12 +162,36 @@ Result<UniquePtr<Context>, ContextError> Context::create(const AppInfo &app_info
         }
     }
 
-    // TODO: Use VK_EXT_layer_settings.
-    const auto enabled_validation_features = vkb::ValidationFeatureEnableEXT::SynchronizationValidation;
-    vkb::ValidationFeaturesEXT validation_features{
-        .sType = vkb::StructureType::ValidationFeaturesEXT,
-        .enabledValidationFeatureCount = 1,
-        .pEnabledValidationFeatures = &enabled_validation_features,
+    const char *event_vuid = "VUID-vkCmdWaitEvents2-pEvents-10788";
+    const uint32_t true_value = 1;
+    Array layer_settings{
+        vkb::LayerSettingEXT{
+            validation_layer_name,
+            "validate_core",
+            vkb::LayerSettingTypeEXT::Bool32,
+            1,
+            &true_value,
+        },
+        vkb::LayerSettingEXT{
+            validation_layer_name,
+            "validate_sync",
+            vkb::LayerSettingTypeEXT::Bool32,
+            1,
+            &true_value,
+        },
+        // TODO: The render graph events are currently not correct.
+        vkb::LayerSettingEXT{
+            validation_layer_name,
+            "message_id_filter",
+            vkb::LayerSettingTypeEXT::String,
+            1,
+            &event_vuid,
+        },
+    };
+    vkb::LayerSettingsCreateInfoEXT layer_settings_ci{
+        .sType = vkb::StructureType::LayerSettingsCreateInfoEXT,
+        .settingCount = layer_settings.size(),
+        .pSettings = layer_settings.data(),
     };
     vkb::ApplicationInfo application_info{
         .sType = vkb::StructureType::ApplicationInfo,
@@ -180,7 +204,7 @@ Result<UniquePtr<Context>, ContextError> Context::create(const AppInfo &app_info
     };
     vkb::InstanceCreateInfo instance_ci{
         .sType = vkb::StructureType::InstanceCreateInfo,
-        .pNext = &validation_features,
+        .pNext = &layer_settings_ci,
         .pApplicationInfo = &application_info,
         .enabledExtensionCount = instance_extensions.size(),
         .ppEnabledExtensionNames = instance_extensions.data(),
