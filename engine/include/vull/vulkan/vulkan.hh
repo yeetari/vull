@@ -1946,7 +1946,6 @@ enum class StructureType {
     LayerSettingsCreateInfoEXT = 1000496000,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
-    ValidationFeaturesEXT = 1000247000,
     ImportFenceFdInfoKHR = 1000115000,
     FenceGetFdInfoKHR = 1000115001,
     SwapchainCreateInfoKHR = 1000001000,
@@ -2050,25 +2049,6 @@ inline constexpr ToolPurposeFlags operator&(ToolPurposeFlags lhs, ToolPurposeFla
 inline constexpr ToolPurposeFlags operator|(ToolPurposeFlags lhs, ToolPurposeFlags rhs) {
     return static_cast<ToolPurposeFlags>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
 }
-
-enum class ValidationFeatureDisableEXT {
-    All = 0,
-    Shaders = 1,
-    ThreadSafety = 2,
-    ApiParameters = 3,
-    ObjectLifetimes = 4,
-    CoreChecks = 5,
-    UniqueHandles = 6,
-    ShaderValidationCache = 7,
-};
-
-enum class ValidationFeatureEnableEXT {
-    GpuAssisted = 0,
-    GpuAssistedReserveBindingSlot = 1,
-    BestPractices = 2,
-    DebugPrintf = 3,
-    SynchronizationValidation = 4,
-};
 
 enum class VendorId {
     Khronos = 0x10000,
@@ -5000,15 +4980,6 @@ struct PhysicalDeviceShaderAtomicFloat2FeaturesEXT {
     Bool shaderSharedFloat64AtomicMinMax;
     Bool shaderImageFloat32AtomicMinMax;
     Bool sparseImageFloat32AtomicMinMax;
-};
-
-struct ValidationFeaturesEXT {
-    StructureType sType;
-    const void *pNext;
-    uint32_t enabledValidationFeatureCount;
-    const ValidationFeatureEnableEXT *pEnabledValidationFeatures;
-    uint32_t disabledValidationFeatureCount;
-    const ValidationFeatureDisableEXT *pDisabledValidationFeatures;
 };
 
 struct ImportFenceFdInfoKHR {
