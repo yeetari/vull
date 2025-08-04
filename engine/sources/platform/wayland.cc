@@ -256,7 +256,7 @@ class WindowWayland : public Window {
     xkb_state *m_xkb_state{nullptr};
     zwp_locked_pointer_v1 *m_locked_pointer{nullptr};
     uint32_t m_pointer_enter_serial{0};
-    Vec2u m_want_resolution{1280, 720};
+    Vec2u m_desired_resolution;
 
     // cursor
     wl_surface *m_left_ptr;
@@ -264,12 +264,12 @@ class WindowWayland : public Window {
 public:
     WindowWayland(WaylandGlobals &&globals, wl_surface *window_surface, xdg_surface *xdg_surface,
                   xdg_toplevel *xdg_toplevel, wl_region *window_region,
-                  zxdg_toplevel_decoration_v1 *toplevel_decoration, xkb_context *xkb_context, wl_surface *left_ptr)
+                  zxdg_toplevel_decoration_v1 *toplevel_decoration, xkb_context *xkb_context, wl_surface *left_ptr,
+                  Vec2u desired_resolution)
         : Window(globals.ppcm()), m_globals(vull::move(globals)), m_window_surface(window_surface),
           m_xdg_surface(xdg_surface), m_xdg_toplevel(xdg_toplevel), m_window_region(window_region),
-          m_toplevel_decoration(toplevel_decoration), m_xkb_context(xkb_context), m_left_ptr(left_ptr) {
-        m_resolution = m_want_resolution;
-
+          m_toplevel_decoration(toplevel_decoration), m_xkb_context(xkb_context),
+          m_desired_resolution(desired_resolution), m_left_ptr(left_ptr) {
         xdg_wm_base_add_listener(m_globals.wm_base(), &k_wm_base_listener, this);
         xdg_surface_add_listener(m_xdg_surface, &k_xdg_surface_listener, this);
         xdg_toplevel_add_listener(m_xdg_toplevel, &k_xdg_toplevel_listener, this);
@@ -379,7 +379,7 @@ public:
 
     static void on_xdg_surface_configure(void *window_ptr, xdg_surface *xdg_surface, uint32_t serial) noexcept {
         auto &window = *static_cast<WindowWayland *>(window_ptr);
-        window.m_resolution = window.m_want_resolution;
+        window.m_resolution = window.m_desired_resolution;
         xdg_surface_ack_configure(xdg_surface, serial);
     }
     static constexpr xdg_surface_listener k_xdg_surface_listener{.configure = on_xdg_surface_configure};
@@ -390,8 +390,8 @@ public:
             return;
         }
         auto &window = *static_cast<WindowWayland *>(window_ptr);
-        window.m_want_resolution.set_x(static_cast<uint32_t>(width));
-        window.m_want_resolution.set_y(static_cast<uint32_t>(height));
+        window.m_desired_resolution.set_x(static_cast<uint32_t>(width));
+        window.m_desired_resolution.set_y(static_cast<uint32_t>(height));
     }
     static void on_xdg_toplevel_close(void *window_ptr, xdg_toplevel *) noexcept {
         auto &window = *static_cast<WindowWayland *>(window_ptr);
@@ -618,6 +618,7 @@ Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t>
     }
 
     return vull::make_unique<WindowWayland>(vull::move(globals), window_surface, xdg_surface, xdg_toplevel,
-                                            window_region, toplevel_decoration, xkb_context, left_ptr_surface);
+                                            window_region, toplevel_decoration, xkb_context, left_ptr_surface,
+                                            resolution);
 }
 } // namespace vull::platform
