@@ -112,8 +112,9 @@ tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
 }
 
 void Queue::wait_idle() {
-    for (auto *queue : m_queues) {
-        m_context.vkQueueWaitIdle(queue);
+    for (uint32_t queue_index = 0; queue_index < m_queues.size(); queue_index++) {
+        ScopedLock lock(m_submit_mutexes[queue_index]);
+        m_context.vkQueueWaitIdle(m_queues[queue_index]);
     }
 }
 
