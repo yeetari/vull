@@ -6,6 +6,7 @@
 #include <vull/platform/xkb.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
+#include <vull/support/utility.hh>
 #include <vull/vulkan/vulkan.hh>
 
 #include <linux/input-event-codes.h>
@@ -32,7 +33,7 @@ namespace {
 template <typename... Ts>
 void noop(Ts...) {}
 
-struct WaylandGlobals {
+class WaylandGlobals {
     wl_display *m_display;
     wl_registry *m_registry;
 
@@ -40,6 +41,7 @@ struct WaylandGlobals {
     wl_compositor *m_compositor{nullptr};
     wl_seat *m_seat{nullptr};
     wl_shm *m_shm{nullptr};
+    wl_output *m_output{nullptr};
     xdg_wm_base *m_wm_base{nullptr};
     zxdg_decoration_manager_v1 *m_decoration_manager{nullptr};
     zwp_pointer_constraints_v1 *m_pointer_constraints{nullptr};
@@ -49,6 +51,11 @@ struct WaylandGlobals {
     // seat
     wl_pointer *m_pointer{nullptr};
     wl_keyboard *m_keyboard{nullptr};
+
+    // PPCM calculation.
+    int32_t m_output_height{-1};
+    int32_t m_output_height_mm{-1};
+    float m_ppcm{38.0f};
 
 public:
     WaylandGlobals(wl_display *display, wl_registry *registry) : m_display(display), m_registry(registry) {}
@@ -60,6 +67,7 @@ public:
         m_compositor = vull::exchange(o.m_compositor, nullptr);
         m_seat = vull::exchange(o.m_seat, nullptr);
         m_shm = vull::exchange(o.m_shm, nullptr);
+        m_output = vull::exchange(o.m_output, nullptr);
         m_wm_base = vull::exchange(o.m_wm_base, nullptr);
         m_decoration_manager = vull::exchange(o.m_decoration_manager, nullptr);
         m_pointer_constraints = vull::exchange(o.m_pointer_constraints, nullptr);
@@ -92,6 +100,9 @@ public:
         if (m_wm_base != nullptr) {
             xdg_wm_base_destroy(m_wm_base);
         }
+        if (m_output != nullptr) {
+            wl_output_destroy(m_output);
+        }
         if (m_shm != nullptr) {
             wl_shm_destroy(m_shm);
         }
@@ -122,6 +133,7 @@ public:
     wl_display *display() const { return m_display; }
 
     wl_compositor *compositor() const { return m_compositor; }
+    wl_shm *shm() const { return m_shm; }
     xdg_wm_base *wm_base() const { return m_wm_base; }
     zxdg_decoration_manager_v1 *decoration_manager() const { return m_decoration_manager; }
     zwp_pointer_constraints_v1 *pointer_constraints() const { return m_pointer_constraints; }
@@ -130,10 +142,12 @@ public:
     wl_keyboard *keyboard() const { return m_keyboard; }
     zwp_relative_pointer_v1 *relative_pointer() const { return m_relative_pointer; }
 
+    float ppcm() const { return m_ppcm; }
+
     static void on_registry_global(void *globals_ptr, wl_registry *registry, uint32_t id, const char *interface_ptr,
                                    uint32_t /* name */) noexcept {
         auto &globals = *static_cast<WaylandGlobals *>(globals_ptr);
-        vull::StringView interface = interface_ptr;
+        StringView interface = interface_ptr;
 
         if (interface == wl_compositor_interface.name) {
             globals.m_compositor =
@@ -145,6 +159,9 @@ public:
         } else if (interface == wl_seat_interface.name) {
             globals.m_seat = static_cast<wl_seat *>(wl_registry_bind(registry, id, &wl_seat_interface, 7));
             wl_seat_add_listener(globals.m_seat, &k_seat_listener, globals_ptr);
+        } else if (interface == wl_output_interface.name) {
+            globals.m_output = static_cast<wl_output *>(wl_registry_bind(registry, id, &wl_output_interface, 4));
+            wl_output_add_listener(globals.m_output, &k_output_listener, globals_ptr);
         } else if (interface == zxdg_decoration_manager_v1_interface.name) {
             globals.m_decoration_manager = static_cast<zxdg_decoration_manager_v1 *>(
                 wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1));
@@ -184,6 +201,48 @@ public:
     }
     static void on_seat_name(void * /* globals_ptr */, wl_seat * /* seat */, const char * /* name */) noexcept {}
     static constexpr wl_seat_listener k_seat_listener{on_seat_capabilities, on_seat_name};
+
+    static void on_output_geometry(void *globals_ptr, wl_output * /* output */, int32_t /* x */, int32_t /* y */,
+                                   int32_t physical_width, int32_t physical_height, int32_t /* subpixel */,
+                                   const char * /* make */, const char *model_c, int32_t /* transform */) {
+        auto &globals = *static_cast<WaylandGlobals *>(globals_ptr);
+
+        // Monitor seems to have broken EDID data.
+        StringView model(model_c);
+        if (model == "AG241QG4") {
+            physical_height = 298;
+        }
+        globals.m_output_height_mm = physical_height;
+        vull::debug("[wayland] Output geometry is {} mm x {} mm ({})", physical_width, physical_height, model);
+    }
+    static void on_output_mode(void *globals_ptr, wl_output * /* output */, uint32_t flags, int32_t width,
+                               int32_t height, int32_t /* refresh */) {
+        if ((flags & WL_OUTPUT_MODE_CURRENT) == 0) {
+            return;
+        }
+        auto &globals = *static_cast<WaylandGlobals *>(globals_ptr);
+        globals.m_output_height = height;
+        vull::debug("[wayland] Output resolution is {} x {}", width, height);
+    }
+    static void on_output_done(void *globals_ptr, wl_output * /* output */
+    ) {
+        auto &globals = *static_cast<WaylandGlobals *>(globals_ptr);
+        if (globals.m_output_height <= 0 || globals.m_output_height_mm <= 0) {
+            return;
+        }
+
+        const float height_cm = static_cast<float>(globals.m_output_height_mm) / 10.0f;
+        globals.m_ppcm = static_cast<float>(globals.m_output_height) / height_cm;
+        vull::debug("[wayland] Output ppcm is {}", globals.m_ppcm);
+    }
+    static constexpr wl_output_listener k_output_listener{
+        .geometry = on_output_geometry,
+        .mode = on_output_mode,
+        .done = on_output_done,
+        .scale = noop,
+        .name = noop,
+        .description = noop,
+    };
 };
 
 class WindowWayland : public Window {
@@ -203,12 +262,12 @@ class WindowWayland : public Window {
     wl_surface *m_left_ptr;
 
 public:
-    WindowWayland(float ppcm, WaylandGlobals &&globals, wl_surface *window_surface, xdg_surface *xdg_surface,
+    WindowWayland(WaylandGlobals &&globals, wl_surface *window_surface, xdg_surface *xdg_surface,
                   xdg_toplevel *xdg_toplevel, wl_region *window_region,
                   zxdg_toplevel_decoration_v1 *toplevel_decoration, xkb_context *xkb_context, wl_surface *left_ptr)
-        : Window(ppcm), m_globals(vull::move(globals)), m_window_surface(window_surface), m_xdg_surface(xdg_surface),
-          m_xdg_toplevel(xdg_toplevel), m_window_region(window_region), m_toplevel_decoration(toplevel_decoration),
-          m_xkb_context(xkb_context), m_left_ptr(left_ptr) {
+        : Window(globals.ppcm()), m_globals(vull::move(globals)), m_window_surface(window_surface),
+          m_xdg_surface(xdg_surface), m_xdg_toplevel(xdg_toplevel), m_window_region(window_region),
+          m_toplevel_decoration(toplevel_decoration), m_xkb_context(xkb_context), m_left_ptr(left_ptr) {
         m_resolution = m_want_resolution;
 
         xdg_wm_base_add_listener(m_globals.wm_base(), &k_wm_base_listener, this);
@@ -498,7 +557,7 @@ Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t>
         return WindowError::WaylandMissingProtocol;
     }
 
-    wl_cursor_theme *cursor_theme = wl_cursor_theme_load(nullptr, 32, globals.m_shm);
+    wl_cursor_theme *cursor_theme = wl_cursor_theme_load(nullptr, 32, globals.shm());
     if (cursor_theme == nullptr) {
         vull::error("[wayland] Failed to load cursor theme");
         return WindowError::WaylandError;
@@ -543,7 +602,6 @@ Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t>
     wl_surface_commit(window_surface);
 
     Vec2u resolution(width.value_or(1280), height.value_or(720));
-    float ppcm = 72.0f;
 
     wl_region *window_region = wl_compositor_create_region(globals.compositor());
     if (window_region == nullptr) {
@@ -559,7 +617,7 @@ Result<UniquePtr<Window>, WindowError> Window::create_wayland(Optional<uint16_t>
         return WindowError::XkbError;
     }
 
-    return vull::make_unique<WindowWayland>(ppcm, vull::move(globals), window_surface, xdg_surface, xdg_toplevel,
+    return vull::make_unique<WindowWayland>(vull::move(globals), window_surface, xdg_surface, xdg_toplevel,
                                             window_region, toplevel_decoration, xkb_context, left_ptr_surface);
 }
 } // namespace vull::platform
