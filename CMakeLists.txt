@@ -37,8 +37,12 @@ endif()
 
 # TODO: Make vpak tool not require graphics component.
 cmake_dependent_option(VULL_BUILD_VPAK "Build the vpak tool" ON "VULL_BUILD_GRAPHICS" OFF)
-cmake_dependent_option(VULL_BUILD_SANDBOX "Build the vull sandbox" ${PROJECT_IS_TOP_LEVEL}
-    "VULL_BUILD_GRAPHICS;VULL_BUILD_PHYSICS;VULL_BUILD_UI;VULL_BUILD_X11_WINDOW;VULL_BUILD_VPAK" OFF)
+cmake_dependent_option(VULL_BUILD_SANDBOX
+    "Build the vull sandbox application"
+    ${PROJECT_IS_TOP_LEVEL}
+    "VULL_BUILD_GRAPHICS AND VULL_BUILD_PHYSICS AND VULL_BUILD_UI AND VULL_BUILD_VPAK\
+    AND (VULL_BUILD_WAYLAND_WINDOW OR VULL_BUILD_X11_WINDOW)"
+    OFF)
 option(VULL_BUILD_TESTS "Build the vull tests" ${PROJECT_IS_TOP_LEVEL})
 option(VULL_ENABLE_COVERAGE "Enable code coverage for testing" OFF)
 
