@@ -84,6 +84,7 @@ public:
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
     Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
     Queue &get_queue(QueueKind kind);
+    void wait_idle() const;
 
     template <typename T>
     void set_object_name(const T &object, StringView name) const;

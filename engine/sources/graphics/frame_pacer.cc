@@ -85,7 +85,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         Optional<uint32_t> image_index;
         while (m_running.load(vull::memory_order_acquire)) {
             if (m_swapchain.is_recreate_required(m_window_extent)) {
-                m_context.vkDeviceWaitIdle();
+                m_context.wait_idle();
                 m_swapchain.recreate(m_window_extent);
                 image_index.clear();
 
@@ -147,7 +147,7 @@ FramePacer::~FramePacer() {
         future.await();
     }
     VULL_EXPECT(m_thread.join());
-    m_context.vkDeviceWaitIdle();
+    m_context.wait_idle();
 }
 
 FrameInfo FramePacer::acquire_frame(Vec2u window_extent) {

@@ -794,6 +794,12 @@ Queue &Context::get_queue(QueueKind kind) {
     }
 }
 
+void Context::wait_idle() const {
+    for (const auto &queue : m_queues) {
+        queue->wait_idle();
+    }
+}
+
 size_t Context::descriptor_size(vkb::DescriptorType type) const {
     switch (type) {
     case vkb::DescriptorType::Sampler:
