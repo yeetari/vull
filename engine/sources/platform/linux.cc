@@ -604,9 +604,10 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
     }
 
     io_uring ring;
-    if (io_uring_queue_init(256, &ring, ring_flags) < 0) {
-        vull::error("[platform] Failed to create io_uring");
-        return;
+    if (int rc = io_uring_queue_init(256, &ring, ring_flags); rc < 0) {
+        vull::error("[platform] Failed to create io_uring: {}", strerror(-rc));
+        vull::close_log();
+        _Exit(1);
     }
 
     // Warn if nice features aren't supported.
