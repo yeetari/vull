@@ -1,6 +1,7 @@
 target_sources(vull PRIVATE
     core/application.cc
     core/log.cc
+    core/tracing.cc
     ecs/entity.cc
     ecs/world.cc
     json/lexer.cc
