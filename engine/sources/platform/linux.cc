@@ -10,6 +10,7 @@
 #include <vull/container/array.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
 #include <vull/support/algorithm.hh>
 #include <vull/support/assert.hh>
@@ -53,6 +54,7 @@
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -687,6 +689,16 @@ void take_over_main_thread(tasklet::Future<void> &&future, Function<void()> stop
     sigaddset(&signal_mask, SIGQUIT);
     int signal_fd = signalfd(-1, &signal_mask, SFD_CLOEXEC);
 
+    itimerspec timer_spec{
+        {0, 1000000},
+        {0, 1000000},
+    };
+    int timer_fd = -1;
+    if (tracing::is_enabled()) {
+        timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+        timerfd_settime(timer_fd, 0, &timer_spec, nullptr);
+    }
+
     Array poll_fds{
         pollfd{
             .fd = event.fd(),
@@ -694,6 +706,10 @@ void take_over_main_thread(tasklet::Future<void> &&future, Function<void()> stop
         },
         pollfd{
             .fd = signal_fd,
+            .events = POLLIN,
+        },
+        pollfd{
+            .fd = timer_fd,
             .events = POLLIN,
         },
     };
@@ -715,6 +731,14 @@ void take_over_main_thread(tasklet::Future<void> &&future, Function<void()> stop
 
             vull::debug("[platform] Received SIG{}", sigabbrev_np(static_cast<int>(signal_info.ssi_signo)));
             stop_fn();
+        }
+
+        if ((poll_fds[2].revents & POLLIN) != 0) {
+            uint64_t timer_value;
+            if (read(timer_fd, &timer_value, sizeof(uint64_t)) < 0) {
+                vull::error("[platform] timerfd read failed");
+            }
+            tracing::plot_data("Queued Tasklet Count", tasklet::Scheduler::current().queued_tasklet_count());
         }
     }
 }
