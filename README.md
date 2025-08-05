@@ -84,10 +84,11 @@ To configure vull, use one of the available presets:
 
 | Option                    | Description                   | Default Value                                          |
 |---------------------------|-------------------------------|--------------------------------------------------------|
-| `VULL_ENABLED_COMPONENTS` | List of components to build   | `GRAPHICS;PHYSICS;SCRIPT;UI;WAYLAND-WINDOW;X11-WINDOW` |
+| `VULL_ENABLED_COMPONENTS` | List of components to build   | `GRAPHICS;PHYSICS;SCRIPT;UI;WAYLAND_WINDOW;X11_WINDOW` |
 | `VULL_BUILD_VPAK`         | Build the vpak tool           | `ON`¹                                                  |
 | `VULL_BUILD_SANDBOX`      | Build the sandbox application | `PROJECT_IS_TOP_LEVEL`²                                |
 | `VULL_BUILD_TESTS`        | Build tests                   | `PROJECT_IS_TOP_LEVEL`                                 |
+| `VULL_ENABLE_COVERAGE`    | Enable gcov test coverage     | `OFF`                                                  |
 
 ¹: Requires the `graphics` component to be enabled
 
