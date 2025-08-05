@@ -3,6 +3,7 @@
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/vec.hh>
 #include <vull/platform/event.hh>
 #include <vull/platform/thread.hh>
@@ -85,6 +86,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
         Optional<uint32_t> image_index;
         while (m_running.load(vull::memory_order_acquire)) {
             if (m_swapchain.is_recreate_required(m_window_extent)) {
+                tracing::ScopedTrace trace("Swapchain Recreation");
                 m_context.wait_idle();
                 m_swapchain.recreate(m_window_extent);
                 image_index.clear();
@@ -99,6 +101,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
 
             // Present the current frame.
             if (image_index) {
+                tracing::ScopedTrace trace("Present Image");
                 Array present_wait_semaphores{*m_present_semaphores[*image_index]};
                 m_swapchain.present(*image_index, present_wait_semaphores.span());
             }
@@ -107,7 +110,9 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             m_frame_index = (m_frame_index + 1) % m_frame_futures.size();
 
             // Wait on the frame future. This prevents the host running ahead.
+            tracing::ScopedTrace future_trace("Wait Frame");
             m_frame_futures[m_frame_index].await();
+            future_trace.finish();
 
             // Get the render graph for the previous frame N and the pass timings.
             auto &render_graph = m_render_graphs[m_frame_index];
@@ -117,11 +122,13 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             render_graph = vull::make_unique<vk::RenderGraph>(m_context);
 
             // Acquire an image for the next frame.
+            tracing::ScopedTrace acquire_trace("Acquire Image");
             const auto &acquire_semaphore = m_acquire_semaphores[m_frame_index];
             image_index = m_swapchain.acquire_image(*acquire_semaphore);
             if (!image_index) {
                 continue;
             }
+            acquire_trace.finish();
 
             // Pass the frame info to the render tasklet.
             m_promise.fulfill(FrameInfo{
@@ -134,6 +141,7 @@ FramePacer::FramePacer(vk::Swapchain &swapchain, uint32_t queue_length)
             });
 
             // Wait for the command recording to complete before presenting.
+            tracing::ScopedTrace render_trace("Wait Render");
             m_recorded_event.wait();
         }
     }));
@@ -151,6 +159,7 @@ FramePacer::~FramePacer() {
 }
 
 FrameInfo FramePacer::acquire_frame(Vec2u window_extent) {
+    tracing::ScopedTrace trace("Acquire Frame");
     m_window_extent = window_extent;
     m_promise.wait();
     auto frame_info = vull::move(m_promise.value());
@@ -161,6 +170,7 @@ FrameInfo FramePacer::acquire_frame(Vec2u window_extent) {
 void FramePacer::submit_frame(tasklet::Future<void> &&future) {
     m_frame_futures[m_frame_index] = vull::move(future);
     m_recorded_event.set();
+    tracing::end_frame();
 }
 
 } // namespace vull

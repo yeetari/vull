@@ -4,6 +4,7 @@
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
@@ -12,6 +13,7 @@
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
@@ -200,6 +202,7 @@ vk::Image TextureStreamer::create_default_image(Vec2u extent, vkb::Format format
 }
 
 Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
+    tracing::ScopedTrace header_trace("Read Header");
     const auto [format, unit_size, block_compressed] = parse_format(VULL_TRY(stream.read_byte()));
     const auto mag_filter = static_cast<vpak::ImageFilter>(VULL_TRY(stream.read_byte()));
     const auto min_filter = static_cast<vpak::ImageFilter>(VULL_TRY(stream.read_byte()));
@@ -208,6 +211,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     const auto width = VULL_TRY(stream.read_varint<uint32_t>());
     const auto height = VULL_TRY(stream.read_varint<uint32_t>());
     const auto mip_count = VULL_TRY(stream.read_varint<uint32_t>());
+    header_trace.finish();
 
     vkb::ImageCreateInfo image_ci{
         .sType = vkb::StructureType::ImageCreateInfo,
@@ -246,6 +250,11 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     uint32_t mip_width = width;
     uint32_t mip_height = height;
     for (uint32_t i = 0; i < mip_count; i++) {
+        tracing::ScopedTrace trace("Read Mip");
+        if (tracing::is_enabled()) {
+            trace.add_text(vull::format("Mip #{}", i));
+        }
+
         const uint32_t mip_size = block_compressed ? ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * unit_size
                                                    : mip_width * mip_height * unit_size;
         auto staging_buffer =
@@ -333,6 +342,8 @@ uint32_t TextureStreamer::ensure_texture(const String &name, TextureKind kind) {
 
     // There is no pending future so we need to schedule the load.
     auto future = tasklet::schedule([this, name, fallback_index] mutable {
+        tracing::ScopedTrace trace("Stream Texture");
+        trace.add_text(name);
         return load_texture(name, fallback_index);
     });
     m_futures.set(name, vull::move(future));

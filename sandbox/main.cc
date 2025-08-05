@@ -5,6 +5,7 @@
 #include <vull/container/vector.hh>
 #include <vull/core/application.hh>
 #include <vull/core/input.hh>
+#include <vull/core/tracing.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/default_renderer.hh>
 #include <vull/graphics/deferred_renderer.hh>
@@ -323,6 +324,7 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
 void Sandbox::start_loop() {
     FramePacer frame_pacer(m_swapchain, 2);
     while (!m_should_close.load(vull::memory_order_relaxed)) {
+        tracing::ScopedTrace trace("Render Frame");
         frame_pacer.submit_frame(render_frame(frame_pacer));
     }
 }

@@ -4,6 +4,7 @@
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
@@ -730,11 +731,17 @@ Allocator &Context::allocator_for(const vkb::MemoryRequirements &requirements, M
 }
 
 Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements, vk::MemoryUsage usage) {
+    tracing::ScopedTrace trace("Allocate VRAM");
+    if (tracing::is_enabled()) {
+        trace.add_text(vull::format("Size {}", requirements.size));
+    }
     return allocator_for(requirements, usage).allocate(requirements);
 }
 
 Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
     VULL_ASSERT(size != 0);
+    tracing::ScopedTrace trace("Create VkBuffer");
+
     // TODO: Is it bad on any driver to always create a buffer with ShaderDeviceAddress?
     usage |= vkb::BufferUsage::ShaderDeviceAddress;
     vkb::BufferCreateInfo buffer_ci{
@@ -767,6 +774,7 @@ static vkb::ImageViewType pick_view_type(const vkb::ImageCreateInfo &image_ci) {
 }
 
 Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage) {
+    tracing::ScopedTrace trace("Create VkImage");
     vkb::Image image;
     VULL_ENSURE(vkCreateImage(&image_ci, &image) == vkb::Result::Success);
 

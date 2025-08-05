@@ -2,10 +2,14 @@
 
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/scoped_lock.hh>
 #include <vull/support/span.hh>
+#include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
+#include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
@@ -36,12 +40,15 @@ Queue::~Queue() {
 }
 
 UniquePtr<CommandBuffer> Queue::request_cmd_buf() {
+    tracing::ScopedTrace trace("Request CmdBuf");
+
     // Try to use an available buffer first.
     ScopedLock lock(m_buffers_mutex);
     if (!m_buffers.empty()) {
         return m_buffers.take_last();
     }
     lock.unlock();
+    trace.add_text("Creating New");
 
     // Otherwise allocate a new one.
     const auto total_count = m_total_buffer_count.fetch_add(1, vull::memory_order_relaxed) + 1;
@@ -80,10 +87,14 @@ vkb::Result Queue::present(const vkb::PresentInfoKHR &present_info) {
 tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
                                     Span<vkb::SemaphoreSubmitInfo> signal_semaphores,
                                     Span<vkb::SemaphoreSubmitInfo> wait_semaphores) {
+    tracing::ScopedTrace trace("Submit CmdBuf");
     m_context.vkEndCommandBuffer(**cmd_buf);
 
     // Pick a vkb::Queue to use.
     const auto queue_index = m_queue_index.fetch_add(1, vull::memory_order_relaxed) % m_queues.size();
+    if (tracing::is_enabled()) {
+        trace.add_text(vull::format("Queue #{}", queue_index));
+    }
 
     // Submit the command buffer to the queue.
     vkb::CommandBufferSubmitInfo cmd_buf_si{
@@ -112,6 +123,7 @@ tasklet::Future<void> Queue::submit(UniquePtr<CommandBuffer> &&cmd_buf,
 }
 
 void Queue::wait_idle() {
+    tracing::ScopedTrace trace("Queue WaitIdle");
     for (uint32_t queue_index = 0; queue_index < m_queues.size(); queue_index++) {
         ScopedLock lock(m_submit_mutexes[queue_index]);
         m_context.vkQueueWaitIdle(m_queues[queue_index]);

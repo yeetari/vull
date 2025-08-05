@@ -5,6 +5,7 @@
 #include <vull/container/hash_set.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/bounding_sphere.hh>
+#include <vull/core/tracing.hh>
 #include <vull/ecs/entity.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/gbuffer.hh>
@@ -405,6 +406,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
 
     // Cap object count just in case.
     m_object_count = vull::min(objects.size(), k_object_limit);
+    tracing::plot_data("Rendered Object Count", m_object_count);
 
     vk::BufferDescription descriptor_buffer_description{
         .size = m_main_set_layout_size,

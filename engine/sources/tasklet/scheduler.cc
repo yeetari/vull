@@ -15,6 +15,7 @@
 #include <vull/support/result.hh>
 #include <vull/support/shared_ptr.hh>
 #include <vull/support/string_builder.hh>
+#include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/fiber.hh>
@@ -79,7 +80,9 @@ Tasklet *pick_ready_tasklet() {
     Fiber::finish_switch(running_fiber);
     while (s_scheduler->is_running()) {
         // Wait for new work.
+        tracing::ScopedTrace idle_trace("Idle", 0x555555);
         s_work_available->wait();
+        idle_trace.finish();
 
         // Prioritise getting either a fiber or tasklet first but try to make sure we always get something since we've
         // decremented the semaphore.
@@ -325,6 +328,7 @@ void suspend() {
     // Switch to the helper fiber.
     VULL_ASSERT(in_tasklet_context());
     VULL_ASSERT(Fiber::current() != s_helper_fiber);
+    tracing::ScopedTrace trace("Suspended", 0x700000);
     s_helper_fiber->swap_to(false);
 
     // We've been unsuspended, check if we need to return the previously running fiber to the free pool.
