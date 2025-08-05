@@ -4,6 +4,7 @@
 #include <vull/container/mpmc_queue.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
 #include <vull/platform/event.hh>
 #include <vull/platform/semaphore.hh>
@@ -104,6 +105,7 @@ Tasklet *pick_ready_tasklet() {
             s_cleanup_fiber = running_fiber;
 
             // Switch to the unblocked fiber.
+            tracing::leave_fiber();
             fiber->swap_to(true);
         } else if (tasklet != nullptr) {
             // Suspended tasklets should resume via the fiber queue.
@@ -207,8 +209,8 @@ Scheduler::Scheduler(uint32_t thread_count, uint32_t fiber_limit, bool pin_threa
             VULL_EXPECT(platform::Thread::setup_signal_stack());
 
             // Create a helper fiber per thread.
-            m_alive_worker_count.fetch_add(1);
-            s_helper_fiber = Fiber::create(&helper_fiber);
+            const auto worker_index = m_alive_worker_count.fetch_add(1);
+            s_helper_fiber = Fiber::create(&helper_fiber, vull::format("Helper #{}", worker_index));
             s_helper_fiber->swap_to(false);
         }));
         VULL_IGNORE(thread.set_name(vull::format("Worker #{}", i)));
@@ -261,7 +263,7 @@ Fiber *Scheduler::request_fiber() {
     if ((fiber_count + 1) % 10 == 0) {
         vull::trace("[tasklet] Reached {} allocated fibers", fiber_count + 1);
     }
-    return Fiber::create(&fiber_loop);
+    return Fiber::create(&fiber_loop, vull::format("Fiber #{}", fiber_count));
 }
 
 void Scheduler::return_fiber(Fiber *fiber) {

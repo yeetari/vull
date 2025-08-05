@@ -2,6 +2,8 @@
 
 #include <vull/support/atomic.hh>
 #include <vull/support/span.hh>
+#include <vull/support/string.hh>
+#include <vull/support/utility.hh>
 
 #include <stdint.h>
 
@@ -17,6 +19,7 @@ enum class FiberState {
 };
 
 class Fiber {
+    String m_name;
     void *m_memory_bottom;
     [[maybe_unused]] void *m_fake_stack_ptr{nullptr};
     Tasklet *m_current_tasklet{nullptr};
@@ -24,10 +27,10 @@ class Fiber {
     uint32_t m_priority_level{0};
     uint32_t m_priority_weight_counter{1};
 
-    explicit Fiber(void *memory_bottom) : m_memory_bottom(memory_bottom) {}
+    Fiber(String &&name, void *memory_bottom) : m_name(vull::move(name)), m_memory_bottom(memory_bottom) {}
 
 public:
-    static Fiber *create(void (*entry_point)());
+    static Fiber *create(void (*entry_point)(), String &&name);
     static Fiber *current();
     static void finish_switch(Fiber *fiber);
 

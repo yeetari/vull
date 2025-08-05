@@ -1,9 +1,11 @@
 #include <vull/tasklet/fiber.hh>
 
+#include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
 #include <vull/platform/tasklet.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/span.hh>
+#include <vull/support/string.hh>
 #include <vull/support/utility.hh>
 
 #include <stddef.h>
@@ -26,9 +28,9 @@ extern "C" void vull_switch_fiber(void *from, void *to);
 
 } // namespace
 
-Fiber *Fiber::create(void (*entry_point)()) {
+Fiber *Fiber::create(void (*entry_point)(), String &&name) {
     auto *memory = platform::allocate_fiber_memory(k_max_stack_size);
-    auto *fiber = new (memory - sizeof(Fiber)) Fiber(memory - k_max_stack_size);
+    auto *fiber = new (memory - sizeof(Fiber)) Fiber(vull::move(name), memory - k_max_stack_size);
     vull_make_fiber(fiber, entry_point);
     return fiber;
 }
@@ -38,6 +40,7 @@ Fiber *Fiber::current() {
 }
 
 void Fiber::finish_switch([[maybe_unused]] Fiber *fiber) {
+    tracing::enter_fiber(fiber->m_name.data());
 #if VULL_ASAN_ENABLED
     __sanitizer_finish_switch_fiber(fiber->m_fake_stack_ptr, nullptr, nullptr);
 #endif
