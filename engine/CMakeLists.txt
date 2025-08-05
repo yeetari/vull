@@ -30,12 +30,15 @@ if(VULL_BUILD_WAYLAND_WINDOW)
         BASENAME relative-pointer)
 
     # VULL_BUILD_WAYLAND_WINDOW preprocessor definition added automatically.
-    
     target_link_libraries(vull PRIVATE Wayland::client Wayland::cursor X11::xkbcommon vull-wl-protocols)
 endif()
 
 if(VULL_BUILD_X11_WINDOW)
     target_link_libraries(vull PRIVATE X11::xcb X11::xcb_randr X11::xcb_xinput X11::xkbcommon X11::xkbcommon_X11)
+endif()
+
+if(VULL_ENABLE_TRACY)
+    target_link_libraries(vull PRIVATE Tracy::TracyClient)
 endif()
 
 # Separate shaderc library. This is a separate library rather than a component since you'd likely want the shader

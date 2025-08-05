@@ -45,6 +45,7 @@ cmake_dependent_option(VULL_BUILD_SANDBOX
     OFF)
 option(VULL_BUILD_TESTS "Build the vull tests" ${PROJECT_IS_TOP_LEVEL})
 option(VULL_ENABLE_COVERAGE "Enable code coverage for testing" OFF)
+option(VULL_ENABLE_TRACY "Enable the tracy profiler" OFF)
 
 if(VULL_ENABLE_COVERAGE)
     find_package(Gcov REQUIRED)
@@ -59,6 +60,18 @@ if(VULL_ENABLE_COVERAGE)
         --verbose
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       VERBATIM)
+endif()
+
+if(VULL_ENABLE_TRACY)
+    set(TRACY_FIBERS ON CACHE BOOL "" FORCE)
+    set(TRACY_NO_FRAME_IMAGE ON CACHE BOOL "" FORCE)
+    set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG v0.12.2
+        GIT_SHALLOW TRUE
+        SYSTEM)
+    FetchContent_MakeAvailable(tracy)
 endif()
 
 find_package(liburing REQUIRED)

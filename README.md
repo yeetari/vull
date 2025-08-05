@@ -89,6 +89,7 @@ To configure vull, use one of the available presets:
 | `VULL_BUILD_SANDBOX`      | Build the sandbox application | `PROJECT_IS_TOP_LEVEL`²                                |
 | `VULL_BUILD_TESTS`        | Build tests                   | `PROJECT_IS_TOP_LEVEL`                                 |
 | `VULL_ENABLE_COVERAGE`    | Enable gcov test coverage     | `OFF`                                                  |
+| `VULL_ENABLE_TRACY`       | Enable the tracy client       | `OFF`                                                  |
 
 ¹: Requires the `graphics` component to be enabled
 
