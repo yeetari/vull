@@ -627,6 +627,7 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
     queue_io_request(&ring, &poll_quit_event);
     queue_io_request(&ring, &poll_submit_event);
 
+    uint32_t pending_completion_count = 0;
     for (bool running = true; running;) {
         // Submit any pending SQEs and wait for at least one CQE.
         io_uring_submit_and_wait(&ring, 1);
@@ -655,6 +656,7 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
                 // Resume the suspended tasklet.
                 request->fulfill(cqe->res);
                 request->sub_ref();
+                pending_completion_count--;
             }
         }
         io_uring_cq_advance(&ring, cqe_count);
@@ -672,6 +674,10 @@ void spawn_tasklet_io_dispatcher(tasklet::IoQueue &queue) {
             queue.pending.fetch_add(pending_count - to_queue_count, vull::memory_order_relaxed);
             queue.submit_event.set();
         }
+
+        // Plot number of requests pending completion.
+        pending_completion_count += to_queue_count;
+        tracing::plot_data("Pending IO", pending_completion_count);
     }
     io_uring_queue_exit(&ring);
 }
