@@ -36,8 +36,9 @@
 #include <string.h>
 
 namespace vull {
-
 namespace {
+
+constexpr uint32_t k_in_flight_limit = 16;
 
 struct FormatInfo {
     vkb::Format format;
@@ -338,6 +339,11 @@ uint32_t TextureStreamer::ensure_texture(const String &name, TextureKind kind) {
         m_loaded_indices.set(name, index);
         m_futures.remove(name);
         return index;
+    }
+
+    // Don't schedule the stream just yet if there's already a lot in flight.
+    if (m_futures.size() >= k_in_flight_limit) {
+        return fallback_index;
     }
 
     // There is no pending future so we need to schedule the load.
