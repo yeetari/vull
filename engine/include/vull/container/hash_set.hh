@@ -200,7 +200,7 @@ Optional<T &> HashSet<T, HashFn, EqualityFn>::add(T &&elem) {
             }
         }
     }
-    if (ensure_capacity(m_size + 1)) {
+    if (ensure_capacity(m_size + 1) || empty()) {
         // Rehash took place.
         insert(move(elem));
     } else {
