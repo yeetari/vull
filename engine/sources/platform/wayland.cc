@@ -1,31 +1,63 @@
+#include <vull/container/array.hh>
+#include <vull/container/hash_map.hh>
 #include <vull/core/input.hh>
 #include <vull/core/log.hh>
 #include <vull/maths/epsilon.hh>
+#include <vull/maths/vec.hh>
 #include <vull/platform/file.hh>
 #include <vull/platform/window.hh>
 #include <vull/platform/xkb.hh>
+#include <vull/support/enum.hh>
+#include <vull/support/function.hh>
+#include <vull/support/optional.hh>
+#include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
+#include <vull/vulkan/context.hh>
+#include <vull/vulkan/swapchain.hh>
 #include <vull/vulkan/vulkan.hh>
 
 #include <linux/input-event-codes.h>
+#include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
-#include <wayland-client.h>
 #include <wayland-cursor.h>
-#include <wayland-egl.h>
 #include <wayland-pointer-constraints-client-protocol.h>
 #include <wayland-relative-pointer-client-protocol.h>
 #include <wayland-util.h>
 #include <wayland-xdg-decoration-client-protocol.h>
 #include <wayland-xdg-shell-client-protocol.h>
-#include <xkbcommon/xkbcommon-compat.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
+#include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include <stdint.h>
 #include <sys/mman.h>
-#include <unistd.h>
+
+// IWYU pragma: no_forward_declare wl_buffer
+// IWYU pragma: no_forward_declare wl_compositor
+// IWYU pragma: no_forward_declare wl_cursor_theme
+// IWYU pragma: no_forward_declare wl_display
+// IWYU pragma: no_forward_declare wl_keyboard
+// IWYU pragma: no_forward_declare wl_output
+// IWYU pragma: no_forward_declare wl_pointer
+// IWYU pragma: no_forward_declare wl_region
+// IWYU pragma: no_forward_declare wl_registry
+// IWYU pragma: no_forward_declare wl_seat
+// IWYU pragma: no_forward_declare wl_shm
+// IWYU pragma: no_forward_declare wl_surface
+// IWYU pragma: no_forward_declare xdg_surface
+// IWYU pragma: no_forward_declare xdg_toplevel
+// IWYU pragma: no_forward_declare xdg_wm_base
+// IWYU pragma: no_forward_declare xkb_context
+// IWYU pragma: no_forward_declare xkb_keymap
+// IWYU pragma: no_forward_declare xkb_state
+// IWYU pragma: no_forward_declare zwp_locked_pointer_v1
+// IWYU pragma: no_forward_declare zwp_pointer_constraints_v1
+// IWYU pragma: no_forward_declare zwp_relative_pointer_manager_v1
+// IWYU pragma: no_forward_declare zwp_relative_pointer_v1
+// IWYU pragma: no_forward_declare zxdg_decoration_manager_v1
+// IWYU pragma: no_forward_declare zxdg_toplevel_decoration_v1
 
 namespace vull::platform {
 namespace {

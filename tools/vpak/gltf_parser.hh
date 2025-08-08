@@ -4,8 +4,16 @@
 #include <vull/json/parser.hh> // TODO: Only need ParseError.
 #include <vull/json/tree.hh>   // TODO: Only need JsonError.
 #include <vull/platform/file_stream.hh>
+#include <vull/support/result.hh>
+#include <vull/support/stream.hh>
 #include <vull/support/string.hh>
-#include <vull/vpak/writer.hh>
+#include <vull/support/utility.hh>
+
+namespace vull::vpak {
+
+class Writer;
+
+} // namespace vull::vpak
 
 namespace vull {
 

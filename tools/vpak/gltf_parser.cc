@@ -4,39 +4,53 @@
 #include "mad_inst.hh"
 #include "png_stream.hh"
 
+#include <vull/container/fixed_buffer.hh>
 #include <vull/container/hash_map.hh>
-#include <vull/container/perfect_map.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/bounding_box.hh>
 #include <vull/core/bounding_sphere.hh>
 #include <vull/core/log.hh>
+#include <vull/ecs/entity.hh>
+#include <vull/ecs/entity_id.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/material.hh>
 #include <vull/graphics/mesh.hh>
 #include <vull/graphics/vertex.hh>
 #include <vull/json/parser.hh>
 #include <vull/json/tree.hh>
+#include <vull/maths/colour.hh>
+#include <vull/maths/common.hh>
+#include <vull/maths/quat.hh>
 #include <vull/maths/vec.hh>
+#include <vull/platform/file_stream.hh>
 #include <vull/platform/thread.hh>
-#include <vull/platform/timer.hh>
 #include <vull/scene/transform.hh>
 #include <vull/support/assert.hh>
-#include <vull/support/atomic.hh>
+#include <vull/support/enum.hh>
+#include <vull/support/optional.hh>
+#include <vull/support/result.hh>
 #include <vull/support/scoped_lock.hh>
+#include <vull/support/span.hh>
 #include <vull/support/span_stream.hh>
+#include <vull/support/stream.hh>
+#include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
+#include <vull/support/string_view.hh>
+#include <vull/support/tuple.hh>
+#include <vull/support/unique_ptr.hh>
+#include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/future.hh>
-#include <vull/tasklet/latch.hh>
 #include <vull/tasklet/mutex.hh>
 #include <vull/tasklet/scheduler.hh>
-#include <vull/tasklet/tasklet.hh>
-#include <vull/vpak/pack_file.hh>
+#include <vull/vpak/defs.hh>
 #include <vull/vpak/stream.hh>
 #include <vull/vpak/writer.hh>
 
 #include <float.h>
 #include <meshoptimizer.h>
+#include <stdint.h>
+#include <string.h>
 
 // TODO(json): Lots of casting to uint64_t from a get<int64_t>().
 // TODO(json): Range-based for loops on arrays.
