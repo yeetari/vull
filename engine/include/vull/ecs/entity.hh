@@ -12,10 +12,11 @@ namespace vull {
 class EntityManager;
 
 class Entity {
-    EntityManager *const m_manager;
-    const EntityId m_id;
+    EntityManager *m_manager{nullptr};
+    EntityId m_id{};
 
 public:
+    constexpr Entity() = default;
     constexpr Entity(EntityManager *manager, EntityId id) : m_manager(manager), m_id(id) {}
 
     template <typename C, typename... Args>
