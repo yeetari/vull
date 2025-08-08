@@ -37,6 +37,7 @@ public:
     void set_shape(const Shape &shape);
     Vec3f velocity_at_point(const Vec3f &point) const;
 
+    void set_linear_velocity(const Vec3f &velocity) { m_linear_velocity = velocity; }
     Vec3f linear_velocity() const { return m_linear_velocity; }
 };
 
