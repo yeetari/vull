@@ -11,11 +11,6 @@ configure_file(${CONFIG_PATH}.in ${CONFIG_PATH} @ONLY)
 file(GENERATE OUTPUT ${CONFIG_PATH} INPUT ${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_PATH})
 target_include_directories(vull PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
 
-# Add preprocessor definitions for enabled components.
-foreach(component ${VULL_ENABLED_COMPONENTS})
-    target_compile_definitions(vull PUBLIC VULL_BUILD_${component})
-endforeach()
-
 if(VULL_BUILD_UI)
     target_link_libraries(vull PRIVATE Freetype::Freetype harfbuzz::harfbuzz)
 endif()
