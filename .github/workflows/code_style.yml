@@ -27,7 +27,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Configure CMake
+        run: cmake . --preset debug-clang -Bbuild
+
       - name: Run include-what-you-use
         run: |
-          ./tools/run_iwyu.bash | tee output
+          # Generate wayland protocol headers.
+          cmake --build build --target vull-wl-protocols
+
+          ./tools/run_iwyu.bash build | tee output
           if [ -s output ]; then exit 1; fi

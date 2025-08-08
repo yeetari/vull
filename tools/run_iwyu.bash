@@ -1,23 +1,13 @@
 #!/bin/bash
+set -u
 
-# TODO: Can't run on gltf_parser.cc due to FetchContent dependencies.
-find engine/sources engine/tests sandbox tools \
-    -name '*.cc' \
-    -and -not -name 'context_table.cc' \
-    -and -not -name 'enum.cc' \
-    -and -not -name 'gltf_parser.cc' \
-    -and -not -name 'variant.cc' \
-    -and -not -name 'vector.cc' \
-    -and -not -name 'wayland.cc' \
-    -print0 |
-parallel -0 \
-    include-what-you-use \
-        -std=c++20 \
-        -isystem/usr/include/freetype2 \
-        -isystem/usr/include/harfbuzz \
-        -isystemtools/vpak/enc \
-        -Iengine/include -Iengine/sources \
-        -fno-rtti \
-        -w \
-        {} 2>&1 |
+"$(dirname "$(realpath "$0")")"/iwyu_tool.py \
+    -j $(nproc) \
+    -p $1 \
+    engine/ sandbox/ tools/ \
+    -e 'engine/sources/tasklet/x86_64_sysv.S' \
+    -e 'engine/sources/vulkan/context_table.cc' \
+    -e 'engine/tests/container/vector.cc' \
+    -e 'engine/tests/support/enum.cc' \
+    -e 'engine/tests/support/variant.cc' |
     grep -v correct | sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba' | cat -s
