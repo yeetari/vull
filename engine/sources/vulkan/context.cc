@@ -3,6 +3,7 @@
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
+#include <vull/core/config.hh>
 #include <vull/core/log.hh>
 #include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
@@ -37,6 +38,10 @@ namespace {
 
 constexpr uint32_t make_version(uint32_t variant, uint32_t major, uint32_t minor, uint32_t patch) {
     return (variant << 29) | (major << 22) | (minor << 12) | patch;
+}
+
+constexpr uint32_t make_version(EngineVersion version) {
+    return make_version(0, version.major, version.minor, version.patch);
 }
 
 constexpr uint32_t k_vulkan_version = make_version(0, 1, 3, 0);
@@ -199,8 +204,7 @@ Result<UniquePtr<Context>, ContextError> Context::create(const AppInfo &app_info
         .pApplicationName = app_info.name,
         .applicationVersion = app_info.version,
         .pEngineName = "vull",
-        // TODO: Get the actual engine version.
-        .engineVersion = 1,
+        .engineVersion = make_version(vull::engine_version()),
         .apiVersion = k_vulkan_version,
     };
     vkb::InstanceCreateInfo instance_ci{
