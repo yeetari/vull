@@ -1,3 +1,4 @@
+#include "fps_controller.hh"
 #include "free_camera.hh"
 
 #include <vull/container/array.hh>
@@ -6,21 +7,27 @@
 #include <vull/core/application.hh>
 #include <vull/core/input.hh>
 #include <vull/core/tracing.hh>
+#include <vull/ecs/entity.hh>
+#include <vull/ecs/entity_id.hh>
 #include <vull/ecs/world.hh>
 #include <vull/graphics/default_renderer.hh>
 #include <vull/graphics/deferred_renderer.hh>
 #include <vull/graphics/frame_pacer.hh>
 #include <vull/graphics/gbuffer.hh>
+#include <vull/graphics/mesh.hh>
 #include <vull/graphics/skybox_renderer.hh>
 #include <vull/maths/colour.hh>
 #include <vull/maths/common.hh>
+#include <vull/maths/quat.hh>
 #include <vull/maths/vec.hh>
 #include <vull/physics/collider.hh>
 #include <vull/physics/physics_engine.hh>
 #include <vull/physics/rigid_body.hh>
+#include <vull/physics/shape.hh>
 #include <vull/platform/timer.hh>
 #include <vull/platform/window.hh>
 #include <vull/scene/scene.hh>
+#include <vull/scene/transform.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/atomic.hh>
 #include <vull/support/function.hh>
@@ -85,6 +92,11 @@ class Sandbox {
     platform::Timer m_frame_timer;
     PhysicsEngine m_physics_engine;
     Scene m_scene;
+    Entity m_player;
+    UniquePtr<FpsController> m_fps_controller;
+    float m_suzanne_yaw{0.0f};
+    float m_suzanne_timer{0.0f};
+    bool m_free_camera_active{true};
     Atomic<bool> m_should_close;
 
 public:
@@ -143,7 +155,11 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
             m_ui_tree.handle_mouse_move(delta, position, buttons);
             return;
         }
-        m_free_camera.handle_mouse_move(delta);
+        if (m_free_camera_active) {
+            m_free_camera.handle_mouse_move(delta);
+        } else if (m_fps_controller) {
+            m_fps_controller->handle_mouse_move(delta);
+        }
     });
     m_window->on_mouse_press(MouseButton::Left, [this](Vec2f) {
         if (!m_window->cursor_grabbed()) {
@@ -205,6 +221,18 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
     m_window->on_key_release(Key::F4, [&](ModifierMask) {
         camera_window.set_visible(!camera_window.is_visible());
     });
+    m_window->on_key_release(Key::F5, [this](ModifierMask) {
+        m_free_camera_active = !m_free_camera_active;
+    });
+
+    m_window->on_key_release(Key::F, [this](ModifierMask) {
+        auto box = m_scene.world().create_entity();
+        box.add<Transform>(~EntityId(0), Vec3f(0.5f, 30.0f, 0.5f));
+        box.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+        box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f)));
+        box.add<RigidBody>(1.0f);
+        box.get<RigidBody>().set_shape(box.get<Collider>().shape());
+    });
 
     m_cpu_time_graph->new_bar();
 }
@@ -224,6 +252,29 @@ void Sandbox::load_scene(StringView scene_name) {
     auto &world = m_scene.world();
     world.register_component<RigidBody>();
     world.register_component<Collider>();
+
+    for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
+        if (mesh.vertex_data_name() == "/meshes/Cube.001.0/vertex") {
+            entity.add<Collider>(vull::make_unique<BoxShape>(transform.scale()));
+            break;
+        }
+    }
+
+    m_player = world.create_entity();
+    m_player.add<Transform>(~EntityId(0), Vec3f(3.0f, 5.0f, 0.0f), Quatf(), Vec3f(1.0f, 3.0f, 1.0f));
+    m_player.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+    m_player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 3.0f, 1.0f)));
+    m_player.add<RigidBody>(250.0f);
+    m_player.get<RigidBody>().set_shape(m_player.get<Collider>().shape());
+    m_player.get<RigidBody>().set_ignore_rotation(true);
+    m_fps_controller = vull::make_unique<FpsController>(m_player);
+
+    auto slope = world.create_entity();
+    slope.add<Transform>(~EntityId(0), Vec3f(0.0f, 3.0f, -10.0f),
+                         vull::angle_axis(vull::half_pi<float> / 4.0f, Vec3f(1.0f, 0.0f, 0.0f)),
+                         Vec3f(1.0f, 0.5f, 10.0f));
+    slope.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+    slope.add<Collider>(vull::make_unique<BoxShape>(slope.get<Transform>().scale()));
 }
 
 tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
@@ -257,13 +308,44 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
             .set_text(vull::format(pipeline_statistics_strings[i], pipeline_statistics[i]));
     }
 
+    m_suzanne_timer -= dt;
+    if (m_fps_controller && m_window->is_button_pressed(MouseButton::Left) && m_window->cursor_grabbed() &&
+        m_suzanne_timer <= 0.0f) {
+        const auto position = m_fps_controller->position() + m_fps_controller->forward() * 3.0f;
+        const auto force = m_fps_controller->forward() * 5000.0f;
+        auto suzanne = m_scene.world().create_entity();
+        suzanne.add<Transform>(~EntityId(0), position, vull::angle_axis(m_suzanne_yaw, Vec3f(0.0f, 1.0f, 0.0f)),
+                               Vec3f(0.2f));
+        suzanne.add<Mesh>("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index");
+        suzanne.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.5f)));
+        suzanne.add<RigidBody>(1.0f);
+        suzanne.get<RigidBody>().set_shape(suzanne.get<Collider>().shape());
+        suzanne.get<RigidBody>().apply_central_force(force);
+        m_player.get<RigidBody>().apply_central_force(-force);
+        m_suzanne_yaw += vull::pi<float> / 2.0f;
+        m_suzanne_timer = 0.1f;
+    }
+
+    for (auto [entity, body, transform] : m_scene.world().view<RigidBody, Transform>()) {
+        if (entity == m_player) {
+            continue;
+        }
+        if (vull::distance(transform.position(), m_player.get<Transform>().position()) >= 100.0f) {
+            entity.destroy();
+        }
+    }
+
     // Step physics.
     platform::Timer physics_timer;
     m_physics_engine.step(m_scene.world(), dt);
     m_cpu_time_graph->push_section("step-physics", physics_timer.elapsed());
 
-    // Update camera.
-    m_free_camera.update(*m_window, dt);
+    // Update cameras.
+    if (m_free_camera_active) {
+        m_free_camera.update(*m_window, dt);
+    } else if (m_fps_controller) {
+        m_fps_controller->update(*m_window, dt);
+    }
 
     platform::Timer ui_timer;
     ui::Painter ui_painter;
@@ -274,7 +356,11 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
 
     m_deferred_renderer.set_exposure(m_exposure_slider->value());
     m_default_renderer.set_cull_view_locked(m_window->is_key_pressed(Key::H));
-    m_default_renderer.set_camera(m_free_camera);
+    if (m_free_camera_active) {
+        m_default_renderer.set_camera(m_free_camera);
+    } else if (m_fps_controller) {
+        m_default_renderer.set_camera(*m_fps_controller);
+    }
     m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
 
     platform::Timer build_rg_timer;
