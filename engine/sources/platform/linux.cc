@@ -9,6 +9,7 @@
 
 #include <vull/container/array.hh>
 #include <vull/container/vector.hh>
+#include <vull/core/config.hh>
 #include <vull/core/log.hh>
 #include <vull/core/tracing.hh>
 #include <vull/maths/common.hh>
@@ -28,10 +29,7 @@
 #include <vull/tasklet/future.hh>
 #include <vull/tasklet/io.hh>
 #include <vull/tasklet/scheduler.hh>
-
-#ifdef VULL_BUILD_GRAPHICS
 #include <vull/vulkan/fence.hh>
-#endif
 
 // IWYU pragma: no_include <bits/types/stack_t.h>
 // IWYU pragma: no_include <bits/types/struct_sched_param.h>
@@ -573,20 +571,22 @@ static void queue_io_request(io_uring *ring, tasklet::IoRequest *request) {
         io_uring_prep_read(sqe, fd, &wait_event->value(), sizeof(eventfd_t), 0);
         break;
     }
-#ifdef VULL_BUILD_GRAPHICS
     case WaitVkFence: {
-        auto *wait_vk_fence = static_cast<tasklet::WaitVkFenceRequest *>(request);
-        auto fd = wait_vk_fence->fence().make_fd();
-        if (fd) {
-            wait_vk_fence->set_fd(*fd);
-            io_uring_prep_poll_add(sqe, *fd, POLLIN);
+        if constexpr (vull::is_graphics_enabled()) {
+            auto *wait_vk_fence = static_cast<tasklet::WaitVkFenceRequest *>(request);
+            auto fd = wait_vk_fence->fence().make_fd();
+            if (fd) {
+                wait_vk_fence->set_fd(*fd);
+                io_uring_prep_poll_add(sqe, *fd, POLLIN);
+            } else {
+                // Fence already signaled, just queue a nop.
+                io_uring_prep_nop(sqe);
+            }
         } else {
-            // Fence already signaled, just queue a nop.
-            io_uring_prep_nop(sqe);
+            VULL_ENSURE_NOT_REACHED();
         }
         break;
     }
-#endif
     }
 }
 

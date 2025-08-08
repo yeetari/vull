@@ -2,6 +2,7 @@
 
 #include <vull/container/array.hh>
 #include <vull/container/hash_map.hh>
+#include <vull/core/config.hh>
 #include <vull/core/input.hh>
 #include <vull/core/log.hh> // IWYU pragma: keep
 #include <vull/support/function.hh>
@@ -15,18 +16,20 @@
 namespace vull::platform {
 
 Result<UniquePtr<Window>, WindowError> Window::create(Optional<uint16_t> width, Optional<uint16_t> height) {
-#ifdef VULL_BUILD_WAYLAND_WINDOW
-    vull::trace("[window] Attempting to create Wayland window");
-    if (auto wayland = create_wayland(width, height); !wayland.is_error()) {
-        return wayland;
+    if constexpr (vull::is_wayland_enabled()) {
+        vull::trace("[window] Attempting to create Wayland window");
+        if (auto wayland = create_wayland(width, height); !wayland.is_error()) {
+            return wayland;
+        }
     }
-#endif
-#ifdef VULL_BUILD_X11_WINDOW
-    vull::trace("[window] Attempting to create X11 window");
-    if (auto x11 = create_x11(width, height); !x11.is_error()) {
-        return x11;
+
+    if constexpr (vull::is_x11_enabled()) {
+        vull::trace("[window] Attempting to create X11 window");
+        if (auto x11 = create_x11(width, height); !x11.is_error()) {
+            return x11;
+        }
     }
-#endif
+
     return WindowError::Unsupported;
 }
 
