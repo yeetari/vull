@@ -1,5 +1,5 @@
 # >= 3.20 required for cmake_path and DEPFILE support with the Makefile generator
-# >= 3.21 required for DEPFILE support with the Visual Studio generator
+# >= 3.21 required for DEPFILE support with the Visual Studio generator and PROJECT_IS_TOP_LEVEL
 # >= 3.24 required for the X11::xcb_randr target
 # >= 3.25 required for SYSTEM in FetchContent_Declare
 cmake_minimum_required(VERSION 3.25)

@@ -5,6 +5,12 @@ target_compile_options(vull PRIVATE ${VULL_COMPILER_FLAGS_LIST})
 target_include_directories(vull PUBLIC include)
 target_link_libraries(vull PUBLIC xxHash::xxHash PRIVATE Zstd::Zstd liburing::liburing)
 
+# Generate configuration header and add it to the include path.
+set(CONFIG_PATH include/vull/core/config.hh)
+configure_file(${CONFIG_PATH}.in ${CONFIG_PATH} @ONLY)
+file(GENERATE OUTPUT ${CONFIG_PATH} INPUT ${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_PATH})
+target_include_directories(vull PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
+
 # Add preprocessor definitions for enabled components.
 foreach(component ${VULL_ENABLED_COMPONENTS})
     target_compile_definitions(vull PUBLIC VULL_BUILD_${component})

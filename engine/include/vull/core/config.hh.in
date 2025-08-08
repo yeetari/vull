@@ -1,0 +1,45 @@
+#pragma once
+
+#include <stdint.h>
+
+namespace vull {
+
+struct EngineVersion {
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+};
+
+/**
+ * @brief Returns the current version of vull.
+ */
+consteval EngineVersion engine_version() {
+    return {
+        .major = @CMAKE_PROJECT_VERSION_MAJOR@,
+        .minor = @CMAKE_PROJECT_VERSION_MINOR@,
+        .patch = @CMAKE_PROJECT_VERSION_PATCH@,
+    };
+}
+
+/**
+ * @brief Returns true if the graphics component has been compiled in.
+ */
+consteval bool is_graphics_enabled() {
+    return $<IF:$<BOOL:@VULL_BUILD_GRAPHICS@>,true,false>;
+}
+
+/**
+ * @brief Returns true if support for Wayland has been compiled in.
+ */
+consteval bool is_wayland_enabled() {
+    return $<IF:$<BOOL:@VULL_BUILD_WAYLAND_WINDOW@>,true,false>;
+}
+
+/**
+ * @brief Returns true if support for X11 has been compiled in.
+ */
+consteval bool is_x11_enabled() {
+    return $<IF:$<BOOL:@VULL_BUILD_X11_WINDOW@>,true,false>;
+}
+
+} // namespace vull
