@@ -6,12 +6,10 @@
 #include <vull/maths/projection.hh>
 #include <vull/maths/vec.hh>
 #include <vull/support/function.hh>
-#include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/unique_ptr.hh>
-#include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
 #include <vull/vpak/stream.hh>
 #include <vull/vulkan/buffer.hh>
@@ -64,19 +62,15 @@ void ObjectRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &target) 
 }
 
 void ObjectRenderer::load(const Mesh &mesh) {
-    const auto vertices_size = vpak::stat(mesh.vertex_data_name())->size;
-    const auto indices_size = vpak::stat(mesh.index_data_name())->size;
-
+    auto data_stream = vpak::open(mesh.data_path());
+    const auto vertices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
+    const auto indices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
     m_vertex_buffer =
         m_context.create_buffer(vertices_size, vkb::BufferUsage::VertexBuffer, vk::MemoryUsage::HostToDevice);
     m_index_buffer =
         m_context.create_buffer(indices_size, vkb::BufferUsage::IndexBuffer, vk::MemoryUsage::HostToDevice);
-
-    auto vertex_stream = vpak::open(mesh.vertex_data_name());
-    VULL_EXPECT(vertex_stream->read({m_vertex_buffer.mapped_raw(), vertices_size}));
-
-    auto index_stream = vpak::open(mesh.index_data_name());
-    VULL_EXPECT(index_stream->read({m_index_buffer.mapped_raw(), indices_size}));
+    VULL_EXPECT(data_stream->read({m_vertex_buffer.mapped_raw(), vertices_size}));
+    VULL_EXPECT(data_stream->read({m_index_buffer.mapped_raw(), indices_size}));
 }
 
 } // namespace vull

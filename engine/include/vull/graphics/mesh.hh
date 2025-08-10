@@ -13,18 +13,15 @@ class Mesh {
     VULL_DECLARE_COMPONENT(BuiltinComponents::Mesh);
 
 private:
-    String m_vertex_data_name;
-    String m_index_data_name;
+    String m_data_path;
 
 public:
     static Mesh deserialise(Stream &stream);
     static void serialise(Mesh &mesh, Stream &stream);
 
-    Mesh(String &&vertex_data_name, String &&index_data_name)
-        : m_vertex_data_name(vull::move(vertex_data_name)), m_index_data_name(vull::move(index_data_name)) {}
+    explicit Mesh(String &&data_path) : m_data_path(vull::move(data_path)) {}
 
-    const String &vertex_data_name() const { return m_vertex_data_name; }
-    const String &index_data_name() const { return m_index_data_name; }
+    const String &data_path() const { return m_data_path; }
 };
 
 } // namespace vull

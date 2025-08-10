@@ -8,14 +8,12 @@
 namespace vull {
 
 Mesh Mesh::deserialise(Stream &stream) {
-    auto vertex_data_name = VULL_EXPECT(stream.read_string());
-    auto index_data_name = VULL_EXPECT(stream.read_string());
-    return {vull::move(vertex_data_name), vull::move(index_data_name)};
+    auto data_path = VULL_EXPECT(stream.read_string());
+    return Mesh(vull::move(data_path));
 }
 
 void Mesh::serialise(Mesh &mesh, Stream &stream) {
-    VULL_EXPECT(stream.write_string(mesh.vertex_data_name()));
-    VULL_EXPECT(stream.write_string(mesh.index_data_name()));
+    VULL_EXPECT(stream.write_string(mesh.data_path()));
 }
 
 } // namespace vull

@@ -22,8 +22,6 @@
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
-#include <vull/support/string.hh>
-#include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
@@ -287,17 +285,6 @@ void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer 
 vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, Scene &scene, Camera &camera) {
     Vector<Object> objects;
     for (auto [entity, mesh] : scene.world().view<Mesh>()) {
-        size_t slash_index = 0;
-        for (size_t i = mesh.vertex_data_name().length() - 1; i > 0; i--) {
-            if (mesh.vertex_data_name()[i] == '/') {
-                slash_index = i;
-                break;
-            }
-        }
-
-        String mesh_name = mesh.vertex_data_name().view().substr(0, slash_index);
-        const auto mesh_info = m_mesh_streamer.ensure_mesh(mesh_name);
-
         // TODO: Assuming fallback indices here.
         uint32_t albedo_index = 0;
         uint32_t normal_index = 1;
@@ -306,7 +293,8 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             normal_index = m_texture_streamer.ensure_texture(material->normal_name(), TextureKind::Normal);
         }
 
-        if (!mesh_info) {
+        const auto mesh_info = m_mesh_streamer.ensure_mesh(mesh.data_path());
+        if (!mesh_info || mesh_info->index_count == 0) {
             continue;
         }
 

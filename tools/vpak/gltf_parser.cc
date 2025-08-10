@@ -471,13 +471,12 @@ GltfResult<> Converter::process_primitive(const json::Object &primitive, String 
     meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
                                 sizeof(Vertex));
 
-    auto vertex_data_entry = m_pack_writer.add_entry(vull::format("/meshes/{}/vertex", name), vpak::EntryType::Blob);
-    VULL_TRY(vertex_data_entry.write(vertices.span()));
-    VULL_TRY(vertex_data_entry.finish());
-
-    auto index_data_entry = m_pack_writer.add_entry(vull::format("/meshes/{}/index", name), vpak::EntryType::Blob);
-    VULL_TRY(index_data_entry.write(indices.span()));
-    VULL_TRY(index_data_entry.finish());
+    auto vpak_entry = m_pack_writer.add_entry(vull::format("/meshes/{}", name), vpak::EntryType::Blob);
+    VULL_TRY(vpak_entry.write_varint(vertices.size_bytes()));
+    VULL_TRY(vpak_entry.write_varint(indices.size_bytes()));
+    VULL_TRY(vpak_entry.write(vertices.span()));
+    VULL_TRY(vpak_entry.write(indices.span()));
+    VULL_TRY(vpak_entry.finish());
 
     BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
     BoundingSphere bounding_sphere(sphere_center, sphere_radius);
@@ -543,8 +542,7 @@ GltfResult<> Converter::visit_node(World &world, EntityId parent_id, uint64_t in
             if (auto material = VULL_TRY(make_material(primitive))) {
                 sub_entity.add<Material>(*material);
             }
-            sub_entity.add<Mesh>(vull::format("/meshes/{}.{}/vertex", mesh_name, primitive_index),
-                                 vull::format("/meshes/{}.{}/index", mesh_name, primitive_index));
+            sub_entity.add<Mesh>(vull::format("/meshes/{}.{}", mesh_name, primitive_index));
             if (auto bounds = m_mesh_bounds.get(vull::format("{}.{}", mesh_name, primitive_index))) {
                 sub_entity.add<BoundingBox>(bounds->box);
                 sub_entity.add<BoundingSphere>(bounds->sphere);

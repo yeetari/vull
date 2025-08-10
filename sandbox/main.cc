@@ -234,7 +234,7 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
     m_window->on_key_release(Key::F, [this](ModifierMask) {
         auto box = m_scene.world().create_entity();
         box.add<Transform>(~EntityId(0), Vec3f(0.5f, 30.0f, 0.5f));
-        box.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+        box.add<Mesh>("/meshes/Cube.001.0");
         box.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f)));
         box.add<RigidBody>(1.0f);
         box.get<RigidBody>().set_shape(box.get<Collider>().shape());
@@ -259,7 +259,7 @@ void Sandbox::load_scene(StringView scene_name) {
     world.register_component<Collider>();
 
     for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
-        if (mesh.vertex_data_name() == "/meshes/Cube.001.0/vertex") {
+        if (mesh.data_path() == "/meshes/Cube.001.0") {
             entity.add<Collider>(vull::make_unique<BoxShape>(transform.scale()));
             break;
         }
@@ -267,7 +267,7 @@ void Sandbox::load_scene(StringView scene_name) {
 
     m_player = world.create_entity();
     m_player.add<Transform>(~EntityId(0), Vec3f(3.0f, 5.0f, 0.0f), Quatf(), Vec3f(1.0f, 3.0f, 1.0f));
-    m_player.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+    m_player.add<Mesh>("/meshes/Cube.001.0");
     m_player.add<Collider>(vull::make_unique<BoxShape>(Vec3f(1.0f, 3.0f, 1.0f)));
     m_player.add<RigidBody>(250.0f);
     m_player.get<RigidBody>().set_shape(m_player.get<Collider>().shape());
@@ -278,7 +278,7 @@ void Sandbox::load_scene(StringView scene_name) {
     slope.add<Transform>(~EntityId(0), Vec3f(0.0f, 3.0f, -10.0f),
                          vull::angle_axis(vull::half_pi<float> / 4.0f, Vec3f(1.0f, 0.0f, 0.0f)),
                          Vec3f(1.0f, 0.5f, 10.0f));
-    slope.add<Mesh>("/meshes/Cube.001.0/vertex", "/meshes/Cube.001.0/index");
+    slope.add<Mesh>("/meshes/Cube.001.0");
     slope.add<Collider>(vull::make_unique<BoxShape>(slope.get<Transform>().scale()));
 }
 
@@ -321,7 +321,7 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
         auto suzanne = m_scene.world().create_entity();
         suzanne.add<Transform>(~EntityId(0), position, vull::angle_axis(m_suzanne_yaw, Vec3f(0.0f, 1.0f, 0.0f)),
                                Vec3f(0.2f));
-        suzanne.add<Mesh>("/meshes/Suzanne.0/vertex", "/meshes/Suzanne.0/index");
+        suzanne.add<Mesh>("/meshes/Suzanne.0");
         suzanne.add<Collider>(vull::make_unique<BoxShape>(Vec3f(0.5f)));
         suzanne.add<RigidBody>(1.0f);
         suzanne.get<RigidBody>().set_shape(suzanne.get<Collider>().shape());

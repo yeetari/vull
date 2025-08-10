@@ -1,6 +1,7 @@
 #include <vull/graphics/mesh_streamer.hh>
 
 #include <vull/container/hash_map.hh>
+#include <vull/core/log.hh>
 #include <vull/core/tracing.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/atomic.hh>
@@ -8,13 +9,11 @@
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string.hh>
-#include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/functions.hh>
 #include <vull/tasklet/future.hh>
-#include <vull/vpak/defs.hh>
 #include <vull/vpak/file_system.hh>
 #include <vull/vpak/stream.hh>
 #include <vull/vulkan/buffer.hh>
@@ -23,6 +22,8 @@
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/vulkan.hh>
+
+#include <stdint.h>
 
 namespace vull {
 namespace {
@@ -48,19 +49,17 @@ MeshStreamer::~MeshStreamer() {
 }
 
 MeshInfo MeshStreamer::load_mesh(const String &name) {
-    auto vertex_stream = vpak::open(vull::format("{}/vertex", name));
-    auto index_stream = vpak::open(vull::format("{}/index", name));
-    if (!vertex_stream || !index_stream) {
-        VULL_ENSURE_NOT_REACHED();
+    auto data_stream = vpak::open(name);
+    if (!data_stream) {
+        vull::error("[graphics] Failed to find mesh '{}'", name);
+        return {};
     }
 
-    const auto vertices_size = vpak::stat(vull::format("{}/vertex", name))->size;
-    const auto indices_size = vpak::stat(vull::format("{}/index", name))->size;
+    const auto vertices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
+    const auto indices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
     auto staging_buffer =
         m_context.create_buffer(vertices_size + indices_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-    auto *staging_bytes = staging_buffer.mapped<uint8_t>();
-    VULL_EXPECT(vertex_stream->read({staging_bytes, vertices_size}));
-    VULL_EXPECT(index_stream->read({staging_bytes + vertices_size, indices_size}));
+    VULL_EXPECT(data_stream->read({staging_buffer.mapped_raw(), staging_buffer.size()}));
 
     const auto vertex_buffer_offset = m_vertex_buffer_head.fetch_add(vertices_size, vull::memory_order_relaxed);
     const auto index_buffer_offset = m_index_buffer_head.fetch_add(indices_size, vull::memory_order_relaxed);
