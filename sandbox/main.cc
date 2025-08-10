@@ -67,6 +67,12 @@
 
 using namespace vull;
 
+namespace vull {
+
+class Camera;
+
+} // namespace vull
+
 namespace {
 
 class Sandbox {
@@ -239,7 +245,6 @@ Sandbox::Sandbox(UniquePtr<platform::Window> &&window, UniquePtr<vk::Context> &&
 
 void Sandbox::load_scene(StringView scene_name) {
     m_scene.load(scene_name);
-    m_default_renderer.load_scene(m_scene);
     if (auto skybox = vpak::open("/skybox")) {
         m_skybox_renderer.load(*skybox);
     }
@@ -356,10 +361,10 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
 
     m_deferred_renderer.set_exposure(m_exposure_slider->value());
     m_default_renderer.set_cull_view_locked(m_window->is_key_pressed(Key::H));
-    if (m_free_camera_active) {
-        m_default_renderer.set_camera(m_free_camera);
-    } else if (m_fps_controller) {
-        m_default_renderer.set_camera(*m_fps_controller);
+
+    Camera *active_camera = &m_free_camera;
+    if (!m_free_camera_active && m_fps_controller) {
+        active_camera = m_fps_controller.ptr();
     }
     m_free_camera.set_fov(m_fov_slider->value() * (vull::pi<float> / 180.0f));
 
@@ -368,7 +373,7 @@ tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
     auto output_id = graph.import("output-image", frame_info.swapchain_image);
 
     auto gbuffer = m_deferred_renderer.create_gbuffer(graph, m_swapchain.extent());
-    auto frame_ubo = m_default_renderer.build_pass(graph, gbuffer);
+    auto frame_ubo = m_default_renderer.build_pass(graph, gbuffer, m_scene, *active_camera);
     m_deferred_renderer.build_pass(graph, gbuffer, frame_ubo, output_id);
     m_skybox_renderer.build_pass(graph, gbuffer.depth, frame_ubo, output_id);
     m_ui_renderer.build_pass(graph, output_id, vull::move(ui_painter));

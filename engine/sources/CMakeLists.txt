@@ -37,6 +37,7 @@ if(VULL_BUILD_GRAPHICS)
         graphics/frame_pacer.cc
         graphics/material.cc
         graphics/mesh.cc
+        graphics/mesh_streamer.cc
         graphics/object_renderer.cc
         graphics/skybox_renderer.cc
         graphics/texture_streamer.cc

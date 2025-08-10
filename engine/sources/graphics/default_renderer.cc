@@ -1,8 +1,6 @@
 #include <vull/graphics/default_renderer.hh>
 
 #include <vull/container/array.hh>
-#include <vull/container/hash_map.hh>
-#include <vull/container/hash_set.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/bounding_sphere.hh>
 #include <vull/core/tracing.hh>
@@ -11,6 +9,7 @@
 #include <vull/graphics/gbuffer.hh>
 #include <vull/graphics/material.hh>
 #include <vull/graphics/mesh.hh>
+#include <vull/graphics/mesh_streamer.hh>
 #include <vull/graphics/texture_streamer.hh>
 #include <vull/graphics/vertex.hh>
 #include <vull/maths/common.hh>
@@ -28,9 +27,6 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
-#include <vull/vpak/defs.hh>
-#include <vull/vpak/file_system.hh>
-#include <vull/vpak/stream.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
@@ -94,7 +90,8 @@ struct UniformBuffer {
 
 } // namespace
 
-DefaultRenderer::DefaultRenderer(vk::Context &context) : m_context(context), m_texture_streamer(context) {
+DefaultRenderer::DefaultRenderer(vk::Context &context)
+    : m_context(context), m_mesh_streamer(context, sizeof(Vertex)), m_texture_streamer(context) {
     create_set_layouts();
     create_resources();
     create_pipelines();
@@ -249,97 +246,9 @@ void DefaultRenderer::create_pipelines() {
                                            .build(m_context));
 }
 
-void DefaultRenderer::load_scene(Scene &scene) {
-    m_scene = &scene;
-
-    vkb::DeviceSize vertex_buffer_size = 0;
-    vkb::DeviceSize index_buffer_size = 0;
-    HashSet<String> seen_vertex_buffers;
-    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
-        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
-            continue;
-        }
-        const auto vertices_size = vpak::stat(mesh.vertex_data_name())->size;
-        const auto indices_size = vpak::stat(mesh.index_data_name())->size;
-        m_mesh_infos.set(mesh.vertex_data_name(),
-                         MeshInfo{
-                             .index_count = static_cast<uint32_t>(indices_size / sizeof(uint32_t)),
-                             .index_offset = static_cast<uint32_t>(index_buffer_size / sizeof(uint32_t)),
-                             .vertex_offset = static_cast<int32_t>(vertex_buffer_size / sizeof(Vertex)),
-                         });
-        vertex_buffer_size += vertices_size;
-        index_buffer_size += indices_size;
-    }
-
-    m_vertex_buffer =
-        m_context.create_buffer(vertex_buffer_size, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
-                                vk::MemoryUsage::DeviceOnly);
-    m_index_buffer = m_context.create_buffer(
-        index_buffer_size, vkb::BufferUsage::IndexBuffer | vkb::BufferUsage::TransferDst, vk::MemoryUsage::DeviceOnly);
-    seen_vertex_buffers.clear();
-
-    vkb::DeviceSize vertex_buffer_offset = 0;
-    vkb::DeviceSize index_buffer_offset = 0;
-    Vector<tasklet::Future<void>> futures;
-    auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
-    UniquePtr<vk::CommandBuffer> cmd_buf;
-    size_t mesh_count = 0;
-    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
-        if (seen_vertex_buffers.add(mesh.vertex_data_name())) {
-            continue;
-        }
-
-        if (!cmd_buf) {
-            cmd_buf = queue.request_cmd_buf();
-        }
-
-        auto vertex_entry = *vpak::stat(mesh.vertex_data_name());
-        auto vertex_stream = vpak::open(mesh.vertex_data_name());
-        auto vertex_staging_buffer =
-            m_context.create_buffer(vertex_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(vertex_stream->read({vertex_staging_buffer.mapped_raw(), vertex_entry.size}));
-
-        vkb::BufferCopy vertex_copy{
-            .dstOffset = vertex_buffer_offset,
-            .size = vertex_entry.size,
-        };
-        cmd_buf->copy_buffer(vertex_staging_buffer, m_vertex_buffer, vertex_copy);
-        cmd_buf->bind_associated_buffer(vull::move(vertex_staging_buffer));
-        vertex_buffer_offset += vertex_entry.size;
-
-        auto index_entry = *vpak::stat(mesh.index_data_name());
-        auto index_stream = vpak::open(mesh.index_data_name());
-        auto index_staging_buffer =
-            m_context.create_buffer(index_entry.size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
-        VULL_EXPECT(index_stream->read({index_staging_buffer.mapped_raw(), index_entry.size}));
-
-        vkb::BufferCopy index_copy{
-            .dstOffset = index_buffer_offset,
-            .size = index_entry.size,
-        };
-        cmd_buf->copy_buffer(index_staging_buffer, m_index_buffer, index_copy);
-        cmd_buf->bind_associated_buffer(vull::move(index_staging_buffer));
-        index_buffer_offset += index_entry.size;
-
-        if (mesh_count++ >= 32) {
-            futures.push(queue.submit(vull::move(cmd_buf), {}, {}));
-            mesh_count = 0;
-        }
-    }
-    if (mesh_count > 0) {
-        futures.push(queue.submit(vull::move(cmd_buf), {}, {}));
-    }
-    VULL_ENSURE(vertex_buffer_offset == vertex_buffer_size);
-    VULL_ENSURE(index_buffer_offset == index_buffer_size);
-
-    for (auto &future : futures) {
-        future.await();
-    }
-}
-
-void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent) {
-    const auto proj = m_camera->projection_matrix();
-    const auto view = m_camera->view_matrix();
+void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent, Camera &camera) {
+    const auto proj = camera.projection_matrix();
+    const auto view = camera.view_matrix();
     const auto proj_view = proj * view;
     if (!m_cull_view_locked) {
         auto proj_view_t = vull::transpose(proj_view);
@@ -360,7 +269,7 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent
         .proj_view = proj_view,
         .inv_proj_view = vull::inverse(proj_view),
         .cull_view = m_cull_view,
-        .view_position = m_camera->position(),
+        .view_position = camera.position(),
         .object_count = m_object_count,
         .frustum_planes = m_frustum_planes,
         .viewport_width = viewport_extent.x(),
@@ -370,18 +279,24 @@ void DefaultRenderer::update_ubo(const vk::Buffer &buffer, Vec2u viewport_extent
 }
 
 void DefaultRenderer::record_draws(vk::CommandBuffer &cmd_buf, const vk::Buffer &draw_buffer) {
-    cmd_buf.push_constants(vkb::ShaderStage::Vertex, m_vertex_buffer.device_address());
-    cmd_buf.bind_index_buffer(m_index_buffer, vkb::IndexType::Uint32);
+    cmd_buf.push_constants(vkb::ShaderStage::Vertex, m_mesh_streamer.vertex_buffer().device_address());
+    cmd_buf.bind_index_buffer(m_mesh_streamer.index_buffer(), vkb::IndexType::Uint32);
     cmd_buf.draw_indexed_indirect_count(draw_buffer, sizeof(uint32_t), draw_buffer, 0, m_object_count, sizeof(DrawCmd));
 }
 
-vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer) {
+vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, Scene &scene, Camera &camera) {
     Vector<Object> objects;
-    for (auto [entity, mesh] : m_scene->world().view<Mesh>()) {
-        const auto mesh_info = m_mesh_infos.get(mesh.vertex_data_name());
-        if (!mesh_info) {
-            continue;
+    for (auto [entity, mesh] : scene.world().view<Mesh>()) {
+        size_t slash_index = 0;
+        for (size_t i = mesh.vertex_data_name().length() - 1; i > 0; i--) {
+            if (mesh.vertex_data_name()[i] == '/') {
+                slash_index = i;
+                break;
+            }
         }
+
+        String mesh_name = mesh.vertex_data_name().view().substr(0, slash_index);
+        const auto mesh_info = m_mesh_streamer.ensure_mesh(mesh_name);
 
         // TODO: Assuming fallback indices here.
         uint32_t albedo_index = 0;
@@ -391,9 +306,13 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             normal_index = m_texture_streamer.ensure_texture(material->normal_name(), TextureKind::Normal);
         }
 
+        if (!mesh_info) {
+            continue;
+        }
+
         auto bounding_sphere = entity.try_get<BoundingSphere>();
         objects.push({
-            .transform = m_scene->get_transform_matrix(entity),
+            .transform = scene.get_transform_matrix(entity),
             .center = bounding_sphere ? bounding_sphere->center() : Vec3f(0.0f),
             .radius = bounding_sphere ? bounding_sphere->radius() : FLT_MAX,
             .albedo_index = albedo_index,
@@ -402,6 +321,11 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             .first_index = mesh_info->index_offset,
             .vertex_offset = static_cast<uint32_t>(mesh_info->vertex_offset),
         });
+    }
+
+    // Ensure the object list is not empty.
+    if (objects.empty()) {
+        objects.push({});
     }
 
     // Cap object count just in case.
@@ -431,9 +355,9 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
                            .write(descriptor_buffer_id)
                            .write(frame_ubo_id)
                            .write(object_buffer_id);
-    setup_pass.set_on_execute([=, this, &graph, objects = vull::move(objects)](vk::CommandBuffer &) {
+    setup_pass.set_on_execute([=, this, &graph, &camera, objects = vull::move(objects)](vk::CommandBuffer &) {
         const auto &frame_ubo = graph.get_buffer(frame_ubo_id);
-        update_ubo(frame_ubo, gbuffer.viewport_extent);
+        update_ubo(frame_ubo, gbuffer.viewport_extent, camera);
 
         const auto &object_buffer = graph.get_buffer(object_buffer_id);
         memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
