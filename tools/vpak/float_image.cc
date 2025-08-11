@@ -6,6 +6,7 @@
 #include <vull/container/fixed_buffer.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/maths/colour.hh>
 #include <vull/maths/common.hh>
 #include <vull/maths/vec.hh>
@@ -134,8 +135,10 @@ Result<void, StreamError> FloatImage::block_compress(Stream &stream, bool bc5) {
     auto mip_size = m_size;
     for (auto &mip_buffer : m_mip_buffers) {
         if (bc5) {
+            tracing::ScopedTrace trace("Compress BC5");
             VULL_TRY(block_compress_bc5(stream, mip_buffer, mip_size));
         } else {
+            tracing::ScopedTrace trace("Compress BC7");
             VULL_TRY(block_compress_bc7(stream, mip_buffer, mip_size));
         }
         mip_size = vull::max(mip_size >> 1u, Vec2u(1u));
@@ -144,6 +147,7 @@ Result<void, StreamError> FloatImage::block_compress(Stream &stream, bool bc5) {
 }
 
 void FloatImage::build_mipchain(Filter filter) {
+    tracing::ScopedTrace trace("Build Mipchain");
     const auto mip_count = vull::log2(vull::max(m_size.x(), m_size.y())) + 1u;
     m_mip_buffers.ensure_size(mip_count);
 
@@ -180,6 +184,7 @@ void FloatImage::build_mipchain(Filter filter) {
 }
 
 void FloatImage::colours_to_vectors() {
+    tracing::ScopedTrace trace("ColoursToVectors");
     for (auto &mip_buffer : m_mip_buffers) {
         for (float &f : mip_buffer) {
             f = f * 2.0f - 1.0f;
@@ -207,6 +212,7 @@ static void normalise_fn(FixedBuffer<float> &buffer) {
 }
 
 void FloatImage::normalise() {
+    tracing::ScopedTrace trace("Normalise");
     for (auto &mip_buffer : m_mip_buffers) {
         switch (m_channel_count) {
         case 2:
@@ -223,6 +229,7 @@ void FloatImage::normalise() {
 }
 
 void FloatImage::vectors_to_colours() {
+    tracing::ScopedTrace trace("VectorsToColours");
     for (auto &mip_buffer : m_mip_buffers) {
         for (float &f : mip_buffer) {
             f = f * 0.5f + 0.5f;

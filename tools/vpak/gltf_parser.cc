@@ -10,6 +10,7 @@
 #include <vull/core/bounding_box.hh>
 #include <vull/core/bounding_sphere.hh>
 #include <vull/core/log.hh>
+#include <vull/core/tracing.hh>
 #include <vull/ecs/entity.hh>
 #include <vull/ecs/entity_id.hh>
 #include <vull/ecs/world.hh>
@@ -169,6 +170,9 @@ vpak::ImageWrapMode convert_wrap_mode(int64_t type) {
 
 GltfResult<> Converter::process_texture(TextureType type, const String &path, Optional<uint64_t> index,
                                         Optional<Vec4f> colour_factor) {
+    tracing::ScopedTrace trace("Process Texture");
+    trace.add_text(path);
+
     Filter mipmap_filter;
     vpak::ImageFormat vpak_format;
     switch (type) {
@@ -190,6 +194,7 @@ GltfResult<> Converter::process_texture(TextureType type, const String &path, Op
 
     FloatImage float_image;
     if (index) {
+        tracing::ScopedTrace png_trace("Read PNG");
         const auto &texture = VULL_TRY(m_document["textures"][*index]);
         const auto image_index = VULL_TRY(texture["source"].get<int64_t>());
         const auto &image = VULL_TRY(m_document["images"][image_index].get<json::Object>());
@@ -258,6 +263,7 @@ GltfResult<> Converter::process_texture(TextureType type, const String &path, Op
         float_image.drop_mips(1);
     }
 
+    tracing::ScopedTrace vpak_trace("Write Vpak");
     auto stream = m_pack_writer.add_entry(path, vpak::EntryType::Image);
     VULL_TRY(stream.write_byte(vull::to_underlying(vpak_format)));
     VULL_TRY(stream.write_byte(vull::to_underlying(mag_filter)));
@@ -279,6 +285,9 @@ GltfResult<> Converter::process_material(const json::Object &material, uint64_t 
     } else {
         name = vull::format("material{}", index);
     }
+
+    tracing::ScopedTrace trace("Process Material");
+    trace.add_text(name);
 
     if (material["occlusionTexture"]) {
         vull::warn("[gltf] Ignoring unsupported occlusion texture on material '{}'", name);
@@ -368,6 +377,8 @@ size_t convert_index_type(int64_t index_type) {
 }
 
 GltfResult<> Converter::process_primitive(const json::Object &primitive, String &&name) {
+    tracing::ScopedTrace trace("Process Primitive");
+    trace.add_text(name);
     if (primitive["mode"].has<int64_t>()) {
         const auto mode = VULL_ASSUME(primitive["mode"].get<int64_t>());
         if (mode != 4) {
@@ -467,16 +478,20 @@ GltfResult<> Converter::process_primitive(const json::Object &primitive, String 
     }
 
     // TODO: Don't do this if --fast passed.
+    tracing::ScopedTrace meshopt_trace("Meshopt");
     meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), vertices.size());
     meshopt_optimizeVertexFetch(vertices.data(), indices.data(), indices.size(), vertices.data(), vertices.size(),
                                 sizeof(Vertex));
+    meshopt_trace.finish();
 
+    tracing::ScopedTrace vpak_trace("Write Vpak");
     auto vpak_entry = m_pack_writer.add_entry(vull::format("/meshes/{}", name), vpak::EntryType::Blob);
     VULL_TRY(vpak_entry.write_varint(vertices.size_bytes()));
     VULL_TRY(vpak_entry.write_varint(indices.size_bytes()));
     VULL_TRY(vpak_entry.write(vertices.span()));
     VULL_TRY(vpak_entry.write(indices.span()));
     VULL_TRY(vpak_entry.finish());
+    vpak_trace.finish();
 
     BoundingBox bounding_box((aabb_min + aabb_max) * 0.5f, (aabb_max - aabb_min) * 0.5f);
     BoundingSphere bounding_sphere(sphere_center, sphere_radius);
@@ -571,6 +586,9 @@ GltfResult<> Converter::visit_node(World &world, EntityId parent_id, uint64_t in
 }
 
 GltfResult<> Converter::process_scene(const json::Object &scene, StringView name) {
+    tracing::ScopedTrace trace("Process Scene");
+    trace.add_text(name);
+
     World world;
     world.register_component<Transform>();
     world.register_component<Mesh>();
@@ -648,6 +666,7 @@ GltfResult<> Converter::convert() {
 } // namespace
 
 Result<void, GlbError, StreamError> GltfParser::parse_glb() {
+    tracing::ScopedTrace trace("Read GLB");
     if (const auto magic = VULL_TRY(m_stream.read_le<uint32_t>()); magic != 0x46546c67u) {
         vull::error("[gltf] Invalid magic number: {h}", magic);
         return GlbError::InvalidMagic;
@@ -682,10 +701,12 @@ Result<void, GlbError, StreamError> GltfParser::parse_glb() {
 }
 
 GltfResult<> GltfParser::convert(vpak::Writer &pack_writer, bool max_resolution, bool reproducible) {
+    tracing::ScopedTrace json_trace("Parse JSON");
     auto document = VULL_TRY(json::parse(m_json));
     if (auto generator = document["asset"]["generator"].get<String>()) {
         vull::info("[gltf] Generator: {}", generator.value());
     }
+    json_trace.finish();
 
     if (auto required_extensions = document["extensionsRequired"].get<json::Array>().to_optional()) {
         for (uint32_t i = 0; i < required_extensions->size(); i++) {
