@@ -3,6 +3,7 @@ target_sources(vull-tests PRIVATE
     container/vector.cc
     container/work_stealing_queue.cc
     ecs/entity.cc
+    ecs2/world.cc
     json/lexer.cc
     json/parser.cc
     maths/colour.cc

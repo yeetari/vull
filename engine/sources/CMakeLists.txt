@@ -4,6 +4,7 @@ target_sources(vull PRIVATE
     core/tracing.cc
     ecs/entity.cc
     ecs/world.cc
+    ecs2/world.cc
     json/lexer.cc
     json/parser.cc
     json/tree.cc
