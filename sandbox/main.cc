@@ -259,9 +259,8 @@ void Sandbox::load_scene(StringView scene_name) {
     world.register_component<Collider>();
 
     for (auto [entity, mesh, transform] : world.view<Mesh, Transform>()) {
-        if (mesh.data_path() == "/meshes/Cube.001.0") {
+        if (mesh.data_path().starts_with("/meshes/Cube")) {
             entity.add<Collider>(vull::make_unique<BoxShape>(transform.scale()));
-            break;
         }
     }
 
@@ -273,13 +272,6 @@ void Sandbox::load_scene(StringView scene_name) {
     m_player.get<RigidBody>().set_shape(m_player.get<Collider>().shape());
     m_player.get<RigidBody>().set_ignore_rotation(true);
     m_fps_controller = vull::make_unique<FpsController>(m_player);
-
-    auto slope = world.create_entity();
-    slope.add<Transform>(~EntityId(0), Vec3f(0.0f, 3.0f, -10.0f),
-                         vull::angle_axis(vull::half_pi<float> / 4.0f, Vec3f(1.0f, 0.0f, 0.0f)),
-                         Vec3f(1.0f, 0.5f, 10.0f));
-    slope.add<Mesh>("/meshes/Cube.001.0");
-    slope.add<Collider>(vull::make_unique<BoxShape>(slope.get<Transform>().scale()));
 }
 
 tasklet::Future<void> Sandbox::render_frame(FramePacer &frame_pacer) {
