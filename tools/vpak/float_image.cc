@@ -15,6 +15,7 @@
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/stream.hh>
+#include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
 
 #include <bc5enc.hh>
