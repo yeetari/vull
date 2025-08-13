@@ -3,11 +3,14 @@
 #include <vull/platform/file.hh>
 #include <vull/shaderc/ast.hh>
 #include <vull/shaderc/error.hh>
+#include <vull/shaderc/hir.hh>
+#include <vull/shaderc/legaliser.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/parser.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
+#include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 
 #include <stdint.h>
@@ -32,10 +35,12 @@ static void print_message(shaderc::Lexer &lexer, const shaderc::ErrorMessage &me
 
 int main(int argc, char **argv) {
     bool dump_ast = false;
+    bool dump_hir = false;
     String source_path;
 
     ArgsParser args_parser("vslc", "Vull Shader Compiler", "0.1.0");
     args_parser.add_flag(dump_ast, "Dump AST", "dump-ast");
+    args_parser.add_flag(dump_hir, "Dump HIR", "dump-hir");
     args_parser.add_argument(source_path, "input-vsl", true);
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -62,6 +67,23 @@ int main(int argc, char **argv) {
     if (dump_ast) {
         shaderc::ast::Dumper dumper;
         ast.traverse(dumper);
+        return EXIT_SUCCESS;
+    }
+
+    auto hir_or_error = shaderc::legalise(ast);
+    if (hir_or_error.is_error()) {
+        const auto &error = hir_or_error.error();
+        for (const auto &message : error.messages()) {
+            print_message(lexer, message);
+        }
+        return EXIT_FAILURE;
+    }
+
+    auto hir = hir_or_error.disown_value();
+    if (dump_hir) {
+        StringBuilder sb;
+        shaderc::hir::dump(hir, sb);
+        vull::print(sb.build());
         return EXIT_SUCCESS;
     }
 }
