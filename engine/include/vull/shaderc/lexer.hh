@@ -9,7 +9,9 @@
 
 namespace vull::shaderc {
 
-struct SourcePosition {
+class SourceLocation;
+
+struct SourceInfo {
     StringView file_name;
     StringView line_source;
     uint32_t line;
@@ -40,7 +42,7 @@ public:
     Lexer(String file_name, String source);
 
     Token cursor_token() const;
-    SourcePosition recover_position(const Token &token) const;
+    SourceInfo recover_info(SourceLocation location) const;
 };
 
 } // namespace vull::shaderc

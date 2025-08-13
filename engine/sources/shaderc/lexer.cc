@@ -1,5 +1,6 @@
 #include <vull/shaderc/lexer.hh>
 
+#include <vull/shaderc/source_location.hh>
 #include <vull/shaderc/token.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/enum.hh>
@@ -117,21 +118,21 @@ Token Lexer::cursor_token() const {
     return {TokenKind::Cursor, m_last_head, m_last_line};
 }
 
-SourcePosition Lexer::recover_position(const Token &token) const {
+SourceInfo Lexer::recover_info(SourceLocation location) const {
     // Backtrack to find line start.
-    uint32_t line_head = token.position();
+    uint32_t line_head = location.byte_offset();
     while (line_head > 0 && m_source[line_head - 1] != '\n') {
         line_head--;
     }
 
     // Advance to find line end.
-    uint32_t line_end = token.position();
+    uint32_t line_end = location.byte_offset();
     while (line_end < m_source.length() && m_source[line_end] != '\n') {
         line_end++;
     }
 
     const auto line_view = m_source.view().substr(line_head, line_end - line_head);
-    return {m_file_name, line_view, token.line(), token.position() - line_head + 1};
+    return {m_file_name, line_view, location.line(), location.byte_offset() - line_head + 1};
 }
 
 float Token::decimal() const {

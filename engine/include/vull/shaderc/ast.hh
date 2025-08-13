@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vull/container/vector.hh>
+#include <vull/shaderc/source_location.hh>
 #include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
 #include <vull/support/assert.hh>
@@ -10,6 +11,8 @@
 #include <stddef.h>
 
 namespace vull::shaderc::ast {
+
+// TODO: Remove most typing from AST.
 
 enum class TraverseOrder {
     None,
@@ -38,12 +41,14 @@ enum class NodeKind {
 
 class Node : public tree::NodeBase {
     const NodeKind m_kind;
+    const SourceLocation m_source_location;
 
 protected:
-    explicit Node(NodeKind kind) : m_kind(kind) {}
+    Node(NodeKind kind, SourceLocation source_location) : m_kind(kind), m_source_location(source_location) {}
 
 public:
     NodeKind kind() const { return m_kind; }
+    SourceLocation source_location() const { return m_source_location; }
 
     void destroy();
     void traverse(Traverser<TraverseOrder::None> &);
@@ -76,7 +81,8 @@ class Aggregate final : public TypedNode {
     AggregateKind m_kind;
 
 public:
-    explicit Aggregate(AggregateKind kind) : TypedNode(NodeKind::Aggregate), m_kind(kind) {}
+    explicit Aggregate(SourceLocation source_location, AggregateKind kind)
+        : TypedNode(NodeKind::Aggregate, source_location), m_kind(kind) {}
 
     void append_node(NodeHandle<Node> &&handle) { m_nodes.push(vull::move(handle)); }
 
@@ -105,7 +111,8 @@ class BinaryExpr final : public TypedNode {
 
 public:
     BinaryExpr(BinaryOp op, NodeHandle<Node> &&lhs, NodeHandle<Node> &&rhs)
-        : TypedNode(NodeKind::BinaryExpr), m_lhs(vull::move(lhs)), m_rhs(vull::move(rhs)), m_op(op) {}
+        : TypedNode(NodeKind::BinaryExpr, lhs->source_location()), m_lhs(vull::move(lhs)), m_rhs(vull::move(rhs)),
+          m_op(op) {}
 
     void set_op(BinaryOp op) { m_op = op; }
 
@@ -119,7 +126,8 @@ class CallExpr final : public TypedNode {
     Vector<NodeHandle<Node>> m_arguments;
 
 public:
-    explicit CallExpr(StringView name) : TypedNode(NodeKind::CallExpr), m_name(name) {}
+    CallExpr(SourceLocation source_location, StringView name)
+        : TypedNode(NodeKind::CallExpr, source_location), m_name(name) {}
 
     void append_argument(NodeHandle<Node> &&argument) { m_arguments.push(vull::move(argument)); }
 
@@ -135,10 +143,11 @@ class Constant final : public Node {
     ScalarType m_scalar_type;
 
 public:
-    explicit Constant(float decimal)
-        : Node(NodeKind::Constant), m_literal({.decimal = decimal}), m_scalar_type(ScalarType::Float) {}
-    explicit Constant(size_t integer)
-        : Node(NodeKind::Constant), m_literal({.integer = integer}), m_scalar_type(ScalarType::Uint) {}
+    Constant(SourceLocation source_location, float decimal)
+        : Node(NodeKind::Constant, source_location), m_literal({.decimal = decimal}), m_scalar_type(ScalarType::Float) {
+    }
+    Constant(SourceLocation source_location, size_t integer)
+        : Node(NodeKind::Constant, source_location), m_literal({.integer = integer}), m_scalar_type(ScalarType::Uint) {}
 
     Type type() const override { return {m_scalar_type, 1, 1}; }
 
@@ -152,8 +161,8 @@ class DeclStmt final : public Node {
     NodeHandle<Node> m_value;
 
 public:
-    DeclStmt(StringView name, NodeHandle<Node> &&value)
-        : Node(NodeKind::DeclStmt), m_name(name), m_value(vull::move(value)) {}
+    DeclStmt(SourceLocation source_location, StringView name, NodeHandle<Node> &&value)
+        : Node(NodeKind::DeclStmt, source_location), m_name(name), m_value(vull::move(value)) {}
 
     StringView name() const { return m_name; }
     Node &value() const { return *m_value; }
@@ -162,12 +171,15 @@ public:
 class Parameter {
     StringView m_name;
     Type m_type;
+    SourceLocation m_source_location;
 
 public:
-    Parameter(StringView name, const Type &type) : m_name(name), m_type(type) {}
+    Parameter(SourceLocation source_location, StringView name, const Type &type)
+        : m_name(name), m_type(type), m_source_location(source_location) {}
 
     StringView name() const { return m_name; }
     const Type &type() const { return m_type; }
+    SourceLocation source_location() const { return m_source_location; }
 };
 
 class FunctionDecl final : public Node {
@@ -177,9 +189,10 @@ class FunctionDecl final : public Node {
     Vector<Parameter> m_parameters;
 
 public:
-    FunctionDecl(StringView name, NodeHandle<Aggregate> block, const Type &return_type, Vector<Parameter> &&parameters)
-        : Node(NodeKind::FunctionDecl), m_name(name), m_block(vull::move(block)), m_return_type(return_type),
-          m_parameters(vull::move(parameters)) {}
+    FunctionDecl(SourceLocation source_location, StringView name, NodeHandle<Aggregate> block, const Type &return_type,
+                 Vector<Parameter> &&parameters)
+        : Node(NodeKind::FunctionDecl, source_location), m_name(name), m_block(vull::move(block)),
+          m_return_type(return_type), m_parameters(vull::move(parameters)) {}
 
     StringView name() const { return m_name; }
     Aggregate &block() const { return *m_block; }
@@ -197,8 +210,8 @@ class IoDecl final : public Node {
     IoKind m_io_kind;
 
 public:
-    IoDecl(IoKind io_kind, NodeHandle<Node> &&symbol_or_block)
-        : Node(NodeKind::IoDecl), m_symbol_or_block(vull::move(symbol_or_block)), m_io_kind(io_kind) {}
+    IoDecl(SourceLocation source_location, IoKind io_kind, NodeHandle<Node> &&symbol_or_block)
+        : Node(NodeKind::IoDecl, source_location), m_symbol_or_block(vull::move(symbol_or_block)), m_io_kind(io_kind) {}
 
     Node &symbol_or_block() const { return *m_symbol_or_block; }
     IoKind io_kind() const { return m_io_kind; }
@@ -208,7 +221,8 @@ class ReturnStmt final : public Node {
     NodeHandle<Node> m_expr;
 
 public:
-    explicit ReturnStmt(NodeHandle<Node> &&expr) : Node(NodeKind::ReturnStmt), m_expr(vull::move(expr)) {}
+    ReturnStmt(SourceLocation source_location, NodeHandle<Node> &&expr)
+        : Node(NodeKind::ReturnStmt, source_location), m_expr(vull::move(expr)) {}
 
     Node &expr() const { return *m_expr; }
 };
@@ -218,7 +232,7 @@ class Root final : public Node {
     Vector<NodeHandle<Node>> m_top_level_nodes;
 
 public:
-    Root() : Node(NodeKind::Root) {}
+    Root() : Node(NodeKind::Root, SourceLocation(0)) {}
 
     template <typename T, typename... Args>
     NodeHandle<T> allocate(Args &&...args) {
@@ -233,8 +247,11 @@ class Symbol final : public TypedNode {
     StringView m_name;
 
 public:
-    explicit Symbol(StringView name) : TypedNode(NodeKind::Symbol), m_name(name) {}
-    Symbol(StringView name, Type type) : Symbol(name) { set_type(type); }
+    Symbol(SourceLocation source_location, StringView name)
+        : TypedNode(NodeKind::Symbol, source_location), m_name(name) {}
+    Symbol(SourceLocation source_location, StringView name, Type type) : Symbol(source_location, name) {
+        set_type(type);
+    }
 
     StringView name() const { return m_name; }
 };
@@ -249,7 +266,7 @@ class UnaryExpr final : public TypedNode {
 
 public:
     UnaryExpr(UnaryOp op, NodeHandle<Node> &&expr)
-        : TypedNode(NodeKind::UnaryExpr), m_expr(vull::move(expr)), m_op(op) {}
+        : TypedNode(NodeKind::UnaryExpr, expr->source_location()), m_expr(vull::move(expr)), m_op(op) {}
 
     UnaryOp op() const { return m_op; }
     Node &expr() const { return *m_expr; }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vull/shaderc/source_location.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
 
@@ -55,6 +56,7 @@ public:
     String to_string() const;
 
     TokenKind kind() const { return m_kind; }
+    SourceLocation location() const { return {m_position, m_line}; }
     uint32_t position() const { return m_position; }
     uint16_t line() const { return m_line; }
 };

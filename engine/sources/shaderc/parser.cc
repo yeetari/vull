@@ -6,6 +6,7 @@
 #include <vull/shaderc/ast.hh>
 #include <vull/shaderc/error.hh>
 #include <vull/shaderc/lexer.hh>
+#include <vull/shaderc/source_location.hh>
 #include <vull/shaderc/token.hh>
 #include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
@@ -17,7 +18,6 @@
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/utility.hh>
-#include <vull/support/variant.hh>
 
 #include <stdint.h>
 
@@ -214,10 +214,8 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
 
     auto name_operand = operands.take_last();
     if (!name_operand.has<StringView>()) {
-        // TODO: Ideally Operand would contain it's relevant token so the cursor could be on the start of the expression
-        //       here.
         Error error;
-        error.add_error(m_lexer.cursor_token(), "expression cannot be used as a function call");
+        error.add_error(name_operand.location, "expression cannot be used as a function call");
         return error;
     }
 
@@ -226,7 +224,7 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
 
     // Builtin type construction, e.g. vec4(1.0f).
     if (auto type = m_builtin_type_map.get(name)) {
-        auto construct_expr = m_root.allocate<ast::Aggregate>(ast::AggregateKind::ConstructExpr);
+        auto construct_expr = m_root.allocate<ast::Aggregate>(name_operand.location, ast::AggregateKind::ConstructExpr);
         for (auto &argument : arguments) {
             construct_expr->append_node(vull::move(argument));
         }
@@ -235,7 +233,7 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
     }
 
     // Otherwise a regular function call.
-    auto call_expr = m_root.allocate<ast::CallExpr>(name);
+    auto call_expr = m_root.allocate<ast::CallExpr>(name_operand.location, name);
     for (auto &argument : arguments) {
         call_expr->append_argument(vull::move(argument));
     }
@@ -246,7 +244,7 @@ ast::NodeHandle<ast::Node> Parser::build_node(Operand operand) {
     if (auto node = operand.try_get<ast::NodeHandle<ast::Node>>()) {
         return vull::move(*node);
     }
-    return m_root.allocate<ast::Symbol>(operand.get<StringView>());
+    return m_root.allocate<ast::Symbol>(operand.location, operand.get<StringView>());
 }
 
 static ast::BinaryOp to_binary_op(Operator op) {
@@ -280,7 +278,7 @@ void Parser::build_expr(Operator op, Vector<Operand> &operands) {
     // Handle unary operators first.
     auto rhs = build_node(operands.take_last());
     if (op == Operator::Negate) {
-        operands.push(m_root.allocate<ast::UnaryExpr>(ast::UnaryOp::Negate, vull::move(rhs)));
+        operands.emplace(m_root.allocate<ast::UnaryExpr>(ast::UnaryOp::Negate, vull::move(rhs)));
         return;
     }
 
@@ -294,27 +292,28 @@ void Parser::build_expr(Operator op, Vector<Operand> &operands) {
 
         // Otherwise this is the second argument and we need to create a vector.
         auto lhs = build_node(operands.take_last());
+        auto location = lhs->source_location();
         Vector<ast::NodeHandle<ast::Node>> arguments;
         arguments.push(vull::move(lhs));
         arguments.push(vull::move(rhs));
-        operands.emplace(vull::move(arguments));
+        operands.emplace(vull::move(arguments), location);
         return;
     }
 
     // Otherwise op is a binary operator.
     auto lhs = build_node(operands.take_last());
-    operands.push(m_root.allocate<ast::BinaryExpr>(to_binary_op(op), vull::move(lhs), vull::move(rhs)));
+    operands.emplace(m_root.allocate<ast::BinaryExpr>(to_binary_op(op), vull::move(lhs), vull::move(rhs)));
 }
 
 Optional<Parser::Operand> Parser::parse_operand() {
     if (auto literal = consume(TokenKind::FloatLit)) {
-        return Operand(m_root.allocate<ast::Constant>(literal->decimal()));
+        return Operand(m_root.allocate<ast::Constant>(literal->location(), literal->decimal()));
     }
     if (auto literal = consume(TokenKind::IntLit)) {
-        return Operand(m_root.allocate<ast::Constant>(literal->integer()));
+        return Operand(m_root.allocate<ast::Constant>(literal->location(), literal->integer()));
     }
     if (auto identifier = consume(TokenKind::Identifier)) {
-        return Operand(identifier->string());
+        return Operand(identifier->string(), identifier->location());
     }
     return {};
 }
@@ -417,7 +416,7 @@ ParseResult<ast::Node> Parser::parse_expr() {
 
                 // Push an empty argument list beforehand.
                 operators.pop();
-                operands.push(Vector<ast::NodeHandle<ast::Node>>());
+                operands.emplace(Vector<ast::NodeHandle<ast::Node>>(), closing_paren->location());
                 operands.push(VULL_TRY(build_call_or_construct(operands)));
                 state = ParseState::Binary;
                 continue;
@@ -475,7 +474,7 @@ ParseResult<ast::Node> Parser::parse_stmt() {
         VULL_TRY(expect('='_tk));
         auto value = VULL_TRY(parse_expr());
         VULL_TRY(expect(';'_tk));
-        return m_root.allocate<ast::DeclStmt>(name.string(), vull::move(value));
+        return m_root.allocate<ast::DeclStmt>(name.location(), name.string(), vull::move(value));
     }
 
     // Freestanding expression.
@@ -485,19 +484,20 @@ ParseResult<ast::Node> Parser::parse_stmt() {
     }
 
     // No semicolon, implicit return.
-    return m_root.allocate<ast::ReturnStmt>(vull::move(expr));
+    const auto location = expr->source_location();
+    return m_root.allocate<ast::ReturnStmt>(location, vull::move(expr));
 }
 
 ParseResult<ast::Aggregate> Parser::parse_block() {
-    VULL_TRY(expect('{'_tk, "to open a block"));
-    auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
+    auto open_brace = VULL_TRY(expect('{'_tk, "to open a block"));
+    auto block = m_root.allocate<ast::Aggregate>(open_brace.location(), ast::AggregateKind::Block);
     while (!consume('}'_tk)) {
         block->append_node(VULL_TRY(parse_stmt()));
     }
     return vull::move(block);
 }
 
-ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
+ParseResult<ast::FunctionDecl> Parser::parse_function_decl(SourceLocation location) {
     auto name = VULL_TRY(expect(TokenKind::Identifier, "for function name"));
     VULL_TRY(expect('('_tk, "to open the parameter list"));
 
@@ -509,7 +509,7 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
         auto param_name = VULL_TRY(expect(TokenKind::Identifier, "for parameter name"));
         VULL_TRY(expect(':'_tk));
         auto param_type = VULL_TRY(parse_type());
-        parameters.emplace(param_name.string(), param_type);
+        parameters.emplace(param_name.location(), param_name.string(), param_type);
         consume(','_tk);
     }
 
@@ -519,23 +519,24 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
     }
 
     auto block = VULL_TRY(parse_block());
-    return m_root.allocate<ast::FunctionDecl>(name.string(), vull::move(block), return_type, vull::move(parameters));
+    return m_root.allocate<ast::FunctionDecl>(location, name.string(), vull::move(block), return_type,
+                                              vull::move(parameters));
 }
 
-ParseResult<ast::IoDecl> Parser::parse_io_decl(ast::IoKind io_kind) {
+ParseResult<ast::IoDecl> Parser::parse_io_decl(SourceLocation location, ast::IoKind io_kind) {
     ast::NodeHandle<ast::Node> symbol_or_block;
-    if (consume('{'_tk)) {
+    if (auto open_brace = consume('{'_tk)) {
         if (io_kind == ast::IoKind::Pipeline) {
             Error error;
-            error.add_error(m_lexer.next(), "a pipeline declaration cannot be a block");
+            error.add_error(*open_brace, "a pipeline declaration cannot be a block");
             return error;
         }
-        auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
+        auto block = m_root.allocate<ast::Aggregate>(open_brace->location(), ast::AggregateKind::Block);
         while (!consume('}'_tk)) {
             auto name = VULL_TRY(expect(TokenKind::Identifier));
             VULL_TRY(expect(':'_tk));
             auto type = VULL_TRY(parse_type());
-            block->append_node(m_root.allocate<ast::Symbol>(name.string(), type));
+            block->append_node(m_root.allocate<ast::Symbol>(name.location(), name.string(), type));
             VULL_TRY(expect(';'_tk));
         }
         symbol_or_block = vull::move(block);
@@ -544,21 +545,21 @@ ParseResult<ast::IoDecl> Parser::parse_io_decl(ast::IoKind io_kind) {
     if (!symbol_or_block) {
         auto type = VULL_TRY(parse_type());
         auto name = VULL_TRY(expect(TokenKind::Identifier));
-        symbol_or_block = m_root.allocate<ast::Symbol>(name.string(), type);
+        symbol_or_block = m_root.allocate<ast::Symbol>(name.location(), name.string(), type);
     }
     VULL_TRY(expect_semi("IO declaration"));
-    return m_root.allocate<ast::IoDecl>(io_kind, vull::move(symbol_or_block));
+    return m_root.allocate<ast::IoDecl>(location, io_kind, vull::move(symbol_or_block));
 }
 
 ParseResult<ast::Node> Parser::parse_top_level() {
-    if (consume(TokenKind::KW_fn)) {
-        return VULL_TRY(parse_function_decl());
+    if (auto keyword = consume(TokenKind::KW_fn)) {
+        return VULL_TRY(parse_function_decl(keyword->location()));
     }
-    if (consume(TokenKind::KW_pipeline)) {
-        return VULL_TRY(parse_io_decl(ast::IoKind::Pipeline));
+    if (auto keyword = consume(TokenKind::KW_pipeline)) {
+        return VULL_TRY(parse_io_decl(keyword->location(), ast::IoKind::Pipeline));
     }
-    if (consume(TokenKind::KW_uniform)) {
-        return VULL_TRY(parse_io_decl(ast::IoKind::Uniform));
+    if (auto keyword = consume(TokenKind::KW_uniform)) {
+        return VULL_TRY(parse_io_decl(keyword->location(), ast::IoKind::Uniform));
     }
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }

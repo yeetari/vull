@@ -4,11 +4,14 @@
 #include <vull/container/vector.hh>
 #include <vull/shaderc/ast.hh>
 #include <vull/shaderc/error.hh>
+#include <vull/shaderc/source_location.hh>
 #include <vull/shaderc/token.hh>
+#include <vull/shaderc/tree.hh>
 #include <vull/shaderc/type.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string_view.hh>
+#include <vull/support/utility.hh>
 #include <vull/support/variant.hh>
 
 #include <stdint.h>
@@ -21,7 +24,12 @@ template <typename T>
 using ParseResult = Result<ast::NodeHandle<T>, Error>;
 
 class Parser {
-    using Operand = Variant<ast::NodeHandle<ast::Node>, StringView, Vector<ast::NodeHandle<ast::Node>>>;
+    struct Operand : Variant<ast::NodeHandle<ast::Node>, StringView, Vector<ast::NodeHandle<ast::Node>>> {
+        SourceLocation location;
+
+        Operand(ast::NodeHandle<ast::Node> &&node) : Variant(node.share()), location(node->source_location()) {}
+        Operand(auto &&other, SourceLocation loc) : Variant(vull::move(other)), location(loc) {}
+    };
 
 public:
     enum class Operator : uint32_t;
@@ -47,8 +55,8 @@ private:
     ParseResult<ast::Node> parse_stmt();
     ParseResult<ast::Aggregate> parse_block();
 
-    ParseResult<ast::FunctionDecl> parse_function_decl();
-    ParseResult<ast::IoDecl> parse_io_decl(ast::IoKind io_kind);
+    ParseResult<ast::FunctionDecl> parse_function_decl(SourceLocation location);
+    ParseResult<ast::IoDecl> parse_io_decl(SourceLocation location, ast::IoKind io_kind);
     ParseResult<ast::Node> parse_top_level();
 
 public:

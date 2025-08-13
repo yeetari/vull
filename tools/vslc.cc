@@ -18,8 +18,8 @@ using namespace vull;
 static void print_message(shaderc::Lexer &lexer, const shaderc::ErrorMessage &message) {
     StringView kind_string =
         message.kind() == shaderc::ErrorMessage::Kind::Error ? "\x1b[1;91merror" : "\x1b[1;35mnote";
-    const auto [file_name, line_source, line, column] = lexer.recover_position(message.token());
-    vull::println("\x1b[1;37m{}:{}:{}: {}: \x1b[1;37m{}\x1b[0m", file_name, line, column, kind_string, message.text());
+    const auto [file_name, line_source, line, column] = lexer.recover_info(message.source_location());
+    vull::println("\x1b[1;97m{}:{}:{}: {}: \x1b[1;97m{}\x1b[0m", file_name, line, column, kind_string, message.text());
     if (message.kind() == shaderc::ErrorMessage::Kind::NoteNoLine) {
         return;
     }
