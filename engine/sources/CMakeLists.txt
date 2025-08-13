@@ -82,6 +82,7 @@ endif()
 
 target_sources(vull-shaderc PRIVATE
     shaderc/ast.cc
+    shaderc/error.cc
     shaderc/lexer.cc
     shaderc/parser.cc
     shaderc/spv_builder.cc

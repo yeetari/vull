@@ -1,6 +1,7 @@
 #include <vull/shaderc/parser.hh>
 
 #include <vull/shaderc/ast.hh>
+#include <vull/shaderc/error.hh> // IWYU pragma: keep
 #include <vull/shaderc/lexer.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
@@ -12,7 +13,7 @@
 using namespace vull;
 using namespace vull::test::matchers;
 
-static Result<shaderc::ast::Root, shaderc::ParseError> try_parse(StringView source) {
+static Result<shaderc::ast::Root, shaderc::Error> try_parse(StringView source) {
     shaderc::Lexer lexer("", source);
     shaderc::Parser parser(lexer);
     return parser.parse();

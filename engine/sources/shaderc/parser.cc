@@ -4,6 +4,7 @@
 #include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
 #include <vull/shaderc/ast.hh>
+#include <vull/shaderc/error.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/token.hh>
 #include <vull/shaderc/tree.hh>
@@ -122,26 +123,14 @@ Optional<Operator> to_op(TokenKind kind, ParseState state) {
     }
 }
 
-ParseError unexpected_token(Token bad_token, StringView expected) {
-    ParseError error;
+Error unexpected_token(Token bad_token, StringView expected) {
+    Error error;
     error.add_error(bad_token, vull::format("unexpected token {}", bad_token.to_string()));
     error.add_note_no_line(bad_token, expected);
     return error;
 }
 
 } // namespace
-
-void ParseError::add_error(const Token &token, String &&message) {
-    m_messages.emplace(ParseMessage::Kind::Error, token, vull::move(message));
-}
-
-void ParseError::add_note(const Token &token, String &&message) {
-    m_messages.emplace(ParseMessage::Kind::Note, token, vull::move(message));
-}
-
-void ParseError::add_note_no_line(const Token &token, String &&message) {
-    m_messages.emplace(ParseMessage::Kind::NoteNoLine, token, vull::move(message));
-}
 
 Parser::Parser(Lexer &lexer) : m_lexer(lexer) {
     m_builtin_type_map.set("float", ScalarType::Float);
@@ -163,20 +152,20 @@ Optional<Token> Parser::consume(TokenKind kind) {
     return token.kind() == kind ? m_lexer.next() : Optional<Token>();
 }
 
-Result<Token, ParseError> Parser::expect(TokenKind kind) {
+Result<Token, Error> Parser::expect(TokenKind kind) {
     auto token = m_lexer.next();
     if (token.kind() != kind) {
-        ParseError error;
+        Error error;
         error.add_error(token, vull::format("expected {} but got {}", Token::kind_string(kind), token.to_string()));
         return error;
     }
     return token;
 }
 
-Result<Token, ParseError> Parser::expect(TokenKind kind, StringView reason) {
+Result<Token, Error> Parser::expect(TokenKind kind, StringView reason) {
     auto token = m_lexer.next();
     if (token.kind() != kind) {
-        ParseError error;
+        Error error;
         error.add_error(m_lexer.cursor_token(), vull::format("expected {} {}", Token::kind_string(kind), reason));
         error.add_note(token, vull::format("got {} instead", token.to_string()));
         return error;
@@ -184,10 +173,10 @@ Result<Token, ParseError> Parser::expect(TokenKind kind, StringView reason) {
     return token;
 }
 
-Result<void, ParseError> Parser::expect_semi(StringView entity_name) {
+Result<void, Error> Parser::expect_semi(StringView entity_name) {
     auto token = m_lexer.next();
     if (token.kind() != ';'_tk) {
-        ParseError error;
+        Error error;
         error.add_error(m_lexer.cursor_token(), vull::format("missing ';' after {}", entity_name));
         error.add_note(token, vull::format("expected ';' before {}", token.to_string()));
         return error;
@@ -195,17 +184,17 @@ Result<void, ParseError> Parser::expect_semi(StringView entity_name) {
     return {};
 }
 
-Result<Type, ParseError> Parser::parse_type() {
+Result<Type, Error> Parser::parse_type() {
     auto token = m_lexer.next();
     if (token.kind() != TokenKind::Identifier) {
-        ParseError error;
+        Error error;
         error.add_error(token, vull::format("expected type name but got {}", token.to_string()));
         return error;
     }
 
     auto builtin_type = m_builtin_type_map.get(token.string());
     if (!builtin_type) {
-        ParseError error;
+        Error error;
         error.add_error(token, vull::format("unknown type name '{}'", token.string()));
         return error;
     }
@@ -227,7 +216,7 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
     if (!name_operand.has<StringView>()) {
         // TODO: Ideally Operand would contain it's relevant token so the cursor could be on the start of the expression
         //       here.
-        ParseError error;
+        Error error;
         error.add_error(m_lexer.cursor_token(), "expression cannot be used as a function call");
         return error;
     }
@@ -342,10 +331,10 @@ ParseResult<ast::Node> Parser::parse_expr() {
     Vector<Operand> operands;
     Vector<Operator> operators;
 
-    auto reduce_top_operator = [&] -> Result<void, ParseError> {
+    auto reduce_top_operator = [&] -> Result<void, Error> {
         auto op = operators.take_last();
         if (op == Operator::CallOrConstruct || op == Operator::OpenParen) {
-            ParseError error;
+            Error error;
             error.add_error(m_lexer.cursor_token(), "unmatched '('");
             return error;
         }
@@ -353,7 +342,7 @@ ParseResult<ast::Node> Parser::parse_expr() {
         return {};
     };
 
-    auto reduce_by_precedence = [&](Operator op) -> Result<void, ParseError> {
+    auto reduce_by_precedence = [&](Operator op) -> Result<void, Error> {
         while (!operators.empty() && has_higher_precedence(operators.last(), op)) {
             VULL_TRY(reduce_top_operator());
         }
@@ -385,7 +374,7 @@ ParseResult<ast::Node> Parser::parse_expr() {
         if (auto operand = parse_operand()) {
             // Seeing an operand in the binary state means an operator was missed.
             if (state == ParseState::Binary) {
-                ParseError error;
+                Error error;
                 error.add_error(peeked_token, "unexpected expression part");
                 error.add_note_no_line(peeked_token, "expected operator or end of expression");
                 return error;
@@ -463,7 +452,7 @@ ParseResult<ast::Node> Parser::parse_expr() {
         // We've reached the end of the expression.
         if (state == ParseState::Unary) {
             auto next_token = m_lexer.next();
-            ParseError error;
+            Error error;
             error.add_error(m_lexer.cursor_token(), "reached unexpected end of expression");
             error.add_note(next_token, vull::format("expected expression part before {}", next_token.to_string()));
             return error;
@@ -537,7 +526,7 @@ ParseResult<ast::IoDecl> Parser::parse_io_decl(ast::IoKind io_kind) {
     ast::NodeHandle<ast::Node> symbol_or_block;
     if (consume('{'_tk)) {
         if (io_kind == ast::IoKind::Pipeline) {
-            ParseError error;
+            Error error;
             error.add_error(m_lexer.next(), "a pipeline declaration cannot be a block");
             return error;
         }
@@ -574,7 +563,7 @@ ParseResult<ast::Node> Parser::parse_top_level() {
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }
 
-Result<ast::Root, ParseError> Parser::parse() {
+Result<ast::Root, Error> Parser::parse() {
     while (!consume(TokenKind::Eof)) {
         m_root.append_top_level(VULL_TRY(parse_top_level()));
     }

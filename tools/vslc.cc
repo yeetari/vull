@@ -2,6 +2,7 @@
 #include <vull/core/log.hh>
 #include <vull/platform/file.hh>
 #include <vull/shaderc/ast.hh>
+#include <vull/shaderc/error.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/parser.hh>
 #include <vull/support/args_parser.hh>
@@ -14,12 +15,12 @@
 
 using namespace vull;
 
-static void print_message(shaderc::Lexer &lexer, const shaderc::ParseMessage &message) {
+static void print_message(shaderc::Lexer &lexer, const shaderc::ErrorMessage &message) {
     StringView kind_string =
-        message.kind() == shaderc::ParseMessage::Kind::Error ? "\x1b[1;91merror" : "\x1b[1;35mnote";
+        message.kind() == shaderc::ErrorMessage::Kind::Error ? "\x1b[1;91merror" : "\x1b[1;35mnote";
     const auto [file_name, line_source, line, column] = lexer.recover_position(message.token());
     vull::println("\x1b[1;37m{}:{}:{}: {}: \x1b[1;37m{}\x1b[0m", file_name, line, column, kind_string, message.text());
-    if (message.kind() == shaderc::ParseMessage::Kind::NoteNoLine) {
+    if (message.kind() == shaderc::ErrorMessage::Kind::NoteNoLine) {
         return;
     }
     vull::print(" { 4 } | {}\n      |", line, line_source);

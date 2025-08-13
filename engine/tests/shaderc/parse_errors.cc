@@ -1,6 +1,7 @@
 #include <vull/shaderc/parser.hh>
 
 #include <vull/container/vector.hh>
+#include <vull/shaderc/error.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/token.hh>
 #include <vull/support/result.hh>
@@ -16,7 +17,7 @@ using vull::shaderc::operator""_tk;
 
 // TODO: Use matchers.
 
-static shaderc::ParseError try_parse(StringView source) {
+static shaderc::Error try_parse(StringView source) {
     shaderc::Lexer lexer("", source);
     shaderc::Parser parser(lexer);
     auto result = parser.parse();
@@ -24,7 +25,7 @@ static shaderc::ParseError try_parse(StringView source) {
     return result.error();
 }
 
-static bool has_message(const shaderc::ParseError &error, shaderc::ParseMessage::Kind kind, StringView text,
+static bool has_message(const shaderc::Error &error, shaderc::ErrorMessage::Kind kind, StringView text,
                         shaderc::TokenKind token_kind) {
     for (const auto &message : error.messages()) {
         if (message.kind() == kind && message.text().view() == text && message.token().kind() == token_kind) {
@@ -34,13 +35,13 @@ static bool has_message(const shaderc::ParseError &error, shaderc::ParseMessage:
     return false;
 }
 
-static bool has_error(const shaderc::ParseError &error, StringView text, shaderc::TokenKind token_kind) {
-    return has_message(error, shaderc::ParseMessage::Kind::Error, text, token_kind);
+static bool has_error(const shaderc::Error &error, StringView text, shaderc::TokenKind token_kind) {
+    return has_message(error, shaderc::ErrorMessage::Kind::Error, text, token_kind);
 }
 
-static bool has_note(const shaderc::ParseError &error, StringView text, shaderc::TokenKind token_kind) {
-    return has_message(error, shaderc::ParseMessage::Kind::Note, text, token_kind) ||
-           has_message(error, shaderc::ParseMessage::Kind::NoteNoLine, text, token_kind);
+static bool has_note(const shaderc::Error &error, StringView text, shaderc::TokenKind token_kind) {
+    return has_message(error, shaderc::ErrorMessage::Kind::Note, text, token_kind) ||
+           has_message(error, shaderc::ErrorMessage::Kind::NoteNoLine, text, token_kind);
 }
 
 TEST_CASE(ShaderParseErrors, BadTopLevel) {
