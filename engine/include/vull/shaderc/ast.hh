@@ -23,7 +23,7 @@ struct Traverser;
 enum class NodeKind {
     Root,
     FunctionDecl,
-    PipelineDecl,
+    IoDecl,
 
     DeclStmt,
     ReturnStmt,
@@ -69,7 +69,6 @@ public:
 enum class AggregateKind {
     Block,
     ConstructExpr,
-    UniformBlock,
 };
 
 class Aggregate final : public TypedNode {
@@ -188,15 +187,21 @@ public:
     const Vector<Parameter> &parameters() const { return m_parameters; }
 };
 
-class PipelineDecl final : public TypedNode {
-    StringView m_name;
+enum class IoKind {
+    Pipeline,
+    Uniform,
+};
+
+class IoDecl final : public Node {
+    NodeHandle<Node> m_symbol_or_block;
+    IoKind m_io_kind;
 
 public:
-    PipelineDecl(StringView name, const Type &type) : TypedNode(NodeKind::PipelineDecl), m_name(name) {
-        set_type(type);
-    }
+    IoDecl(IoKind io_kind, NodeHandle<Node> &&symbol_or_block)
+        : Node(NodeKind::IoDecl), m_symbol_or_block(vull::move(symbol_or_block)), m_io_kind(io_kind) {}
 
-    StringView name() const { return m_name; }
+    Node &symbol_or_block() const { return *m_symbol_or_block; }
+    IoKind io_kind() const { return m_io_kind; }
 };
 
 class ReturnStmt final : public Node {
@@ -229,6 +234,7 @@ class Symbol final : public TypedNode {
 
 public:
     explicit Symbol(StringView name) : TypedNode(NodeKind::Symbol), m_name(name) {}
+    Symbol(StringView name, Type type) : Symbol(name) { set_type(type); }
 
     StringView name() const { return m_name; }
 };
@@ -257,7 +263,7 @@ struct Traverser {
     virtual void visit(Constant &) = 0;
     virtual void visit(DeclStmt &) = 0;
     virtual void visit(FunctionDecl &) = 0;
-    virtual void visit(PipelineDecl &) = 0;
+    virtual void visit(IoDecl &) = 0;
     virtual void visit(ReturnStmt &) = 0;
     virtual void visit(Root &) = 0;
     virtual void visit(Symbol &) = 0;
@@ -276,7 +282,7 @@ public:
     void visit(Constant &) override;
     void visit(DeclStmt &) override;
     void visit(FunctionDecl &) override;
-    void visit(PipelineDecl &) override;
+    void visit(IoDecl &) override;
     void visit(ReturnStmt &) override;
     void visit(Symbol &) override;
     void visit(Root &) override;

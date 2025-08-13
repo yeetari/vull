@@ -102,16 +102,16 @@ TEST_CASE(ShaderParseErrors, PipelineDeclBadName) {
 }
 TEST_CASE(ShaderParseErrors, PipelineDeclMissingSemicolon) {
     auto parse_error = try_parse("pipeline vec3 g_foo");
-    EXPECT_TRUE(has_error(parse_error, "missing ';' after pipeline declaration", shaderc::TokenKind::Cursor));
+    EXPECT_TRUE(has_error(parse_error, "missing ';' after IO declaration", shaderc::TokenKind::Cursor));
     EXPECT_TRUE(has_note(parse_error, "expected ';' before <eof>", shaderc::TokenKind::Eof));
 }
 
 TEST_CASE(ShaderParseErrors, UniformBlockDeclMissingSemicolon) {
     auto parse_error = try_parse(R"(
 uniform {
-    g_transform: mat4,
+    g_transform: mat4;
 }
 )");
-    EXPECT_TRUE(has_error(parse_error, "missing ';' after uniform block declaration", shaderc::TokenKind::Cursor));
+    EXPECT_TRUE(has_error(parse_error, "missing ';' after IO declaration", shaderc::TokenKind::Cursor));
     EXPECT_TRUE(has_note(parse_error, "expected ';' before <eof>", shaderc::TokenKind::Eof));
 }

@@ -533,27 +533,32 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl() {
     return m_root.allocate<ast::FunctionDecl>(name.string(), vull::move(block), return_type, vull::move(parameters));
 }
 
-ParseResult<ast::PipelineDecl> Parser::parse_pipeline_decl() {
-    auto type = VULL_TRY(parse_type());
-    auto name = VULL_TRY(expect(TokenKind::Identifier));
-    VULL_TRY(expect_semi("pipeline declaration"));
-    return m_root.allocate<ast::PipelineDecl>(name.string(), type);
-}
-
-ParseResult<ast::Aggregate> Parser::parse_uniform_block() {
-    VULL_TRY(expect('{'_tk, "to open the uniform block"));
-    auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::UniformBlock);
-    while (!consume('}'_tk)) {
-        auto name = VULL_TRY(expect(TokenKind::Identifier));
-        VULL_TRY(expect(':'_tk));
-        auto type = VULL_TRY(parse_type());
-        auto symbol = m_root.allocate<ast::Symbol>(name.string());
-        symbol->set_type(type);
-        block->append_node(vull::move(symbol));
-        VULL_TRY(expect(','_tk));
+ParseResult<ast::IoDecl> Parser::parse_io_decl(ast::IoKind io_kind) {
+    ast::NodeHandle<ast::Node> symbol_or_block;
+    if (consume('{'_tk)) {
+        if (io_kind == ast::IoKind::Pipeline) {
+            ParseError error;
+            error.add_error(m_lexer.next(), "a pipeline declaration cannot be a block");
+            return error;
+        }
+        auto block = m_root.allocate<ast::Aggregate>(ast::AggregateKind::Block);
+        while (!consume('}'_tk)) {
+            auto name = VULL_TRY(expect(TokenKind::Identifier));
+            VULL_TRY(expect(':'_tk));
+            auto type = VULL_TRY(parse_type());
+            block->append_node(m_root.allocate<ast::Symbol>(name.string(), type));
+            VULL_TRY(expect(';'_tk));
+        }
+        symbol_or_block = vull::move(block);
     }
-    VULL_TRY(expect_semi("uniform block declaration"));
-    return vull::move(block);
+
+    if (!symbol_or_block) {
+        auto type = VULL_TRY(parse_type());
+        auto name = VULL_TRY(expect(TokenKind::Identifier));
+        symbol_or_block = m_root.allocate<ast::Symbol>(name.string(), type);
+    }
+    VULL_TRY(expect_semi("IO declaration"));
+    return m_root.allocate<ast::IoDecl>(io_kind, vull::move(symbol_or_block));
 }
 
 ParseResult<ast::Node> Parser::parse_top_level() {
@@ -561,10 +566,10 @@ ParseResult<ast::Node> Parser::parse_top_level() {
         return VULL_TRY(parse_function_decl());
     }
     if (consume(TokenKind::KW_pipeline)) {
-        return VULL_TRY(parse_pipeline_decl());
+        return VULL_TRY(parse_io_decl(ast::IoKind::Pipeline));
     }
     if (consume(TokenKind::KW_uniform)) {
-        return VULL_TRY(parse_uniform_block());
+        return VULL_TRY(parse_io_decl(ast::IoKind::Uniform));
     }
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }

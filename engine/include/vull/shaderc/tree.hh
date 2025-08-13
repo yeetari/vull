@@ -78,6 +78,8 @@ public:
     NodeHandle &operator=(const NodeHandle &) = delete;
     NodeHandle &operator=(NodeHandle &&);
 
+    explicit operator bool() const { return m_node != nullptr; }
+
     NodeHandle share() const { return NodeHandle(m_node); }
 
     T &operator*() const { return *m_node; }

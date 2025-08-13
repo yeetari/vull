@@ -21,8 +21,8 @@ void Node::destroy() {
     case FunctionDecl:
         static_cast<ast::FunctionDecl *>(this)->~FunctionDecl();
         break;
-    case PipelineDecl:
-        static_cast<ast::PipelineDecl *>(this)->~PipelineDecl();
+    case IoDecl:
+        static_cast<ast::IoDecl *>(this)->~IoDecl();
         break;
     case DeclStmt:
         static_cast<ast::DeclStmt *>(this)->~DeclStmt();
@@ -60,8 +60,8 @@ void Node::traverse(Traverser<TraverseOrder::None> &traverser) {
     case FunctionDecl:
         traverser.visit(static_cast<ast::FunctionDecl &>(*this));
         break;
-    case PipelineDecl:
-        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+    case IoDecl:
+        traverser.visit(static_cast<ast::IoDecl &>(*this));
         break;
     case DeclStmt:
         traverser.visit(static_cast<ast::DeclStmt &>(*this));
@@ -104,8 +104,8 @@ void Node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
     case FunctionDecl:
         traverser.visit(static_cast<ast::FunctionDecl &>(*this));
         break;
-    case PipelineDecl:
-        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+    case IoDecl:
+        traverser.visit(static_cast<ast::IoDecl &>(*this));
         break;
     case DeclStmt: {
         auto &stmt = static_cast<ast::DeclStmt &>(*this);
@@ -161,8 +161,8 @@ void Node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
     case FunctionDecl:
         traverser.visit(static_cast<ast::FunctionDecl &>(*this));
         break;
-    case PipelineDecl:
-        traverser.visit(static_cast<ast::PipelineDecl &>(*this));
+    case IoDecl:
+        traverser.visit(static_cast<ast::IoDecl &>(*this));
         break;
     case DeclStmt: {
         auto &stmt = static_cast<ast::DeclStmt &>(*this);
@@ -225,9 +225,6 @@ void Dumper::visit(Aggregate &aggregate) {
         print(vull::format("ConstructExpr({}, {}, {})", vull::enum_name(type.scalar_type()), type.matrix_rows(),
                            type.matrix_cols()));
         break;
-    case AggregateKind::UniformBlock:
-        print("UniformBlock");
-        break;
     }
 
     m_indent++;
@@ -286,9 +283,12 @@ void Dumper::visit(FunctionDecl &function_decl) {
     m_indent--;
 }
 
-void Dumper::visit(PipelineDecl &pipeline_decl) {
+void Dumper::visit(IoDecl &io_decl) {
     // TODO: Print type.
-    print(vull::format("PipelineDecl({})", pipeline_decl.name()));
+    print(vull::format("IoDecl({})", vull::enum_name(io_decl.io_kind())));
+    m_indent++;
+    io_decl.symbol_or_block().traverse(*this);
+    m_indent--;
 }
 
 void Dumper::visit(ReturnStmt &return_stmt) {

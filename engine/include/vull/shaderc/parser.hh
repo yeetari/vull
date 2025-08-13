@@ -91,8 +91,7 @@ private:
     ParseResult<ast::Aggregate> parse_block();
 
     ParseResult<ast::FunctionDecl> parse_function_decl();
-    ParseResult<ast::PipelineDecl> parse_pipeline_decl();
-    ParseResult<ast::Aggregate> parse_uniform_block();
+    ParseResult<ast::IoDecl> parse_io_decl(ast::IoKind io_kind);
     ParseResult<ast::Node> parse_top_level();
 
 public:
