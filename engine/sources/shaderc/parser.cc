@@ -587,9 +587,31 @@ ParseResult<ast::Node> Parser::parse_top_level() {
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }
 
+ParseResult<ast::Node> Parser::parse_attribute() {
+    auto name = VULL_TRY(expect(TokenKind::Identifier, "for attribute name"));
+    if (name.string() != "push_constant") {
+        Error error;
+        error.add_error(name, vull::format("unknown attribute '{}'", name.string()));
+        return error;
+    }
+    return m_root.allocate<ast::Attribute>(ast::NodeKind::PushConstant, name.location());
+}
+
 Result<ast::Root, Error> Parser::parse() {
     while (!consume(TokenKind::Eof)) {
-        m_root.append_top_level(VULL_TRY(parse_top_level()));
+        Vector<ast::NodeHandle<ast::Node>> attributes;
+        if (consume(TokenKind::DoubleOpenSquareBrackets)) {
+            while (true) {
+                attributes.push(VULL_TRY(parse_attribute()));
+                if (!consume(','_tk)) {
+                    break;
+                }
+            }
+            VULL_TRY(expect(TokenKind::DoubleCloseSquareBrackets, "to end attribute list"));
+        }
+        auto node = VULL_TRY(parse_top_level());
+        node->set_attributes(vull::move(attributes));
+        m_root.append_top_level(vull::move(node));
     }
     return vull::move(m_root);
 }

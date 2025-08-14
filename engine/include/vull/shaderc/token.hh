@@ -20,6 +20,8 @@ enum class TokenKind : uint16_t {
     MinusEqual,
     AsteriskEqual,
     SlashEqual,
+    DoubleOpenSquareBrackets,
+    DoubleCloseSquareBrackets,
 
     KW_fn,
     KW_let,

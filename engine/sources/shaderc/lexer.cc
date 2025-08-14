@@ -103,6 +103,12 @@ Token Lexer::next_token(bool in_comment) {
     if (ch == '/' && consume('=')) {
         return MAKE_TOKEN(TokenKind::SlashEqual);
     }
+    if (ch == '[' && consume('[')) {
+        return MAKE_TOKEN(TokenKind::DoubleOpenSquareBrackets);
+    }
+    if (ch == ']' && consume(']')) {
+        return MAKE_TOKEN(TokenKind::DoubleCloseSquareBrackets);
+    }
 
     if (ch <= 31) {
         return MAKE_TOKEN(TokenKind::Invalid);
@@ -175,6 +181,10 @@ String Token::kind_string(TokenKind kind) {
         return "'*='";
     case TokenKind::SlashEqual:
         return "'/='";
+    case TokenKind::DoubleOpenSquareBrackets:
+        return "[[";
+    case TokenKind::DoubleCloseSquareBrackets:
+        return "]]";
     case TokenKind::KW_fn:
         return "'fn'";
     case TokenKind::KW_let:

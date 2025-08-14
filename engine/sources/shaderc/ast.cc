@@ -12,6 +12,15 @@
 
 namespace vull::shaderc::ast {
 
+bool Node::has_attribute(NodeKind kind) const {
+    for (const auto &attribute : m_attributes) {
+        if (attribute->kind() == kind) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Node::destroy() {
     switch (m_kind) {
         using enum NodeKind;
@@ -47,6 +56,9 @@ void Node::destroy() {
         break;
     case UnaryExpr:
         static_cast<ast::UnaryExpr *>(this)->~UnaryExpr();
+        break;
+    case PushConstant:
+        static_cast<ast::Attribute *>(this)->~Attribute();
         break;
     }
 }

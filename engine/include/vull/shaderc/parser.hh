@@ -58,6 +58,7 @@ private:
     ParseResult<ast::FunctionDecl> parse_function_decl(SourceLocation location);
     ParseResult<ast::IoDecl> parse_io_decl(SourceLocation location, ast::IoKind io_kind);
     ParseResult<ast::Node> parse_top_level();
+    ParseResult<ast::Node> parse_attribute();
 
 public:
     explicit Parser(Lexer &lexer);

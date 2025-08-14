@@ -37,18 +37,31 @@ enum class NodeKind {
     Constant,
     Symbol,
     UnaryExpr,
+
+    // Attributes.
+    PushConstant,
 };
+
+class Node;
+
+template <typename T>
+using NodeHandle = tree::NodeHandle<Node, T>;
 
 class Node : public tree::NodeBase {
     const NodeKind m_kind;
     const SourceLocation m_source_location;
+    Vector<NodeHandle<Node>> m_attributes;
 
 protected:
     Node(NodeKind kind, SourceLocation source_location) : m_kind(kind), m_source_location(source_location) {}
 
 public:
+    void set_attributes(Vector<NodeHandle<Node>> &&attributes) { m_attributes = vull::move(attributes); }
+    bool has_attribute(NodeKind kind) const;
+
     NodeKind kind() const { return m_kind; }
     SourceLocation source_location() const { return m_source_location; }
+    const Vector<NodeHandle<Node>> &attributes() const { return m_attributes; }
 
     void destroy();
     void traverse(Traverser<TraverseOrder::None> &);
@@ -57,8 +70,10 @@ public:
     virtual Type type() const { VULL_ENSURE_NOT_REACHED(); }
 };
 
-template <typename T>
-using NodeHandle = tree::NodeHandle<Node, T>;
+class Attribute : public Node {
+public:
+    Attribute(NodeKind kind, SourceLocation source_location) : Node(kind, source_location) {}
+};
 
 class TypedNode : public Node {
     Type m_type;
