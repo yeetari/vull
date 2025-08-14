@@ -70,7 +70,7 @@ public:
     virtual Type type() const { VULL_ENSURE_NOT_REACHED(); }
 };
 
-class Attribute : public Node {
+class Attribute final : public Node {
 public:
     Attribute(NodeKind kind, SourceLocation source_location) : Node(kind, source_location) {}
 };
