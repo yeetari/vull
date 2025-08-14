@@ -33,6 +33,7 @@ enum class NodeKind {
     Argument,
     LocalVariable,
     PipelineVariable,
+    PushConstant,
 };
 
 class Node : public tree::NodeBase {

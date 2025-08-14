@@ -185,6 +185,9 @@ void Dumper::visit(const Node &node) {
     case NodeKind::PipelineVariable:
         visit(static_cast<const PipelineVariable &>(node));
         break;
+    case NodeKind::PushConstant:
+        append("PushConstant({h})", vull::bit_cast<uintptr_t>(&node));
+        break;
     default:
         VULL_ENSURE_NOT_REACHED();
     }
@@ -232,6 +235,7 @@ void Node::destroy() {
         break;
     case Argument:
     case LocalVariable:
+    case PushConstant:
         this->~Node();
         break;
     }

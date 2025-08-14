@@ -348,7 +348,25 @@ Result<void, Error> Legaliser::lower_io_decl(const ast::IoDecl &ast_decl) {
         m_pipeline_decls.push(ast_decl);
         return {};
     }
-    VULL_ENSURE_NOT_REACHED("Handle uniforms");
+
+    if (!ast_decl.has_attribute(ast::NodeKind::PushConstant)) {
+        Error error;
+        error.add_error(ast_decl.source_location(), "currently must be a push constant");
+        return error;
+    }
+
+    const auto &symbol_or_block = ast_decl.symbol_or_block();
+    if (symbol_or_block.kind() != ast::NodeKind::Symbol) {
+        Error error;
+        error.add_error(symbol_or_block.source_location(), "currently must not be a block");
+        return error;
+    }
+
+    const auto &symbol = static_cast<const ast::Symbol &>(symbol_or_block);
+    auto push_constant = m_root.allocate<hir::Expr>(hir::NodeKind::PushConstant);
+    push_constant->set_type(symbol.type());
+    VULL_TRY(m_scope->put_symbol(symbol.name(), vull::move(push_constant), symbol.source_location()));
+    return {};
 }
 
 Result<void, Error> Legaliser::lower_top_level(const ast::Node &ast_node) {
