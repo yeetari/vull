@@ -158,14 +158,21 @@ public:
 
 class DeclStmt final : public Node {
     StringView m_name;
+    Type m_explicit_type;
     NodeHandle<Node> m_value;
+    bool m_is_mutable;
 
 public:
-    DeclStmt(SourceLocation source_location, StringView name, NodeHandle<Node> &&value)
-        : Node(NodeKind::DeclStmt, source_location), m_name(name), m_value(vull::move(value)) {}
+    DeclStmt(SourceLocation source_location, StringView name, Type explicit_type, NodeHandle<Node> &&value,
+             bool is_mutable)
+        : Node(NodeKind::DeclStmt, source_location), m_name(name), m_explicit_type(explicit_type),
+          m_value(vull::move(value)), m_is_mutable(is_mutable) {}
 
+    bool has_value() const { return !m_value.is_null(); }
     StringView name() const { return m_name; }
+    Type explicit_type() const { return m_explicit_type; }
     Node &value() const { return *m_value; }
+    bool is_mutable() const { return m_is_mutable; }
 };
 
 class Parameter {

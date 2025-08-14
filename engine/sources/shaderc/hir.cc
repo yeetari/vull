@@ -105,7 +105,7 @@ void Dumper::visit(const BinaryExpr &binary_expr) {
 }
 
 void Dumper::visit(const Constant &constant) {
-    append("Constant({}, {})", type_string(constant.scalar_type()), constant.value());
+    append("Constant({}, {})", type_string(constant.type()), constant.value());
 }
 
 void Dumper::visit(const ConstructExpr &construct_expr) {

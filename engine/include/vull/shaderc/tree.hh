@@ -52,6 +52,7 @@ public:
     bool sub_ref();
 };
 
+// TODO: Use SharedPtr?
 template <typename BaseT, DerivedFrom<BaseT> T>
 class NodeHandle {
     template <typename BaseU, DerivedFrom<BaseU>>
@@ -79,6 +80,7 @@ public:
     NodeHandle &operator=(NodeHandle &&);
 
     explicit operator bool() const { return m_node != nullptr; }
+    bool is_null() const { return m_node == nullptr; }
 
     NodeHandle share() const { return NodeHandle(m_node); }
 

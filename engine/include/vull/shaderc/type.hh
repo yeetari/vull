@@ -22,6 +22,7 @@ public:
     Type(ScalarType scalar_type, uint8_t vector_size = 1, uint8_t matrix_cols = 1)
         : m_scalar_type(scalar_type), m_vector_size(vector_size), m_matrix_cols(matrix_cols) {}
 
+    bool is_valid() const { return m_scalar_type != ScalarType::Invalid; }
     bool is_matrix() const { return m_matrix_cols > 1; }
     bool is_vector() const { return !is_matrix() && m_vector_size > 1; }
     bool is_scalar() const { return !is_matrix() && !is_vector(); }
@@ -31,5 +32,10 @@ public:
     uint8_t matrix_cols() const { return m_matrix_cols; }
     uint8_t matrix_rows() const { return m_vector_size; }
 };
+
+constexpr bool operator==(const Type &lhs, const Type &rhs) {
+    return lhs.scalar_type() == rhs.scalar_type() && lhs.vector_size() == rhs.vector_size() &&
+           lhs.matrix_cols() == rhs.matrix_cols();
+}
 
 } // namespace vull::shaderc

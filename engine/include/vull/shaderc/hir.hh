@@ -152,14 +152,11 @@ public:
 
 class Constant : public Expr {
     size_t m_value;
-    ScalarType m_scalar_type;
 
 public:
-    Constant(size_t value, ScalarType scalar_type)
-        : Expr(NodeKind::Constant), m_value(value), m_scalar_type(scalar_type) {}
+    Constant(size_t value, ScalarType scalar_type) : Expr(NodeKind::Constant), m_value(value) { set_type(scalar_type); }
 
     size_t value() const { return m_value; }
-    ScalarType scalar_type() const { return m_scalar_type; }
 };
 
 class ConstructExpr : public Expr {

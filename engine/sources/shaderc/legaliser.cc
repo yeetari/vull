@@ -133,6 +133,7 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
     const auto lhs_type = expr->lhs().type();
     if (ast::is_assign_op(ast_expr.op())) {
         // TODO: Handle other assigns.
+        // TODO: Disallow assigning to let variables.
         VULL_ENSURE(ast_expr.op() == ast::BinaryOp::Assign);
         expr->set_op(hir::BinaryOp::Assign);
         expr->set_is_assign(true);
@@ -231,18 +232,32 @@ LegaliseResult<hir::Expr> Legaliser::lower_expr(const ast::Node &ast_expr) {
 
 LegaliseResult<hir::Node> Legaliser::lower_decl_stmt(const ast::DeclStmt &ast_stmt) {
     auto variable = m_root.allocate<hir::Expr>(hir::NodeKind::LocalVariable);
-    variable->set_type(ast_stmt.value().type());
+    if (ast_stmt.explicit_type().is_valid()) {
+        variable->set_type(ast_stmt.explicit_type());
+    }
+
+    VULL_TRY(m_scope->put_symbol(ast_stmt.name(), variable.share(), ast_stmt.source_location()));
 
     // Generate assign for initialiser.
-    auto initialiser = VULL_TRY(lower_expr(ast_stmt.value()));
-    auto assign = m_root.allocate<hir::BinaryExpr>();
-    assign->set_lhs(variable.share());
-    assign->set_rhs(vull::move(initialiser));
-    assign->set_op(hir::BinaryOp::Assign);
-    assign->set_is_assign(true);
-
-    VULL_TRY(m_scope->put_symbol(ast_stmt.name(), vull::move(variable), ast_stmt.source_location()));
-    return m_root.allocate<hir::ExprStmt>(vull::move(assign));
+    if (ast_stmt.has_value()) {
+        auto initialiser = VULL_TRY(lower_expr(ast_stmt.value()));
+        if (variable->type().is_valid() && variable->type() != initialiser->type()) {
+            Error error;
+            error.add_error(ast_stmt.source_location(), "type mismatch");
+            return error;
+        }
+        if (!variable->type().is_valid()) {
+            variable->set_type(initialiser->type());
+        }
+        auto assign = m_root.allocate<hir::BinaryExpr>();
+        assign->set_type(variable->type());
+        assign->set_lhs(variable.share());
+        assign->set_rhs(vull::move(initialiser));
+        assign->set_op(hir::BinaryOp::Assign);
+        assign->set_is_assign(true);
+        return m_root.allocate<hir::ExprStmt>(vull::move(assign));
+    }
+    return hir::NodeHandle<hir::Node>();
 }
 
 LegaliseResult<hir::Node> Legaliser::lower_return_stmt(const ast::ReturnStmt &ast_stmt) {
@@ -266,7 +281,10 @@ LegaliseResult<hir::Aggregate> Legaliser::lower_block(const ast::Aggregate &ast_
     VULL_ASSERT(ast_block.kind() == ast::AggregateKind::Block);
     auto block = m_root.allocate<hir::Aggregate>(hir::NodeKind::Block);
     for (const auto &ast_stmt : ast_block.nodes()) {
-        block->append_node(VULL_TRY(lower_stmt(*ast_stmt)));
+        auto node = VULL_TRY(lower_stmt(*ast_stmt));
+        if (node) {
+            block->append_node(vull::move(node));
+        }
     }
     return block;
 }

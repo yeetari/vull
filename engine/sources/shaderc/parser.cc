@@ -469,12 +469,35 @@ ParseResult<ast::Node> Parser::parse_expr() {
 }
 
 ParseResult<ast::Node> Parser::parse_stmt() {
-    if (consume(TokenKind::KW_let) || consume(TokenKind::KW_var)) {
+    if (consume(TokenKind::KW_let)) {
         auto name = VULL_TRY(expect(TokenKind::Identifier));
-        VULL_TRY(expect('='_tk));
+        Type type;
+        if (consume(':'_tk)) {
+            type = VULL_TRY(parse_type());
+        }
+        VULL_TRY(expect('='_tk, "for value"));
         auto value = VULL_TRY(parse_expr());
-        VULL_TRY(expect(';'_tk));
-        return m_root.allocate<ast::DeclStmt>(name.location(), name.string(), vull::move(value));
+        VULL_TRY(expect_semi("let statement"));
+        return m_root.allocate<ast::DeclStmt>(name.location(), name.string(), type, vull::move(value), false);
+    }
+
+    if (auto keyword = consume(TokenKind::KW_var)) {
+        auto name = VULL_TRY(expect(TokenKind::Identifier));
+        Type type;
+        if (consume(':'_tk)) {
+            type = VULL_TRY(parse_type());
+        }
+        ast::NodeHandle<ast::Node> value;
+        if (consume('='_tk)) {
+            value = VULL_TRY(parse_expr());
+        }
+        VULL_TRY(expect_semi("var statement"));
+        if (!type.is_valid() && !value) {
+            Error error;
+            error.add_error(*keyword, "Declaration must have an explicit type or an initial value");
+            return error;
+        }
+        return m_root.allocate<ast::DeclStmt>(name.location(), name.string(), type, vull::move(value), true);
     }
 
     // Freestanding expression.
