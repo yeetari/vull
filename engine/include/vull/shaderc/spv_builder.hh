@@ -3,6 +3,7 @@
 #include <vull/container/hash_set.hh>
 #include <vull/container/vector.hh>
 #include <vull/support/hash.hh>
+#include <vull/support/optional.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
@@ -144,6 +145,11 @@ public:
     Id scalar_constant(Id type, Word value);
     Id composite_constant(Id type, Vector<Id> &&elements);
 
+    // TODO: These are hacky functions.
+    Optional<const Instruction &> lookup_constant(Id id) const;
+    Optional<const Instruction &> lookup_type(Id id) const;
+
+    Id inner_type(Id type_id) const;
     Id float_type(Word width);
     Id function_type(Id return_type, const Vector<Id> &parameter_types);
     Id int_type(Word width, bool is_signed);

@@ -151,6 +151,15 @@ Function &Builder::append_function(Id return_type, Id function_type) {
     return *m_functions.emplace(new Function(*this, return_type, function_type));
 }
 
+Optional<const Instruction &> Builder::lookup_constant(Id id) const {
+    for (const auto &inst : m_constants) {
+        if (inst.id() == id) {
+            return inst;
+        }
+    }
+    return {};
+}
+
 Id Builder::ensure_constant(Instruction &&inst) {
     if (auto existing = m_constants.add(vull::move(inst))) {
         return existing->id();
@@ -175,6 +184,32 @@ Id Builder::ensure_type(Instruction &&inst) {
         return existing->id();
     }
     return m_next_id++;
+}
+
+Optional<const Instruction &> Builder::lookup_type(Id id) const {
+    for (const auto &inst : m_types) {
+        if (inst.id() == id) {
+            return inst;
+        }
+    }
+    return {};
+}
+
+Id Builder::inner_type(Id type_id) const {
+    auto type = lookup_type(type_id);
+    if (!type) {
+        return 0;
+    }
+
+    switch (type->op()) {
+    case Op::TypeVector:
+    case Op::TypeMatrix:
+        return type->operand(0);
+    case Op::TypePointer:
+        return type->operand(1);
+    default:
+        VULL_ENSURE_NOT_REACHED();
+    }
 }
 
 Id Builder::float_type(Word width) {
@@ -296,6 +331,13 @@ void Builder::build(Vector<Word> &output) {
             inst.append_operand(variable->id());
         }
         inst.build(output);
+
+        if (entry_point->execution_model() == ExecutionModel::Fragment) {
+            Instruction origin_upper_left(Op::ExecutionMode);
+            origin_upper_left.append_operand(entry_point->function().def_inst().id());
+            origin_upper_left.append_operand(ExecutionMode::OriginUpperLeft);
+            origin_upper_left.build(output);
+        }
     }
     for (const auto &decoration : m_decorations) {
         decoration.build(output);

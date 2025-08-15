@@ -1,17 +1,21 @@
 #include <vull/container/vector.hh>
 #include <vull/core/log.hh>
 #include <vull/platform/file.hh>
+#include <vull/platform/file_stream.hh>
 #include <vull/shaderc/ast.hh>
 #include <vull/shaderc/error.hh>
 #include <vull/shaderc/hir.hh>
 #include <vull/shaderc/legaliser.hh>
 #include <vull/shaderc/lexer.hh>
 #include <vull/shaderc/parser.hh>
+#include <vull/shaderc/spv_backend.hh>
+#include <vull/shaderc/spv_builder.hh>
 #include <vull/support/args_parser.hh>
 #include <vull/support/result.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
+#include <vull/vulkan/spirv.hh>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -37,11 +41,13 @@ int main(int argc, char **argv) {
     bool dump_ast = false;
     bool dump_hir = false;
     String source_path;
+    String output_path;
 
     ArgsParser args_parser("vslc", "Vull Shader Compiler", "0.1.0");
     args_parser.add_flag(dump_ast, "Dump AST", "dump-ast");
     args_parser.add_flag(dump_hir, "Dump HIR", "dump-hir");
     args_parser.add_argument(source_path, "input-vsl", true);
+    args_parser.add_option(output_path, "SPIR-V Output Path", "output", 'o');
     if (auto result = args_parser.parse_args(argc, argv); result != ArgsParseResult::Continue) {
         return result == ArgsParseResult::ExitSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
     }
@@ -85,5 +91,23 @@ int main(int argc, char **argv) {
         shaderc::hir::dump(hir, sb);
         vull::print(sb.build());
         return EXIT_SUCCESS;
+    }
+
+    shaderc::spv::Builder builder;
+    shaderc::spv::build_spv(builder, hir);
+
+    if (output_path.empty()) {
+        output_path = "/dev/stdout";
+    }
+
+    auto output_file = VULL_EXPECT(
+        platform::open_file(output_path, platform::OpenModes(platform::OpenMode::Create, platform::OpenMode::Truncate,
+                                                             platform::OpenMode::Write)));
+    auto output_stream = output_file.create_stream();
+
+    Vector<vk::spv::Word> words;
+    builder.build(words);
+    for (auto word : words) {
+        VULL_EXPECT(output_stream.write_le(word));
     }
 }

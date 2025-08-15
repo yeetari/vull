@@ -87,6 +87,7 @@ target_sources(vull-shaderc PRIVATE
     shaderc/legaliser.cc
     shaderc/lexer.cc
     shaderc/parser.cc
+    shaderc/spv_backend.cc
     shaderc/spv_builder.cc
     shaderc/tree.cc)
 
