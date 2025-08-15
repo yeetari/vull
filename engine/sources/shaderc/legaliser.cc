@@ -70,6 +70,7 @@ class Legaliser {
     LegaliseResult<hir::Expr> lower_constant(const ast::Constant &);
     LegaliseResult<hir::Expr> lower_construct_expr(const ast::Aggregate &);
     LegaliseResult<hir::Expr> lower_symbol(const ast::Symbol &);
+    LegaliseResult<hir::Expr> lower_unary_expr(const ast::UnaryExpr &);
     LegaliseResult<hir::Expr> lower_expr(const ast::Node &);
 
     LegaliseResult<hir::Node> lower_decl_stmt(const ast::DeclStmt &);
@@ -237,6 +238,14 @@ LegaliseResult<hir::Expr> Legaliser::lower_symbol(const ast::Symbol &ast_symbol)
     return VULL_TRY(m_scope->lookup_symbol(ast_symbol.name(), ast_symbol.source_location()));
 }
 
+LegaliseResult<hir::Expr> Legaliser::lower_unary_expr(const ast::UnaryExpr &ast_expr) {
+    auto expr = m_root.allocate<hir::UnaryExpr>();
+    expr->set_op(hir::UnaryOp::Negate);
+    expr->set_expr(VULL_TRY(lower_expr(ast_expr.expr())));
+    expr->set_type(expr->expr().type());
+    return expr;
+}
+
 LegaliseResult<hir::Expr> Legaliser::lower_expr(const ast::Node &ast_expr) {
     switch (ast_expr.kind()) {
     case ast::NodeKind::Aggregate:
@@ -249,6 +258,8 @@ LegaliseResult<hir::Expr> Legaliser::lower_expr(const ast::Node &ast_expr) {
         return VULL_TRY(lower_constant(static_cast<const ast::Constant &>(ast_expr)));
     case ast::NodeKind::Symbol:
         return VULL_TRY(lower_symbol(static_cast<const ast::Symbol &>(ast_expr)));
+    case ast::NodeKind::UnaryExpr:
+        return VULL_TRY(lower_unary_expr(static_cast<const ast::UnaryExpr &>(ast_expr)));
     default:
         VULL_ENSURE_NOT_REACHED();
     }

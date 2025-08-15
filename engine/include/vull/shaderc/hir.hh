@@ -196,7 +196,10 @@ class UnaryExpr : public Expr {
     UnaryOp m_op;
 
 public:
-    UnaryExpr(NodeHandle<Expr> &&expr) : Expr(NodeKind::UnaryExpr), m_expr(vull::move(expr)) {}
+    UnaryExpr() : Expr(NodeKind::UnaryExpr) {}
+
+    void set_op(UnaryOp op) { m_op = op; }
+    void set_expr(NodeHandle<Expr> &&expr) { m_expr = vull::move(expr); }
 
     UnaryOp op() const { return m_op; }
     Expr &expr() const { return *m_expr; }
