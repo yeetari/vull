@@ -112,6 +112,8 @@ class ReturnStmt : public Node {
     NodeHandle<Expr> m_expr;
 
 public:
+    explicit ReturnStmt(NodeHandle<Expr> &&expr) : Node(NodeKind::ReturnStmt), m_expr(vull::move(expr)) {}
+
     Expr &expr() const { return *m_expr; }
 };
 

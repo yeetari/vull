@@ -262,7 +262,7 @@ LegaliseResult<hir::Node> Legaliser::lower_decl_stmt(const ast::DeclStmt &ast_st
 
 LegaliseResult<hir::Node> Legaliser::lower_return_stmt(const ast::ReturnStmt &ast_stmt) {
     auto expr = VULL_TRY(lower_expr(ast_stmt.expr()));
-    VULL_ENSURE_NOT_REACHED();
+    return m_root.allocate<hir::ReturnStmt>(vull::move(expr));
 }
 
 LegaliseResult<hir::Node> Legaliser::lower_stmt(const ast::Node &ast_stmt) {
