@@ -86,7 +86,7 @@ void Block::write(const vull::Function<void(Word)> &write_word) const {
 
 Function::Function(Builder &builder, vull::String name, Id return_type, Id function_type)
     : m_builder(builder), m_name(vull::move(name)), m_def_inst(Op::Function, builder.make_id(), return_type) {
-    m_def_inst.append_operand(FunctionControl::None);
+    m_def_inst.append_operand(FunctionControlMask::None);
     m_def_inst.append_operand(function_type);
 }
 

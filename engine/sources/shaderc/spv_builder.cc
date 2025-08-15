@@ -110,7 +110,7 @@ bool Block::is_terminated() const {
 
 Function::Function(Builder &builder, Id return_type, Id function_type)
     : m_builder(builder), m_def_inst(Op::Function, builder.make_id(), return_type) {
-    m_def_inst.append_operand(FunctionControl::None);
+    m_def_inst.append_operand(FunctionControlMask::None);
     m_def_inst.append_operand(function_type);
 }
 
@@ -260,10 +260,6 @@ void Builder::build(Vector<Word> &output) {
         case ExecutionModel::Vertex:
         case ExecutionModel::Fragment:
             ensure_capability(Capability::Shader);
-            break;
-        case ExecutionModel::TesselationControl:
-        case ExecutionModel::TesselationEvaluation:
-            ensure_capability(Capability::Tessellation);
             break;
         }
     }
