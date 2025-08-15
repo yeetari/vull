@@ -49,6 +49,7 @@ public:
     void visit(const PipelineVariable &pipeline_variable);
 
     void visit(const BinaryExpr &binary_expr);
+    void visit(const CallExpr &call_expr);
     void visit(const Constant &constant);
     void visit(const ConstructExpr &construct_expr);
     void visit(const UnaryExpr &unary_expr);
@@ -102,6 +103,14 @@ void Dumper::visit(const BinaryExpr &binary_expr) {
     Indent indent(m_indent);
     visit(binary_expr.lhs());
     visit(binary_expr.rhs());
+}
+
+void Dumper::visit(const CallExpr &call_expr) {
+    append("CallExpr({}, {h})", type_string(call_expr.type()), vull::bit_cast<uintptr_t>(&call_expr.callee()));
+    Indent indent(m_indent);
+    for (const auto &argument : call_expr.arguments()) {
+        visit(*argument);
+    }
 }
 
 void Dumper::visit(const Constant &constant) {
@@ -160,6 +169,9 @@ void Dumper::visit(const Node &node) {
         break;
     case NodeKind::BinaryExpr:
         visit(static_cast<const BinaryExpr &>(node));
+        break;
+    case NodeKind::CallExpr:
+        visit(static_cast<const CallExpr &>(node));
         break;
     case NodeKind::Constant:
         visit(static_cast<const Constant &>(node));
@@ -220,6 +232,9 @@ void Node::destroy() {
         break;
     case BinaryExpr:
         static_cast<hir::BinaryExpr *>(this)->~BinaryExpr();
+        break;
+    case CallExpr:
+        static_cast<hir::CallExpr *>(this)->~CallExpr();
         break;
     case Constant:
         static_cast<hir::Constant *>(this)->~Constant();

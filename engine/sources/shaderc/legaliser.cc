@@ -62,9 +62,11 @@ class Legaliser {
     hir::Root &m_root;
     Scope *m_scope{nullptr};
     UniquePtr<Scope> m_root_scope;
+    HashMap<StringView, hir::NodeHandle<hir::FunctionDecl>> m_functions;
     Vector<const ast::IoDecl &> m_pipeline_decls;
 
     LegaliseResult<hir::Expr> lower_binary_expr(const ast::BinaryExpr &);
+    LegaliseResult<hir::Expr> lower_call_expr(const ast::CallExpr &);
     LegaliseResult<hir::Expr> lower_constant(const ast::Constant &);
     LegaliseResult<hir::Expr> lower_construct_expr(const ast::Aggregate &);
     LegaliseResult<hir::Expr> lower_symbol(const ast::Symbol &);
@@ -197,6 +199,26 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
     return expr;
 }
 
+LegaliseResult<hir::Expr> Legaliser::lower_call_expr(const ast::CallExpr &ast_call) {
+    auto callee = m_functions.get(ast_call.name());
+    if (!callee) {
+        Error error;
+        error.add_error(ast_call.source_location(), vull::format("use of undeclared function '{}'", ast_call.name()));
+        return error;
+    }
+
+    const auto return_type = (*callee)->return_type();
+    auto expr = m_root.allocate<hir::CallExpr>(vull::move(*callee));
+    expr->set_type(return_type);
+    for (const auto &ast_argument : ast_call.arguments()) {
+        expr->append_argument(VULL_TRY(lower_expr(*ast_argument)));
+    }
+
+    // TODO: Type check arguments.
+
+    return expr;
+}
+
 LegaliseResult<hir::Expr> Legaliser::lower_constant(const ast::Constant &ast_constant) {
     return m_root.allocate<hir::Constant>(ast_constant.integer(), ast_constant.scalar_type());
 }
@@ -221,6 +243,8 @@ LegaliseResult<hir::Expr> Legaliser::lower_expr(const ast::Node &ast_expr) {
         return VULL_TRY(lower_construct_expr(static_cast<const ast::Aggregate &>(ast_expr)));
     case ast::NodeKind::BinaryExpr:
         return VULL_TRY(lower_binary_expr(static_cast<const ast::BinaryExpr &>(ast_expr)));
+    case ast::NodeKind::CallExpr:
+        return VULL_TRY(lower_call_expr(static_cast<const ast::CallExpr &>(ast_expr)));
     case ast::NodeKind::Constant:
         return VULL_TRY(lower_constant(static_cast<const ast::Constant &>(ast_expr)));
     case ast::NodeKind::Symbol:
@@ -291,6 +315,7 @@ LegaliseResult<hir::Aggregate> Legaliser::lower_block(const ast::Aggregate &ast_
 
 LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::FunctionDecl &ast_decl) {
     auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type());
+    m_functions.set(ast_decl.name(), function.share());
 
     // Assign any special function.
     if (ast_decl.name() == "vertex_main") {

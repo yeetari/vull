@@ -26,6 +26,7 @@ enum class NodeKind {
     ReturnStmt,
 
     BinaryExpr,
+    CallExpr,
     Constant,
     ConstructExpr,
     UnaryExpr,
@@ -151,6 +152,19 @@ public:
     Expr &lhs() const { return *m_lhs; }
     Expr &rhs() const { return *m_rhs; }
     bool is_assign() const { return m_is_assign; }
+};
+
+class CallExpr : public Expr {
+    NodeHandle<FunctionDecl> m_callee;
+    Vector<NodeHandle<Expr>> m_arguments;
+
+public:
+    explicit CallExpr(NodeHandle<FunctionDecl> &&callee) : Expr(NodeKind::CallExpr), m_callee(vull::move(callee)) {}
+
+    void append_argument(NodeHandle<Expr> &&argument) { m_arguments.push(vull::move(argument)); }
+
+    FunctionDecl &callee() const { return *m_callee; }
+    const Vector<NodeHandle<Expr>> &arguments() const { return m_arguments; }
 };
 
 class Constant : public Expr {
