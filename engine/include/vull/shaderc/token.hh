@@ -15,6 +15,7 @@ enum class TokenKind : uint16_t {
     Identifier,
     FloatLit,
     IntLit,
+    StringLit,
 
     PlusEqual,
     MinusEqual,

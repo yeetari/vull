@@ -51,6 +51,9 @@ void Node::destroy() {
     case Constant:
         static_cast<ast::Constant *>(this)->~Constant();
         break;
+    case StringLit:
+        static_cast<ast::StringLit *>(this)->~StringLit();
+        break;
     case Symbol:
         static_cast<ast::Symbol *>(this)->~Symbol();
         break;
@@ -92,6 +95,9 @@ void Node::traverse(Traverser<TraverseOrder::None> &traverser) {
         break;
     case Constant:
         traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case StringLit:
+        traverser.visit(static_cast<ast::StringLit &>(*this));
         break;
     case Symbol:
         traverser.visit(static_cast<ast::Symbol &>(*this));
@@ -146,6 +152,9 @@ void Node::traverse(Traverser<TraverseOrder::PreOrder> &traverser) {
         break;
     case Constant:
         traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case StringLit:
+        traverser.visit(static_cast<ast::StringLit &>(*this));
         break;
     case Symbol:
         traverser.visit(static_cast<ast::Symbol &>(*this));
@@ -203,6 +212,9 @@ void Node::traverse(Traverser<TraverseOrder::PostOrder> &traverser) {
         break;
     case Constant:
         traverser.visit(static_cast<ast::Constant &>(*this));
+        break;
+    case StringLit:
+        traverser.visit(static_cast<ast::StringLit &>(*this));
         break;
     case Symbol:
         traverser.visit(static_cast<ast::Symbol &>(*this));
@@ -308,6 +320,10 @@ void Dumper::visit(ReturnStmt &return_stmt) {
     m_indent++;
     return_stmt.expr().traverse(*this);
     m_indent--;
+}
+
+void Dumper::visit(StringLit &string_lit) {
+    print(vull::format("StringLit(\"{}\")", string_lit.value()));
 }
 
 void Dumper::visit(Symbol &symbol) {

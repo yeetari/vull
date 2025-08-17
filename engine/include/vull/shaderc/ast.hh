@@ -35,6 +35,7 @@ enum class NodeKind {
     BinaryExpr,
     CallExpr,
     Constant,
+    StringLit,
     Symbol,
     UnaryExpr,
 
@@ -268,6 +269,16 @@ public:
     const Vector<NodeHandle<Node>> &top_level_nodes() const { return m_top_level_nodes; }
 };
 
+class StringLit final : public Node {
+    StringView m_value;
+
+public:
+    StringLit(SourceLocation source_location, StringView value)
+        : Node(NodeKind::StringLit, source_location), m_value(value) {}
+
+    StringView value() const { return m_value; }
+};
+
 class Symbol final : public TypedNode {
     StringView m_name;
 
@@ -308,6 +319,7 @@ struct Traverser {
     virtual void visit(IoDecl &) = 0;
     virtual void visit(ReturnStmt &) = 0;
     virtual void visit(Root &) = 0;
+    virtual void visit(StringLit &) = 0;
     virtual void visit(Symbol &) = 0;
     virtual void visit(UnaryExpr &) = 0;
 };
@@ -326,6 +338,7 @@ public:
     void visit(FunctionDecl &) override;
     void visit(IoDecl &) override;
     void visit(ReturnStmt &) override;
+    void visit(StringLit &) override;
     void visit(Symbol &) override;
     void visit(Root &) override;
     void visit(UnaryExpr &) override;

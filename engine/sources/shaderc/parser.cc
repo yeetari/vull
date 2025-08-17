@@ -312,6 +312,9 @@ Optional<Parser::Operand> Parser::parse_operand() {
     if (auto literal = consume(TokenKind::IntLit)) {
         return Operand(m_root.allocate<ast::Constant>(literal->location(), literal->integer()));
     }
+    if (auto literal = consume(TokenKind::StringLit)) {
+        return Operand(m_root.allocate<ast::StringLit>(literal->location(), literal->string()));
+    }
     if (auto identifier = consume(TokenKind::Identifier)) {
         return Operand(identifier->string(), identifier->location());
     }

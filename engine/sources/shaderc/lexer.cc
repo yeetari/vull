@@ -91,6 +91,18 @@ Token Lexer::next_token(bool in_comment) {
         return next_token(true);
     }
 
+    if (ch == '"') {
+        while (m_source[m_head] != '"' && m_source[m_head] != '\0') {
+            m_head++;
+        }
+        if (m_source[m_head] == '\0') {
+            return MAKE_TOKEN(TokenKind::Invalid);
+        }
+        m_head++;
+        auto string = m_source.view().substr(position + 1, m_head - position - 2);
+        return MAKE_TOKEN(TokenKind::StringLit, string);
+    }
+
     if (ch == '+' && consume('=')) {
         return MAKE_TOKEN(TokenKind::PlusEqual);
     }
@@ -152,7 +164,7 @@ size_t Token::integer() const {
 }
 
 StringView Token::string() const {
-    VULL_ASSERT(m_kind == TokenKind::Identifier);
+    VULL_ASSERT(m_kind == TokenKind::Identifier || m_kind == TokenKind::StringLit);
     return {static_cast<const char *>(m_ptr_data), m_number_data.int_data};
 }
 
@@ -173,6 +185,8 @@ String Token::kind_string(TokenKind kind) {
         return "float literal";
     case TokenKind::IntLit:
         return "integer literal";
+    case TokenKind::StringLit:
+        return "string literal";
     case TokenKind::PlusEqual:
         return "'+='";
     case TokenKind::MinusEqual:
@@ -208,6 +222,8 @@ String Token::to_string() const {
         return vull::format("'{}f'", decimal());
     case TokenKind::IntLit:
         return vull::format("'{}u'", integer());
+    case TokenKind::StringLit:
+        return vull::format("\"{}\"", string());
     default:
         return kind_string(m_kind);
     }
