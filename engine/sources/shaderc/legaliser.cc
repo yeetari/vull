@@ -209,7 +209,7 @@ LegaliseResult<hir::Expr> Legaliser::lower_call_expr(const ast::CallExpr &ast_ca
     }
 
     const auto return_type = (*callee)->return_type();
-    auto expr = m_root.allocate<hir::CallExpr>(vull::move(*callee));
+    auto expr = m_root.allocate<hir::CallExpr>(callee->share());
     expr->set_type(return_type);
     for (const auto &ast_argument : ast_call.arguments()) {
         expr->append_argument(VULL_TRY(lower_expr(*ast_argument)));
@@ -324,9 +324,60 @@ LegaliseResult<hir::Aggregate> Legaliser::lower_block(const ast::Aggregate &ast_
     return block;
 }
 
+Result<hir::ExtInst, Error> lower_ext_inst(const ast::Node &attribute) {
+    const auto &arguments = attribute.attributes();
+    if (arguments.size() != 2) {
+        Error error;
+        error.add_error(attribute.source_location(), "expected two arguments for ext_inst attribute");
+        return error;
+    }
+    if (arguments[0]->kind() != ast::NodeKind::StringLit) {
+        Error error;
+        error.add_error(arguments[0]->source_location(), "expected a string for the extended instruction set name");
+        return error;
+    }
+    const auto &name_node = static_cast<const ast::StringLit &>(*arguments[0]);
+    if (name_node.value() != "GLSL.std.450") {
+        Error error;
+        error.add_error(name_node.source_location(),
+                        vull::format("unknown extended instruction set '{}'", name_node.value()));
+        return error;
+    }
+    if (arguments[1]->kind() != ast::NodeKind::Constant) {
+        Error error;
+        error.add_error(arguments[1]->source_location(), "expected an integer for the extended instruction set opcode");
+        return error;
+    }
+    const auto &opcode_node = static_cast<const ast::Constant &>(*arguments[1]);
+    if (opcode_node.scalar_type() != ScalarType::Uint) {
+        Error error;
+        error.add_error(arguments[1]->source_location(), "expected an integer for the extended instruction set opcode");
+        return error;
+    }
+    return hir::ExtInst(hir::ExtInstSet::GlslStd450, static_cast<uint32_t>(opcode_node.integer()));
+}
+
 LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::FunctionDecl &ast_decl) {
     auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type());
     m_functions.set(ast_decl.name(), function.share());
+
+    if (auto ext_inst = ast_decl.get_attribute(ast::NodeKind::ExtInst)) {
+        if (ast_decl.has_body()) {
+            Error error;
+            error.add_error(ast_decl.source_location(),
+                            "a function declared with the ext_inst attribute must not have a body");
+            return error;
+        }
+        function->set_ext_inst(VULL_TRY(lower_ext_inst(*ext_inst)));
+        return function;
+    }
+
+    if (!ast_decl.has_body()) {
+        Error error;
+        error.add_error(ast_decl.source_location(),
+                        "a function must have a body, unless declared with the ext_inst attribute");
+        return error;
+    }
 
     // Assign any special function.
     if (ast_decl.name() == "vertex_main") {

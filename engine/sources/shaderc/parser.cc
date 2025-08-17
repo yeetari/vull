@@ -544,7 +544,12 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl(SourceLocation locati
         return_type = VULL_TRY(parse_type());
     }
 
-    auto block = VULL_TRY(parse_block());
+    ast::NodeHandle<ast::Aggregate> block;
+    if (m_lexer.peek().kind() == '{'_tk) {
+        block = VULL_TRY(parse_block());
+    } else {
+        VULL_TRY(expect_semi("function declaration"));
+    }
     return m_root.allocate<ast::FunctionDecl>(location, name.string(), vull::move(block), return_type,
                                               vull::move(parameters));
 }
@@ -591,6 +596,9 @@ ParseResult<ast::Node> Parser::parse_top_level() {
 }
 
 static Optional<ast::NodeKind> parse_attribute_name(StringView name) {
+    if (name == "ext_inst") {
+        return ast::NodeKind::ExtInst;
+    }
     if (name == "push_constant") {
         return ast::NodeKind::PushConstant;
     }

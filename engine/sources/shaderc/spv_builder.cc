@@ -316,6 +316,11 @@ void Builder::build(Vector<Word> &output) {
         inst.build(output);
     }
 
+    // Emit extension instruction set imports.
+    for (const auto &extension_import : m_extension_imports) {
+        extension_import.build(output);
+    }
+
     // Emit single memory model instruction.
     Instruction memory_model(Op::MemoryModel);
     memory_model.append_operand(m_addressing_model);

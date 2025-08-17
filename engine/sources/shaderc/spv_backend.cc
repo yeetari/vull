@@ -216,8 +216,15 @@ AccessChain Backend::lower_call_expr(const hir::CallExpr &call_expr) {
         arguments.push(load_access_chain(lower_expr(*argument)).id());
     }
 
-    auto *callee = *m_function_map.get(&call_expr.callee());
     const auto result_type = lower_type(call_expr.type());
+    if (auto ext_inst = call_expr.callee().ext_inst()) {
+        auto &inst = m_block->append(Op::ExtInst, result_type);
+        inst.append_operand(m_std_450);
+        inst.append_operand(ext_inst->opcode());
+        inst.extend_operands(arguments);
+        return AccessChain::from_rvalue(Value::make(inst));
+    }
+    auto *callee = *m_function_map.get(&call_expr.callee());
     auto &inst = m_block->append(Op::FunctionCall, result_type);
     inst.append_operand(callee->def_inst().id());
     inst.extend_operands(arguments);
@@ -388,6 +395,11 @@ void Backend::lower_block(const hir::Aggregate &block) {
 }
 
 void Backend::lower_function_decl(const hir::FunctionDecl &function_decl) {
+    if (!function_decl.has_body()) {
+        return;
+    }
+    m_function_map.set(&function_decl, m_function);
+
     const bool is_vertex_entry = function_decl.is_special_function(hir::SpecialFunction::VertexEntry);
     const bool is_fragment_entry = function_decl.is_special_function(hir::SpecialFunction::FragmentEntry);
 
@@ -404,8 +416,6 @@ void Backend::lower_function_decl(const hir::FunctionDecl &function_decl) {
         const auto return_type = lower_type(function_decl.return_type());
         m_function = &m_builder.append_function(return_type, m_builder.function_type(return_type, parameter_types));
     }
-
-    m_function_map.set(&function_decl, m_function);
 
     m_fragment_output_chain.clear();
     if (is_vertex_entry) {

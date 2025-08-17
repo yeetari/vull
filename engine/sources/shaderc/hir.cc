@@ -159,7 +159,9 @@ void Dumper::visit(const FunctionDecl &function_decl) {
     } else if (function_decl.is_special_function(SpecialFunction::FragmentEntry)) {
         append("# fragment entry");
     }
-    visit(function_decl.body());
+    if (function_decl.has_body()) {
+        visit(function_decl.body());
+    }
 }
 
 void Dumper::visit(const Node &node) {

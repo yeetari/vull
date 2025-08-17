@@ -84,8 +84,8 @@ TEST_CASE(ShaderParseErrors, FunctionDeclUnknownReturnType) {
 }
 TEST_CASE(ShaderParseErrors, FunctionDeclMissingBlock) {
     auto parse_error = try_parse("fn foo()");
-    EXPECT_TRUE(has_error(parse_error, "expected '{' to open a block"));
-    EXPECT_TRUE(has_note(parse_error, "got <eof> instead"));
+    EXPECT_TRUE(has_error(parse_error, "missing ';' after function declaration"));
+    EXPECT_TRUE(has_note(parse_error, "expected ';' before <eof>"));
 }
 
 TEST_CASE(ShaderParseErrors, PipelineDeclBadType) {

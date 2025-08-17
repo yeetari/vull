@@ -73,6 +73,21 @@ public:
     Type type() const { return m_type; }
 };
 
+enum class ExtInstSet {
+    GlslStd450,
+};
+
+class ExtInst {
+    ExtInstSet m_inst_set;
+    uint32_t m_opcode;
+
+public:
+    ExtInst(ExtInstSet inst_set, uint32_t opcode) : m_inst_set(inst_set), m_opcode(opcode) {}
+
+    ExtInstSet inst_set() const { return m_inst_set; }
+    uint32_t opcode() const { return m_opcode; }
+};
+
 enum class SpecialFunction {
     VertexEntry,
     FragmentEntry,
@@ -82,12 +97,16 @@ class FunctionDecl : public Node {
     Type m_return_type;
     Vector<Type> m_parameter_types;
     NodeHandle<Aggregate> m_body;
+    Optional<ExtInst> m_ext_inst;
     Optional<SpecialFunction> m_special_function;
 
 public:
     explicit FunctionDecl(Type return_type) : Node(NodeKind::FunctionDecl), m_return_type(return_type) {}
 
     void set_body(NodeHandle<Aggregate> &&body) { m_body = vull::move(body); }
+    bool has_body() const { return !m_body.is_null(); }
+
+    void set_ext_inst(ExtInst ext_inst) { m_ext_inst = ext_inst; }
 
     void set_special_function(SpecialFunction special_function) { m_special_function = special_function; }
     bool is_special_function(SpecialFunction special_function) const {
@@ -97,6 +116,7 @@ public:
     Type return_type() const { return m_return_type; }
     const Vector<Type> &parameter_types() const { return m_parameter_types; }
     Aggregate &body() const { return *m_body; }
+    Optional<ExtInst> ext_inst() const { return m_ext_inst; }
     Optional<SpecialFunction> special_function() const { return m_special_function; }
 };
 

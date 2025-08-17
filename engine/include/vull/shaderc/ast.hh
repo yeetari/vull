@@ -40,6 +40,7 @@ enum class NodeKind {
     UnaryExpr,
 
     // Attributes.
+    ExtInst,
     PushConstant,
 };
 
@@ -57,8 +58,9 @@ protected:
     Node(NodeKind kind, SourceLocation source_location) : m_kind(kind), m_source_location(source_location) {}
 
 public:
-    void set_attributes(Vector<NodeHandle<Node>> &&attributes) { m_attributes = vull::move(attributes); }
+    NodeHandle<Node> get_attribute(NodeKind kind) const;
     bool has_attribute(NodeKind kind) const;
+    void set_attributes(Vector<NodeHandle<Node>> &&attributes) { m_attributes = vull::move(attributes); }
 
     NodeKind kind() const { return m_kind; }
     SourceLocation source_location() const { return m_source_location; }
@@ -219,6 +221,8 @@ public:
                  Vector<Parameter> &&parameters)
         : Node(NodeKind::FunctionDecl, source_location), m_name(name), m_block(vull::move(block)),
           m_return_type(return_type), m_parameters(vull::move(parameters)) {}
+
+    bool has_body() const { return !m_block.is_null(); }
 
     StringView name() const { return m_name; }
     Aggregate &block() const { return *m_block; }

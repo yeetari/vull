@@ -12,13 +12,17 @@
 
 namespace vull::shaderc::ast {
 
-bool Node::has_attribute(NodeKind kind) const {
+NodeHandle<Node> Node::get_attribute(NodeKind kind) const {
     for (const auto &attribute : m_attributes) {
         if (attribute->kind() == kind) {
-            return true;
+            return attribute.share();
         }
     }
-    return false;
+    return {};
+}
+
+bool Node::has_attribute(NodeKind kind) const {
+    return !get_attribute(kind).is_null();
 }
 
 void Node::destroy() {
@@ -302,9 +306,11 @@ void Dumper::visit(FunctionDecl &function_decl) {
     // TODO: Return type.
     // TODO: Parameters.
     print(vull::format("FunctionDecl({})", function_decl.name()));
-    m_indent++;
-    function_decl.block().traverse(*this);
-    m_indent--;
+    if (function_decl.has_body()) {
+        m_indent++;
+        function_decl.block().traverse(*this);
+        m_indent--;
+    }
 }
 
 void Dumper::visit(IoDecl &io_decl) {
