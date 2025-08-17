@@ -72,7 +72,10 @@ public:
 
 class Attribute final : public Node {
 public:
-    Attribute(NodeKind kind, SourceLocation source_location) : Node(kind, source_location) {}
+    Attribute(NodeKind kind, SourceLocation source_location, Vector<NodeHandle<Node>> &&arguments)
+        : Node(kind, source_location) {
+        set_attributes(vull::move(arguments));
+    }
 };
 
 class TypedNode : public Node {

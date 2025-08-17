@@ -587,26 +587,45 @@ ParseResult<ast::Node> Parser::parse_top_level() {
     return unexpected_token(m_lexer.next(), "expected top level declaration or <eof>");
 }
 
+static Optional<ast::NodeKind> parse_attribute_name(StringView name) {
+    if (name == "push_constant") {
+        return ast::NodeKind::PushConstant;
+    }
+    return vull::nullopt;
+}
+
 ParseResult<ast::Node> Parser::parse_attribute() {
-    auto name = VULL_TRY(expect(TokenKind::Identifier, "for attribute name"));
-    if (name.string() != "push_constant") {
+    const auto name = VULL_TRY(expect(TokenKind::Identifier, "for attribute name"));
+    const auto kind = parse_attribute_name(name.string());
+    if (!kind) {
         Error error;
         error.add_error(name, vull::format("unknown attribute '{}'", name.string()));
         return error;
     }
-    return m_root.allocate<ast::Attribute>(ast::NodeKind::PushConstant, name.location());
+
+    Vector<ast::NodeHandle<ast::Node>> arguments;
+    if (consume('('_tk)) {
+        do {
+            auto operand = parse_operand();
+            if (!operand) {
+                Error error;
+                error.add_error(m_lexer.next(), "expected attribute argument");
+                return error;
+            }
+            arguments.push(build_node(vull::move(*operand)));
+        } while (consume(','_tk));
+        VULL_TRY(expect(')'_tk, "to end attribute argument list"));
+    }
+    return m_root.allocate<ast::Attribute>(*kind, name.location(), vull::move(arguments));
 }
 
 Result<ast::Root, Error> Parser::parse() {
     while (!consume(TokenKind::Eof)) {
         Vector<ast::NodeHandle<ast::Node>> attributes;
         if (consume(TokenKind::DoubleOpenSquareBrackets)) {
-            while (true) {
+            do {
                 attributes.push(VULL_TRY(parse_attribute()));
-                if (!consume(','_tk)) {
-                    break;
-                }
-            }
+            } while (consume(','_tk));
             VULL_TRY(expect(TokenKind::DoubleCloseSquareBrackets, "to end attribute list"));
         }
         auto node = VULL_TRY(parse_top_level());
