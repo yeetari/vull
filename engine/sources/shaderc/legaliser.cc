@@ -11,6 +11,7 @@
 #include <vull/support/assert.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
+#include <vull/support/span.hh>
 #include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
@@ -62,8 +63,10 @@ class Legaliser {
     hir::Root &m_root;
     Scope *m_scope{nullptr};
     UniquePtr<Scope> m_root_scope;
-    HashMap<StringView, hir::NodeHandle<hir::FunctionDecl>> m_functions;
+    HashMap<StringView, Vector<hir::NodeHandle<hir::FunctionDecl>>> m_functions;
     Vector<const ast::IoDecl &> m_pipeline_decls;
+
+    hir::NodeHandle<hir::FunctionDecl> find_overload(StringView name, Span<const Type> types);
 
     LegaliseResult<hir::Expr> lower_binary_expr(const ast::BinaryExpr &);
     LegaliseResult<hir::Expr> lower_call_expr(const ast::CallExpr &);
@@ -126,6 +129,30 @@ Result<void, Error> Scope::put_symbol(StringView name, hir::NodeHandle<hir::Expr
 }
 
 Legaliser::Legaliser(hir::Root &root) : m_root(root), m_root_scope(new Scope(m_scope)) {}
+
+hir::NodeHandle<hir::FunctionDecl> Legaliser::find_overload(StringView name, Span<const Type> types) {
+    auto candidates = m_functions.get(name);
+    if (!candidates || candidates->empty()) {
+        return {};
+    }
+
+    for (const auto &candidate : *candidates) {
+        if (candidate->parameter_types().size() != types.size()) {
+            continue;
+        }
+        bool match = true;
+        for (uint32_t i = 0; i < types.size(); i++) {
+            if (candidate->parameter_types()[i] != types[i]) {
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            return candidate.share();
+        }
+    }
+    return {};
+}
 
 LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &ast_expr) {
     auto expr = m_root.allocate<hir::BinaryExpr>();
@@ -201,22 +228,26 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
 }
 
 LegaliseResult<hir::Expr> Legaliser::lower_call_expr(const ast::CallExpr &ast_call) {
-    auto callee = m_functions.get(ast_call.name());
+    Vector<hir::NodeHandle<hir::Expr>> arguments;
+    for (const auto &ast_argument : ast_call.arguments()) {
+        arguments.push(VULL_TRY(lower_expr(*ast_argument)));
+    }
+    Vector<Type> argument_types;
+    for (const auto &argument : arguments) {
+        argument_types.push(argument->type());
+    }
+
+    auto callee = find_overload(ast_call.name(), argument_types.span());
     if (!callee) {
+        // TODO: Add more information if no overloads matched.
         Error error;
         error.add_error(ast_call.source_location(), vull::format("use of undeclared function '{}'", ast_call.name()));
         return error;
     }
 
-    const auto return_type = (*callee)->return_type();
-    auto expr = m_root.allocate<hir::CallExpr>(callee->share());
+    const auto return_type = callee->return_type();
+    auto expr = m_root.allocate<hir::CallExpr>(vull::move(callee), vull::move(arguments));
     expr->set_type(return_type);
-    for (const auto &ast_argument : ast_call.arguments()) {
-        expr->append_argument(VULL_TRY(lower_expr(*ast_argument)));
-    }
-
-    // TODO: Type check arguments.
-
     return expr;
 }
 
@@ -358,8 +389,25 @@ Result<hir::ExtInst, Error> lower_ext_inst(const ast::Node &attribute) {
 }
 
 LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::FunctionDecl &ast_decl) {
-    auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type());
-    m_functions.set(ast_decl.name(), function.share());
+    Vector<Type> parameter_types;
+    for (const auto &parameter : ast_decl.parameters()) {
+        parameter_types.push(parameter.type());
+    }
+    if (find_overload(ast_decl.name(), parameter_types.span())) {
+        // TODO: Print previous definition location.
+        Error error;
+        error.add_error(ast_decl.source_location(), "attempted redefinition of function");
+        return error;
+    }
+
+    auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type(), vull::move(parameter_types));
+    if (m_functions.contains(ast_decl.name())) {
+        m_functions.get(ast_decl.name())->push(function.share());
+    } else {
+        Vector<hir::NodeHandle<hir::FunctionDecl>> vector;
+        vector.push(function.share());
+        m_functions.set(ast_decl.name(), vull::move(vector));
+    }
 
     if (auto ext_inst = ast_decl.get_attribute(ast::NodeKind::ExtInst)) {
         if (ast_decl.has_body()) {

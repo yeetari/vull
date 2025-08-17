@@ -398,7 +398,6 @@ void Backend::lower_function_decl(const hir::FunctionDecl &function_decl) {
     if (!function_decl.has_body()) {
         return;
     }
-    m_function_map.set(&function_decl, m_function);
 
     const bool is_vertex_entry = function_decl.is_special_function(hir::SpecialFunction::VertexEntry);
     const bool is_fragment_entry = function_decl.is_special_function(hir::SpecialFunction::FragmentEntry);
@@ -416,6 +415,7 @@ void Backend::lower_function_decl(const hir::FunctionDecl &function_decl) {
         const auto return_type = lower_type(function_decl.return_type());
         m_function = &m_builder.append_function(return_type, m_builder.function_type(return_type, parameter_types));
     }
+    m_function_map.set(&function_decl, m_function);
 
     m_fragment_output_chain.clear();
     if (is_vertex_entry) {

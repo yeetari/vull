@@ -101,7 +101,8 @@ class FunctionDecl : public Node {
     Optional<SpecialFunction> m_special_function;
 
 public:
-    explicit FunctionDecl(Type return_type) : Node(NodeKind::FunctionDecl), m_return_type(return_type) {}
+    FunctionDecl(Type return_type, Vector<Type> &&parameter_types)
+        : Node(NodeKind::FunctionDecl), m_return_type(return_type), m_parameter_types(vull::move(parameter_types)) {}
 
     void set_body(NodeHandle<Aggregate> &&body) { m_body = vull::move(body); }
     bool has_body() const { return !m_body.is_null(); }
@@ -179,9 +180,8 @@ class CallExpr : public Expr {
     Vector<NodeHandle<Expr>> m_arguments;
 
 public:
-    explicit CallExpr(NodeHandle<FunctionDecl> &&callee) : Expr(NodeKind::CallExpr), m_callee(vull::move(callee)) {}
-
-    void append_argument(NodeHandle<Expr> &&argument) { m_arguments.push(vull::move(argument)); }
+    CallExpr(NodeHandle<FunctionDecl> &&callee, Vector<NodeHandle<Expr>> &&arguments)
+        : Expr(NodeKind::CallExpr), m_callee(vull::move(callee)), m_arguments(vull::move(arguments)) {}
 
     FunctionDecl &callee() const { return *m_callee; }
     const Vector<NodeHandle<Expr>> &arguments() const { return m_arguments; }
