@@ -69,7 +69,20 @@ RUN apt-get update \
  && ninja -Ciwyu-build install \
  && rm /usr/lib/clang/19/include \
  && cp -r iwyu-build/lib/clang/19/include/ /usr/lib/clang/19/include/ \
- && rm -r include-what-you-use iwyu-build \
+ && rm -rf include-what-you-use iwyu-build \
+ && git clone https://github.com/yeetari/SPIRV-Tools.git --branch install-diff \
+ && git clone https://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers \
+ && git -C SPIRV-Tools/external/spirv-headers checkout e6d5e88c07cc66a798b668945e7fb29ec1cfee27 \
+ && cmake \
+    -Bspirv-tools-build \
+    -GNinja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DSPIRV_WERROR=OFF \
+    -DSPIRV_SKIP_TESTS=ON \
+    ./SPIRV-Tools \
+ && cmake --build spirv-tools-build --target install \
+ && rm -rf SPIRV-Tools spirv-tools-build \
  && ln -sf /usr/bin/clang-19 /usr/bin/clang \
  && ln -sf /usr/bin/clang++-19 /usr/bin/clang++ \
  && ln -sf /usr/bin/clang-format-19 /usr/bin/clang-format \
