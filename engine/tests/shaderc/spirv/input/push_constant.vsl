@@ -1,0 +1,6 @@
+[[push_constant]]
+uniform float my_push_constant;
+
+fn vertex_main() {
+    let bar = my_push_constant / 2.0f;
+}

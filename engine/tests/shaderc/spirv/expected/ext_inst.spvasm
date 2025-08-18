@@ -1,0 +1,17 @@
+OpCapability PhysicalStorageBufferAddresses
+OpCapability VulkanMemoryModel
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel PhysicalStorageBuffer64 Vulkan
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%_ptr_Function_float = OpTypePointer Function %float
+%float_1 = OpConstant %float 1
+%float_2 = OpConstant %float 2
+%4 = OpFunction %void None %3
+%5 = OpLabel
+%8 = OpVariable %_ptr_Function_float Function
+%11 = OpExtInst %float %1 FMax %float_1 %float_2
+OpStore %8 %11
+OpReturn
+OpFunctionEnd

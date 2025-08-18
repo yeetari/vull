@@ -1,0 +1,12 @@
+fn overloaded(let value: float): float {
+    1.0f
+}
+
+fn overloaded(let value: vec3): float {
+    2.0f
+}
+
+fn vertex_main() {
+    let foo = overloaded(1.0f);
+    let bar = overloaded(vec3(1.0f));
+}

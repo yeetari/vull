@@ -1,0 +1,11 @@
+fn vertex_main() {
+    var foo: vec4;
+    var bar: mat4;
+    foo * 2.0f;  // VectorTimesScalar
+    bar * 2.0f;  // MatrixTimesScalar
+    foo * bar;   // VectorTimesMatrix
+    bar * foo;   // MatrixTimesVector
+    bar * bar;   // MatrixTimesMatrix
+    1.0f * 2.0f; // ScalarTimesScalar (FMul)
+    foo * foo;   // VectorTimesVector (FMul)
+}

@@ -1,0 +1,6 @@
+[[ext_inst("GLSL.std.450", 40)]]
+fn max(let x: float, let y: float): float;
+
+fn foo() {
+    let bar = max(1.0f, 2.0f);
+}

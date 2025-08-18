@@ -1,0 +1,46 @@
+OpCapability PhysicalStorageBufferAddresses
+OpCapability VulkanMemoryModel
+OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel PhysicalStorageBuffer64 Vulkan
+OpEntryPoint Vertex %4 "vertex_main" %9 %13
+OpEntryPoint Fragment %15 "fragment_main" %17 %22 %24
+OpExecutionMode %15 OriginUpperLeft
+OpDecorate %9 Location 0
+OpDecorate %13 Location 1
+OpDecorate %17 Location 0
+OpDecorate %22 Location 0
+OpDecorate %24 Location 1
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v3float = OpTypeVector %float 3
+%_ptr_Output_v3float = OpTypePointer Output %v3float
+%_ptr_Output_float = OpTypePointer Output %float
+%_ptr_Output_void = OpTypePointer Output %void
+%_ptr_Function_v3float = OpTypePointer Function %v3float
+%_ptr_Input_v3float = OpTypePointer Input %v3float
+%_ptr_Input_float = OpTypePointer Input %float
+%float_1 = OpConstant %float 1
+%11 = OpConstantComposite %v3float %float_1 %float_1 %float_1
+%float_2 = OpConstant %float 2
+%9 = OpVariable %_ptr_Output_v3float Output
+%13 = OpVariable %_ptr_Output_float Output
+%17 = OpVariable %_ptr_Output_void Output
+%22 = OpVariable %_ptr_Input_v3float Input
+%24 = OpVariable %_ptr_Input_float Input
+%4 = OpFunction %void None %3
+%5 = OpLabel
+OpStore %9 %11
+OpStore %13 %float_2
+OpReturn
+OpFunctionEnd
+%15 = OpFunction %void None %3
+%18 = OpLabel
+%20 = OpVariable %_ptr_Function_v3float Function
+%25 = OpLoad %v3float %22
+%26 = OpLoad %float %24
+%27 = OpVectorTimesScalar %v3float %25 %26
+OpStore %20 %27
+OpReturn
+OpFunctionEnd

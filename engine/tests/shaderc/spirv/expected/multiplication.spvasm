@@ -1,0 +1,38 @@
+OpCapability PhysicalStorageBufferAddresses
+OpCapability VulkanMemoryModel
+OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel PhysicalStorageBuffer64 Vulkan
+OpEntryPoint Vertex %4 "vertex_main"
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%v4float = OpTypeVector %float 4
+%_ptr_Function_v4float = OpTypePointer Function %v4float
+%mat4v4float = OpTypeMatrix %v4float 4
+%_ptr_Function_mat4v4float = OpTypePointer Function %mat4v4float
+%float_2 = OpConstant %float 2
+%float_1 = OpConstant %float 1
+%4 = OpFunction %void None %3
+%5 = OpLabel
+%9 = OpVariable %_ptr_Function_v4float Function
+%15 = OpVariable %_ptr_Function_mat4v4float Function
+%11 = OpLoad %v4float %9
+%12 = OpVectorTimesScalar %v4float %11 %float_2
+%16 = OpLoad %mat4v4float %15
+%17 = OpMatrixTimesScalar %mat4v4float %16 %float_2
+%18 = OpLoad %v4float %9
+%19 = OpLoad %mat4v4float %15
+%20 = OpVectorTimesMatrix %v4float %18 %19
+%21 = OpLoad %mat4v4float %15
+%22 = OpLoad %v4float %9
+%23 = OpMatrixTimesVector %v4float %21 %22
+%24 = OpLoad %mat4v4float %15
+%25 = OpLoad %mat4v4float %15
+%26 = OpMatrixTimesMatrix %mat4v4float %24 %25
+%28 = OpFMul %float %float_1 %float_2
+%29 = OpLoad %v4float %9
+%30 = OpLoad %v4float %9
+%31 = OpFMul %v4float %29 %30
+OpReturn
+OpFunctionEnd

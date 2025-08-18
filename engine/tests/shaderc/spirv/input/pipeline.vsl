@@ -1,0 +1,11 @@
+pipeline vec3 foo;
+pipeline float bar;
+
+fn vertex_main() {
+    foo = vec3(1.0f);
+    bar = 2.0f;
+}
+
+fn fragment_main() {
+    let baz = foo * bar;
+}

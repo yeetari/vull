@@ -1,0 +1,21 @@
+OpCapability PhysicalStorageBufferAddresses
+OpCapability VulkanMemoryModel
+OpCapability Shader
+%1 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel PhysicalStorageBuffer64 Vulkan
+OpEntryPoint Vertex %4 "vertex_main" %10
+%void = OpTypeVoid
+%3 = OpTypeFunction %void
+%float = OpTypeFloat 32
+%_ptr_Function_float = OpTypePointer Function %float
+%_ptr_PushConstant_float = OpTypePointer PushConstant %float
+%float_2 = OpConstant %float 2
+%10 = OpVariable %_ptr_PushConstant_float PushConstant
+%4 = OpFunction %void None %3
+%5 = OpLabel
+%8 = OpVariable %_ptr_Function_float Function
+%12 = OpLoad %float %10
+%13 = OpFDiv %float %12 %float_2
+OpStore %8 %13
+OpReturn
+OpFunctionEnd

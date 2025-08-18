@@ -29,3 +29,5 @@ endif()
 if(VULL_BUILD_UI)
     target_sources(vull-tests PRIVATE ui/units.cc)
 endif()
+
+add_subdirectory(shaderc/spirv)
