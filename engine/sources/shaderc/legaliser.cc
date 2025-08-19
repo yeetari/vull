@@ -185,16 +185,16 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
             expr->set_type(lhs_type.is_matrix() ? lhs_type : rhs_type);
         } else if (lhs_type.is_vector() && rhs_type.is_matrix()) {
             expr->set_op(hir::BinaryOp::VectorTimesMatrix);
-            expr->set_type(Type(lhs_type.scalar_type(), rhs_type.matrix_cols()));
+            expr->set_type(Type::make_vector(lhs_type.scalar_type(), rhs_type.matrix_cols()));
         } else if (lhs_type.is_matrix() && rhs_type.is_vector()) {
             expr->set_op(hir::BinaryOp::MatrixTimesVector);
-            expr->set_type(Type(lhs_type.scalar_type(), lhs_type.matrix_rows()));
+            expr->set_type(Type::make_vector(lhs_type.scalar_type(), lhs_type.matrix_rows()));
         } else if (lhs_type.is_matrix() && rhs_type.is_matrix()) {
             expr->set_op(hir::BinaryOp::MatrixTimesMatrix);
-            expr->set_type(Type(lhs_type.scalar_type(), rhs_type.matrix_cols(), lhs_type.matrix_rows()));
+            expr->set_type(Type::make_matrix(lhs_type.scalar_type(), rhs_type.matrix_cols(), lhs_type.matrix_rows()));
         } else if (lhs_type.is_scalar() && rhs_type.is_scalar()) {
             expr->set_op(hir::BinaryOp::ScalarTimesScalar);
-            expr->set_type(lhs_type.scalar_type());
+            expr->set_type(Type::make_scalar(lhs_type.scalar_type()));
         } else if (lhs_type.is_vector() && rhs_type.is_vector()) {
             expr->set_op(hir::BinaryOp::VectorTimesVector);
             expr->set_type(lhs_type);
@@ -469,7 +469,7 @@ LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::Func
 
     if (function->is_special_function(hir::SpecialFunction::VertexEntry)) {
         // TODO: Handle source location here somehow.
-        VULL_TRY(create_pipeline_variable("gl_Position", Type(ScalarType::Float, 4),
+        VULL_TRY(create_pipeline_variable("gl_Position", Type::make_vector(ScalarType::Float, 4),
                                           hir::SpecialPipelineVariable::Position, SourceLocation(0)));
     }
 

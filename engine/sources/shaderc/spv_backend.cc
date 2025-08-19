@@ -110,6 +110,8 @@ Id Backend::lower_type(ScalarType scalar_type) {
     switch (scalar_type) {
     case ScalarType::Void:
         return m_builder.void_type();
+    case ScalarType::Sampler:
+        return m_builder.sampler_type();
     case ScalarType::Float:
         return m_builder.float_type(32);
     case ScalarType::Int:
@@ -121,11 +123,34 @@ Id Backend::lower_type(ScalarType scalar_type) {
     }
 }
 
+Dim lower_image_type(ImageType image_type) {
+    switch (image_type) {
+    case ImageType::_2D:
+        return Dim::_2D;
+    case ImageType::_3D:
+        return Dim::_3D;
+    case ImageType::Cube:
+        return Dim::Cube;
+    default:
+        vull::unreachable();
+    }
+}
+
 Id Backend::lower_type(const Type &vsl_type) {
     const auto scalar_type = lower_type(vsl_type.scalar_type());
     if (vsl_type.is_scalar()) {
         return scalar_type;
     }
+
+    if (vsl_type.is_image()) {
+        const auto image_type = m_builder.image_type(scalar_type, lower_image_type(vsl_type.image_type()),
+                                                     ImageFormat::Unknown, false, false, vsl_type.has_sampler());
+        if (!vsl_type.has_sampler()) {
+            return image_type;
+        }
+        return m_builder.sampled_image_type(image_type);
+    }
+
     const auto vector_type = m_builder.vector_type(scalar_type, vsl_type.vector_size());
     if (vsl_type.is_vector()) {
         return vector_type;

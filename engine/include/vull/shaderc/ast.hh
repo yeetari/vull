@@ -170,7 +170,7 @@ public:
     Constant(SourceLocation source_location, size_t integer)
         : Node(NodeKind::Constant, source_location), m_literal({.integer = integer}), m_scalar_type(ScalarType::Uint) {}
 
-    Type type() const override { return {m_scalar_type, 1, 1}; }
+    Type type() const override { return Type::make_scalar(m_scalar_type); }
 
     float decimal() const { return m_literal.decimal; }
     size_t integer() const { return m_literal.integer; }

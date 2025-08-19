@@ -63,6 +63,19 @@ public:
     void visit(const Root &root);
 };
 
+StringView image_type_string(ImageType image_type) {
+    switch (image_type) {
+    case ImageType::_2D:
+        return "2D";
+    case ImageType::_3D:
+        return "3D";
+    case ImageType::Cube:
+        return "cube";
+    default:
+        return "<invalid>";
+    }
+}
+
 StringView type_string(ScalarType scalar_type) {
     switch (scalar_type) {
     case ScalarType::Float:
@@ -79,6 +92,10 @@ StringView type_string(ScalarType scalar_type) {
 }
 
 String type_string(Type type) {
+    if (type.is_image()) {
+        return vull::format("image({}, {}, has_sampler: {})", type_string(type.scalar_type()),
+                            image_type_string(type.image_type()), type.has_sampler());
+    }
     if (type.is_matrix()) {
         return vull::format("mat({}, {}, {})", type_string(type.scalar_type()), type.matrix_cols(), type.matrix_rows());
     }

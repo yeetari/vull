@@ -133,18 +133,24 @@ Error unexpected_token(Token bad_token, StringView expected) {
 } // namespace
 
 Parser::Parser(Lexer &lexer) : m_lexer(lexer) {
-    m_builtin_type_map.set("float", ScalarType::Float);
-    m_builtin_type_map.set("vec2", {ScalarType::Float, 2});
-    m_builtin_type_map.set("vec3", {ScalarType::Float, 3});
-    m_builtin_type_map.set("vec4", {ScalarType::Float, 4});
-    m_builtin_type_map.set("ivec2", {ScalarType::Int, 2});
-    m_builtin_type_map.set("ivec3", {ScalarType::Int, 3});
-    m_builtin_type_map.set("ivec4", {ScalarType::Int, 4});
-    m_builtin_type_map.set("uvec2", {ScalarType::Uint, 2});
-    m_builtin_type_map.set("uvec3", {ScalarType::Uint, 3});
-    m_builtin_type_map.set("uvec4", {ScalarType::Uint, 4});
-    m_builtin_type_map.set("mat3", {ScalarType::Float, 3, 3});
-    m_builtin_type_map.set("mat4", {ScalarType::Float, 4, 4});
+    m_builtin_type_map.set("float", Type::make_scalar(ScalarType::Float));
+    m_builtin_type_map.set("int", Type::make_scalar(ScalarType::Int));
+    m_builtin_type_map.set("uint", Type::make_scalar(ScalarType::Uint));
+    m_builtin_type_map.set("void", Type::make_scalar(ScalarType::Void));
+    m_builtin_type_map.set("sampler", Type::make_scalar(ScalarType::Sampler));
+    m_builtin_type_map.set("vec2", Type::make_vector(ScalarType::Float, 2));
+    m_builtin_type_map.set("vec3", Type::make_vector(ScalarType::Float, 3));
+    m_builtin_type_map.set("vec4", Type::make_vector(ScalarType::Float, 4));
+    m_builtin_type_map.set("ivec2", Type::make_vector(ScalarType::Int, 2));
+    m_builtin_type_map.set("ivec3", Type::make_vector(ScalarType::Int, 3));
+    m_builtin_type_map.set("ivec4", Type::make_vector(ScalarType::Int, 4));
+    m_builtin_type_map.set("uvec2", Type::make_vector(ScalarType::Uint, 2));
+    m_builtin_type_map.set("uvec3", Type::make_vector(ScalarType::Uint, 3));
+    m_builtin_type_map.set("uvec4", Type::make_vector(ScalarType::Uint, 4));
+    m_builtin_type_map.set("mat3", Type::make_matrix(ScalarType::Float, 3, 3));
+    m_builtin_type_map.set("mat4", Type::make_matrix(ScalarType::Float, 4, 4));
+    m_builtin_type_map.set("image2D", Type::make_image(ScalarType::Float, ImageType::_2D, false));
+    m_builtin_type_map.set("texture2D", Type::make_image(ScalarType::Float, ImageType::_2D, true));
 }
 
 Optional<Token> Parser::consume(TokenKind kind) {
@@ -539,7 +545,7 @@ ParseResult<ast::FunctionDecl> Parser::parse_function_decl(SourceLocation locati
         consume(','_tk);
     }
 
-    Type return_type(ScalarType::Void);
+    auto return_type = Type::make_scalar(ScalarType::Void);
     if (consume(':'_tk)) {
         return_type = VULL_TRY(parse_type());
     }
