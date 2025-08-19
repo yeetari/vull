@@ -176,9 +176,7 @@ void Dumper::visit(const FunctionDecl &function_decl) {
     } else if (function_decl.is_special_function(SpecialFunction::FragmentEntry)) {
         append("# fragment entry");
     }
-    if (function_decl.has_body()) {
-        visit(function_decl.body());
-    }
+    visit(function_decl.body());
 }
 
 void Dumper::visit(const Node &node) {
@@ -237,6 +235,9 @@ void Dumper::visit(const Root &root) {
 void Node::destroy() {
     switch (m_kind) {
         using enum NodeKind;
+    case ExtInst:
+        static_cast<hir::ExtInst *>(this)->~ExtInst();
+        break;
     case FunctionDecl:
         static_cast<hir::FunctionDecl *>(this)->~FunctionDecl();
         break;

@@ -19,6 +19,7 @@ class StringBuilder;
 namespace vull::shaderc::hir {
 
 enum class NodeKind {
+    ExtInst,
     FunctionDecl,
     Block,
 
@@ -73,16 +74,31 @@ public:
     Type type() const { return m_type; }
 };
 
+class Callable : public Node {
+    Type m_return_type;
+    Vector<Type> m_parameter_types;
+
+protected:
+    Callable(NodeKind kind, Type return_type, Vector<Type> &&parameter_types)
+        : Node(kind), m_return_type(return_type), m_parameter_types(vull::move(parameter_types)) {}
+
+public:
+    Type return_type() const { return m_return_type; }
+    const Vector<Type> &parameter_types() const { return m_parameter_types; }
+};
+
 enum class ExtInstSet {
     GlslStd450,
 };
 
-class ExtInst {
+class ExtInst : public Callable {
     ExtInstSet m_inst_set;
     uint32_t m_opcode;
 
 public:
-    ExtInst(ExtInstSet inst_set, uint32_t opcode) : m_inst_set(inst_set), m_opcode(opcode) {}
+    ExtInst(Type return_type, Vector<Type> &&parameter_types, ExtInstSet inst_set, uint32_t opcode)
+        : Callable(NodeKind::ExtInst, return_type, vull::move(parameter_types)), m_inst_set(inst_set),
+          m_opcode(opcode) {}
 
     ExtInstSet inst_set() const { return m_inst_set; }
     uint32_t opcode() const { return m_opcode; }
@@ -93,31 +109,22 @@ enum class SpecialFunction {
     FragmentEntry,
 };
 
-class FunctionDecl : public Node {
-    Type m_return_type;
-    Vector<Type> m_parameter_types;
+class FunctionDecl : public Callable {
     NodeHandle<Aggregate> m_body;
-    Optional<ExtInst> m_ext_inst;
     Optional<SpecialFunction> m_special_function;
 
 public:
     FunctionDecl(Type return_type, Vector<Type> &&parameter_types)
-        : Node(NodeKind::FunctionDecl), m_return_type(return_type), m_parameter_types(vull::move(parameter_types)) {}
+        : Callable(NodeKind::FunctionDecl, return_type, vull::move(parameter_types)) {}
 
     void set_body(NodeHandle<Aggregate> &&body) { m_body = vull::move(body); }
-    bool has_body() const { return !m_body.is_null(); }
-
-    void set_ext_inst(ExtInst ext_inst) { m_ext_inst = ext_inst; }
 
     void set_special_function(SpecialFunction special_function) { m_special_function = special_function; }
     bool is_special_function(SpecialFunction special_function) const {
         return m_special_function && *m_special_function == special_function;
     }
 
-    Type return_type() const { return m_return_type; }
-    const Vector<Type> &parameter_types() const { return m_parameter_types; }
     Aggregate &body() const { return *m_body; }
-    Optional<ExtInst> ext_inst() const { return m_ext_inst; }
     Optional<SpecialFunction> special_function() const { return m_special_function; }
 };
 
@@ -176,14 +183,14 @@ public:
 };
 
 class CallExpr : public Expr {
-    NodeHandle<FunctionDecl> m_callee;
+    NodeHandle<Callable> m_callee;
     Vector<NodeHandle<Expr>> m_arguments;
 
 public:
-    CallExpr(NodeHandle<FunctionDecl> &&callee, Vector<NodeHandle<Expr>> &&arguments)
+    CallExpr(NodeHandle<Callable> &&callee, Vector<NodeHandle<Expr>> &&arguments)
         : Expr(NodeKind::CallExpr), m_callee(vull::move(callee)), m_arguments(vull::move(arguments)) {}
 
-    FunctionDecl &callee() const { return *m_callee; }
+    Callable &callee() const { return *m_callee; }
     const Vector<NodeHandle<Expr>> &arguments() const { return m_arguments; }
 };
 

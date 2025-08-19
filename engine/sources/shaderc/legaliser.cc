@@ -63,10 +63,10 @@ class Legaliser {
     hir::Root &m_root;
     Scope *m_scope{nullptr};
     UniquePtr<Scope> m_root_scope;
-    HashMap<StringView, Vector<hir::NodeHandle<hir::FunctionDecl>>> m_functions;
+    HashMap<StringView, Vector<hir::NodeHandle<hir::Callable>>> m_callables;
     Vector<const ast::IoDecl &> m_pipeline_decls;
 
-    hir::NodeHandle<hir::FunctionDecl> find_overload(StringView name, Span<const Type> types);
+    hir::NodeHandle<hir::Callable> find_overload(StringView name, Span<const Type> types);
 
     LegaliseResult<hir::Expr> lower_binary_expr(const ast::BinaryExpr &);
     LegaliseResult<hir::Expr> lower_call_expr(const ast::CallExpr &);
@@ -81,7 +81,8 @@ class Legaliser {
     LegaliseResult<hir::Node> lower_stmt(const ast::Node &);
     LegaliseResult<hir::Aggregate> lower_block(const ast::Aggregate &);
 
-    LegaliseResult<hir::FunctionDecl> lower_function_decl(const ast::FunctionDecl &);
+    LegaliseResult<hir::Callable> lower_ext_inst(const ast::FunctionDecl &, Vector<Type> &);
+    LegaliseResult<hir::Callable> lower_function_decl(const ast::FunctionDecl &);
     Result<void, Error> lower_io_decl(const ast::IoDecl &);
 
 public:
@@ -130,8 +131,8 @@ Result<void, Error> Scope::put_symbol(StringView name, hir::NodeHandle<hir::Expr
 
 Legaliser::Legaliser(hir::Root &root) : m_root(root), m_root_scope(new Scope(m_scope)) {}
 
-hir::NodeHandle<hir::FunctionDecl> Legaliser::find_overload(StringView name, Span<const Type> types) {
-    auto candidates = m_functions.get(name);
+hir::NodeHandle<hir::Callable> Legaliser::find_overload(StringView name, Span<const Type> types) {
+    auto candidates = m_callables.get(name);
     if (!candidates || candidates->empty()) {
         return {};
     }
@@ -355,7 +356,9 @@ LegaliseResult<hir::Aggregate> Legaliser::lower_block(const ast::Aggregate &ast_
     return block;
 }
 
-Result<hir::ExtInst, Error> lower_ext_inst(const ast::Node &attribute) {
+LegaliseResult<hir::Callable> Legaliser::lower_ext_inst(const ast::FunctionDecl &ast_decl,
+                                                        Vector<Type> &parameter_types) {
+    const auto &attribute = *ast_decl.get_attribute(ast::NodeKind::ExtInst);
     const auto &arguments = attribute.attributes();
     if (arguments.size() != 2) {
         Error error;
@@ -385,10 +388,13 @@ Result<hir::ExtInst, Error> lower_ext_inst(const ast::Node &attribute) {
         error.add_error(arguments[1]->source_location(), "expected an integer for the extended instruction set opcode");
         return error;
     }
-    return hir::ExtInst(hir::ExtInstSet::GlslStd450, static_cast<uint32_t>(opcode_node.integer()));
+
+    const auto opcode = static_cast<uint32_t>(opcode_node.integer());
+    return m_root.allocate<hir::ExtInst>(ast_decl.return_type(), vull::move(parameter_types),
+                                         hir::ExtInstSet::GlslStd450, opcode);
 }
 
-LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::FunctionDecl &ast_decl) {
+LegaliseResult<hir::Callable> Legaliser::lower_function_decl(const ast::FunctionDecl &ast_decl) {
     Vector<Type> parameter_types;
     for (const auto &parameter : ast_decl.parameters()) {
         parameter_types.push(parameter.type());
@@ -400,24 +406,14 @@ LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::Func
         return error;
     }
 
-    auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type(), vull::move(parameter_types));
-    if (m_functions.contains(ast_decl.name())) {
-        m_functions.get(ast_decl.name())->push(function.share());
-    } else {
-        Vector<hir::NodeHandle<hir::FunctionDecl>> vector;
-        vector.push(function.share());
-        m_functions.set(ast_decl.name(), vull::move(vector));
-    }
-
-    if (auto ext_inst = ast_decl.get_attribute(ast::NodeKind::ExtInst)) {
+    if (ast_decl.has_attribute(ast::NodeKind::ExtInst)) {
         if (ast_decl.has_body()) {
             Error error;
             error.add_error(ast_decl.source_location(),
                             "a function declared with the ext_inst attribute must not have a body");
             return error;
         }
-        function->set_ext_inst(VULL_TRY(lower_ext_inst(*ext_inst)));
-        return function;
+        return VULL_TRY(lower_ext_inst(ast_decl, parameter_types));
     }
 
     if (!ast_decl.has_body()) {
@@ -426,6 +422,8 @@ LegaliseResult<hir::FunctionDecl> Legaliser::lower_function_decl(const ast::Func
                         "a function must have a body, unless declared with the ext_inst attribute");
         return error;
     }
+
+    auto function = m_root.allocate<hir::FunctionDecl>(ast_decl.return_type(), vull::move(parameter_types));
 
     // Assign any special function.
     if (ast_decl.name() == "vertex_main") {
@@ -505,18 +503,25 @@ Result<void, Error> Legaliser::lower_io_decl(const ast::IoDecl &ast_decl) {
 }
 
 Result<void, Error> Legaliser::lower_top_level(const ast::Node &ast_node) {
-    switch (ast_node.kind()) {
-    case ast::NodeKind::FunctionDecl: {
-        const auto &function_decl = static_cast<const ast::FunctionDecl &>(ast_node);
-        m_root.append_top_level(VULL_TRY(lower_function_decl(function_decl)));
-        return {};
-    }
-    case ast::NodeKind::IoDecl:
+    if (ast_node.kind() == ast::NodeKind::IoDecl) {
         VULL_TRY(lower_io_decl(static_cast<const ast::IoDecl &>(ast_node)));
         return {};
-    default:
-        VULL_ENSURE_NOT_REACHED();
     }
+
+    VULL_ASSERT(ast_node.kind() == ast::NodeKind::FunctionDecl);
+    const auto &ast_decl = static_cast<const ast::FunctionDecl &>(ast_node);
+    auto callable = VULL_TRY(lower_function_decl(ast_decl));
+    if (m_callables.contains(ast_decl.name())) {
+        m_callables.get(ast_decl.name())->push(callable.share());
+    } else {
+        Vector<hir::NodeHandle<hir::Callable>> vector;
+        vector.push(callable.share());
+        m_callables.set(ast_decl.name(), vull::move(vector));
+    }
+    if (callable->kind() == hir::NodeKind::FunctionDecl) {
+        m_root.append_top_level(vull::move(callable));
+    }
+    return {};
 }
 
 } // namespace
