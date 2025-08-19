@@ -212,16 +212,18 @@ Id Builder::inner_type(Id type_id) const {
     }
 }
 
-Id Builder::float_type(Word width) {
-    Instruction inst(Op::TypeFloat, m_next_id);
-    inst.append_operand(width);
+Id Builder::void_type() {
+    Instruction inst(Op::TypeVoid, m_next_id);
     return ensure_type(vull::move(inst));
 }
 
-Id Builder::function_type(Id return_type, const Vector<Id> &parameter_types) {
-    Instruction inst(Op::TypeFunction, m_next_id);
-    inst.append_operand(return_type);
-    inst.extend_operands(parameter_types);
+Id Builder::bool_type() {
+    Instruction inst(Op::TypeBool, m_next_id);
+    return ensure_type(vull::move(inst));
+}
+
+Id Builder::sampler_type() {
+    Instruction inst(Op::TypeSampler, m_next_id);
     return ensure_type(vull::move(inst));
 }
 
@@ -232,10 +234,51 @@ Id Builder::int_type(Word width, bool is_signed) {
     return ensure_type(vull::move(inst));
 }
 
+Id Builder::float_type(Word width) {
+    Instruction inst(Op::TypeFloat, m_next_id);
+    inst.append_operand(width);
+    return ensure_type(vull::move(inst));
+}
+
+Id Builder::vector_type(Id component_type, Word component_count) {
+    Instruction inst(Op::TypeVector, m_next_id);
+    inst.append_operand(component_type);
+    inst.append_operand(component_count);
+    return ensure_type(vull::move(inst));
+}
+
 Id Builder::matrix_type(Id column_type, Word column_count) {
     Instruction inst(Op::TypeMatrix, m_next_id);
     inst.append_operand(column_type);
     inst.append_operand(column_count);
+    return ensure_type(vull::move(inst));
+}
+
+Id Builder::image_type(Id sampled_type, Dim dim, ImageFormat format, bool arrayed, bool multisampled,
+                       bool sampled_only) {
+    Instruction inst(Op::TypeImage, m_next_id);
+    inst.append_operand(sampled_type);
+    inst.append_operand(dim);
+
+    // Vulkan implementations ignore this depth bit.
+    inst.append_operand(0);
+    inst.append_operand(arrayed ? 1 : 0);
+    inst.append_operand(multisampled ? 1 : 0);
+    inst.append_operand(sampled_only ? 1 : 2);
+    inst.append_operand(format);
+    return ensure_type(vull::move(inst));
+}
+
+Id Builder::sampled_image_type(Id image_type) {
+    Instruction inst(Op::TypeSampledImage, m_next_id);
+    inst.append_operand(image_type);
+    return ensure_type(vull::move(inst));
+}
+
+Id Builder::function_type(Id return_type, const Vector<Id> &parameter_types) {
+    Instruction inst(Op::TypeFunction, m_next_id);
+    inst.append_operand(return_type);
+    inst.extend_operands(parameter_types);
     return ensure_type(vull::move(inst));
 }
 
@@ -250,18 +293,6 @@ Id Builder::struct_type(const Vector<Id> &member_types, bool is_block) {
     VULL_ENSURE(!is_block);
     Instruction inst(Op::TypeStruct, m_next_id);
     inst.extend_operands(member_types);
-    return ensure_type(vull::move(inst));
-}
-
-Id Builder::vector_type(Id component_type, Word component_count) {
-    Instruction inst(Op::TypeVector, m_next_id);
-    inst.append_operand(component_type);
-    inst.append_operand(component_count);
-    return ensure_type(vull::move(inst));
-}
-
-Id Builder::void_type() {
-    Instruction inst(Op::TypeVoid, m_next_id);
     return ensure_type(vull::move(inst));
 }
 

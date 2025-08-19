@@ -150,14 +150,18 @@ public:
     Optional<const Instruction &> lookup_type(Id id) const;
 
     Id inner_type(Id type_id) const;
-    Id float_type(Word width);
-    Id function_type(Id return_type, const Vector<Id> &parameter_types);
-    Id int_type(Word width, bool is_signed);
-    Id matrix_type(Id column_type, Word column_count);
-    Id pointer_type(StorageClass storage_class, Id pointee_type);
-    Id struct_type(const Vector<Id> &member_types, bool is_block);
-    Id vector_type(Id component_type, Word component_count);
     Id void_type();
+    Id bool_type();
+    Id sampler_type();
+    Id int_type(Word width, bool is_signed);
+    Id float_type(Word width);
+    Id vector_type(Id component_type, Word component_count);
+    Id matrix_type(Id column_type, Word column_count);
+    Id image_type(Id sampled_type, Dim dim, ImageFormat format, bool arrayed, bool multisampled, bool sampled_only);
+    Id sampled_image_type(Id image_type);
+    Id struct_type(const Vector<Id> &member_types, bool is_block);
+    Id pointer_type(StorageClass storage_class, Id pointee_type);
+    Id function_type(Id return_type, const Vector<Id> &parameter_types);
 
     void set_memory_model(AddressingModel addressing_model, MemoryModel memory_model);
     void build(Vector<Word> &output);
