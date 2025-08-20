@@ -482,23 +482,51 @@ Result<void, Error> Legaliser::lower_io_decl(const ast::IoDecl &ast_decl) {
         return {};
     }
 
-    if (!ast_decl.has_attribute(ast::NodeKind::PushConstant)) {
-        Error error;
-        error.add_error(ast_decl.source_location(), "currently must be a push constant");
-        return error;
-    }
-
     const auto &symbol_or_block = ast_decl.symbol_or_block();
     if (symbol_or_block.kind() != ast::NodeKind::Symbol) {
         Error error;
         error.add_error(symbol_or_block.source_location(), "currently must not be a block");
         return error;
     }
-
     const auto &symbol = static_cast<const ast::Symbol &>(symbol_or_block);
-    auto push_constant = m_root.allocate<hir::Expr>(hir::NodeKind::PushConstant);
-    push_constant->set_type(symbol.type());
-    VULL_TRY(m_scope->put_symbol(symbol.name(), vull::move(push_constant), symbol.source_location()));
+
+    bool is_descriptor = ast_decl.has_attribute(ast::NodeKind::Set) || ast_decl.has_attribute(ast::NodeKind::Binding);
+    if (ast_decl.has_attribute(ast::NodeKind::PushConstant)) {
+        if (is_descriptor) {
+            Error error;
+            error.add_error(ast_decl.source_location(), "a uniform cannot be a descriptor binding and a push constant");
+            return error;
+        }
+        auto push_constant = m_root.allocate<hir::Expr>(hir::NodeKind::PushConstant);
+        push_constant->set_type(symbol.type());
+        VULL_TRY(m_scope->put_symbol(symbol.name(), vull::move(push_constant), symbol.source_location()));
+        return {};
+    }
+    if (!is_descriptor) {
+        Error error;
+        error.add_error(ast_decl.source_location(),
+                        "a uniform must be bound with either a descriptor binding or a push constant");
+        error.add_note_no_line(ast_decl.source_location(),
+                               "use [[set(<index>), binding(<index>)]] for a descriptor binding");
+        error.add_note_no_line(ast_decl.source_location(), "use [[push_constant]] for a push constant binding");
+        return error;
+    }
+
+    // TODO: Need to properly check attribute arguments.
+    uint32_t set_index = 0;
+    uint32_t binding_index = 0;
+    if (auto set_attribute = ast_decl.get_attribute(ast::NodeKind::Set)) {
+        set_index =
+            static_cast<uint32_t>(static_cast<const ast::Constant &>(*set_attribute->attributes()[0]).integer());
+    }
+    if (auto binding_attribute = ast_decl.get_attribute(ast::NodeKind::Binding)) {
+        binding_index =
+            static_cast<uint32_t>(static_cast<const ast::Constant &>(*binding_attribute->attributes()[0]).integer());
+    }
+
+    auto descriptor_binding = m_root.allocate<hir::DescriptorBinding>(set_index, binding_index);
+    descriptor_binding->set_type(symbol.type());
+    VULL_TRY(m_scope->put_symbol(symbol.name(), vull::move(descriptor_binding), symbol.source_location()));
     return {};
 }
 

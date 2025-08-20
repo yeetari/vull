@@ -40,6 +40,8 @@ enum class NodeKind {
     UnaryExpr,
 
     // Attributes.
+    Binding,
+    Set,
     ExtInst,
     PushConstant,
 };

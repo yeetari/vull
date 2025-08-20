@@ -602,6 +602,12 @@ ParseResult<ast::Node> Parser::parse_top_level() {
 }
 
 static Optional<ast::NodeKind> parse_attribute_name(StringView name) {
+    if (name == "binding") {
+        return ast::NodeKind::Binding;
+    }
+    if (name == "set") {
+        return ast::NodeKind::Set;
+    }
     if (name == "ext_inst") {
         return ast::NodeKind::ExtInst;
     }

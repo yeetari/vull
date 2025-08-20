@@ -46,6 +46,7 @@ class Dumper {
 public:
     explicit Dumper(StringBuilder &builder) : m_builder(builder) {}
 
+    void visit(const DescriptorBinding &descriptor_binding);
     void visit(const PipelineVariable &pipeline_variable);
 
     void visit(const BinaryExpr &binary_expr);
@@ -103,6 +104,11 @@ String type_string(Type type) {
         return vull::format("vec({}, {})", type_string(type.scalar_type()), type.vector_size());
     }
     return type_string(type.scalar_type());
+}
+
+void Dumper::visit(const DescriptorBinding &descriptor_binding) {
+    append("DescriptorBinding({}, set: {}, binding: {})", type_string(descriptor_binding.type()),
+           descriptor_binding.set_index(), descriptor_binding.binding_index());
 }
 
 void Dumper::visit(const PipelineVariable &pipeline_variable) {
@@ -208,6 +214,9 @@ void Dumper::visit(const Node &node) {
     case NodeKind::Argument:
         append("Argument({h})", vull::bit_cast<uintptr_t>(&node));
         break;
+    case NodeKind::DescriptorBinding:
+        visit(static_cast<const DescriptorBinding &>(node));
+        break;
     case NodeKind::LocalVariable:
         append("LocalVariable({h})", vull::bit_cast<uintptr_t>(&node));
         break;
@@ -264,6 +273,9 @@ void Node::destroy() {
         break;
     case UnaryExpr:
         static_cast<hir::UnaryExpr *>(this)->~UnaryExpr();
+        break;
+    case DescriptorBinding:
+        static_cast<hir::DescriptorBinding *>(this)->~DescriptorBinding();
         break;
     case PipelineVariable:
         static_cast<hir::PipelineVariable *>(this)->~PipelineVariable();

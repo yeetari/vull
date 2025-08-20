@@ -84,6 +84,7 @@ private:
     AccessChain lower_construct_expr(const hir::ConstructExpr &);
     AccessChain lower_unary_expr(const hir::UnaryExpr &);
 
+    Value materialise_descriptor_binding(const hir::DescriptorBinding &);
     Value materialise_pipeline_variable(const hir::PipelineVariable &);
     Value materialise_push_constant(const hir::Expr &);
     Value materialise_variable(const hir::Expr &);
@@ -333,6 +334,14 @@ AccessChain Backend::lower_unary_expr(const hir::UnaryExpr &unary_expr) {
     return AccessChain::from_rvalue(Value::make(inst));
 }
 
+Value Backend::materialise_descriptor_binding(const hir::DescriptorBinding &descriptor_binding) {
+    auto &variable =
+        m_entry_point->append_variable(lower_type(descriptor_binding.type()), StorageClass::UniformConstant);
+    m_builder.decorate(variable.id(), Decoration::DescriptorSet, descriptor_binding.set_index());
+    m_builder.decorate(variable.id(), Decoration::Binding, descriptor_binding.binding_index());
+    return Value::make(variable);
+}
+
 Value Backend::materialise_pipeline_variable(const hir::PipelineVariable &pipeline_variable) {
     const auto storage_class = pipeline_variable.is_output() ? StorageClass::Output : StorageClass::Input;
     auto &variable = m_entry_point->append_variable(lower_type(pipeline_variable.type()), storage_class);
@@ -353,6 +362,8 @@ Value Backend::materialise_push_constant(const hir::Expr &expr) {
 
 Value Backend::materialise_variable(const hir::Expr &expr) {
     switch (expr.kind()) {
+    case hir::NodeKind::DescriptorBinding:
+        return materialise_descriptor_binding(static_cast<const hir::DescriptorBinding &>(expr));
     case hir::NodeKind::LocalVariable:
         VULL_ASSERT(m_function != nullptr);
         return Value::make(m_function->append_variable(lower_type(expr.type())));

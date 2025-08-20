@@ -33,6 +33,7 @@ enum class NodeKind {
     UnaryExpr,
 
     Argument,
+    DescriptorBinding,
     LocalVariable,
     PipelineVariable,
     PushConstant,
@@ -232,6 +233,18 @@ public:
 
     UnaryOp op() const { return m_op; }
     Expr &expr() const { return *m_expr; }
+};
+
+class DescriptorBinding : public Expr {
+    uint32_t m_set_index;
+    uint32_t m_binding_index;
+
+public:
+    DescriptorBinding(uint32_t set_index, uint32_t binding_index)
+        : Expr(NodeKind::DescriptorBinding), m_set_index(set_index), m_binding_index(binding_index) {}
+
+    uint32_t set_index() const { return m_set_index; }
+    uint32_t binding_index() const { return m_binding_index; }
 };
 
 enum class SpecialPipelineVariable {
