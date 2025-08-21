@@ -27,6 +27,9 @@ public:
     bool matches(const auto &actual) const { return m_matcher.matches(actual); }
 };
 
+template <typename T>
+Is(T) -> Is<T>;
+
 constexpr auto is(const auto &matcher) {
     return Is(matcher);
 }
@@ -47,6 +50,9 @@ public:
 
     bool matches(const auto &actual) const { return !m_matcher.matches(actual); }
 };
+
+template <typename T>
+Not(T) -> Not<T>;
 
 constexpr auto not_(const auto &matcher) {
     return Not(matcher);
@@ -82,6 +88,9 @@ public:
     }
 };
 
+template <typename T>
+EqualTo(T) -> EqualTo<T>;
+
 constexpr auto equal_to(const auto &expected) {
     return EqualTo(expected);
 }
@@ -112,6 +121,9 @@ public:
 };
 
 template <typename T>
+EpsilonEqualTo(T) -> EpsilonEqualTo<T>;
+
+template <typename T>
 constexpr auto epsilon_equal_to(const T &expected, const T &epsilon) {
     return EpsilonEqualTo(expected, epsilon);
 }
@@ -137,6 +149,9 @@ public:
 
     bool matches(const T &actual) const { return vull::fuzzy_equal(m_expected, actual); }
 };
+
+template <typename T>
+CloseTo(T) -> CloseTo<T>;
 
 constexpr auto close_to(const auto &expected) {
     return CloseTo(expected);
@@ -188,6 +203,9 @@ public:
 };
 
 template <typename T>
+OfType(T) -> OfType<T>;
+
+template <typename T>
 constexpr auto of_type() {
     return OfType<T>();
 }
@@ -215,6 +233,9 @@ public:
 
     bool matches(const auto &collection) const { return collection.contains(m_value); }
 };
+
+template <typename T>
+Containing(T) -> Containing<T>;
 
 constexpr auto containing(auto value) {
     return Containing(value);
@@ -285,6 +306,9 @@ public:
 
     bool matches(const auto &actual) const { return !actual.is_error() && m_matcher.matches(actual.value()); }
 };
+
+template <typename T>
+Success(T) -> Success<T>;
 
 constexpr auto success(const auto &matcher) {
     return Success(matcher);

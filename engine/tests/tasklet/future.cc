@@ -152,7 +152,7 @@ TEST_CASE(TaskletFuture, Empty) {
 
 TEST_CASE(TaskletFuture, SwapEmpty) {
     auto promise = vull::adopt_shared(new tasklet::SharedPromise<void>);
-    tasklet::Future<void> foo(SharedPtr{promise});
+    tasklet::Future<void> foo(SharedPtr<tasklet::SharedPromise<void>>{promise});
     tasklet::Future<void> bar;
     EXPECT_TRUE(foo.is_valid());
     vull::swap(foo, bar);
@@ -162,7 +162,7 @@ TEST_CASE(TaskletFuture, SwapEmpty) {
 
 TEST_CASE(TaskletFuture, IsComplete) {
     auto promise = vull::adopt_shared(new tasklet::SharedPromise<void>);
-    tasklet::Future<void> future(SharedPtr{promise});
+    tasklet::Future<void> future(SharedPtr<tasklet::SharedPromise<void>>{promise});
     ASSERT_TRUE(future.is_valid());
     EXPECT_FALSE(future.is_complete());
     promise->fulfill();
