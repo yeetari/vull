@@ -3,8 +3,11 @@
 #include <vull/maths/epsilon.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/type_name.hh>
+#include <vull/support/utility.hh>
 #include <vull/support/variant.hh>
 #include <vull/test/message.hh>
+
+#include <stdint.h>
 
 // NOLINTBEGIN(readability-convert-member-functions-to-static)
 
@@ -75,16 +78,24 @@ public:
         message.append_value(actual);
     }
 
-    bool matches(const T &actual) const { return actual == m_expected; }
+    bool matches(const auto &actual) const {
+        if constexpr (vull::is_same<T, float>) {
+            return vull::bit_cast<uint32_t>(actual) == vull::bit_cast<uint32_t>(m_expected);
+        } else if constexpr (vull::is_same<T, double>) {
+            return vull::bit_cast<uint64_t>(actual) == vull::bit_cast<uint64_t>(m_expected);
+        } else {
+            return static_cast<T>(actual) == m_expected;
+        }
+    }
 
     template <typename U>
     bool matches(Optional<U> actual) const {
-        return actual && *actual == m_expected;
+        return actual && matches(*actual);
     }
 
     template <typename... Ts>
     bool matches(const Variant<Ts...> &actual) const {
-        return actual.template has<T>() && actual.template get<T>() == m_expected;
+        return actual.template has<T>() && matches(actual.template get<T>());
     }
 };
 
