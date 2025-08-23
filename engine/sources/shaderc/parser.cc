@@ -39,6 +39,7 @@ enum class Parser::Operator : uint32_t {
 
     // Unary operators.
     Negate,
+    Intrinsic,
 
     ArgumentSeparator,
     CallOrConstruct,
@@ -61,6 +62,7 @@ Array<unsigned, vull::to_underlying(Operator::_count)> s_precedence_table{
     3, 3, 3,       // Mul, Div, Mod
     0, 0, 0, 0, 0, // Assigns
     4,             // Negate
+    5,             // Intrinsic
     1,             // ArgumentSeparator
     0, 0,          // CallOrConstruct, OpenParen
 };
@@ -93,6 +95,9 @@ Optional<Operator> to_op(TokenKind kind, ParseState state) {
     if (state == ParseState::Unary) {
         if (kind == '-'_tk) {
             return Operator::Negate;
+        }
+        if (kind == '@'_tk) {
+            return Operator::Intrinsic;
         }
         return {};
     }
@@ -207,7 +212,7 @@ Result<Type, Error> Parser::parse_type() {
     return *builtin_type;
 }
 
-ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands) {
+ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands, bool is_intrinsic) {
     // We should have at least the name operand and an argument list or a single argument AST node.
     VULL_ASSERT(operands.size() >= 2);
 
@@ -230,6 +235,12 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
 
     // Builtin type construction, e.g. vec4(1.0f).
     if (auto type = m_builtin_type_map.get(name)) {
+        if (is_intrinsic) {
+            Error error;
+            error.add_error(name_operand.location, "type construction cannot be an intrinsic");
+            return error;
+        }
+
         auto construct_expr = m_root.allocate<ast::Aggregate>(name_operand.location, ast::AggregateKind::ConstructExpr);
         for (auto &argument : arguments) {
             construct_expr->append_node(vull::move(argument));
@@ -239,7 +250,7 @@ ParseResult<ast::Node> Parser::build_call_or_construct(Vector<Operand> &operands
     }
 
     // Otherwise a regular function call.
-    auto call_expr = m_root.allocate<ast::CallExpr>(name_operand.location, name);
+    auto call_expr = m_root.allocate<ast::CallExpr>(name_operand.location, name, is_intrinsic);
     for (auto &argument : arguments) {
         call_expr->append_argument(vull::move(argument));
     }
@@ -340,10 +351,16 @@ ParseResult<ast::Node> Parser::parse_expr() {
     Vector<Operator> operators;
 
     auto reduce_top_operator = [&] -> Result<void, Error> {
+        // TODO: Need operator locations.
         auto op = operators.take_last();
         if (op == Operator::CallOrConstruct || op == Operator::OpenParen) {
             Error error;
             error.add_error(m_lexer.cursor_token(), "unmatched '('");
+            return error;
+        }
+        if (op == Operator::Intrinsic) {
+            Error error;
+            error.add_error(operands.last().location, "misplaced intrinsic '@'");
             return error;
         }
         build_expr(op, operands);
@@ -424,9 +441,14 @@ ParseResult<ast::Node> Parser::parse_expr() {
                 }
 
                 // Push an empty argument list beforehand.
+                bool is_intrinsic = false;
                 operators.pop();
+                if (!operators.empty() && operators.last() == Operator::Intrinsic) {
+                    is_intrinsic = true;
+                    operators.pop();
+                }
                 operands.emplace(Vector<ast::NodeHandle<ast::Node>>(), closing_paren->location());
-                operands.push(VULL_TRY(build_call_or_construct(operands)));
+                operands.push(VULL_TRY(build_call_or_construct(operands, is_intrinsic)));
                 state = ParseState::Binary;
                 continue;
             }
@@ -441,8 +463,13 @@ ParseResult<ast::Node> Parser::parse_expr() {
 
                 // Build call or construction node.
                 if (op == Operator::CallOrConstruct) {
+                    bool is_intrinsic = false;
                     operators.pop();
-                    operands.push(VULL_TRY(build_call_or_construct(operands)));
+                    if (!operators.empty() && operators.last() == Operator::Intrinsic) {
+                        is_intrinsic = true;
+                        operators.pop();
+                    }
+                    operands.push(VULL_TRY(build_call_or_construct(operands, is_intrinsic)));
                     break;
                 }
 

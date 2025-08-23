@@ -51,6 +51,7 @@ public:
 
     void visit(const BinaryExpr &binary_expr);
     void visit(const CallExpr &call_expr);
+    void visit(const CallIntrinsicExpr &call_intrinsic_expr);
     void visit(const Constant &constant);
     void visit(const ConstructExpr &construct_expr);
     void visit(const UnaryExpr &unary_expr);
@@ -136,6 +137,15 @@ void Dumper::visit(const CallExpr &call_expr) {
     }
 }
 
+void Dumper::visit(const CallIntrinsicExpr &call_intrinsic_expr) {
+    append("CallIntrinsicExpr({}, {})", type_string(call_intrinsic_expr.type()),
+           vull::enum_name(call_intrinsic_expr.opcode()));
+    Indent indent(m_indent);
+    for (const auto &argument : call_intrinsic_expr.arguments()) {
+        visit(*argument);
+    }
+}
+
 void Dumper::visit(const Constant &constant) {
     append("Constant({}, {})", type_string(constant.type()), constant.value());
 }
@@ -195,6 +205,9 @@ void Dumper::visit(const Node &node) {
         break;
     case NodeKind::CallExpr:
         visit(static_cast<const CallExpr &>(node));
+        break;
+    case NodeKind::CallIntrinsicExpr:
+        visit(static_cast<const CallIntrinsicExpr &>(node));
         break;
     case NodeKind::Constant:
         visit(static_cast<const Constant &>(node));
@@ -264,6 +277,9 @@ void Node::destroy() {
         break;
     case CallExpr:
         static_cast<hir::CallExpr *>(this)->~CallExpr();
+        break;
+    case CallIntrinsicExpr:
+        static_cast<hir::CallIntrinsicExpr *>(this)->~CallIntrinsicExpr();
         break;
     case Constant:
         static_cast<hir::Constant *>(this)->~Constant();

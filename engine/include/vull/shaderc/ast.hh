@@ -147,15 +147,17 @@ public:
 class CallExpr final : public TypedNode {
     StringView m_name;
     Vector<NodeHandle<Node>> m_arguments;
+    bool m_is_intrinsic;
 
 public:
-    CallExpr(SourceLocation source_location, StringView name)
-        : TypedNode(NodeKind::CallExpr, source_location), m_name(name) {}
+    CallExpr(SourceLocation source_location, StringView name, bool is_intrinsic)
+        : TypedNode(NodeKind::CallExpr, source_location), m_name(name), m_is_intrinsic(is_intrinsic) {}
 
     void append_argument(NodeHandle<Node> &&argument) { m_arguments.push(vull::move(argument)); }
 
     StringView name() const { return m_name; }
     const Vector<NodeHandle<Node>> &arguments() const { return m_arguments; }
+    bool is_intrinsic() const { return m_is_intrinsic; }
 };
 
 class Constant final : public Node {

@@ -1,0 +1,5 @@
+fn vertex_main() {
+    let foo = @dot(vec2(1.0f), vec2(2.0f));
+    let bar: float = @dot(vec3(1.0f), vec3(3.0f));
+    let baz = foo + bar;
+}

@@ -80,6 +80,7 @@ private:
 
     AccessChain lower_binary_expr(const hir::BinaryExpr &);
     AccessChain lower_call_expr(const hir::CallExpr &);
+    AccessChain lower_call_intrinsic_expr(const hir::CallIntrinsicExpr &);
     AccessChain lower_constant(const hir::Constant &);
     AccessChain lower_construct_expr(const hir::ConstructExpr &);
     AccessChain lower_unary_expr(const hir::UnaryExpr &);
@@ -260,6 +261,18 @@ AccessChain Backend::lower_call_expr(const hir::CallExpr &call_expr) {
     return AccessChain::from_rvalue(Value::make(inst));
 }
 
+AccessChain Backend::lower_call_intrinsic_expr(const hir::CallIntrinsicExpr &call_expr) {
+    Vector<Id> arguments;
+    for (const auto &argument : call_expr.arguments()) {
+        arguments.push(load_access_chain(lower_expr(*argument)).id());
+    }
+
+    const auto result_type = lower_type(call_expr.type());
+    auto &inst = m_block->append(Op::Dot, result_type);
+    inst.extend_operands(arguments);
+    return AccessChain::from_rvalue(Value::make(inst));
+}
+
 AccessChain Backend::lower_constant(const hir::Constant &constant) {
     const auto type_id = lower_type(constant.type().scalar_type());
     const auto id = m_builder.scalar_constant(type_id, static_cast<Word>(constant.value()));
@@ -392,6 +405,8 @@ AccessChain Backend::lower_expr(const hir::Expr &expr) {
         return lower_binary_expr(static_cast<const hir::BinaryExpr &>(expr));
     case hir::NodeKind::CallExpr:
         return lower_call_expr(static_cast<const hir::CallExpr &>(expr));
+    case hir::NodeKind::CallIntrinsicExpr:
+        return lower_call_intrinsic_expr(static_cast<const hir::CallIntrinsicExpr &>(expr));
     case hir::NodeKind::Constant:
         return lower_constant(static_cast<const hir::Constant &>(expr));
     case hir::NodeKind::ConstructExpr:

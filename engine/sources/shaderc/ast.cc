@@ -273,7 +273,7 @@ void Dumper::visit(BinaryExpr &binary_expr) {
 
 void Dumper::visit(CallExpr &call_expr) {
     // TODO: Print type.
-    print(vull::format("CallExpr({})", call_expr.name()));
+    print(vull::format("CallExpr({}, intrinsic: {})", call_expr.name(), call_expr.is_intrinsic()));
 
     m_indent++;
     for (const auto &argument : call_expr.arguments()) {

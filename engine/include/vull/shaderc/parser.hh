@@ -46,7 +46,7 @@ private:
 
     Result<Type, Error> parse_type();
 
-    ParseResult<ast::Node> build_call_or_construct(Vector<Operand> &operands);
+    ParseResult<ast::Node> build_call_or_construct(Vector<Operand> &operands, bool is_intrinsic);
     ast::NodeHandle<ast::Node> build_node(Operand operand);
     void build_expr(Operator op, Vector<Operand> &operands);
     Optional<Operand> parse_operand();

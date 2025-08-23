@@ -7,6 +7,7 @@ function(add_spirv_test name)
     endif()
 endfunction()
 
+add_spirv_test(dot)
 add_spirv_test(ext_inst)
 add_spirv_test(fragment_entry)
 add_spirv_test(multiplication)

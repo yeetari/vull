@@ -61,6 +61,8 @@ public:
 
 class Legaliser {
     hir::Root &m_root;
+    HashMap<StringView, hir::IntrinsicOpcode> m_intrinsic_map;
+
     Scope *m_scope{nullptr};
     UniquePtr<Scope> m_root_scope;
     HashMap<StringView, Vector<hir::NodeHandle<hir::Callable>>> m_callables;
@@ -69,6 +71,8 @@ class Legaliser {
     hir::NodeHandle<hir::Callable> find_overload(StringView name, Span<const Type> types);
 
     LegaliseResult<hir::Expr> lower_binary_expr(const ast::BinaryExpr &);
+    LegaliseResult<hir::Expr> lower_intrinsic_call(const ast::CallExpr &ast_call,
+                                                   Vector<hir::NodeHandle<hir::Expr>> &&arguments);
     LegaliseResult<hir::Expr> lower_call_expr(const ast::CallExpr &);
     LegaliseResult<hir::Expr> lower_constant(const ast::Constant &);
     LegaliseResult<hir::Expr> lower_construct_expr(const ast::Aggregate &);
@@ -129,7 +133,9 @@ Result<void, Error> Scope::put_symbol(StringView name, hir::NodeHandle<hir::Expr
     return {};
 }
 
-Legaliser::Legaliser(hir::Root &root) : m_root(root), m_root_scope(new Scope(m_scope)) {}
+Legaliser::Legaliser(hir::Root &root) : m_root(root), m_root_scope(new Scope(m_scope)) {
+    m_intrinsic_map.set("dot", hir::IntrinsicOpcode::Dot);
+}
 
 hir::NodeHandle<hir::Callable> Legaliser::find_overload(StringView name, Span<const Type> types) {
     auto candidates = m_callables.get(name);
@@ -228,6 +234,24 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
     return expr;
 }
 
+LegaliseResult<hir::Expr> Legaliser::lower_intrinsic_call(const ast::CallExpr &ast_call,
+                                                          Vector<hir::NodeHandle<hir::Expr>> &&arguments) {
+    auto intrinsic = m_intrinsic_map.get(ast_call.name());
+    if (!intrinsic) {
+        Error error;
+        error.add_error(ast_call.source_location(), vull::format("use of unknown intrinsic '{}'", ast_call.name()));
+        return error;
+    }
+
+    auto expr = m_root.allocate<hir::CallIntrinsicExpr>(*intrinsic, vull::move(arguments));
+    switch (*intrinsic) {
+    case hir::IntrinsicOpcode::Dot:
+        expr->set_type(Type::make_scalar(ScalarType::Float));
+        break;
+    }
+    return expr;
+}
+
 LegaliseResult<hir::Expr> Legaliser::lower_call_expr(const ast::CallExpr &ast_call) {
     Vector<hir::NodeHandle<hir::Expr>> arguments;
     for (const auto &ast_argument : ast_call.arguments()) {
@@ -236,6 +260,10 @@ LegaliseResult<hir::Expr> Legaliser::lower_call_expr(const ast::CallExpr &ast_ca
     Vector<Type> argument_types;
     for (const auto &argument : arguments) {
         argument_types.push(argument->type());
+    }
+
+    if (ast_call.is_intrinsic()) {
+        return VULL_TRY(lower_intrinsic_call(ast_call, vull::move(arguments)));
     }
 
     auto callee = find_overload(ast_call.name(), argument_types.span());

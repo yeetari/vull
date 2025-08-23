@@ -28,6 +28,7 @@ enum class NodeKind {
 
     BinaryExpr,
     CallExpr,
+    CallIntrinsicExpr,
     Constant,
     ConstructExpr,
     UnaryExpr,
@@ -192,6 +193,22 @@ public:
         : Expr(NodeKind::CallExpr), m_callee(vull::move(callee)), m_arguments(vull::move(arguments)) {}
 
     Callable &callee() const { return *m_callee; }
+    const Vector<NodeHandle<Expr>> &arguments() const { return m_arguments; }
+};
+
+enum class IntrinsicOpcode {
+    Dot,
+};
+
+class CallIntrinsicExpr : public Expr {
+    IntrinsicOpcode m_opcode;
+    Vector<NodeHandle<Expr>> m_arguments;
+
+public:
+    CallIntrinsicExpr(IntrinsicOpcode opcode, Vector<NodeHandle<Expr>> &&arguments)
+        : Expr(NodeKind::CallIntrinsicExpr), m_opcode(opcode), m_arguments(vull::move(arguments)) {}
+
+    IntrinsicOpcode opcode() const { return m_opcode; }
     const Vector<NodeHandle<Expr>> &arguments() const { return m_arguments; }
 };
 
