@@ -1,0 +1,8 @@
+fn vertex_main() {
+    var foo: float = 1.0f;
+    foo = 2.0f;
+    (foo += 1.0f) + 2.0f;
+    (foo -= 1.0f) - 2.0f;
+    (foo *= 1.0f) * 2.0f;
+    (foo /= 1.0f) / 2.0f;
+}

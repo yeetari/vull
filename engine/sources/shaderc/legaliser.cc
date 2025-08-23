@@ -161,29 +161,35 @@ hir::NodeHandle<hir::Callable> Legaliser::find_overload(StringView name, Span<co
     return {};
 }
 
+hir::BinaryOp lower_binary_op(ast::BinaryOp op) {
+    switch (op) {
+    case ast::BinaryOp::Assign:
+        return hir::BinaryOp::Assign;
+    case ast::BinaryOp::Add:
+    case ast::BinaryOp::AddAssign:
+        return hir::BinaryOp::Add;
+    case ast::BinaryOp::Sub:
+    case ast::BinaryOp::SubAssign:
+        return hir::BinaryOp::Sub;
+    case ast::BinaryOp::Div:
+    case ast::BinaryOp::DivAssign:
+        return hir::BinaryOp::Div;
+    case ast::BinaryOp::Mod:
+        return hir::BinaryOp::Mod;
+    default:
+        vull::unreachable();
+    }
+}
+
 LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &ast_expr) {
     auto expr = m_root.allocate<hir::BinaryExpr>();
     expr->set_lhs(VULL_TRY(lower_expr(ast_expr.lhs())));
     expr->set_rhs(VULL_TRY(lower_expr(ast_expr.rhs())));
 
-    // Handle assignments.
+    // Specialise multiplication.
     const auto lhs_type = expr->lhs().type();
-    if (ast::is_assign_op(ast_expr.op())) {
-        // TODO: Handle other assigns.
-        // TODO: Disallow assigning to let variables.
-        VULL_ENSURE(ast_expr.op() == ast::BinaryOp::Assign);
-        expr->set_op(hir::BinaryOp::Assign);
-        expr->set_is_assign(true);
-
-        // Result of assign expression is the modified variable.
-        expr->set_type(lhs_type);
-        return vull::move(expr);
-    }
-
     const auto rhs_type = expr->rhs().type();
-
-    // Specialise multiplication operator.
-    if (ast_expr.op() == ast::BinaryOp::Mul) {
+    if (ast_expr.op() == ast::BinaryOp::Mul || ast_expr.op() == ast::BinaryOp::MulAssign) {
         if ((lhs_type.is_vector() && rhs_type.is_scalar()) || (lhs_type.is_scalar() && rhs_type.is_vector())) {
             expr->set_op(hir::BinaryOp::VectorTimesScalar);
             expr->set_type(lhs_type.is_vector() ? lhs_type : rhs_type);
@@ -205,32 +211,21 @@ LegaliseResult<hir::Expr> Legaliser::lower_binary_expr(const ast::BinaryExpr &as
         } else if (lhs_type.is_vector() && rhs_type.is_vector()) {
             expr->set_op(hir::BinaryOp::VectorTimesVector);
             expr->set_type(lhs_type);
-        } else {
-            // Shouldn't be possible.
-            VULL_ENSURE_NOT_REACHED();
         }
-        return expr;
+    } else {
+        // TODO: Proper type checking.
+        expr->set_op(lower_binary_op(ast_expr.op()));
+        expr->set_type(lhs_type);
     }
 
-    // Otherwise just forward the AST operator.
-    expr->set_op([](ast::BinaryOp op) {
-        switch (op) {
-            using enum ast::BinaryOp;
-        case Add:
-            return hir::BinaryOp::Add;
-        case Sub:
-            return hir::BinaryOp::Sub;
-        case Div:
-            return hir::BinaryOp::Div;
-        case Mod:
-            return hir::BinaryOp::Mod;
-        default:
-            return hir::BinaryOp::Invalid;
-        }
-    }(ast_expr.op()));
+    if (ast::is_assign_op(ast_expr.op())) {
+        // TODO: Disallow assigning to let variables.
+        expr->set_is_assign(true);
 
-    // TODO: Proper type checking.
-    expr->set_type(expr->lhs().type());
+        // The result of an assign expression is the variable.
+        expr->set_type(lhs_type);
+        return expr;
+    }
     return expr;
 }
 
