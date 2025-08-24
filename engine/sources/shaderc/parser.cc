@@ -536,15 +536,16 @@ ParseResult<ast::Node> Parser::parse_stmt() {
         return m_root.allocate<ast::DeclStmt>(name.location(), name.string(), type, vull::move(value), true);
     }
 
-    // Freestanding expression.
-    auto expr = VULL_TRY(parse_expr());
-    if (consume(';'_tk)) {
-        return expr;
+    if (auto keyword = consume(TokenKind::KW_return)) {
+        auto expr = VULL_TRY(parse_expr());
+        VULL_TRY(expect_semi("return statement"));
+        return m_root.allocate<ast::ReturnStmt>(keyword->location(), vull::move(expr));
     }
 
-    // No semicolon, implicit return.
-    const auto location = expr->source_location();
-    return m_root.allocate<ast::ReturnStmt>(location, vull::move(expr));
+    // Freestanding expression.
+    auto expr = VULL_TRY(parse_expr());
+    VULL_TRY(expect_semi("expression"));
+    return expr;
 }
 
 ParseResult<ast::Aggregate> Parser::parse_block() {

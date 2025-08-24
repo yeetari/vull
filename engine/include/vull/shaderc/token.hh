@@ -27,6 +27,7 @@ enum class TokenKind : uint16_t {
     KW_fn,
     KW_let,
     KW_pipeline,
+    KW_return,
     KW_uniform,
     KW_var,
 };

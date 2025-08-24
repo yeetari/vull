@@ -70,6 +70,9 @@ Token Lexer::next_token(bool in_comment) {
         if (string == "pipeline") {
             return MAKE_TOKEN(TokenKind::KW_pipeline);
         }
+        if (string == "return") {
+            return MAKE_TOKEN(TokenKind::KW_return);
+        }
         if (string == "uniform") {
             return MAKE_TOKEN(TokenKind::KW_uniform);
         }
@@ -205,6 +208,8 @@ String Token::kind_string(TokenKind kind) {
         return "'let'";
     case TokenKind::KW_pipeline:
         return "'pipeline'";
+    case TokenKind::KW_return:
+        return "'return'";
     case TokenKind::KW_uniform:
         return "'uniform'";
     case TokenKind::KW_var:
