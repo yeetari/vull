@@ -72,7 +72,6 @@ class Backend {
     Optional<AccessChain> m_fragment_output_chain;
 
 private:
-    Id lower_type(ScalarType scalar_type);
     Id lower_type(const Type &vsl_type);
 
     Value load_access_chain(const AccessChain &chain);
@@ -108,23 +107,6 @@ Backend::Backend(Builder &builder) : m_builder(builder) {
     m_std_450 = builder.import_extension("GLSL.std.450");
 }
 
-Id Backend::lower_type(ScalarType scalar_type) {
-    switch (scalar_type) {
-    case ScalarType::Void:
-        return m_builder.void_type();
-    case ScalarType::Sampler:
-        return m_builder.sampler_type();
-    case ScalarType::Float:
-        return m_builder.float_type(32);
-    case ScalarType::Int:
-        return m_builder.int_type(32, true);
-    case ScalarType::Uint:
-        return m_builder.int_type(32, false);
-    default:
-        VULL_ENSURE_NOT_REACHED();
-    }
-}
-
 Dim lower_image_type(ImageType image_type) {
     switch (image_type) {
     case ImageType::_2D:
@@ -139,25 +121,38 @@ Dim lower_image_type(ImageType image_type) {
 }
 
 Id Backend::lower_type(const Type &vsl_type) {
-    const auto scalar_type = lower_type(vsl_type.scalar_type());
-    if (vsl_type.is_scalar()) {
-        return scalar_type;
+    Id spv_type = m_builder.void_type();
+    switch (vsl_type.scalar_type()) {
+    case ScalarType::Sampler:
+        spv_type = m_builder.sampler_type();
+        break;
+    case ScalarType::Float:
+        spv_type = m_builder.float_type(32);
+        break;
+    case ScalarType::Int:
+        spv_type = m_builder.int_type(32, true);
+        break;
+    case ScalarType::Uint:
+        spv_type = m_builder.int_type(32, false);
+        break;
     }
 
     if (vsl_type.is_image()) {
-        const auto image_type = m_builder.image_type(scalar_type, lower_image_type(vsl_type.image_type()),
-                                                     ImageFormat::Unknown, false, false, vsl_type.has_sampler());
+        spv_type = m_builder.image_type(spv_type, lower_image_type(vsl_type.image_type()), ImageFormat::Unknown, false,
+                                        false, vsl_type.has_sampler());
         if (!vsl_type.has_sampler()) {
-            return image_type;
+            return spv_type;
         }
-        return m_builder.sampled_image_type(image_type);
+        return m_builder.sampled_image_type(spv_type);
     }
 
-    const auto vector_type = m_builder.vector_type(scalar_type, vsl_type.vector_size());
-    if (vsl_type.is_vector()) {
-        return vector_type;
+    if (vsl_type.vector_size() > 1) {
+        spv_type = m_builder.vector_type(spv_type, vsl_type.vector_size());
     }
-    return m_builder.matrix_type(vector_type, vsl_type.matrix_cols());
+    if (vsl_type.is_matrix()) {
+        spv_type = m_builder.matrix_type(spv_type, vsl_type.matrix_cols());
+    }
+    return spv_type;
 }
 
 Value Backend::load_access_chain(const AccessChain &chain) {
@@ -274,7 +269,7 @@ AccessChain Backend::lower_call_intrinsic_expr(const hir::CallIntrinsicExpr &cal
 }
 
 AccessChain Backend::lower_constant(const hir::Constant &constant) {
-    const auto type_id = lower_type(constant.type().scalar_type());
+    const auto type_id = lower_type(constant.type());
     const auto id = m_builder.scalar_constant(type_id, static_cast<Word>(constant.value()));
     return AccessChain::from_rvalue(Value::make(*m_builder.lookup_constant(id)));
 }
@@ -380,9 +375,8 @@ Value Backend::materialise_variable(const hir::Expr &expr) {
     case hir::NodeKind::LocalVariable:
         VULL_ASSERT(m_function != nullptr);
         return Value::make(m_function->append_variable(lower_type(expr.type())));
-    case hir::NodeKind::PipelineVariable: {
+    case hir::NodeKind::PipelineVariable:
         return materialise_pipeline_variable(static_cast<const hir::PipelineVariable &>(expr));
-    }
     case hir::NodeKind::PushConstant:
         return materialise_push_constant(expr);
     default:
