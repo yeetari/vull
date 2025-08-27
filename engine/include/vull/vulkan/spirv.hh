@@ -124,8 +124,6 @@ enum class Decoration : uint32_t {
     ColMajor = 5,
     ArrayStride = 6,
     MatrixStride = 7,
-    GlslShared = 8,
-    GlslPacked = 9,
     BuiltIn = 11,
     NoPerspective = 13,
     Flat = 14,
