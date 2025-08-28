@@ -297,9 +297,11 @@ void Dumper::visit(Constant &constant) {
 
 void Dumper::visit(DeclStmt &decl_stmt) {
     print(vull::format("DeclStmt({})", decl_stmt.name()));
-    m_indent++;
-    decl_stmt.value().traverse(*this);
-    m_indent--;
+    if (decl_stmt.has_value()) {
+        m_indent++;
+        decl_stmt.value().traverse(*this);
+        m_indent--;
+    }
 }
 
 void Dumper::visit(FunctionDecl &function_decl) {

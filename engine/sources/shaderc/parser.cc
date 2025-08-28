@@ -37,6 +37,8 @@ enum class Parser::Operator : uint32_t {
     MulAssign,
     DivAssign,
 
+    MemberAccess,
+
     // Unary operators.
     Negate,
     Intrinsic,
@@ -61,6 +63,7 @@ Array<unsigned, vull::to_underlying(Operator::_count)> s_precedence_table{
     2, 2,          // Add, Sub
     3, 3, 3,       // Mul, Div, Mod
     0, 0, 0, 0, 0, // Assigns
+    6,             // MemberAccess,
     4,             // Negate
     5,             // Intrinsic
     1,             // ArgumentSeparator
@@ -123,6 +126,8 @@ Optional<Operator> to_op(TokenKind kind, ParseState state) {
         return Operator::MulAssign;
     case TokenKind::SlashEqual:
         return Operator::DivAssign;
+    case '.'_tk:
+        return Operator::MemberAccess;
     default:
         return {};
     }
@@ -286,6 +291,8 @@ static ast::BinaryOp to_binary_op(Operator op) {
         return ast::BinaryOp::MulAssign;
     case Operator::DivAssign:
         return ast::BinaryOp::DivAssign;
+    case Operator::MemberAccess:
+        return ast::BinaryOp::MemberAccess;
     default:
         VULL_ENSURE_NOT_REACHED();
     }

@@ -125,6 +125,8 @@ enum class BinaryOp {
     SubAssign,
     MulAssign,
     DivAssign,
+
+    MemberAccess,
 };
 
 class BinaryExpr final : public TypedNode {
