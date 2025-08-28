@@ -26,7 +26,6 @@
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/descriptor_builder.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
@@ -125,9 +124,9 @@ TextureStreamer::TextureStreamer(vk::Context &context) : m_context(context) {
     };
     auto normal_error_image = create_default_image({1, 1}, vkb::Format::R8G8Unorm, normal_error_data.span());
 
-    vk::DescriptorBuilder descriptor_builder(m_set_layout, m_descriptor_buffer);
-    descriptor_builder.set(0, 0, albedo_error_image.full_view().sampled(vk::Sampler::Nearest));
-    descriptor_builder.set(0, 1, normal_error_image.full_view().sampled(vk::Sampler::Linear));
+    m_descriptor_buffer.set_descriptor(m_set_layout, 0, 0,
+                                       albedo_error_image.full_view().sampled(vk::Sampler::Nearest));
+    m_descriptor_buffer.set_descriptor(m_set_layout, 0, 1, normal_error_image.full_view().sampled(vk::Sampler::Linear));
 
     // Transfer ownership of images.
     m_images.push(vull::move(albedo_error_image));
@@ -304,8 +303,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     const auto next_index = m_images.size();
     auto sampled_image = image.full_view().sampled(to_sampler(mag_filter, min_filter, wrap_u, wrap_v));
     m_images.push(vull::move(image));
-    vk::DescriptorBuilder descriptor_builder(m_set_layout, m_descriptor_buffer);
-    descriptor_builder.set(0, next_index, sampled_image);
+    m_descriptor_buffer.set_descriptor(m_set_layout, 0, next_index, sampled_image);
     return next_index;
 }
 

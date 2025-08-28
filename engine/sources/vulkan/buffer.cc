@@ -10,6 +10,7 @@
 #include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
+#include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/vulkan.hh>
@@ -69,6 +70,93 @@ void Buffer::copy_from(const Buffer &src, Queue &queue) const {
 void Buffer::upload(Span<const void> data) const {
     VULL_ASSERT(mapped_raw() != nullptr);
     memcpy(mapped_raw(), data.data(), vull::min(data.size(), m_size));
+}
+
+void Buffer::set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                            Sampler sampler) const {
+    vkb::DeviceSize offset;
+    context().vkGetDescriptorSetLayoutBindingOffsetEXT(layout, binding, &offset);
+
+    vkb::Sampler vk_sampler = context().get_sampler(sampler);
+    const auto size = context().descriptor_size(vkb::DescriptorType::Sampler);
+    vkb::DescriptorGetInfoEXT get_info{
+        .sType = vkb::StructureType::DescriptorGetInfoEXT,
+        .type = vkb::DescriptorType::Sampler,
+        .data{
+            .pSampler = &vk_sampler,
+        },
+    };
+    context().vkGetDescriptorEXT(&get_info, size, mapped<uint8_t>() + offset + element * size);
+}
+
+void Buffer::set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                            const Buffer &buffer) const {
+    vkb::DeviceSize offset;
+    context().vkGetDescriptorSetLayoutBindingOffsetEXT(layout, binding, &offset);
+
+    const bool is_storage = (buffer.usage() & vkb::BufferUsage::StorageBuffer) == vkb::BufferUsage::StorageBuffer;
+    const bool is_uniform = (buffer.usage() & vkb::BufferUsage::UniformBuffer) == vkb::BufferUsage::UniformBuffer;
+    VULL_ASSERT(is_storage ^ is_uniform);
+    VULL_IGNORE(is_uniform);
+
+    const auto type = is_storage ? vkb::DescriptorType::StorageBuffer : vkb::DescriptorType::UniformBuffer;
+    const auto size = context().descriptor_size(type);
+    vkb::DescriptorAddressInfoEXT address_info{
+        .sType = vkb::StructureType::DescriptorAddressInfoEXT,
+        .address = buffer.device_address(),
+        .range = buffer.size(),
+    };
+    vkb::DescriptorGetInfoEXT get_info{
+        .sType = vkb::StructureType::DescriptorGetInfoEXT,
+        .type = type,
+        .data{
+            .pStorageBuffer = &address_info,
+        },
+    };
+    context().vkGetDescriptorEXT(&get_info, size, mapped<uint8_t>() + offset + element * size);
+}
+
+void Buffer::set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                            const SampledImage &image) const {
+    vkb::DeviceSize offset;
+    context().vkGetDescriptorSetLayoutBindingOffsetEXT(layout, binding, &offset);
+
+    const bool has_sampler = image.sampler() != nullptr;
+    const auto type = has_sampler ? vkb::DescriptorType::CombinedImageSampler : vkb::DescriptorType::SampledImage;
+    const auto size = context().descriptor_size(type);
+    vkb::DescriptorImageInfo image_info{
+        .sampler = image.sampler(),
+        .imageView = *image.view(),
+        .imageLayout = vkb::ImageLayout::ReadOnlyOptimal,
+    };
+    vkb::DescriptorGetInfoEXT get_info{
+        .sType = vkb::StructureType::DescriptorGetInfoEXT,
+        .type = type,
+        .data{
+            .pCombinedImageSampler = &image_info,
+        },
+    };
+    context().vkGetDescriptorEXT(&get_info, size, mapped<uint8_t>() + offset + element * size);
+}
+
+void Buffer::set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                            const ImageView &view) const {
+    vkb::DeviceSize offset;
+    context().vkGetDescriptorSetLayoutBindingOffsetEXT(layout, binding, &offset);
+
+    const auto size = context().descriptor_size(vkb::DescriptorType::StorageImage);
+    vkb::DescriptorImageInfo image_info{
+        .imageView = *view,
+        .imageLayout = vkb::ImageLayout::General,
+    };
+    vkb::DescriptorGetInfoEXT get_info{
+        .sType = vkb::StructureType::DescriptorGetInfoEXT,
+        .type = vkb::DescriptorType::StorageImage,
+        .data{
+            .pStorageImage = &image_info,
+        },
+    };
+    context().vkGetDescriptorEXT(&get_info, size, mapped<uint8_t>() + offset + element * size);
 }
 
 Context &Buffer::context() const {

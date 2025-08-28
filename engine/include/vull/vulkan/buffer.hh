@@ -2,12 +2,15 @@
 
 #include <vull/support/span.hh>
 #include <vull/vulkan/allocation.hh>
+#include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/vulkan.hh>
 
 namespace vull::vk {
 
 class Context;
+class ImageView;
 class Queue;
+class SampledImage;
 
 class Buffer {
     friend Context;
@@ -33,6 +36,14 @@ public:
     Buffer create_staging() const;
     void copy_from(const Buffer &src, Queue &queue) const;
     void upload(Span<const void> data) const;
+
+    void set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element, Sampler sampler) const;
+    void set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                        const Buffer &buffer) const;
+    void set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                        const SampledImage &image) const;
+    void set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, uint32_t element,
+                        const ImageView &view) const;
 
     Context &context() const;
     vkb::Buffer operator*() const { return m_buffer; }

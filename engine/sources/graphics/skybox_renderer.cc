@@ -12,7 +12,6 @@
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/descriptor_builder.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/pipeline.hh>
@@ -103,9 +102,8 @@ void SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_im
 
     pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
-        vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
-        descriptor_builder.set(0, 0, graph.get_buffer(frame_ubo));
-        descriptor_builder.set(1, 0, m_image.full_view().sampled(vk::Sampler::Linear));
+        descriptor_buffer.set_descriptor(m_set_layout, 0, 0, graph.get_buffer(frame_ubo));
+        descriptor_buffer.set_descriptor(m_set_layout, 1, 0, m_image.full_view().sampled(vk::Sampler::Linear));
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_pipeline);

@@ -12,7 +12,6 @@
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/descriptor_builder.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/pipeline_builder.hh>
@@ -217,17 +216,16 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
     light_cull_pass.set_on_execute([=, this, &graph, lights = vull::move(lights)](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
         const auto &light_buffer = graph.get_buffer(light_buffer_id);
-        vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
-        descriptor_builder.set(0, 0, graph.get_buffer(frame_ubo));
-        descriptor_builder.set(1, 0, light_buffer);
-        descriptor_builder.set(2, 0, graph.get_buffer(visibility_buffer_id));
+        descriptor_buffer.set_descriptor(m_set_layout, 0, 0, graph.get_buffer(frame_ubo));
+        descriptor_buffer.set_descriptor(m_set_layout, 1, 0, light_buffer);
+        descriptor_buffer.set_descriptor(m_set_layout, 2, 0, graph.get_buffer(visibility_buffer_id));
 
         const auto &albedo_image = graph.get_image(gbuffer.albedo);
         const auto &normal_image = graph.get_image(gbuffer.normal);
         const auto &depth_image = graph.get_image(gbuffer.depth);
-        descriptor_builder.set(3, 0, albedo_image.full_view().sampled(vk::Sampler::None));
-        descriptor_builder.set(4, 0, normal_image.full_view().sampled(vk::Sampler::None));
-        descriptor_builder.set(5, 0, depth_image.full_view().sampled(vk::Sampler::None));
+        descriptor_buffer.set_descriptor(m_set_layout, 3, 0, albedo_image.full_view().sampled(vk::Sampler::None));
+        descriptor_buffer.set_descriptor(m_set_layout, 4, 0, normal_image.full_view().sampled(vk::Sampler::None));
+        descriptor_buffer.set_descriptor(m_set_layout, 5, 0, depth_image.full_view().sampled(vk::Sampler::None));
 
         uint32_t light_count = lights.size();
         memcpy(light_buffer.mapped_raw(), &light_count, sizeof(uint32_t));
@@ -252,8 +250,7 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
                               .write(hdr_image_id);
     deferred_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
-        vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
-        descriptor_builder.set(6, 0, graph.get_image(hdr_image_id).full_view());
+        descriptor_buffer.set_descriptor(m_set_layout, 6, 0, graph.get_image(hdr_image_id).full_view());
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_deferred_pipeline);
@@ -266,8 +263,8 @@ void DeferredRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuffer, vk::
         graph.add_pass("blit-tonemap", vk::PassFlag::Graphics).read(hdr_image_id, vk::ReadFlag::Sampled).write(target);
     blit_tonemap_pass.set_on_execute([=, this, &graph](vk::CommandBuffer &cmd_buf) {
         const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
-        vk::DescriptorBuilder descriptor_builder(m_set_layout, descriptor_buffer);
-        descriptor_builder.set(7, 0, graph.get_image(hdr_image_id).full_view().sampled(vk::Sampler::Nearest));
+        descriptor_buffer.set_descriptor(m_set_layout, 7, 0,
+                                         graph.get_image(hdr_image_id).full_view().sampled(vk::Sampler::Nearest));
 
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Graphics, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_blit_tonemap_pipeline);

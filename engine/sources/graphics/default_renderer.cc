@@ -28,7 +28,6 @@
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/descriptor_builder.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/pipeline.hh>
@@ -350,10 +349,10 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         const auto &object_buffer = graph.get_buffer(object_buffer_id);
         memcpy(object_buffer.mapped_raw(), objects.data(), objects.size_bytes());
 
-        vk::DescriptorBuilder descriptor_builder(m_main_set_layout, graph.get_buffer(descriptor_buffer_id));
-        descriptor_builder.set(0, 0, frame_ubo);
-        descriptor_builder.set(1, 0, object_buffer);
-        descriptor_builder.set(2, 0, m_object_visibility_buffer);
+        const auto &descriptor_buffer = graph.get_buffer(descriptor_buffer_id);
+        descriptor_buffer.set_descriptor(m_main_set_layout, 0, 0, frame_ubo);
+        descriptor_buffer.set_descriptor(m_main_set_layout, 1, 0, object_buffer);
+        descriptor_buffer.set_descriptor(m_main_set_layout, 2, 0, m_object_visibility_buffer);
     });
 
     vk::BufferDescription draw_buffer_description{
@@ -378,7 +377,7 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
             .size = sizeof(uint32_t),
         });
 
-        vk::DescriptorBuilder(m_main_set_layout, descriptor_buffer).set(3, 0, draw_buffer);
+        descriptor_buffer.set_descriptor(m_main_set_layout, 3, 0, draw_buffer);
         cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, 0);
         cmd_buf.bind_pipeline(m_early_cull_pipeline);
         cmd_buf.dispatch(vull::ceil_div(m_object_count, 32));
@@ -421,25 +420,21 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
         const auto &depth_image = graph.get_image(gbuffer.depth);
         const auto &depth_pyramid = graph.get_image(depth_pyramid_id);
         const uint32_t level_count = depth_pyramid.full_view().range().levelCount;
-        vk::DescriptorBuilder(m_main_set_layout, graph.get_buffer(descriptor_buffer_id))
-            .set(4, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
+        graph.get_buffer(descriptor_buffer_id)
+            .set_descriptor(m_main_set_layout, 4, 0, depth_pyramid.full_view().sampled(vk::Sampler::DepthReduce));
 
-        auto descriptor_buffer =
-            m_context.create_buffer(m_reduce_set_layout_size * level_count,
-                                    vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice);
+        Vector<vk::Buffer> descriptor_buffers;
         for (uint32_t i = 0; i < level_count; i++) {
-            vk::DescriptorBuilder descriptor_builder(
-                m_context, m_reduce_set_layout, descriptor_buffer.mapped<uint8_t>() + i * m_reduce_set_layout_size);
+            auto &descriptor_buffer = descriptor_buffers.emplace(m_context.create_buffer(
+                m_reduce_set_layout_size, vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice));
             const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
-            descriptor_builder.set(0, 0, input_view.sampled(vk::Sampler::DepthReduce));
-            descriptor_builder.set(1, 0, depth_pyramid.level_view(i));
+            descriptor_buffer.set_descriptor(m_reduce_set_layout, 0, 0, input_view.sampled(vk::Sampler::DepthReduce));
+            descriptor_buffer.set_descriptor(m_reduce_set_layout, 1, 0, depth_pyramid.level_view(i));
         }
 
-        vkb::DeviceSize descriptor_offset = 0;
         cmd_buf.bind_pipeline(m_depth_reduce_pipeline);
         for (uint32_t i = 0; i < level_count; i++) {
-            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffer, 0, descriptor_offset);
-            descriptor_offset += m_reduce_set_layout_size;
+            cmd_buf.bind_descriptor_buffer(vkb::PipelineBindPoint::Compute, descriptor_buffers[i], 0, 0);
 
             DepthReduceData shader_data{
                 .mip_size{
@@ -469,7 +464,9 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
                              vull::ceil_div(shader_data.mip_size.y(), 32));
             cmd_buf.image_barrier(sample_barrier);
         }
-        cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
+        for (auto &descriptor_buffer : descriptor_buffers) {
+            cmd_buf.bind_associated_buffer(vull::move(descriptor_buffer));
+        }
 
         // TODO: Since we transitioned each mip manually to ReadOnlyOptimal, the render graph doesn't know, so we
         //       must transition it back to General.

@@ -51,7 +51,6 @@ if(VULL_BUILD_GRAPHICS)
         vulkan/command_buffer.cc
         vulkan/context.cc
         vulkan/context_table.cc
-        vulkan/descriptor_builder.cc
         vulkan/fence.cc
         vulkan/image.cc
         vulkan/pipeline.cc

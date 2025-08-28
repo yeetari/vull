@@ -95,7 +95,6 @@ set_target_properties(vull PROPERTIES
 set_source_files_properties(
     sources/vulkan/buffer.cc
     sources/vulkan/command_buffer.cc
-    sources/vulkan/descriptor_builder.cc
     sources/vulkan/fence.cc
     sources/vulkan/image.cc
     sources/vulkan/pipeline.cc
