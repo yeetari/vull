@@ -14,6 +14,9 @@ struct TupleElem {
     static T elem_type(TupleTag<I>);
     [[no_unique_address]] T value;
     constexpr decltype(auto) operator[](TupleTag<I>) & { return (value); }
+    constexpr decltype(auto) operator[](TupleTag<I>) const & { return (value); }
+    constexpr decltype(auto) operator[](TupleTag<I>) && { return vull::move(value); }
+    constexpr decltype(auto) operator[](TupleTag<I>) const && { return vull::move(value); }
 };
 
 template <typename, typename...>
@@ -57,16 +60,23 @@ namespace std {
 
 template <size_t I, typename T>
 struct tuple_element;
-template <typename T>
-struct tuple_size;
-
 template <size_t I, typename... Ts>
 struct tuple_element<I, vull::Tuple<Ts...>> {
     using type = decltype(vull::Tuple<Ts...>::elem_type(vull::TupleTag<I>()));
 };
+template <size_t I, typename... Ts>
+struct tuple_element<I, const vull::Tuple<Ts...>> {
+    using type = const decltype(vull::Tuple<Ts...>::elem_type(vull::TupleTag<I>()));
+};
 
+template <typename T>
+struct tuple_size;
 template <typename... Ts>
 struct tuple_size<vull::Tuple<Ts...>> {
+    static constexpr size_t value = sizeof...(Ts);
+};
+template <typename... Ts>
+struct tuple_size<const vull::Tuple<Ts...>> {
     static constexpr size_t value = sizeof...(Ts);
 };
 
