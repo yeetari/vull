@@ -4,6 +4,7 @@ endif()
 
 vull_add_executable(mpmc-bench mpmc_bench.cc)
 vull_add_executable(tasklet-bench tasklet_bench.cc)
+vull_add_executable(tlsf-bench tlsf_bench.cc)
 
 if(VULL_BUILD_VPAK)
     FetchContent_Declare(meshoptimizer
