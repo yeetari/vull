@@ -263,6 +263,12 @@ uint32_t MemoryPool::largest_free_block_size() const {
 }
 
 bool MemoryPool::validate() const {
+    if (m_root_block->offset != 0) {
+        vull::error("root block not at zero");
+        return false;
+    }
+
+    // Validate free lists.
     uint32_t free_size = 0;
     for (uint32_t fl_index = 0; fl_index < k_fl_count; fl_index++) {
         const bool fl_empty = (m_fl_bitset & (1u << fl_index)) == 0u;
@@ -288,14 +294,6 @@ bool MemoryPool::validate() const {
                     vull::error("block in class[{}][{}] has bad prev_free", fl_index, sl_index);
                     return false;
                 }
-                if (block->size < k_minimum_allocation_size) {
-                    vull::error("block in class[{}][{}] has size smaller than minimum", fl_index, sl_index);
-                    return false;
-                }
-                if ((block->offset % k_minimum_allocation_size) != 0) {
-                    vull::error("block in class[{}][{}] has bad alignment: {}", fl_index, sl_index, block->offset);
-                    return false;
-                }
                 free_size += block->size;
                 previous = block;
             }
@@ -306,6 +304,44 @@ bool MemoryPool::validate() const {
         vull::error("used_size ({}) + free_size ({}) != total_size ({})", m_used_size, free_size, m_total_size);
         return false;
     }
+
+    // Validate physical list.
+    MemoryBlock *previous = nullptr;
+    MemoryBlock *block = m_root_block;
+    while (true) {
+        if (previous != nullptr) {
+            if (block->prev_phys != previous) {
+                vull::error("block at {h} has bad prev_phys", block->offset);
+                return false;
+            }
+            if (block->size < k_minimum_allocation_size) {
+                vull::error("block at {h} has bad size {}", block->offset, block->size);
+                return false;
+            }
+            if (block->offset % k_minimum_allocation_size != 0) {
+                vull::error("block at {h} has bad alignment", block->offset);
+                return false;
+            }
+            if (block->offset < previous->offset + previous->size) {
+                vull::error("block at [{h}, {h}] overlaps with previous block at [{h}, {h}]", block->offset,
+                            block->offset + block->size, previous->offset, previous->offset + previous->size);
+                return false;
+            }
+            if (block->offset != previous->offset + previous->size) {
+                const auto gap_size = block->offset - (previous->offset + previous->size);
+                vull::error("gap of size {} between blocks [{h}, {h}] and [{h}, {h}]", gap_size, previous->offset,
+                            previous->offset + previous->size, block->offset, block->offset + block->size);
+                return false;
+            }
+        }
+
+        previous = block;
+        block = block->next_phys;
+        if (block == m_root_block) {
+            break;
+        }
+    }
+
     return true;
 }
 
