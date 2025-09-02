@@ -20,7 +20,7 @@ template <typename T>
 T atomic_load(T &ptr, int order = memory_order_relaxed) {
     AlignedStorage<T> storage;
     __atomic_load(&ptr, &storage.get(), order);
-    return move(storage.get());
+    return vull::move(storage.get());
 }
 
 template <typename T>

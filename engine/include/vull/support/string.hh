@@ -23,7 +23,8 @@ public:
     String(const char *c_string) : String(copy_raw(c_string, __builtin_strlen(c_string))) {}
     String(StringView view) : String(copy_raw(view.data(), view.length())) {}
     String(const String &other) : String(copy_raw(other.m_data, other.m_length)) {}
-    String(String &&other) : m_data(exchange(other.m_data, nullptr)), m_length(exchange(other.m_length, 0u)) {}
+    String(String &&other)
+        : m_data(vull::exchange(other.m_data, nullptr)), m_length(vull::exchange(other.m_length, 0u)) {}
     ~String();
 
     String &operator=(const String &) = delete;
@@ -49,7 +50,7 @@ public:
     operator StringView() const { return view(); }
     StringView view() const { return {m_data, m_length}; }
 
-    char *disown() { return exchange(m_data, nullptr); }
+    char *disown() { return vull::exchange(m_data, nullptr); }
 
     bool empty() const { return m_length == 0; }
     size_t length() const { return m_length; }

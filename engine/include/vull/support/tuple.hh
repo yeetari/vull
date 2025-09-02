@@ -28,7 +28,7 @@ struct TupleBase<IntegerSequence<size_t, Is...>, Ts...> : TupleElem<Is, Ts>... {
 
     TupleBase() = default;
     explicit TupleBase(const Ts &...ts) requires(!is_ref<Ts> && ...) : TupleElem<Is, Ts>{ts}... {}
-    explicit TupleBase(Ts &&...ts) : TupleElem<Is, Ts>{forward<Ts>(ts)}... {}
+    explicit TupleBase(Ts &&...ts) : TupleElem<Is, Ts>{vull::forward<Ts>(ts)}... {}
 };
 
 template <typename... Ts>
@@ -46,12 +46,12 @@ constexpr decltype(auto) get(T &&tuple) {
 
 template <typename... Ts>
 constexpr auto forward_as_tuple(Ts &&...ts) {
-    return Tuple<Ts &&...>(forward<Ts>(ts)...);
+    return Tuple<Ts &&...>(vull::forward<Ts>(ts)...);
 }
 
 template <typename... Ts>
 constexpr auto make_tuple(Ts &&...ts) {
-    return Tuple<decay_unwrap<Ts>...>(forward<Ts>(ts)...);
+    return Tuple<vull::decay_unwrap<Ts>...>(vull::forward<Ts>(ts)...);
 }
 
 } // namespace vull

@@ -99,7 +99,7 @@ private:
 public:
     template <typename T, typename U = detail::best_match_t<T, Ts...>>
     Variant(T &&value) requires(!is_same<decay<T>, Variant>)
-        : m_union(union_tag_t<U>{}, forward<T>(value)), m_index(index_of<U>()) {}
+        : m_union(union_tag_t<U>{}, vull::forward<T>(value)), m_index(index_of<U>()) {}
 
     Variant(const Variant &) = delete;
     template <ContainsType<Ts...>... Us>
@@ -194,7 +194,7 @@ template <typename... Ts>
 template <typename T, typename U>
 void Variant<Ts...>::set(T &&value) {
     (maybe_destruct<Ts>() || ...);
-    m_union.template set<U>(forward<T>(value));
+    m_union.template set<U>(vull::forward<T>(value));
     m_index = index_of<U>();
 }
 

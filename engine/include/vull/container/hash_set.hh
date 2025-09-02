@@ -36,15 +36,15 @@ class HashSet {
 
         void append(T &&elem) {
             if (next != nullptr) {
-                next->append(move(elem));
+                next->append(vull::move(elem));
                 return;
             }
-            do_append(move(elem));
+            do_append(vull::move(elem));
         }
         void do_append(T &&elem) {
             VULL_ASSERT(next == nullptr);
             next = new Bucket;
-            next->storage.set(move(elem));
+            next->storage.set(vull::move(elem));
         }
     };
 
@@ -126,9 +126,9 @@ public:
 
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 HashSet<T, HashFn, EqualityFn>::HashSet(HashSet &&other) {
-    m_buckets = exchange(other.m_buckets, nullptr);
-    m_capacity = exchange(other.m_capacity, 0u);
-    m_size = exchange(other.m_size, 0u);
+    m_buckets = vull::exchange(other.m_buckets, nullptr);
+    m_capacity = vull::exchange(other.m_capacity, 0u);
+    m_size = vull::exchange(other.m_size, 0u);
 }
 
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
@@ -139,20 +139,20 @@ HashSet<T, HashFn, EqualityFn>::~HashSet() {
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 void HashSet<T, HashFn, EqualityFn>::insert(T &&elem) {
     auto &bucket = m_buckets[HashFn(elem) % m_capacity];
-    bucket.append(move(elem));
+    bucket.append(vull::move(elem));
 }
 
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 void HashSet<T, HashFn, EqualityFn>::clear() {
     m_size = 0;
     m_capacity = 0;
-    delete[] exchange(m_buckets, nullptr);
+    delete[] vull::exchange(m_buckets, nullptr);
 }
 
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 bool HashSet<T, HashFn, EqualityFn>::ensure_capacity(size_t capacity) {
     if (capacity > m_capacity) {
-        rehash(max(m_capacity * 2 + 1, capacity));
+        rehash(vull::max(m_capacity * 2 + 1, capacity));
         return true;
     }
     return false;
@@ -161,8 +161,8 @@ bool HashSet<T, HashFn, EqualityFn>::ensure_capacity(size_t capacity) {
 template <typename T, hash_t HashFn(const T &), bool EqualityFn(const T &, const T &)>
 void HashSet<T, HashFn, EqualityFn>::rehash(size_t capacity) {
     VULL_ASSERT(capacity >= m_size);
-    auto *old_buckets = exchange(m_buckets, new Bucket[capacity]);
-    auto old_capacity = exchange(m_capacity, capacity);
+    auto *old_buckets = vull::exchange(m_buckets, new Bucket[capacity]);
+    auto old_capacity = vull::exchange(m_capacity, capacity);
 
     // Default construct root bucket elements.
     if constexpr (!is_trivially_copyable<T> || !is_trivially_destructible<T>) {
@@ -174,7 +174,7 @@ void HashSet<T, HashFn, EqualityFn>::rehash(size_t capacity) {
     // Move old elements;
     for (size_t i = 0; i < old_capacity; i++) {
         for (auto *bucket = old_buckets[i].next; bucket != nullptr; bucket = bucket->next) {
-            insert(move(bucket->storage.get()));
+            insert(vull::move(bucket->storage.get()));
         }
     }
     delete[] old_buckets;
@@ -202,10 +202,10 @@ Optional<T &> HashSet<T, HashFn, EqualityFn>::add(T &&elem) {
     }
     if (ensure_capacity(m_size + 1) || empty()) {
         // Rehash took place.
-        insert(move(elem));
+        insert(vull::move(elem));
     } else {
         VULL_ASSERT(bucket != nullptr);
-        bucket->do_append(move(elem));
+        bucket->do_append(vull::move(elem));
     }
     m_size++;
     return {};

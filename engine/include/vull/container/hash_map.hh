@@ -85,18 +85,18 @@ bool HashMap<K, V>::set(const K &key, const V &value) {
 
 template <typename K, typename V>
 bool HashMap<K, V>::set(const K &key, V &&value) {
-    return set(K(key), move(value));
+    return set(K(key), vull::move(value));
 }
 
 template <typename K, typename V>
 bool HashMap<K, V>::set(K &&key, const V &value) {
-    return set(move(key), V(value));
+    return set(vull::move(key), V(value));
 }
 
 template <typename K, typename V>
 bool HashMap<K, V>::set(K &&key, V &&value) {
-    if (auto existing = m_set.add({move(key), move(value)})) {
-        existing->value = move(value);
+    if (auto existing = m_set.add({vull::move(key), vull::move(value)})) {
+        existing->value = vull::move(value);
         return false;
     }
     return true;

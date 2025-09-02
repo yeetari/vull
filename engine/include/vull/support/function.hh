@@ -60,10 +60,10 @@ class Function<R(Args...)> { // NOLINT
         F m_callable;
 
     public:
-        explicit Callable(F &&callable) : m_callable(move(callable)) {}
+        explicit Callable(F &&callable) : m_callable(vull::move(callable)) {}
 
-        R call(Args... args) override { return m_callable(forward<Args>(args)...); }
-        void move_to(void *dst) override { new (dst) Callable{move(m_callable)}; }
+        R call(Args... args) override { return m_callable(vull::forward<Args>(args)...); }
+        void move_to(void *dst) override { new (dst) Callable{vull::move(m_callable)}; }
     };
 
     static constexpr size_t k_inline_capacity = sizeof(void *) * 4;
@@ -92,11 +92,11 @@ class Function<R(Args...)> { // NOLINT
         using CallableType = Callable<F>;
         if constexpr (sizeof(CallableType) <= k_inline_capacity) {
             // NOLINTNEXTLINE
-            new (m_storage) CallableType(forward<F>(callable));
+            new (m_storage) CallableType(vull::forward<F>(callable));
             m_state = State::Inline;
         } else {
             // NOLINTNEXTLINE
-            new (m_storage) CallableType *(new CallableType(forward<F>(callable)));
+            new (m_storage) CallableType *(new CallableType(vull::forward<F>(callable)));
             m_state = State::Outline;
         }
     }
@@ -105,7 +105,7 @@ public:
     Function() = default; // NOLINT
     template <typename F>
     Function(F &&callable) requires(!is_same<remove_ref<F>, Function>) { // NOLINT
-        set_callable(forward<F>(callable));
+        set_callable(vull::forward<F>(callable));
     }
     Function(const Function &) = delete;
     Function(Function &&);
@@ -115,12 +115,12 @@ public:
     Function &operator=(Function &&);
 
     explicit operator bool() const { return m_state != State::Null; }
-    R operator()(Args... args) const { return callable()->call(forward<Args>(args)...); }
+    R operator()(Args... args) const { return callable()->call(vull::forward<Args>(args)...); }
 };
 
 template <typename R, typename... Args> // NOLINT
 Function<R(Args...)>::Function(Function &&other) {
-    *this = move(other);
+    *this = vull::move(other);
 }
 
 template <typename R, typename... Args>

@@ -27,7 +27,7 @@ struct Union {
     Union() = default;
     template <typename T, typename... Args>
     Union(union_tag_t<T>, Args &&...args) {
-        set<T>(forward<Args>(args)...);
+        set<T>(vull::forward<Args>(args)...);
     }
     ~Union() = default;
 
@@ -36,7 +36,7 @@ struct Union {
 
     template <typename T, typename... Args>
     void set(Args &&...args) {
-        new (data) T(forward<Args>(args)...);
+        new (data) T(vull::forward<Args>(args)...);
     }
 
     template <ContainsType<Ts...> T>

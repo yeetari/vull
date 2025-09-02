@@ -80,7 +80,7 @@ void StringBuilder::extend(const Container &container) {
 template <typename... Args>
 String format(StringView fmt, Args &&...args) {
     StringBuilder builder;
-    builder.append(fmt, forward<Args>(args)...);
+    builder.append(fmt, vull::forward<Args>(args)...);
     return builder.build();
 }
 

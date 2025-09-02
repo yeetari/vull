@@ -176,16 +176,16 @@ constexpr remove_ref<T> &&move(T &&arg) {
 
 template <typename T, typename U = T>
 constexpr T exchange(T &obj, U &&new_value) {
-    T old_value = move(obj);
-    obj = forward<U>(new_value);
+    T old_value = vull::move(obj);
+    obj = vull::forward<U>(new_value);
     return old_value;
 }
 
 template <typename T>
 constexpr void swap(T &lhs, T &rhs) {
-    T tmp(move(lhs));
-    lhs = move(rhs);
-    rhs = move(tmp);
+    T tmp(vull::move(lhs));
+    lhs = vull::move(rhs);
+    rhs = vull::move(tmp);
 }
 
 template <TriviallyCopyable To, TriviallyCopyable From>
@@ -201,11 +201,11 @@ struct AlignedStorage {
 
     template <typename... Args>
     void emplace(Args &&...args) {
-        new (data) T(forward<Args>(args)...);
+        new (data) T(vull::forward<Args>(args)...);
     }
 
     void set(const T &value) { new (data) T(value); }
-    void set(T &&value) { new (data) T(move(value)); }
+    void set(T &&value) { new (data) T(vull::move(value)); }
     void release() { get().~T(); }
 
     T &get() { return *__builtin_launder(reinterpret_cast<T *>(data)); }
@@ -261,7 +261,7 @@ constexpr auto cref(const T &ref) {
 }
 
 constexpr decltype(auto) maybe_unwrap(auto &&t) {
-    return forward<decltype(t)>(t);
+    return vull::forward<decltype(t)>(t);
 }
 template <typename T>
 constexpr T &maybe_unwrap(RefWrapper<T> t) {

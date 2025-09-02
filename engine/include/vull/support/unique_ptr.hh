@@ -34,7 +34,7 @@ public:
 
 template <typename T>
 UniquePtr<T> &UniquePtr<T>::operator=(UniquePtr &&other) {
-    UniquePtr moved(move(other));
+    UniquePtr moved(vull::move(other));
     swap(m_ptr, moved.m_ptr);
     return *this;
 }
@@ -47,7 +47,7 @@ void UniquePtr<T>::clear() {
 
 template <typename T>
 T *UniquePtr<T>::disown() {
-    return exchange(m_ptr, nullptr);
+    return vull::exchange(m_ptr, nullptr);
 }
 
 template <typename T>
@@ -69,12 +69,12 @@ UniquePtr<T> adopt_unique(T *ptr) {
 
 template <typename T>
 UniquePtr<T> adopt_unique(T &&obj) {
-    return UniquePtr<T>(new T(move(obj)));
+    return UniquePtr<T>(new T(vull::move(obj)));
 }
 
 template <typename T, typename... Args>
 UniquePtr<T> make_unique(Args &&...args) {
-    return UniquePtr<T>(new T(forward<Args>(args)...));
+    return UniquePtr<T>(new T(vull::forward<Args>(args)...));
 }
 
 } // namespace vull

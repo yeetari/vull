@@ -56,7 +56,7 @@ template <typename T, typename SizeType>
 void RingBuffer<T, SizeType>::enqueue(T &&elem) {
     auto &slot = m_data[(m_head + m_size) % m_size];
     slot.~T();
-    slot = forward<T>(elem);
+    slot = vull::forward<T>(elem);
     m_head = (m_head + 1) % m_size;
 }
 
@@ -65,7 +65,7 @@ template <typename... Args>
 T &RingBuffer<T, SizeType>::emplace(Args &&...args) {
     auto &slot = m_data[(m_head + m_size) % m_size];
     slot.~T();
-    new (&slot) T(forward<Args>(args)...);
+    new (&slot) T(vull::forward<Args>(args)...);
     m_head = (m_head + 1) % m_size;
     return slot;
 }

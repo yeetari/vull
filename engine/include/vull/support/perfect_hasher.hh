@@ -15,7 +15,7 @@ class PerfectHasher {
 
 public:
     PerfectHasher() = default;
-    PerfectHasher(Vector<int32_t> &&seeds) : m_seeds(move(seeds)) {}
+    PerfectHasher(Vector<int32_t> &&seeds) : m_seeds(vull::move(seeds)) {}
 
     template <typename T>
     void build(const Vector<T> &keys);

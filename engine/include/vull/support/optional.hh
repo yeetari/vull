@@ -22,7 +22,7 @@ public:
     constexpr Optional() = default;
     constexpr Optional(nullopt_t) {}
     Optional(const T &value) : m_present(true) { m_storage.set(value); }
-    Optional(T &&value) : m_present(true) { m_storage.set(move(value)); }
+    Optional(T &&value) : m_present(true) { m_storage.set(vull::move(value)); }
     Optional(const Optional &) requires is_trivially_copyable<T> = default;
     Optional(const Optional &);
     Optional(Optional &&);
@@ -58,7 +58,7 @@ public:
     constexpr Optional(nullopt_t) {}
     Optional(T &ref) : m_ptr(&ref) {}
     Optional(const Optional &) = default;
-    Optional(Optional &&other) : m_ptr(exchange(other.m_ptr, nullptr)) {}
+    Optional(Optional &&other) : m_ptr(vull::exchange(other.m_ptr, nullptr)) {}
     ~Optional() = default;
 
     Optional &operator=(const Optional &) = default;
@@ -88,7 +88,7 @@ Optional<T>::Optional(const Optional &other) : m_present(other.m_present) {
 template <typename T>
 Optional<T>::Optional(Optional &&other) : m_present(other.m_present) {
     if (other) {
-        m_storage.set(move(*other));
+        m_storage.set(vull::move(*other));
         other.clear();
     }
 }
@@ -111,7 +111,7 @@ Optional<T> &Optional<T>::operator=(Optional &&other) {
         clear();
         m_present = other.m_present;
         if (other) {
-            m_storage.set(move(*other));
+            m_storage.set(vull::move(*other));
             other.clear();
         }
     }
@@ -144,7 +144,7 @@ template <typename T>
 template <typename... Args>
 T &Optional<T>::emplace(Args &&...args) {
     clear();
-    m_storage.emplace(forward<Args>(args)...);
+    m_storage.emplace(vull::forward<Args>(args)...);
     m_present = true;
     return operator*();
 }
@@ -175,7 +175,7 @@ const T *Optional<T>::operator->() const {
 
 template <typename T>
 Optional<T &> &Optional<T &>::operator=(Optional &&other) {
-    m_ptr = exchange(other.m_ptr, nullptr);
+    m_ptr = vull::exchange(other.m_ptr, nullptr);
     return *this;
 }
 
