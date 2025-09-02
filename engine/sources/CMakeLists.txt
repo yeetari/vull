@@ -53,6 +53,7 @@ if(VULL_BUILD_GRAPHICS)
         vulkan/context_table.cc
         vulkan/fence.cc
         vulkan/image.cc
+        vulkan/memory.cc
         vulkan/pipeline.cc
         vulkan/query_pool.cc
         vulkan/queue.cc

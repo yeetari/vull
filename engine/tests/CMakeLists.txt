@@ -22,6 +22,10 @@ target_sources(vull-tests PRIVATE
     tasklet/simple.cc
     runner.cc)
 
+if(VULL_BUILD_GRAPHICS)
+    target_sources(vull-tests PRIVATE vulkan/memory.cc)
+endif()
+
 if(VULL_BUILD_SCRIPT)
     target_sources(vull-tests PRIVATE script/lexer.cc)
 endif()
