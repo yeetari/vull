@@ -155,33 +155,22 @@ MemoryBlock *MemoryPool::allocate(uint32_t size, uint32_t alignment) {
         // have to deal with a separate aligned offset.
         VULL_ASSERT(padding >= k_minimum_allocation_size);
 
-        // Check if we can append the space straight to the previous block.
-        if (auto *prev = block->prev_phys; prev->is_free && prev->offset < block->offset) {
-            // We need to relink the block if its size increases enough to move up a size class.
-            const auto [old_fl_index, old_sl_index] = size_mapping(prev->size);
-            const auto [new_fl_index, new_sl_index] = size_mapping(prev->size + padding);
-            if (old_fl_index != new_fl_index || old_sl_index != new_sl_index) {
-                unlink_block(prev, old_fl_index, old_sl_index);
-                prev->size += padding;
-                link_block(prev);
-            } else {
-                prev->size += padding;
-            }
-        } else {
-            // Otherwise create a new block for the padding.
-            auto *padding_block = new MemoryBlock{
-                .offset = block->offset,
-                .size = padding,
-            };
+        // The previous block should never be free since otherwise it would be coalesced into our current block.
+        VULL_ASSERT(!block->prev_phys->is_free);
 
-            // Insert the padding block into the physical linked list.
-            padding_block->next_phys = block;
-            padding_block->prev_phys = vull::exchange(block->prev_phys, padding_block);
-            padding_block->prev_phys->next_phys = padding_block;
+        // Create a new block for the padding.
+        auto *padding_block = new MemoryBlock{
+            .offset = block->offset,
+            .size = padding,
+        };
 
-            // Insert the padding block into the free list.
-            link_block(padding_block);
-        }
+        // Insert the padding block into the physical linked list.
+        padding_block->next_phys = block;
+        padding_block->prev_phys = vull::exchange(block->prev_phys, padding_block);
+        padding_block->prev_phys->next_phys = padding_block;
+
+        // Insert the padding block into the free list.
+        link_block(padding_block);
 
         // Fixup the range of our allocation block.
         block->offset += padding;
