@@ -1944,6 +1944,9 @@ enum class StructureType {
     DescriptorBufferBindingInfoEXT = 1000316011,
     DescriptorBufferBindingPushDescriptorBufferHandleEXT = 1000316012,
     LayerSettingsCreateInfoEXT = 1000496000,
+    PhysicalDeviceMemoryBudgetPropertiesEXT = 1000237000,
+    PhysicalDeviceMemoryPriorityFeaturesEXT = 1000238000,
+    MemoryPriorityAllocateInfoEXT = 1000238001,
     PhysicalDeviceShaderAtomicFloatFeaturesEXT = 1000260000,
     PhysicalDeviceShaderAtomicFloat2FeaturesEXT = 1000273000,
     ImportFenceFdInfoKHR = 1000115000,
@@ -4946,6 +4949,25 @@ struct LayerSettingsCreateInfoEXT {
     const void *pNext;
     uint32_t settingCount;
     const LayerSettingEXT *pSettings;
+};
+
+struct PhysicalDeviceMemoryBudgetPropertiesEXT {
+    StructureType sType;
+    void *pNext;
+    DeviceSize heapBudget [k_max_memory_heaps ];
+    DeviceSize heapUsage [k_max_memory_heaps ];
+};
+
+struct PhysicalDeviceMemoryPriorityFeaturesEXT {
+    StructureType sType;
+    void *pNext;
+    Bool memoryPriority;
+};
+
+struct MemoryPriorityAllocateInfoEXT {
+    StructureType sType;
+    const void *pNext;
+    float priority;
 };
 
 struct PhysicalDeviceShaderAtomicFloatFeaturesEXT {
