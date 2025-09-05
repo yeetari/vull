@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/support/span.hh>
-#include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/memory.hh>
 #include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/vulkan.hh>

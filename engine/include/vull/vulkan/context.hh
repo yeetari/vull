@@ -5,7 +5,6 @@
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
-#include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/context_table.hh>
 #include <vull/vulkan/image.hh>
@@ -46,9 +45,7 @@ class Context : public vkb::ContextTable {
     const vkb::DebugUtilsMessengerEXT m_debug_utils_messenger;
     vkb::PhysicalDeviceProperties m_properties{};
     vkb::PhysicalDeviceDescriptorBufferPropertiesEXT m_descriptor_buffer_properties{};
-    vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
     UniquePtr<DeviceMemoryAllocator> m_allocator;
-    Vector<UniquePtr<Allocator>> m_allocators;
     Vector<UniquePtr<Queue>> m_queues;
     Queue *m_compute_queue{nullptr};
     Queue *m_graphics_queue{nullptr};
@@ -76,7 +73,6 @@ public:
     Context &operator=(const Context &) = delete;
     Context &operator=(Context &&) = delete;
 
-    Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
     Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, DeviceMemoryFlags memory_flags);
     Image create_image(const vkb::ImageCreateInfo &image_ci, DeviceMemoryFlags memory_flags);
     Queue &get_queue(QueueKind kind);
@@ -89,7 +85,6 @@ public:
     vkb::Sampler get_sampler(Sampler sampler) const;
     float timestamp_elapsed(uint64_t start, uint64_t end) const;
     const vkb::PhysicalDeviceProperties &properties() const { return m_properties; }
-    const Vector<UniquePtr<Allocator>> &allocators() const { return m_allocators; }
 };
 
 } // namespace vull::vk

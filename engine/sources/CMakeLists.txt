@@ -46,7 +46,6 @@ if(VULL_BUILD_GRAPHICS)
         terrain/noise.cc
         terrain/quad_tree.cc
         terrain/terrain.cc
-        vulkan/allocator.cc
         vulkan/buffer.cc
         vulkan/command_buffer.cc
         vulkan/context.cc

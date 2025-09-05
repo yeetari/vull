@@ -1,7 +1,6 @@
 #include <vull/vulkan/context.hh>
 
 #include <vull/container/array.hh>
-#include <vull/container/hash_map.hh>
 #include <vull/container/vector.hh>
 #include <vull/core/config.hh>
 #include <vull/core/log.hh>
@@ -11,19 +10,15 @@
 #include <vull/support/enum.hh>
 #include <vull/support/optional.hh>
 #include <vull/support/result.hh>
-#include <vull/support/string.hh>
 #include <vull/support/string_builder.hh>
 #include <vull/support/string_view.hh>
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
-#include <vull/vulkan/allocation.hh>
-#include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/context_table.hh>
 #include <vull/vulkan/fence.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory.hh>
-#include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/semaphore.hh>
@@ -46,11 +41,6 @@ constexpr uint32_t make_version(EngineVersion version) {
 }
 
 constexpr uint32_t k_vulkan_version = make_version(0, 1, 3, 0);
-
-// TODO: This should be generated in Vulkan.hh
-vkb::MemoryPropertyFlags operator~(vkb::MemoryPropertyFlags flags) {
-    return static_cast<vkb::MemoryPropertyFlags>(~static_cast<uint32_t>(flags));
-}
 
 vkb::Bool validation_callback(vkb::DebugUtilsMessageSeverityFlagsEXT severity, vkb::DebugUtilsMessageTypeFlagsEXT,
                               const vkb::DebugUtilsMessengerCallbackDataEXT *callback_data, void *) {
@@ -547,12 +537,6 @@ Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyPr
     m_properties = properties.properties;
 
     m_allocator = vull::make_unique<DeviceMemoryAllocator>(*this);
-
-    vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
-    for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
-        m_allocators.emplace(new Allocator(*this, i));
-    }
-
     for (uint32_t family_index = 0; family_index < queue_families.size(); family_index++) {
         const auto &family = queue_families[family_index].queueFamilyProperties;
         const auto flags = family.queueFlags;
@@ -578,54 +562,6 @@ Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyPr
     if (m_transfer_queue == nullptr) {
         m_transfer_queue = m_compute_queue;
     }
-
-    vull::debug("[vulkan] Memory usage -> memory type mapping:");
-    auto get_dummy_buffer_requirements = [this](vkb::BufferUsage usage) {
-        vkb::BufferCreateInfo create_info{
-            .sType = vkb::StructureType::BufferCreateInfo,
-            .size = 65536,
-            .usage = usage,
-        };
-        vkb::DeviceBufferMemoryRequirements requirements_info{
-            .sType = vkb::StructureType::DeviceBufferMemoryRequirements,
-            .pCreateInfo = &create_info,
-        };
-        vkb::MemoryRequirements2 requirements{
-            .sType = vkb::StructureType::MemoryRequirements2,
-        };
-        vkGetDeviceBufferMemoryRequirements(&requirements_info, &requirements);
-        return requirements.memoryRequirements;
-    };
-
-    const auto descriptor_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::ResourceDescriptorBufferEXT);
-    const auto indirect_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::IndirectBuffer);
-    const auto ssbo_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::StorageBuffer);
-    const auto ubo_requirements = get_dummy_buffer_requirements(vkb::BufferUsage::UniformBuffer);
-    auto print_for = [&](MemoryUsage usage) {
-        HashMap<uint32_t, Vector<String>> map;
-        map[allocator_for(descriptor_requirements, usage).memory_type_index()].push("descriptor");
-        map[allocator_for(indirect_requirements, usage).memory_type_index()].push("indirect");
-        map[allocator_for(ssbo_requirements, usage).memory_type_index()].push("ssbo");
-        map[allocator_for(ubo_requirements, usage).memory_type_index()].push("ubo");
-
-        vull::debug("[vulkan]  - {}", vull::enum_name(usage));
-        for (const auto &[index, types] : map) {
-            StringBuilder sb;
-            sb.append("[vulkan]   - {} (", index);
-            for (bool first = true; const auto &type : types) {
-                if (!vull::exchange(first, false)) {
-                    sb.append(", ");
-                }
-                sb.append(type);
-            }
-            sb.append(")");
-            vull::debug(sb.build());
-        }
-    };
-    print_for(MemoryUsage::DeviceOnly);
-    print_for(MemoryUsage::HostOnly);
-    print_for(MemoryUsage::HostToDevice);
-    print_for(MemoryUsage::DeviceToHost);
 
     // TODO: Create a sampler cache.
     vkb::SamplerCreateInfo nearest_sampler_ci{
@@ -680,7 +616,6 @@ Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyPr
 
 Context::~Context() {
     m_queues.clear();
-    m_allocators.clear();
     m_allocator.clear();
     vkDestroySampler(m_shadow_sampler);
     vkDestroySampler(m_depth_reduce_sampler);
@@ -689,61 +624,6 @@ Context::~Context() {
     vkDestroyDevice();
     vkDestroyDebugUtilsMessengerEXT(m_debug_utils_messenger);
     vkDestroyInstance();
-}
-
-Allocator &Context::allocator_for(const vkb::MemoryRequirements &requirements, MemoryUsage usage) {
-    auto required_flags = vkb::MemoryPropertyFlags::None;
-    auto desirable_flags = vkb::MemoryPropertyFlags::None;
-    switch (usage) {
-    case MemoryUsage::DeviceOnly:
-        required_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
-        break;
-    case MemoryUsage::DeviceToHost:
-        required_flags |= vkb::MemoryPropertyFlags::HostVisible;
-        desirable_flags |= vkb::MemoryPropertyFlags::HostCached;
-        break;
-    case MemoryUsage::HostToDevice:
-        desirable_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
-        [[fallthrough]];
-    case MemoryUsage::HostOnly:
-        required_flags |= vkb::MemoryPropertyFlags::HostVisible | vkb::MemoryPropertyFlags::HostCoherent;
-        break;
-    }
-
-    Optional<Allocator &> best_allocator;
-    uint32_t best_cost = UINT32_MAX;
-    for (uint32_t index = 0; index < m_memory_properties.memoryTypeCount; index++) {
-        if ((requirements.memoryTypeBits & (1u << index)) == 0u) {
-            // Memory type not acceptable for this allocation.
-            continue;
-        }
-
-        const auto flags = m_memory_properties.memoryTypes[index].propertyFlags;
-        if ((flags & required_flags) != required_flags) {
-            // Memory type doesn't have all the required flags.
-            continue;
-        }
-
-        const auto cost = static_cast<uint32_t>(vull::popcount(vull::to_underlying(desirable_flags & ~flags)));
-        if (cost < best_cost) {
-            best_cost = cost;
-            best_allocator = *m_allocators[index];
-        }
-        if (cost == 0) {
-            // Perfect match.
-            break;
-        }
-    }
-    VULL_ENSURE(best_allocator);
-    return *best_allocator;
-}
-
-Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements, vk::MemoryUsage usage) {
-    tracing::ScopedTrace trace("Allocate VRAM");
-    if (tracing::is_enabled()) {
-        trace.add_text(vull::format("Size {}", requirements.size));
-    }
-    return allocator_for(requirements, usage).allocate(requirements);
 }
 
 Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, DeviceMemoryFlags memory_flags) {

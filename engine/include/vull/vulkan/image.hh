@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vull/container/vector.hh>
-#include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/memory.hh>
 #include <vull/vulkan/vulkan.hh>
 

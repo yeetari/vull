@@ -3,8 +3,6 @@
 #include <vull/container/vector.hh>
 #include <vull/support/assert.hh>
 #include <vull/support/utility.hh>
-#include <vull/vulkan/allocation.hh>
-#include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/vulkan.hh>
 

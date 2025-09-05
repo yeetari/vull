@@ -6,13 +6,10 @@
 #include <vull/support/unique_ptr.hh>
 #include <vull/support/utility.hh>
 #include <vull/tasklet/future.hh>
-#include <vull/vulkan/allocation.hh>
-#include <vull/vulkan/allocator.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
 #include <vull/vulkan/memory.hh>
-#include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/vulkan.hh>
 
