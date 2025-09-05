@@ -15,9 +15,10 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/vulkan.hh>
 
+#include <stdint.h>
 #include <string.h>
 
 namespace vull::ui {
@@ -107,7 +108,7 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
     const auto descriptor_size = context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     auto descriptor_buffer =
         context.create_buffer(m_bound_textures.size() * descriptor_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
-                              vk::MemoryUsage::HostToDevice);
+                              vk::DeviceMemoryFlag::HostSequentialWrite);
 
     m_bound_textures[0] = BoundTexture{*null_image.view(), null_image.sampler()};
 
@@ -132,10 +133,11 @@ void Painter::compile(vk::Context &context, vk::CommandBuffer &cmd_buf, Vec2u vi
     // TODO: Sort commands by texture index to minimise draw calls.
     const auto vertex_count = m_commands.size() * 4;
     const auto index_count = m_commands.size() * 6;
-    auto vertex_buffer = context.create_buffer(static_cast<vkb::DeviceSize>(vertex_count) * sizeof(Vertex),
-                                               vkb::BufferUsage::VertexBuffer, vk::MemoryUsage::HostToDevice);
+    auto vertex_buffer =
+        context.create_buffer(static_cast<vkb::DeviceSize>(vertex_count) * sizeof(Vertex),
+                              vkb::BufferUsage::VertexBuffer, vk::DeviceMemoryFlag::HostSequentialWrite);
     auto index_buffer = context.create_buffer(static_cast<vkb::DeviceSize>(index_count) * sizeof(uint32_t),
-                                              vkb::BufferUsage::IndexBuffer, vk::MemoryUsage::HostToDevice);
+                                              vkb::BufferUsage::IndexBuffer, vk::DeviceMemoryFlag::HostSequentialWrite);
     auto *const vertex_data = vertex_buffer.mapped<Vertex>();
     auto *const index_data = index_buffer.mapped<uint32_t>();
 

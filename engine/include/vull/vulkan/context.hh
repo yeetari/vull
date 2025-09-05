@@ -4,21 +4,16 @@
 #include <vull/support/result.hh>
 #include <vull/support/span.hh>
 #include <vull/support/string_view.hh>
+#include <vull/support/unique_ptr.hh>
 #include <vull/vulkan/allocation.hh>
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/context_table.hh>
 #include <vull/vulkan/image.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/vulkan.hh>
 
 #include <stddef.h>
 #include <stdint.h>
-
-namespace vull {
-
-template <typename>
-class UniquePtr;
-
-} // namespace vull
 
 namespace vull::vk {
 
@@ -52,6 +47,7 @@ class Context : public vkb::ContextTable {
     vkb::PhysicalDeviceProperties m_properties{};
     vkb::PhysicalDeviceDescriptorBufferPropertiesEXT m_descriptor_buffer_properties{};
     vkb::PhysicalDeviceMemoryProperties m_memory_properties{};
+    UniquePtr<DeviceMemoryAllocator> m_allocator;
     Vector<UniquePtr<Allocator>> m_allocators;
     Vector<UniquePtr<Queue>> m_queues;
     Queue *m_compute_queue{nullptr};
@@ -81,8 +77,8 @@ public:
     Context &operator=(Context &&) = delete;
 
     Allocation allocate_memory(const vkb::MemoryRequirements &requirements, MemoryUsage usage);
-    Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage);
-    Image create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage);
+    Buffer create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, DeviceMemoryFlags memory_flags);
+    Image create_image(const vkb::ImageCreateInfo &image_ci, DeviceMemoryFlags memory_flags);
     Queue &get_queue(QueueKind kind);
     void wait_idle() const;
 

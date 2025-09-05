@@ -27,7 +27,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/vulkan.hh>
@@ -101,7 +101,7 @@ TextureStreamer::TextureStreamer(vk::Context &context) : m_context(context) {
     const auto buffer_size = 2048 * m_context.descriptor_size(vkb::DescriptorType::CombinedImageSampler);
     m_descriptor_buffer = m_context.create_buffer(
         buffer_size, vkb::BufferUsage::SamplerDescriptorBufferEXT | vkb::BufferUsage::TransferDst,
-        vk::MemoryUsage::HostToDevice);
+        vk::DeviceMemoryFlag::HostSequentialWrite);
 
     constexpr Array albedo_error_colours{
         Vec<uint8_t, 4>(0xff, 0x69, 0xb4, 0xff),
@@ -156,10 +156,11 @@ vk::Image TextureStreamer::create_default_image(Vec2u extent, vkb::Format format
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+    auto image = m_context.create_image(image_ci, vk::DeviceMemoryFlag::None);
 
-    auto staging_buffer =
-        m_context.create_buffer(pixel_data.size(), vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto staging_buffer = m_context.create_buffer(
+        pixel_data.size(), vkb::BufferUsage::TransferSrc,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::HostSequentialWrite, vk::DeviceMemoryFlag::Staging));
     memcpy(staging_buffer.mapped_raw(), pixel_data.data(), pixel_data.size());
 
     // Perform CPU -> GPU copy.
@@ -226,7 +227,7 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    auto image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+    auto image = m_context.create_image(image_ci, vk::DeviceMemoryFlag::HighPriority);
 
     auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
     auto cmd_buf = queue.request_cmd_buf();
@@ -257,8 +258,9 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
 
         const uint32_t mip_size = block_compressed ? ((mip_width + 3) / 4) * ((mip_height + 3) / 4) * unit_size
                                                    : mip_width * mip_height * unit_size;
-        auto staging_buffer =
-            m_context.create_buffer(mip_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+        auto staging_buffer = m_context.create_buffer(
+            mip_size, vkb::BufferUsage::TransferSrc,
+            vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::HostSequentialWrite, vk::DeviceMemoryFlag::Staging));
         VULL_TRY(stream.read({staging_buffer.mapped_raw(), mip_size}));
 
         // Queue CPU -> GPU copy and transfer ownership of staging buffer so that it can be freed upon command buffer

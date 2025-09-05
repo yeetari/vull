@@ -13,7 +13,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/pipeline_builder.hh>
 #include <vull/vulkan/queue.hh>
@@ -92,7 +92,7 @@ Renderer::Renderer(vk::Context &context) : m_context(context) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    m_null_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+    m_null_image = context.create_image(image_ci, vk::DeviceMemoryFlag::None);
 
     auto &queue = context.get_queue(vk::QueueKind::Graphics);
     auto cmd_buf = queue.request_cmd_buf();

@@ -2,6 +2,7 @@
 
 #include <vull/support/span.hh>
 #include <vull/vulkan/allocation.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/vulkan.hh>
 
@@ -16,13 +17,13 @@ class Buffer {
     friend Context;
 
 private:
-    Allocation m_allocation;
+    DeviceMemoryAllocation m_allocation;
     vkb::Buffer m_buffer{nullptr};
     vkb::BufferUsage m_usage{};
     vkb::DeviceAddress m_device_address{0};
     vkb::DeviceSize m_size{0};
 
-    Buffer(Allocation &&allocation, vkb::Buffer buffer, vkb::BufferUsage usage, vkb::DeviceSize size);
+    Buffer(DeviceMemoryAllocation &&allocation, vkb::Buffer buffer, vkb::BufferUsage usage, vkb::DeviceSize size);
 
 public:
     Buffer() = default;

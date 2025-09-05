@@ -2,6 +2,7 @@
 
 #include <vull/container/vector.hh>
 #include <vull/vulkan/allocation.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/vulkan.hh>
 
 #include <stdint.h>
@@ -57,14 +58,14 @@ class Image {
 
 private:
     const Context *m_context{nullptr};
-    Allocation m_allocation;
+    DeviceMemoryAllocation m_allocation;
     vkb::Extent3D m_extent{};
     vkb::Format m_format{};
     vkb::Image m_owned_image{nullptr};
     ImageView m_full_view;
     mutable Vector<ImageView> m_views;
 
-    Image(Allocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view);
+    Image(DeviceMemoryAllocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view);
     Image(const Context &context, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
         : m_context(&context), m_extent(extent), m_format(format), m_full_view(full_view) {}
 

@@ -16,10 +16,12 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/sampler.hh>
 #include <vull/vulkan/vulkan.hh>
+
+#include <stdint.h>
 
 namespace vull::ui {
 
@@ -37,7 +39,7 @@ FontAtlas::FontAtlas(vk::Context &context, Vec2u extent) : m_context(context), m
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    m_image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+    m_image = context.create_image(image_ci, vk::DeviceMemoryFlag::HighPriority);
 
     auto &queue = context.get_queue(vk::QueueKind::Graphics);
     auto cmd_buf = queue.request_cmd_buf();
@@ -194,7 +196,9 @@ CachedGlyph FontAtlas::ensure_glyph(Font &font, uint32_t glyph_index) {
     }
 
     const auto glyph_size = glyph_info.bitmap_extent.x() * glyph_info.bitmap_extent.y();
-    auto staging_buffer = m_context.create_buffer(glyph_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto staging_buffer = m_context.create_buffer(
+        glyph_size, vkb::BufferUsage::TransferSrc,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::HostSequentialWrite, vk::DeviceMemoryFlag::Staging));
     font.rasterise(glyph_index, {staging_buffer.mapped<uint8_t>(), glyph_size});
 
     auto &queue = m_context.get_queue(vk::QueueKind::Graphics);

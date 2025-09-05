@@ -16,7 +16,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/pipeline_builder.hh>
 #include <vull/vulkan/render_graph.hh>
@@ -65,10 +65,10 @@ void ObjectRenderer::load(const Mesh &mesh) {
     auto data_stream = vpak::open(mesh.data_path());
     const auto vertices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
     const auto indices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
-    m_vertex_buffer =
-        m_context.create_buffer(vertices_size, vkb::BufferUsage::VertexBuffer, vk::MemoryUsage::HostToDevice);
+    m_vertex_buffer = m_context.create_buffer(vertices_size, vkb::BufferUsage::VertexBuffer,
+                                              vk::DeviceMemoryFlag::HostSequentialWrite);
     m_index_buffer =
-        m_context.create_buffer(indices_size, vkb::BufferUsage::IndexBuffer, vk::MemoryUsage::HostToDevice);
+        m_context.create_buffer(indices_size, vkb::BufferUsage::IndexBuffer, vk::DeviceMemoryFlag::HostSequentialWrite);
     VULL_EXPECT(data_stream->read({m_vertex_buffer.mapped_raw(), vertices_size}));
     VULL_EXPECT(data_stream->read({m_index_buffer.mapped_raw(), indices_size}));
 }

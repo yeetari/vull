@@ -11,6 +11,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/vulkan.hh>
@@ -19,14 +20,14 @@
 
 namespace vull::vk {
 
-Buffer::Buffer(Allocation &&allocation, vkb::Buffer buffer, vkb::BufferUsage usage, vkb::DeviceSize size)
+Buffer::Buffer(DeviceMemoryAllocation &&allocation, vkb::Buffer buffer, vkb::BufferUsage usage, vkb::DeviceSize size)
     : m_allocation(vull::move(allocation)), m_buffer(buffer), m_usage(usage), m_size(size) {
     if ((usage & vkb::BufferUsage::ShaderDeviceAddress) == vkb::BufferUsage::ShaderDeviceAddress) {
         vkb::BufferDeviceAddressInfo address_info{
             .sType = vkb::StructureType::BufferDeviceAddressInfo,
             .buffer = buffer,
         };
-        m_device_address = m_allocation.allocator()->context().vkGetBufferDeviceAddress(&address_info);
+        m_device_address = context().vkGetBufferDeviceAddress(&address_info);
     }
 }
 
@@ -39,8 +40,8 @@ Buffer::Buffer(Buffer &&other) {
 }
 
 Buffer::~Buffer() {
-    if (const auto *allocator = m_allocation.allocator()) {
-        allocator->context().vkDestroyBuffer(m_buffer);
+    if (m_buffer != nullptr) {
+        context().vkDestroyBuffer(m_buffer);
     }
 }
 
@@ -55,7 +56,10 @@ Buffer &Buffer::operator=(Buffer &&other) {
 }
 
 Buffer Buffer::create_staging() const {
-    return context().create_buffer(m_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    DeviceMemoryFlags flags;
+    flags.set(DeviceMemoryFlag::HostSequentialWrite);
+    flags.set(DeviceMemoryFlag::Staging);
+    return context().create_buffer(m_size, vkb::BufferUsage::TransferSrc, flags);
 }
 
 void Buffer::copy_from(const Buffer &src, Queue &queue) const {
@@ -160,7 +164,7 @@ void Buffer::set_descriptor(vkb::DescriptorSetLayout layout, uint32_t binding, u
 }
 
 Context &Buffer::context() const {
-    return m_allocation.allocator()->context();
+    return m_allocation.heap().context();
 }
 
 vkb::DeviceAddress Buffer::device_address() const {

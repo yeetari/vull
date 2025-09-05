@@ -13,7 +13,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/pipeline_builder.hh>
 #include <vull/vulkan/queue.hh>
@@ -79,7 +79,8 @@ SkyboxRenderer::SkyboxRenderer(vk::Context &context) : m_context(context) {
         .sharingMode = vkb::SharingMode::Exclusive,
         .initialLayout = vkb::ImageLayout::Undefined,
     };
-    m_image = m_context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+    m_image = m_context.create_image(
+        image_ci, vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::PreferDedicated, vk::DeviceMemoryFlag::HighPriority));
 }
 
 SkyboxRenderer::~SkyboxRenderer() {
@@ -113,8 +114,9 @@ void SkyboxRenderer::build_pass(vk::RenderGraph &graph, vk::ResourceId &depth_im
 
 void SkyboxRenderer::load(Stream &stream) {
     const auto pixel_count = 1024 * 1024 * 6;
-    auto staging_buffer = m_context.create_buffer(static_cast<vkb::DeviceSize>(pixel_count) * 4,
-                                                  vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto staging_buffer = m_context.create_buffer(
+        static_cast<vkb::DeviceSize>(pixel_count) * 4, vkb::BufferUsage::TransferSrc,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::HostSequentialWrite, vk::DeviceMemoryFlag::Staging));
     auto *staging_data = staging_buffer.mapped<uint8_t>();
     for (uint32_t i = 0; i < pixel_count; i++) {
         VULL_EXPECT(stream.read({staging_data, 3}));

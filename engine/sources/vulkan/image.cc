@@ -14,9 +14,9 @@ namespace vull::vk {
 
 enum class Sampler;
 
-Image::Image(Allocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
-    : m_context(&allocation.allocator()->context()), m_allocation(vull::move(allocation)), m_extent(extent),
-      m_format(format), m_owned_image(full_view.image()), m_full_view(full_view) {}
+Image::Image(DeviceMemoryAllocation &&allocation, vkb::Extent3D extent, vkb::Format format, const ImageView &full_view)
+    : m_context(&allocation.heap().context()), m_allocation(vull::move(allocation)), m_extent(extent), m_format(format),
+      m_owned_image(full_view.image()), m_full_view(full_view) {}
 
 Image::Image(Image &&other) {
     m_context = vull::exchange(other.m_context, nullptr);
@@ -93,9 +93,8 @@ const ImageView &Image::view(const vkb::ImageSubresourceRange &range, const vkb:
         .components = mapping,
         .subresourceRange = range,
     };
-    const auto &context = m_allocation.allocator()->context();
     vkb::ImageView view;
-    VULL_ENSURE(context.vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
+    VULL_ENSURE(m_context->vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
     return m_views.emplace(ImageView(m_context, m_full_view.image(), view, range));
 }
 

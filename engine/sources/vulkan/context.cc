@@ -22,6 +22,7 @@
 #include <vull/vulkan/context_table.hh>
 #include <vull/vulkan/fence.hh>
 #include <vull/vulkan/image.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/memory_usage.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/sampler.hh>
@@ -545,6 +546,8 @@ Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyPr
     vkGetPhysicalDeviceProperties2(&properties);
     m_properties = properties.properties;
 
+    m_allocator = vull::make_unique<DeviceMemoryAllocator>(*this);
+
     vkGetPhysicalDeviceMemoryProperties(&m_memory_properties);
     for (uint32_t i = 0; i < m_memory_properties.memoryTypeCount; i++) {
         m_allocators.emplace(new Allocator(*this, i));
@@ -678,6 +681,7 @@ Context::Context(const vkb::ContextTable &table, const Vector<vkb::QueueFamilyPr
 Context::~Context() {
     m_queues.clear();
     m_allocators.clear();
+    m_allocator.clear();
     vkDestroySampler(m_shadow_sampler);
     vkDestroySampler(m_depth_reduce_sampler);
     vkDestroySampler(m_linear_sampler);
@@ -742,7 +746,7 @@ Allocation Context::allocate_memory(const vkb::MemoryRequirements &requirements,
     return allocator_for(requirements, usage).allocate(requirements);
 }
 
-Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, MemoryUsage memory_usage) {
+Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, DeviceMemoryFlags memory_flags) {
     VULL_ASSERT(size != 0);
     tracing::ScopedTrace trace("Create VkBuffer");
 
@@ -757,13 +761,9 @@ Buffer Context::create_buffer(vkb::DeviceSize size, vkb::BufferUsage usage, Memo
     vkb::Buffer buffer;
     VULL_ENSURE(vkCreateBuffer(&buffer_ci, &buffer) == vkb::Result::Success);
 
-    vkb::MemoryRequirements requirements{};
-    vkGetBufferMemoryRequirements(buffer, &requirements);
-
-    auto allocation = allocate_memory(requirements, memory_usage);
-    const auto &info = allocation.info();
-    VULL_ENSURE(vkBindBufferMemory(buffer, info.memory, info.offset) == vkb::Result::Success);
-    return {vull::move(allocation), buffer, usage, size};
+    auto allocation = m_allocator->allocate_for(buffer, memory_flags);
+    VULL_ENSURE(allocation);
+    return {vull::move(*allocation), buffer, usage, size};
 }
 
 static vkb::ImageViewType pick_view_type(const vkb::ImageCreateInfo &image_ci) {
@@ -777,17 +777,13 @@ static vkb::ImageViewType pick_view_type(const vkb::ImageCreateInfo &image_ci) {
     return vkb::ImageViewType::_2D;
 }
 
-Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage memory_usage) {
+Image Context::create_image(const vkb::ImageCreateInfo &image_ci, DeviceMemoryFlags memory_flags) {
     tracing::ScopedTrace trace("Create VkImage");
     vkb::Image image;
     VULL_ENSURE(vkCreateImage(&image_ci, &image) == vkb::Result::Success);
 
-    vkb::MemoryRequirements requirements{};
-    vkGetImageMemoryRequirements(image, &requirements);
-
-    auto allocation = allocate_memory(requirements, memory_usage);
-    const auto &info = allocation.info();
-    VULL_ENSURE(vkBindImageMemory(image, info.memory, info.offset) == vkb::Result::Success);
+    auto allocation = m_allocator->allocate_for(image, memory_flags);
+    VULL_ENSURE(allocation);
 
     auto aspect = vkb::ImageAspect::Color;
     switch (image_ci.format) {
@@ -814,7 +810,7 @@ Image Context::create_image(const vkb::ImageCreateInfo &image_ci, MemoryUsage me
     };
     vkb::ImageView view;
     VULL_ENSURE(vkCreateImageView(&view_ci, &view) == vkb::Result::Success);
-    return {vull::move(allocation), image_ci.extent, image_ci.format, ImageView(this, image, view, range)};
+    return {vull::move(*allocation), image_ci.extent, image_ci.format, ImageView(this, image, view, range)};
 }
 
 Queue &Context::get_queue(QueueKind kind) {

@@ -29,7 +29,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/pipeline.hh>
 #include <vull/vulkan/pipeline_builder.hh>
 #include <vull/vulkan/queue.hh>
@@ -176,7 +176,7 @@ void DefaultRenderer::create_set_layouts() {
 void DefaultRenderer::create_resources() {
     m_object_visibility_buffer = m_context.create_buffer(
         (k_object_limit * sizeof(uint32_t)) / 32, vkb::BufferUsage::StorageBuffer | vkb::BufferUsage::TransferDst,
-        vk::MemoryUsage::DeviceOnly);
+        vk::DeviceMemoryFlag::HighPriority);
 
     auto &queue = m_context.get_queue(vk::QueueKind::Transfer);
     auto cmd_buf = queue.request_cmd_buf();
@@ -425,8 +425,9 @@ vk::ResourceId DefaultRenderer::build_pass(vk::RenderGraph &graph, GBuffer &gbuf
 
         Vector<vk::Buffer> descriptor_buffers;
         for (uint32_t i = 0; i < level_count; i++) {
-            auto &descriptor_buffer = descriptor_buffers.emplace(m_context.create_buffer(
-                m_reduce_set_layout_size, vkb::BufferUsage::SamplerDescriptorBufferEXT, vk::MemoryUsage::HostToDevice));
+            auto &descriptor_buffer = descriptor_buffers.emplace(
+                m_context.create_buffer(m_reduce_set_layout_size, vkb::BufferUsage::SamplerDescriptorBufferEXT,
+                                        vk::DeviceMemoryFlag::HostSequentialWrite));
             const auto &input_view = i != 0 ? depth_pyramid.level_view(i - 1) : depth_image.full_view();
             descriptor_buffer.set_descriptor(m_reduce_set_layout, 0, 0, input_view.sampled(vk::Sampler::DepthReduce));
             descriptor_buffer.set_descriptor(m_reduce_set_layout, 1, 0, depth_pyramid.level_view(i));

@@ -16,7 +16,7 @@
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
 #include <vull/vulkan/image.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/query_pool.hh>
 #include <vull/vulkan/render_graph_defs.hh>
 #include <vull/vulkan/vulkan.hh>
@@ -111,7 +111,8 @@ ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription 
             .sharingMode = vkb::SharingMode::Exclusive,
             .initialLayout = vkb::ImageLayout::Undefined,
         };
-        image = context.create_image(image_ci, vk::MemoryUsage::DeviceOnly);
+        image = context.create_image(
+            image_ci, DeviceMemoryFlags(DeviceMemoryFlag::PreferDedicated, DeviceMemoryFlag::HighPriority));
         return &image;
     });
 }
@@ -119,9 +120,11 @@ ResourceId RenderGraph::new_attachment(String name, const AttachmentDescription 
 ResourceId RenderGraph::new_buffer(String name, const BufferDescription &description) {
     return create_resource(vull::move(name), ResourceFlags(ResourceFlag::Buffer, ResourceFlag::Uninitialised),
                            [description, &context = m_context, buffer = vk::Buffer()] mutable {
-        const auto memory_usage =
-            description.host_accessible ? vk::MemoryUsage::HostToDevice : vk::MemoryUsage::DeviceOnly;
-        buffer = context.create_buffer(description.size, description.usage, memory_usage);
+        DeviceMemoryFlags memory_flags;
+        if (description.host_accessible) {
+            memory_flags.set(DeviceMemoryFlag::HostSequentialWrite);
+        }
+        buffer = context.create_buffer(description.size, description.usage, memory_flags);
         return &buffer;
     });
 }

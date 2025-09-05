@@ -19,7 +19,7 @@
 #include <vull/vulkan/buffer.hh>
 #include <vull/vulkan/command_buffer.hh>
 #include <vull/vulkan/context.hh>
-#include <vull/vulkan/memory_usage.hh>
+#include <vull/vulkan/memory.hh>
 #include <vull/vulkan/queue.hh>
 #include <vull/vulkan/vulkan.hh>
 
@@ -34,11 +34,12 @@ constexpr uint32_t k_in_flight_limit = 32;
 
 MeshStreamer::MeshStreamer(vk::Context &context, vkb::DeviceSize vertex_size)
     : m_context(context), m_vertex_size(vertex_size) {
-    m_vertex_buffer =
-        m_context.create_buffer(1024uz * 1024 * 64, vkb::BufferUsage::TransferDst | vkb::BufferUsage::StorageBuffer,
-                                vk::MemoryUsage::DeviceOnly);
+    m_vertex_buffer = m_context.create_buffer(
+        1024uz * 1024 * 64, vkb::BufferUsage::TransferDst | vkb::BufferUsage::StorageBuffer,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::PreferDedicated, vk::DeviceMemoryFlag::HighPriority));
     m_index_buffer = m_context.create_buffer(
-        1024uz * 1024 * 64, vkb::BufferUsage::TransferDst | vkb::BufferUsage::IndexBuffer, vk::MemoryUsage::DeviceOnly);
+        1024uz * 1024 * 64, vkb::BufferUsage::TransferDst | vkb::BufferUsage::IndexBuffer,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::PreferDedicated, vk::DeviceMemoryFlag::HighPriority));
 }
 
 MeshStreamer::~MeshStreamer() {
@@ -57,8 +58,9 @@ MeshInfo MeshStreamer::load_mesh(const String &name) {
 
     const auto vertices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
     const auto indices_size = VULL_EXPECT(data_stream->read_varint<uint64_t>());
-    auto staging_buffer =
-        m_context.create_buffer(vertices_size + indices_size, vkb::BufferUsage::TransferSrc, vk::MemoryUsage::HostOnly);
+    auto staging_buffer = m_context.create_buffer(
+        vertices_size + indices_size, vkb::BufferUsage::TransferSrc,
+        vk::DeviceMemoryFlags(vk::DeviceMemoryFlag::HostSequentialWrite, vk::DeviceMemoryFlag::Staging));
     VULL_EXPECT(data_stream->read({staging_buffer.mapped_raw(), staging_buffer.size()}));
 
     const auto vertex_buffer_offset = m_vertex_buffer_head.fetch_add(vertices_size, vull::memory_order_relaxed);
