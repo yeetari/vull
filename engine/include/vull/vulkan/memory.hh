@@ -388,6 +388,11 @@ class DeviceMemoryAllocator {
     // TODO: This always has a fixed size so doesn't necessarily need to be unique ptrs.
     Vector<UniquePtr<DeviceMemoryHeap>> m_heaps;
 
+    /**
+     * @brief Creates a heap for the given memory type index.
+     */
+    UniquePtr<DeviceMemoryHeap> create_heap(uint32_t memory_type_index);
+
 public:
     explicit DeviceMemoryAllocator(Context &context);
 

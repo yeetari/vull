@@ -590,6 +590,8 @@ DeviceMemoryAllocator::DeviceMemoryAllocator(Context &context) : m_context(conte
     context.vkGetPhysicalDeviceProperties2(&device_properties);
     m_buffer_image_granularity = device_properties.properties.limits.bufferImageGranularity;
     m_max_memory_allocation_size = vulkan_11_properties.maxMemoryAllocationSize;
+
+    // TODO: Respect this when making dedication allocations.
     m_max_memory_allocation_count = device_properties.properties.limits.maxMemoryAllocationCount;
 
     vkb::PhysicalDeviceMemoryProperties2 memory_properties{
@@ -598,16 +600,25 @@ DeviceMemoryAllocator::DeviceMemoryAllocator(Context &context) : m_context(conte
     context.vkGetPhysicalDeviceMemoryProperties2(&memory_properties);
     m_memory_properties = memory_properties.memoryProperties;
 
-    // TODO: Improve this.
+    // Create a heap for each memory type index in order for now.
     for (uint32_t memory_type_index = 0; memory_type_index < m_memory_properties.memoryTypeCount; memory_type_index++) {
-        const auto &memory_type = m_memory_properties.memoryTypes[memory_type_index];
-        const auto heap_size = m_memory_properties.memoryHeaps[memory_type.heapIndex].size;
-        constexpr auto small_heap_cutoff = vkb::DeviceSize(1024) * 1024 * 1024;
-        const auto pool_size = heap_size <= small_heap_cutoff ? heap_size / 8 : vkb::DeviceSize(128) * 1024 * 1024;
-        const bool is_mappable =
-            (memory_type.propertyFlags & vkb::MemoryPropertyFlags::HostVisible) != vkb::MemoryPropertyFlags::None;
-        m_heaps.emplace(new DeviceMemoryHeap(m_context, memory_type_index, pool_size, is_mappable));
+        m_heaps.push(create_heap(memory_type_index));
     }
+}
+
+UniquePtr<DeviceMemoryHeap> DeviceMemoryAllocator::create_heap(uint32_t memory_type_index) {
+    // Retrieve memory type info from the device.
+    const auto &memory_type = m_memory_properties.memoryTypes[memory_type_index];
+    const auto heap_size = m_memory_properties.memoryHeaps[memory_type.heapIndex].size;
+    const auto property_flags = memory_type.propertyFlags;
+
+    // Decide on the default pool size. Default to 1/8th of the heap size, clamped to the implementation's upper limit
+    // and 256 MiB.
+    constexpr auto max_pool_size = vkb::DeviceSize(256) * 1024 * 1024;
+    const auto pool_size = vull::min(heap_size >> 3, vull::min(max_pool_size, m_max_memory_allocation_size));
+
+    const bool is_mappable = (property_flags & vkb::MemoryPropertyFlags::HostVisible) != vkb::MemoryPropertyFlags::None;
+    return vull::make_unique<DeviceMemoryHeap>(m_context, memory_type_index, pool_size, is_mappable);
 }
 
 // TODO: This should be generated in vulkan.hh
