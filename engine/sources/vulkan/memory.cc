@@ -639,6 +639,7 @@ Optional<uint32_t> DeviceMemoryAllocator::find_best_type_index(DeviceMemoryFlags
             // Don't waste (potentially) limited BAR memory on staging buffers, which is especially sad if overcommit is
             // allowed. If ReBAR is enabled, the host-visible and non-device-local memory type should no longer exist so
             // this won't make a difference and the full performance benefit should be realized.
+            // TODO: Check this behaviour on systems with ReBAR.
             undesirable_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
         } else {
             desirable_flags |= vkb::MemoryPropertyFlags::DeviceLocal;
