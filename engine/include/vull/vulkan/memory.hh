@@ -265,7 +265,7 @@ class DeviceMemoryHeap {
     const bool m_is_mappable{false};
 
     Vector<UniquePtr<DeviceMemoryPool>> m_pools;
-    tasklet::Mutex m_pools_mutex;
+    tasklet::Mutex m_mutex;
 
     /**
      * @brief Finds the index of the given pool in the m_pools list.

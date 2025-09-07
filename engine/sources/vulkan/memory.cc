@@ -485,16 +485,17 @@ Optional<DeviceMemoryAllocation> DeviceMemoryHeap::allocate(vkb::DeviceSize size
         }
     }
 
+    // This lock currently prevents both concurrent pool access and multiple pool creation. This isn't optimal but won't
+    // be until there is a tasklet shared mutex.
+    // TODO: Make this a shared mutex, and have a separate normal mutex per pool.
+    ScopedLock lock(m_mutex);
+
     // Attempt to allocate from the existing pools.
     // TODO: Round alignment up to nonCoherentAtomSize if heap memory type is host visible and not coherent.
-    // TODO: This lock could be a shared lock, with a separate mutex on the pool.
-    {
-        ScopedLock lock(m_pools_mutex);
-        for (auto &pool : m_pools) {
-            auto [block, data] = pool->allocate(size, alignment);
-            if (block != nullptr) {
-                return DeviceMemoryAllocation(this, pool->memory(), pool.ptr(), block, data);
-            }
+    for (auto &pool : m_pools) {
+        auto [block, data] = pool->allocate(size, alignment);
+        if (block != nullptr) {
+            return DeviceMemoryAllocation(this, pool->memory(), pool.ptr(), block, data);
         }
     }
 
@@ -511,16 +512,16 @@ Optional<DeviceMemoryAllocation> DeviceMemoryHeap::allocate(vkb::DeviceSize size
             auto pool = vull::make_unique<DeviceMemoryPool>(m_context, memory, attempt_size, mapped_data);
             auto [block, data] = pool->allocate(size, alignment);
             if (block != nullptr) {
-                ScopedLock lock(m_pools_mutex);
                 auto *pool_ptr = m_pools.emplace(vull::move(pool)).ptr();
                 return DeviceMemoryAllocation(this, memory, pool_ptr, block, data);
             }
-
-            ScopedLock lock(m_pools_mutex);
             m_pools.push(vull::move(pool));
             break;
         }
     }
+
+    // We can unlock the mutex now since the pools won't be touched again.
+    lock.unlock();
 
     // Finally try a dedicated allocation if we didn't already.
     if (dedicated_buffer == nullptr && dedicated_image == nullptr) {
@@ -551,7 +552,7 @@ void DeviceMemoryHeap::free(const DeviceMemoryAllocation &allocation) {
         return;
     }
 
-    ScopedLock lock(m_pools_mutex);
+    ScopedLock lock(m_mutex);
 
     // See if we already have an empty pool before freeing our allocation.
     const bool already_have_empty_pool = vull::find_if(m_pools.begin(), m_pools.end(), [](auto &pool) {
