@@ -76,13 +76,21 @@ Font::~Font() {
     FT_Done_FreeType(m_library);
 }
 
+FT_Face Font::get_ft_face() const {
+#if HB_VERSION_ATLEAST(10, 4, 0)
+    return hb_ft_font_get_ft_face(m_hb_font);
+#else
+    return hb_ft_font_get_face(m_hb_font);
+#endif
+}
+
 GlyphInfo Font::ensure_glyph(uint32_t glyph_index) const {
     ScopedLock lock(m_mutex);
     if (auto info = m_glyph_cache[glyph_index]) {
         return *info;
     }
 
-    auto *face = hb_ft_font_get_face(m_hb_font);
+    auto *face = get_ft_face();
     if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
         // TODO: What to do here?
         return {};
@@ -98,7 +106,7 @@ GlyphInfo Font::ensure_glyph(uint32_t glyph_index) const {
 void Font::rasterise(uint32_t glyph_index, Span<uint8_t> buffer) const {
     ScopedLock lock(m_mutex);
 
-    auto *face = hb_ft_font_get_face(m_hb_font);
+    auto *face = get_ft_face();
     if (FT_Load_Glyph(face, glyph_index, FT_LOAD_DEFAULT) != FT_Err_Ok) {
         return;
     }

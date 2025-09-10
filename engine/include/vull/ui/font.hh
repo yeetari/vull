@@ -87,6 +87,8 @@ class Font {
     mutable Vector<Optional<GlyphInfo>> m_glyph_cache;
     mutable tasklet::Mutex m_mutex;
 
+    FT_Face get_ft_face() const;
+
 public:
     static Result<Font, FontLoadError> load(StringView name, long size);
 
