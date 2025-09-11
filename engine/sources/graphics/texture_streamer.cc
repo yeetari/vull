@@ -298,8 +298,8 @@ Result<uint32_t, StreamError> TextureStreamer::load_texture(Stream &stream) {
     };
     cmd_buf->image_barrier(image_read_barrier);
 
-    // Submit command buffer.
-    queue.submit(vull::move(cmd_buf), {}, {});
+    // Submit and await command buffer.
+    queue.submit(vull::move(cmd_buf), {}, {}).await();
 
     ScopedLock images_lock(m_images_mutex);
     const auto next_index = m_images.size();
